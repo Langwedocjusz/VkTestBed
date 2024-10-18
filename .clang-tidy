@@ -1,0 +1,8 @@
+Checks: 'clang-analyzer-*,
+performance-*,
+modernize-*,
+bugprone-*,
+misc-*
+-misc-non-private-member-variables-in-classes,
+-modernize-use-trailing-return-type,
+'

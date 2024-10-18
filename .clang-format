@@ -1,0 +1,9 @@
+BasedOnStyle: Microsoft
+ColumnLimit: 90
+IndentWidth: 4
+UseTab: Never
+BreakBeforeBraces: Custom
+BraceWrapping:
+    AfterStruct: false
+    AfterClass: false
+AlwaysBreakTemplateDeclarations: true

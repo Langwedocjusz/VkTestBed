@@ -1,0 +1,15 @@
+#Build directory:
+build/
+#Build cache:
+.cache
+
+#Compiled shader bytecode:
+assets/spirv
+#Textures
+assets/textures
+#Gltf models
+assets/gltf
+
+#Imgui conifg:
+imgui.ini
+

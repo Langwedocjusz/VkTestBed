@@ -1,15 +1,35 @@
 #pragma once
 
+#include "VulkanContext.h"
+
 #include <deque>
-#include <functional>
+#include <variant>
+
+#include <vulkan/vulkan.h>
+
+// clang-format off
+using DeletionObject = std::variant<
+    VkPipeline,
+    VkPipelineLayout,
+    VkCommandPool,
+    VkFence,
+    VkSemaphore
+>;
+// clang-format on
 
 class DeletionQueue {
   public:
-    DeletionQueue() = default;
+    DeletionQueue(VulkanContext &ctx) : mCtx(ctx) {};
 
-    void push_back(std::function<void()> &&function);
+    template <typename T>
+    void push_back(T &&obj)
+    {
+        mDeletionObjects.push_back(std::forward<T>(obj));
+    }
+
     void flush();
 
   private:
-    std::deque<std::function<void()>> mDeletors;
+    VulkanContext &mCtx;
+    std::deque<DeletionObject> mDeletionObjects;
 };

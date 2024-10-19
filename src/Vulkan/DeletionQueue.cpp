@@ -2,17 +2,25 @@
 
 #include <ranges>
 
-void DeletionQueue::push_back(std::function<void()> &&function)
-{
-    mDeletors.push_back(function);
-}
+template <class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
 
 void DeletionQueue::flush()
 {
-    for (auto &deletor : mDeletors | std::views::reverse)
+    for (auto &obj : mDeletionObjects | std::views::reverse)
     {
-        deletor();
+        // clang-format off
+        std::visit(overloaded{
+            [this](VkPipeline arg) {vkDestroyPipeline(mCtx.Device, arg, nullptr);},
+            [this](VkPipelineLayout arg) {vkDestroyPipelineLayout(mCtx.Device, arg, nullptr);},
+            [this](VkCommandPool arg) {vkDestroyCommandPool(mCtx.Device, arg, nullptr);},
+            [this](VkFence arg) {vkDestroyFence(mCtx.Device, arg, nullptr);},
+            [this](VkSemaphore arg) {vkDestroySemaphore(mCtx.Device, arg, nullptr);},
+        }, obj);
+        // clang-format on
     }
 
-    mDeletors.clear();
+    mDeletionObjects.clear();
 }

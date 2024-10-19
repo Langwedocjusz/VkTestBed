@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RenderContext.h"
 #include "VulkanContext.h"
 
 #include <span>
@@ -14,16 +15,9 @@ void SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFence fenc
                  std::span<VkSemaphore> signalSemaphores);
 
 void SubmitGraphicsQueueDefault(VkQueue queue, std::span<VkCommandBuffer> buffers,
-                                VkFence fence, VkSemaphore imageAcquiredSemaphore,
-                                VkSemaphore renderCompleteSemaphore);
+                                FrameData &frame);
 
-void AcquireNextImage(VulkanContext &ctx, VkSemaphore semaphore, uint32_t &imageIndex);
+void AcquireNextImage(VulkanContext &ctx, FrameInfo &frame);
 
-void PresentFrame(VulkanContext &ctx, VkQueue presentQueue,
-                  VkSemaphore renderCompleteSemaphore, uint32_t &frameImageIndex);
-
-void ImageBarrierColorToRender(VkCommandBuffer buffer, VkImage swapchainImage);
-void ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage swapchainImage);
-
-void ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthImage);
+void PresentFrame(VulkanContext &ctx, VkQueue presentQueue, FrameInfo& frame);
 } // namespace common

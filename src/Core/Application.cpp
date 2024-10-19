@@ -16,15 +16,15 @@ void Application::Run()
 {
     while (!mWindow.ShouldClose())
     {
-        //Update delta time:
+        // Update delta time:
         using ms = std::chrono::duration<float, std::milli>;
 
         auto currentTime = std::chrono::high_resolution_clock::now();
         mDeltaTime = std::chrono::duration_cast<ms>(currentTime - mOldTime).count();
         mOldTime = currentTime;
 
-        //Recreate swapchain and related resources if necessary:
-        if(!mCtx.SwapchainOk)
+        // Recreate swapchain and related resources if necessary:
+        if (!mCtx.SwapchainOk)
         {
             vkDeviceWaitIdle(mCtx.Device);
 
@@ -35,10 +35,10 @@ void Application::Run()
             mCtx.SwapchainOk = true;
         }
 
-        //Poll system events:
+        // Poll system events:
         mWindow.PollEvents();
 
-        //Render things:
+        // Render things:
         mRender.OnUpdate(mDeltaTime);
         mRender.OnRender();
     }

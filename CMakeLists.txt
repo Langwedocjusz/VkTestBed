@@ -46,12 +46,16 @@ target_sources(${PROJECT_NAME}
         src/Renderers/HelloRenderer.cpp
         src/Vulkan/Common.h
         src/Vulkan/Common.cpp
+        src/Vulkan/Barrier.h
+        src/Vulkan/Barrier.cpp
         src/Vulkan/DeletionQueue.h
         src/Vulkan/DeletionQueue.cpp
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
         src/Vulkan/Shader.h
         src/Vulkan/Shader.cpp
+        src/Vulkan/Utils.h
+        src/Vulkan/Utils.cpp
         src/Vulkan/VkInit.h
         src/Vulkan/VkInit.cpp
 )

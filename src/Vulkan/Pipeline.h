@@ -1,9 +1,11 @@
 #pragma once
 
+#include "Vertex.h"
 #include "VulkanContext.h"
 
+#include <optional>
 #include <vector>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 struct Pipeline {
     VkPipeline Handle;
@@ -14,32 +16,38 @@ class PipelineBuilder {
   public:
     PipelineBuilder();
 
-    // Temporary hack
     PipelineBuilder SetShaderStages(std::vector<VkPipelineShaderStageCreateInfo> stages)
     {
         mShaderStages = stages;
         return *this;
     }
 
-    PipelineBuilder SetVertexInput(
-        VkVertexInputBindingDescription &bindingDescription,
-        std::vector<VkVertexInputAttributeDescription> &attributeDescriptions);
+    template <Vertex V>
+    PipelineBuilder SetVertexInput(uint32_t binding, VkVertexInputRate inputRate)
+    {
+        mBindingDescription = GetBindingDescription<V>(binding, inputRate);
+        mAttributeDescriptions = V::GetAttributeDescriptions();
+
+        UpdateVertexInput();
+        return *this;
+    }
 
     PipelineBuilder SetTopology(VkPrimitiveTopology topo);
     PipelineBuilder SetPolygonMode(VkPolygonMode mode);
     PipelineBuilder SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
 
-    PipelineBuilder DisableDepthTest();
-    PipelineBuilder EnableDepthTest();
-
     PipelineBuilder SetColorFormat(VkFormat format);
     PipelineBuilder SetDepthFormat(VkFormat format);
 
+    PipelineBuilder EnableDepthTest();
     PipelineBuilder EnableBlending();
 
     PipelineBuilder SetDescriptorSetLayout(VkDescriptorSetLayout &descriptor);
 
     Pipeline Build(VulkanContext &ctx);
+
+  private:
+    void UpdateVertexInput();
 
   private:
     std::vector<VkPipelineShaderStageCreateInfo> mShaderStages;
@@ -53,12 +61,13 @@ class PipelineBuilder {
     VkPipelineDepthStencilStateCreateInfo mDepthStencil;
 
     VkFormat mColorFormat;
-
-    bool mDepthFormatProvided = false;
-    VkFormat mDepthFormat;
+    std::optional<VkFormat> mDepthFormat;
 
     uint32_t mLayoutCount = 0;
     VkDescriptorSetLayout *mLayoutsPtr = nullptr;
+
+    VkVertexInputBindingDescription mBindingDescription;
+    std::vector<VkVertexInputAttributeDescription> mAttributeDescriptions;
 };
 
 class ComputePipelineBuilder {

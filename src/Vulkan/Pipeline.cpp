@@ -2,6 +2,7 @@
 
 PipelineBuilder::PipelineBuilder()
 {
+    // Initialize all vulkan structs:
     mVertexInput = {};
     mInputAssembly = {};
     mRaster = {};
@@ -17,44 +18,38 @@ PipelineBuilder::PipelineBuilder()
     mColorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     mDepthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 
-    // Things that are hardcoded for now:
-    mInputAssembly.primitiveRestartEnable = VK_FALSE;
+    // Disable depht testing by default:
+    mDepthStencil.depthTestEnable = VK_FALSE;
+    mDepthStencil.stencilTestEnable = VK_FALSE;
 
-    mRaster.depthClampEnable = VK_FALSE;
-    mRaster.rasterizerDiscardEnable = VK_FALSE;
-    mRaster.lineWidth = 1.0f;
-    mRaster.depthBiasEnable = VK_FALSE;
-
-    mMultisample.sampleShadingEnable = VK_FALSE;
-    mMultisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
+    // Disable blending by default:
     mColorBlendAttachment.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
     mColorBlendAttachment.blendEnable = VK_FALSE;
-
-    mColorBlend.logicOpEnable = VK_FALSE;
-    mColorBlend.logicOp = VK_LOGIC_OP_COPY;
     mColorBlend.attachmentCount = 1;
     mColorBlend.pAttachments = &mColorBlendAttachment;
-    mColorBlend.blendConstants[0] = 0.0f;
-    mColorBlend.blendConstants[1] = 0.0f;
-    mColorBlend.blendConstants[2] = 0.0f;
-    mColorBlend.blendConstants[3] = 0.0f;
+
+    // Things that are hardcoded for now:
+    mInputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    mRaster.depthClampEnable = VK_FALSE;
+    mRaster.depthBiasEnable = VK_FALSE;
+    mRaster.rasterizerDiscardEnable = VK_FALSE;
+    mRaster.lineWidth = 1.0f;
+
+    mMultisample.sampleShadingEnable = VK_FALSE;
+    mMultisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 }
 
-PipelineBuilder PipelineBuilder::SetVertexInput(
-    VkVertexInputBindingDescription &bindingDescription,
-    std::vector<VkVertexInputAttributeDescription> &attributeDescriptions)
+void PipelineBuilder::UpdateVertexInput()
 {
     mVertexInput.vertexBindingDescriptionCount = 1;
-    mVertexInput.pVertexBindingDescriptions = &bindingDescription;
+    mVertexInput.pVertexBindingDescriptions = &mBindingDescription;
 
     mVertexInput.vertexAttributeDescriptionCount =
-        static_cast<uint32_t>(attributeDescriptions.size());
-    mVertexInput.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-    return *this;
+        static_cast<uint32_t>(mAttributeDescriptions.size());
+    mVertexInput.pVertexAttributeDescriptions = mAttributeDescriptions.data();
 }
 
 PipelineBuilder PipelineBuilder::SetTopology(VkPrimitiveTopology topo)
@@ -74,13 +69,6 @@ PipelineBuilder PipelineBuilder::SetCullMode(VkCullModeFlags cullMode,
 {
     mRaster.cullMode = cullMode;
     mRaster.frontFace = frontFace;
-    return *this;
-}
-
-PipelineBuilder PipelineBuilder::DisableDepthTest()
-{
-    mDepthStencil.depthTestEnable = VK_FALSE;
-    mDepthStencil.stencilTestEnable = VK_FALSE;
     return *this;
 }
 
@@ -107,7 +95,6 @@ PipelineBuilder PipelineBuilder::SetColorFormat(VkFormat format)
 PipelineBuilder PipelineBuilder::SetDepthFormat(VkFormat format)
 {
     mDepthFormat = format;
-    mDepthFormatProvided = true;
     return *this;
 }
 
@@ -148,7 +135,7 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
 {
     Pipeline pipeline;
 
-    // Layout
+    // Create pipeline layout:
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = mLayoutCount;
@@ -159,7 +146,7 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
                                &pipeline.Layout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a pipeline layout!");
 
-    // Dynamic state
+    // Fill in dynamic state info:
     VkViewport viewport = {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -187,20 +174,6 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
     dynamicInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicInfo.pDynamicStates = dynamicStates.data();
 
-    // New create info to define color, depth and stencil attachments at pipeline create
-    // time
-    VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfo{};
-    pipelineRenderingCreateInfo.sType =
-        VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-    pipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    pipelineRenderingCreateInfo.pColorAttachmentFormats = &mColorFormat;
-
-    if (mDepthFormatProvided)
-    {
-        pipelineRenderingCreateInfo.depthAttachmentFormat = mDepthFormat;
-        // pipelineRenderingCreateInfo.stencilAttachmentFormat = mDepthStencilFormat;
-    }
-
     // Pipeline creation
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -217,7 +190,22 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
     pipelineInfo.layout = pipeline.Layout;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-    // Chain into the pipeline create info
+
+    // Vulkan 1.3 Dynamic Rendering:
+    // New info struct:
+    VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfo{};
+    pipelineRenderingCreateInfo.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+    pipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    pipelineRenderingCreateInfo.pColorAttachmentFormats = &mColorFormat;
+
+    if (mDepthFormat.has_value())
+    {
+        pipelineRenderingCreateInfo.depthAttachmentFormat = mDepthFormat.value();
+        // pipelineRenderingCreateInfo.stencilAttachmentFormat = mDepthStencilFormat;
+    }
+
+    //  Chain into the pipeline create info
     pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
     if (vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,

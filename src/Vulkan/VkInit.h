@@ -2,6 +2,7 @@
 
 #include "VulkanContext.h"
 
+#include <optional>
 #include <span>
 
 namespace vkinit
@@ -14,4 +15,9 @@ void CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore);
 VkCommandPool CreateCommandPool(VulkanContext &ctx, vkb::QueueType qtype);
 void AllocateCommandBuffers(VulkanContext &ctx, std::span<VkCommandBuffer> buffers,
                             VkCommandPool pool);
+
+VkRenderingAttachmentInfoKHR CreateAttachmentInfo(VkImageView view, VkImageLayout layout,
+                                                  std::optional<VkClearValue> clear);
+VkRenderingInfoKHR CreateRenderingInfo(VkExtent2D extent,
+                                       VkRenderingAttachmentInfo &colorAttachment);
 }; // namespace vkinit

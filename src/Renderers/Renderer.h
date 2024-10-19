@@ -5,7 +5,8 @@
 class IRenderer {
   public:
     IRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues)
-        : mCtx(ctx), mFrame(info), mQueues(queues)
+        : mCtx(ctx), mFrame(info), mQueues(queues), mMainDeletionQueue(ctx),
+          mSwapchainDeletionQueue(ctx)
     {
     }
 

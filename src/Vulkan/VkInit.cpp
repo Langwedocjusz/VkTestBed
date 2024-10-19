@@ -65,3 +65,36 @@ void vkinit::AllocateCommandBuffers(VulkanContext &ctx,
     if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, buffers.data()) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
+
+VkRenderingAttachmentInfoKHR vkinit::CreateAttachmentInfo(
+    VkImageView view, VkImageLayout layout, std::optional<VkClearValue> clear)
+{
+    VkRenderingAttachmentInfoKHR attachment{};
+    attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+    attachment.imageView = view;
+    attachment.imageLayout = layout;
+    attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    if (clear.has_value())
+    {
+        attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachment.clearValue = clear.value();
+    }
+
+    return attachment;
+}
+
+VkRenderingInfoKHR vkinit::CreateRenderingInfo(VkExtent2D extent,
+                                               VkRenderingAttachmentInfo &colorAttachment)
+{
+    VkRenderingInfoKHR renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+    renderingInfo.renderArea.extent = extent;
+    renderingInfo.renderArea.offset = {0, 0};
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+
+    return renderingInfo;
+}

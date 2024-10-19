@@ -6,32 +6,29 @@
 
 #include "HelloRenderer.h"
 
-RenderContext::RenderContext(VulkanContext &ctx) : mCtx(ctx)
+RenderContext::RenderContext(VulkanContext &ctx)
+    : mCtx(ctx), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
 {
     // Create queues:
     mQueues.Graphics = vkinit::CreateQueue(ctx, vkb::QueueType::graphics);
     mQueues.Present = vkinit::CreateQueue(ctx, vkb::QueueType::present);
 
     // Create per frame sync-objects:
-    for (auto &frameData : mFrameInfo.Data)
+    for (auto &data : mFrameInfo.Data)
     {
-        vkinit::CreateSemaphore(mCtx, frameData.ImageAcquiredSemaphore);
-        vkinit::CreateSemaphore(mCtx, frameData.RenderCompletedSemaphore);
-        vkinit::CreateSignalledFence(mCtx, frameData.InFlightFence);
+        vkinit::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
+        vkinit::CreateSemaphore(mCtx, data.RenderCompletedSemaphore);
+        vkinit::CreateSignalledFence(mCtx, data.InFlightFence);
     }
 
-    mMainDeletionQueue.push_back([&]() {
-        for (size_t i = 0; i < mFrameInfo.MaxInFlight; i++)
-        {
-            auto &data = mFrameInfo.Data[i];
+    for (auto &data : mFrameInfo.Data)
+    {
+        mMainDeletionQueue.push_back(data.InFlightFence);
+        mMainDeletionQueue.push_back(data.ImageAcquiredSemaphore);
+        mMainDeletionQueue.push_back(data.RenderCompletedSemaphore);
+    }
 
-            vkDestroyFence(ctx.Device, data.InFlightFence, nullptr);
-            vkDestroySemaphore(ctx.Device, data.ImageAcquiredSemaphore, nullptr);
-            vkDestroySemaphore(ctx.Device, data.RenderCompletedSemaphore, nullptr);
-        }
-    });
-
-    //To-do: Move this to some factory function:
+    // To-do: Move this to some factory function:
     mRenderer = std::make_unique<HelloRenderer>(mCtx, mFrameInfo, mQueues);
 }
 

@@ -52,25 +52,26 @@ void common::SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFe
 }
 
 void common::SubmitGraphicsQueueDefault(VkQueue queue, std::span<VkCommandBuffer> buffers,
-                                        VkFence fence, VkSemaphore imageAcquiredSemaphore,
-                                        VkSemaphore renderCompleteSemaphore)
+                                        FrameData &frame)
 {
-    std::array<VkSemaphore, 1> waitSemaphores{imageAcquiredSemaphore};
+    std::array<VkSemaphore, 1> waitSemaphores{frame.ImageAcquiredSemaphore};
     std::array<VkPipelineStageFlags, 1> waitStages{
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    std::array<VkSemaphore, 1> signalSemaphores{renderCompleteSemaphore};
+    std::array<VkSemaphore, 1> signalSemaphores{frame.RenderCompletedSemaphore};
 
-    common::SubmitQueue(queue, buffers, fence, waitSemaphores, waitStages,
+    common::SubmitQueue(queue, buffers, frame.InFlightFence, waitSemaphores, waitStages,
                         signalSemaphores);
 }
 
-void common::AcquireNextImage(VulkanContext &ctx, VkSemaphore semaphore,
-                              uint32_t &imageIndex)
+void common::AcquireNextImage(VulkanContext &ctx, FrameInfo &frame)
 {
+    auto semaphore = frame.Data[frame.Index].ImageAcquiredSemaphore;
+
     if (ctx.SwapchainOk)
     {
-        VkResult result = vkAcquireNextImageKHR(ctx.Device, ctx.Swapchain, UINT64_MAX,
-                                                semaphore, VK_NULL_HANDLE, &imageIndex);
+        VkResult result =
+            vkAcquireNextImageKHR(ctx.Device, ctx.Swapchain, UINT64_MAX, semaphore,
+                                  VK_NULL_HANDLE, &frame.ImageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR)
         {
@@ -84,18 +85,20 @@ void common::AcquireNextImage(VulkanContext &ctx, VkSemaphore semaphore,
 }
 
 void common::PresentFrame(VulkanContext &ctx, VkQueue presentQueue,
-                          VkSemaphore renderCompleteSemaphore, uint32_t &frameImageIndex)
+                          FrameInfo& frame)
 {
-    std::array<VkSemaphore, 1> signalSemaphores{renderCompleteSemaphore};
+    auto renderSemaphore = frame.Data[frame.Index].RenderCompletedSemaphore;
+
+    std::array<VkSemaphore, 1> waitSemaphores{renderSemaphore};
     std::array<VkSwapchainKHR, 1> swapChains{ctx.Swapchain};
 
     VkPresentInfoKHR present_info = {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    present_info.waitSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size());
-    present_info.pWaitSemaphores = signalSemaphores.data();
+    present_info.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
+    present_info.pWaitSemaphores = waitSemaphores.data();
     present_info.swapchainCount = static_cast<uint32_t>(swapChains.size());
     present_info.pSwapchains = swapChains.data();
-    present_info.pImageIndices = &frameImageIndex;
+    present_info.pImageIndices = &frame.ImageIndex;
 
     VkResult result = vkQueuePresentKHR(presentQueue, &present_info);
 
@@ -108,63 +111,4 @@ void common::PresentFrame(VulkanContext &ctx, VkQueue presentQueue,
     {
         throw std::runtime_error("Failed to present swapchain image!");
     }
-}
-
-struct ImageMemoryBarrierInfo {
-    VkImage Image;
-    VkAccessFlags SrcAccessMask;
-    VkAccessFlags DstAccessMask;
-    VkImageLayout OldImageLayout;
-    VkImageLayout NewImageLayout;
-    VkPipelineStageFlags SrcStageMask;
-    VkPipelineStageFlags DstStageMask;
-    VkImageSubresourceRange SubresourceRange;
-};
-
-static void InsertImageMemoryBarrier(VkCommandBuffer buffer, ImageMemoryBarrierInfo info)
-{
-    VkImageMemoryBarrier imageMemoryBarrier{};
-    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-    imageMemoryBarrier.srcAccessMask = info.SrcAccessMask;
-    imageMemoryBarrier.dstAccessMask = info.DstAccessMask;
-    imageMemoryBarrier.oldLayout = info.OldImageLayout;
-    imageMemoryBarrier.newLayout = info.NewImageLayout;
-    imageMemoryBarrier.image = info.Image;
-    imageMemoryBarrier.subresourceRange = info.SubresourceRange;
-
-    vkCmdPipelineBarrier(buffer, info.SrcStageMask, info.DstStageMask, 0, 0, nullptr, 0,
-                         nullptr, 1, &imageMemoryBarrier);
-}
-
-void common::ImageBarrierColorToRender(VkCommandBuffer buffer, VkImage swapchainImage)
-{
-    ImageMemoryBarrierInfo info{
-        swapchainImage,
-        0,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
-
-    InsertImageMemoryBarrier(buffer, info);
-}
-
-void common::ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage swapchainImage)
-{
-    ImageMemoryBarrierInfo info{
-        swapchainImage,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        0,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
-
-    InsertImageMemoryBarrier(buffer, info);
 }

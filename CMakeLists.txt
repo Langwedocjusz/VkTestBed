@@ -29,6 +29,8 @@ target_sources(${PROJECT_NAME}
         src/Core/Application.h
         src/Core/Application.cpp
         src/Core/GeometryProvider.h
+        src/Core/ImGuiUtils.h
+        src/Core/ImGuiUtils.cpp
         src/Core/Scene.h
         src/Core/Primitives.h
         src/Core/Primitives.cpp
@@ -62,6 +64,10 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/VkInit.cpp
 )
 
+#Implementation files for imgui
+file(GLOB imgui_impl vendor/imgui/backends/imgui_impl_vulkan.cpp vendor/imgui/backends/imgui_impl_glfw.cpp)
+target_sources(${PROJECT_NAME} PRIVATE ${imgui_impl})
+
 #Include directories
 target_include_directories(${PROJECT_NAME}
     PRIVATE
@@ -76,6 +82,7 @@ source_group(src REGULAR_EXPRESSION "src/*")
 source_group(src/Core REGULAR_EXPRESSION "src/Core/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
 source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
+source_group(imgui_impl FILES ${imgui_impl})
 
 #Get dependencies:
 find_package(Vulkan REQUIRED)
@@ -84,6 +91,7 @@ add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/vk-bootstrap)
 add_subdirectory(vendor/VulkanMemoryAllocator)
 add_subdirectory(vendor/glm)
+add_subdirectory(vendor/imgui)
 
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
@@ -95,3 +103,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
+target_link_libraries(${PROJECT_NAME} PRIVATE imgui)

@@ -1,4 +1,5 @@
 #include "HelloRenderer.h"
+#include "ImGuiUtils.h"
 #include "Renderer.h"
 #include "Shader.h"
 #include "Utils.h"
@@ -8,9 +9,9 @@
 
 #include "Barrier.h"
 #include "Common.h"
+#include "imgui.h"
 
 #include <ranges>
-#include <vulkan/vulkan_core.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues)
@@ -62,6 +63,7 @@ void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 
 void HelloRenderer::OnImGui()
 {
+    ImGui::ShowDemoWindow();
 }
 
 void HelloRenderer::OnRender()
@@ -93,8 +95,7 @@ void HelloRenderer::OnRender()
 void HelloRenderer::CreateSwapchainResources()
 {
     // Create the render target:
-    auto ScaleResolution = [this](uint32_t res)
-    {
+    auto ScaleResolution = [this](uint32_t res) {
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
@@ -141,13 +142,47 @@ void HelloRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
 
     auto swapchainImage = mCtx.SwapchainImages[imageIndex];
 
-    VkExtent2D renderSize{mRenderTarget.Info.Extent.width, mRenderTarget.Info.Extent.height};
+    VkExtent2D renderSize{mRenderTarget.Info.Extent.width,
+                          mRenderTarget.Info.Extent.height};
     VkExtent2D swapchainSize{mCtx.Swapchain.extent.width, mCtx.Swapchain.extent.height};
 
     // 1. Transition render target to rendering:
     barrier::ImageBarrierColorToRender(commandBuffer, mRenderTarget.Handle);
 
     // 2. Render to image:
+    DrawScene(commandBuffer);
+
+    // 3. Transition render target and swapchain image for copy
+    barrier::ImageLayoutBarrierCoarse(commandBuffer, mRenderTarget.Handle,
+                                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    barrier::ImageLayoutBarrierCoarse(commandBuffer, swapchainImage,
+                                      VK_IMAGE_LAYOUT_UNDEFINED,
+                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    // 4. Copy render target to swapchain image
+    utils::BlitImage(commandBuffer, mRenderTarget.Handle, swapchainImage, renderSize,
+                     swapchainSize);
+
+    // 5. Transition swapchain image to render
+    barrier::ImageLayoutBarrierCoarse(commandBuffer, swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    // 6. Draw the ui on top (in native res)
+    DrawUI(commandBuffer, imageIndex);
+
+    // 7. Transition swapchain image to presentation:
+    barrier::ImageLayoutBarrierCoarse(commandBuffer, swapchainImage,
+                                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    utils::EndRecording(commandBuffer);
+}
+
+void HelloRenderer::DrawScene(VkCommandBuffer commandBuffer)
+{
+    VkExtent2D renderSize{mRenderTarget.Info.Extent.width,
+                          mRenderTarget.Info.Extent.height};
+
     VkClearValue clear{{{0.0f, 0.0f, 0.0f, 0.0f}}};
 
     VkRenderingAttachmentInfoKHR colorAttachment = vkinit::CreateAttachmentInfo(
@@ -166,24 +201,26 @@ void HelloRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     }
     vkCmdEndRendering(commandBuffer);
+}
 
-    // 3. Transition render target and swapchain image for copy
-    barrier::ImageLayoutBarrierCoarse(commandBuffer, mRenderTarget.Handle,
-                                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    barrier::ImageLayoutBarrierCoarse(commandBuffer, swapchainImage,
-                                      VK_IMAGE_LAYOUT_UNDEFINED,
-                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+void HelloRenderer::DrawUI(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+{
+    VkExtent2D swapchainSize{mCtx.Swapchain.extent.width, mCtx.Swapchain.extent.height};
 
-    // 4. Copy render target to swapchain image
-    utils::BlitImage(commandBuffer, mRenderTarget.Handle, swapchainImage, renderSize,
-                     swapchainSize);
+    VkRenderingAttachmentInfoKHR colorAttachment = vkinit::CreateAttachmentInfo(
+        mCtx.SwapchainImageViews[imageIndex], VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, {});
 
-    // 5. Transition swapchain image to presentation:
-    barrier::ImageLayoutBarrierCoarse(commandBuffer, swapchainImage,
-                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    // barrier::ImageBarrierColorToPresent(commandBuffer, swapchainImage);
+    VkRenderingInfoKHR renderingInfo =
+        vkinit::CreateRenderingInfo(swapchainSize, colorAttachment);
 
-    utils::EndRecording(commandBuffer);
+    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+    {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          mGraphicsPipeline.Handle);
+
+        common::ViewportScissor(commandBuffer, swapchainSize);
+
+        imutils::RecordImguiToCommandBuffer(commandBuffer);
+    }
+    vkCmdEndRendering(commandBuffer);
 }

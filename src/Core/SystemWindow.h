@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <string>
 
+struct GLFWwindow;
+
 class SystemWindow {
   public:
     SystemWindow(uint32_t width, uint32_t height, std::string title,
@@ -19,6 +21,13 @@ class SystemWindow {
     VkSurfaceKHR CreateSurface(VkInstance instance,
                                VkAllocationCallbacks *allocator = nullptr);
 
+    //Only used to initialize imgui,
+    //may think up a better way in the future
+    GLFWwindow *Get()
+    {
+        return mWindow;
+    }
+
   private:
-    struct GLFWwindow *mWindow = nullptr;
+    GLFWwindow *mWindow = nullptr;
 };

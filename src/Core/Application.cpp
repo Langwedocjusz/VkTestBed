@@ -1,10 +1,16 @@
 #include "Application.h"
 #include <memory>
 
+#include "ImGuiUtils.h"
+
 Application::Application()
     : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
       mCtx(800, 600, "VkTestBed", mWindow), mRender(mCtx)
 {
+    imutils::InitImGui();
+    imutils::InitGlfwBackend(mWindow.Get());
+    mRender.InitImGuiVulkanBackend();
+
     mScene = std::make_unique<Scene>();
 }
 
@@ -38,12 +44,20 @@ void Application::Run()
         // Poll system events:
         mWindow.PollEvents();
 
-        // Render things:
+        //Update Renderer
         mRender.OnUpdate(mDeltaTime);
+
+        //Collect imgui calls
+        imutils::BeginGuiFrame();
+        mRender.OnImGui();
+        imutils::FinalizeGuiFrame();
+
+        // Render things:
         mRender.OnRender();
     }
 
     vkDeviceWaitIdle(mCtx.Device);
+    imutils::DestroyImGui();
 }
 
 void Application::OnResize(uint32_t width, uint32_t height)

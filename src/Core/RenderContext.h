@@ -5,6 +5,7 @@
 #include "VulkanContext.h"
 
 #include <array>
+#include <vulkan/vulkan_core.h>
 
 struct FrameData {
     VkFence InFlightFence;
@@ -30,6 +31,8 @@ class RenderContext {
     RenderContext(VulkanContext &ctx);
     ~RenderContext();
 
+    void InitImGuiVulkanBackend();
+
     void OnUpdate(float deltaTime);
     void OnImGui();
     void OnRender();
@@ -51,6 +54,8 @@ class RenderContext {
 
     FrameInfo mFrameInfo;
     Queues mQueues;
+
+    VkDescriptorPool mImGuiDescriptorPool;
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;

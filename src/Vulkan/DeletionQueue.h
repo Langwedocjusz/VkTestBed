@@ -16,7 +16,8 @@ using DeletionObject = std::variant<
     VkFence,
     VkSemaphore,
     Image*,
-    VkImageView
+    VkImageView,
+    VkDescriptorPool
 >;
 // clang-format on
 

@@ -21,6 +21,7 @@ void DeletionQueue::flush()
             [this](VkSemaphore arg) {vkDestroySemaphore(mCtx.Device, arg, nullptr);},
             [this](Image* arg){Image::DestroyImage(mCtx, *arg);},
             [this](VkImageView arg){vkDestroyImageView(mCtx.Device, arg, nullptr);},
+            [this](VkDescriptorPool arg){vkDestroyDescriptorPool(mCtx.Device, arg, nullptr);},
         }, obj);
         // clang-format on
     }

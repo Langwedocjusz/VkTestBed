@@ -19,6 +19,8 @@ class HelloRenderer : public IRenderer {
 
   private:
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void DrawScene(VkCommandBuffer commandBuffer);
+    void DrawUI(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
   private:
     Pipeline mGraphicsPipeline;

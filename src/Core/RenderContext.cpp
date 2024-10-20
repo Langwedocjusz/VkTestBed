@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "HelloRenderer.h"
+#include "ImGuiUtils.h"
 
 RenderContext::RenderContext(VulkanContext &ctx)
     : mCtx(ctx), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
@@ -34,6 +35,14 @@ RenderContext::RenderContext(VulkanContext &ctx)
 
     // To-do: Move this to some factory function:
     mRenderer = std::make_unique<HelloRenderer>(mCtx, mFrameInfo, mQueues);
+}
+
+void RenderContext::InitImGuiVulkanBackend()
+{
+    mImGuiDescriptorPool = imutils::CreateDescriptorPool(mCtx);
+    mMainDeletionQueue.push_back(mImGuiDescriptorPool);
+
+    imutils::InitVulkanBackend(mCtx, mImGuiDescriptorPool, mQueues.Graphics, mFrameInfo.MaxInFlight);
 }
 
 RenderContext::~RenderContext()

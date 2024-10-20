@@ -33,6 +33,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
 
     VkPhysicalDeviceVulkan13Features features13{};
     features13.dynamicRendering = true;
+    features13.synchronization2 = true;
 
     auto phys_device_ret = vkb::PhysicalDeviceSelector(Instance)
                                .set_surface(Surface)
@@ -88,6 +89,8 @@ void VulkanContext::CreateSwapchain(bool first_run)
     auto swap_ret = vkb::SwapchainBuilder(Device)
                         .set_old_swapchain(Swapchain)
                         .set_desired_extent(RequestedWidth, RequestedHeight)
+                        // To enable blit from secondary render target:
+                        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
                         .build();
 
     if (!swap_ret)

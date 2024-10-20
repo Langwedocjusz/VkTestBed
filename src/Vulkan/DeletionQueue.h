@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Image.h"
 #include "VulkanContext.h"
 
 #include <deque>
@@ -13,7 +14,9 @@ using DeletionObject = std::variant<
     VkPipelineLayout,
     VkCommandPool,
     VkFence,
-    VkSemaphore
+    VkSemaphore,
+    Image*,
+    VkImageView
 >;
 // clang-format on
 

@@ -5,15 +5,19 @@
 // #include "Vertex.h"
 #include "VkInit.h"
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #include "Barrier.h"
 #include "Common.h"
+
+#include <ranges>
+#include <vulkan/vulkan_core.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues)
     : IRenderer(ctx, info, queues)
 {
+    using namespace std::views;
+
     // CreateGraphicsPipelines
     auto shaderStages = ShaderBuilder()
                             .SetVertexPath("assets/spirv/HelloTriangleVert.spv")
@@ -27,19 +31,23 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
-            .SetColorFormat(ctx.Swapchain.image_format)
+            .SetColorFormat(mRenderTargetFormat)
             .Build(ctx);
 
     mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
     mMainDeletionQueue.push_back(mGraphicsPipeline.Layout);
 
-    // Create Command Pool:
-    mCommandPool = vkinit::CreateCommandPool(mCtx, vkb::QueueType::graphics);
-    mMainDeletionQueue.push_back(mCommandPool);
-
     // Create Command Buffers:
     mCommandBuffers.resize(mFrame.MaxInFlight);
-    vkinit::AllocateCommandBuffers(ctx, mCommandBuffers, mCommandPool);
+
+    // To-do: clang-tidy reports some error with zip instantiation here,
+    // investigate it:
+    for (auto [buffer, frameData] : zip(mCommandBuffers, mFrame.Data))
+    {
+        buffer = vkinit::CreateCommandBuffer(mCtx, frameData.CommandPool);
+    }
+
+    CreateSwapchainResources();
 }
 
 HelloRenderer::~HelloRenderer()
@@ -76,16 +84,46 @@ void HelloRenderer::OnRender()
         vkResetCommandBuffer(buffer, 0);
         RecordCommandBuffer(buffer, mFrame.ImageIndex);
 
-        auto buffers = std::array<VkCommandBuffer, 1>{buffer};
-
-        common::SubmitGraphicsQueueDefault(mQueues.Graphics, buffers, frameData);
+        common::SubmitGraphicsQueue(mQueues, buffer, frameData);
     }
 
-    common::PresentFrame(mCtx, mQueues.Present, mFrame);
+    common::PresentFrame(mCtx, mQueues, mFrame);
 }
 
 void HelloRenderer::CreateSwapchainResources()
 {
+    // Create the render target:
+    auto ScaleResolution = [this](uint32_t res)
+    {
+        return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
+    };
+
+    uint32_t width = ScaleResolution(mCtx.Swapchain.extent.width);
+    uint32_t height = ScaleResolution(mCtx.Swapchain.extent.height);
+
+    VkExtent3D drawExtent{
+        .width = width,
+        .height = height,
+        .depth = 1,
+    };
+
+    VkImageUsageFlags drawUsage{};
+    drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    ImageInfo renderTargetInfo{
+        .Extent = drawExtent,
+        .Format = mRenderTargetFormat,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage = drawUsage,
+    };
+
+    mRenderTarget = Image::CreateImage2D(mCtx, renderTargetInfo);
+    mSwapchainDeletionQueue.push_back(&mRenderTarget);
+
+    mRenderTargetView = Image::CreateView2D(mCtx, mRenderTarget, mRenderTargetFormat,
+                                            VK_IMAGE_ASPECT_COLOR_BIT);
+    mSwapchainDeletionQueue.push_back(mRenderTargetView);
 }
 
 void HelloRenderer::LoadScene(const Scene &scene)
@@ -99,33 +137,53 @@ void HelloRenderer::LoadScene(const Scene &scene)
 void HelloRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
                                         uint32_t imageIndex)
 {
-    auto image = mCtx.SwapchainImages[imageIndex];
-    auto imageView = mCtx.SwapchainImageViews[imageIndex];
-
     utils::BeginRecording(commandBuffer);
 
-    barrier::ImageBarrierColorToRender(commandBuffer, image);
+    auto swapchainImage = mCtx.SwapchainImages[imageIndex];
 
+    VkExtent2D renderSize{mRenderTarget.Info.Extent.width, mRenderTarget.Info.Extent.height};
+    VkExtent2D swapchainSize{mCtx.Swapchain.extent.width, mCtx.Swapchain.extent.height};
+
+    // 1. Transition render target to rendering:
+    barrier::ImageBarrierColorToRender(commandBuffer, mRenderTarget.Handle);
+
+    // 2. Render to image:
     VkClearValue clear{{{0.0f, 0.0f, 0.0f, 0.0f}}};
 
     VkRenderingAttachmentInfoKHR colorAttachment = vkinit::CreateAttachmentInfo(
-        imageView, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, clear);
+        mRenderTargetView, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, clear);
 
     VkRenderingInfoKHR renderingInfo =
-        vkinit::CreateRenderingInfo(mCtx.Swapchain.extent, colorAttachment);
+        vkinit::CreateRenderingInfo(renderSize, colorAttachment);
 
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           mGraphicsPipeline.Handle);
 
-        common::ViewportScissorDefaultBehaviour(mCtx, commandBuffer);
+        common::ViewportScissor(commandBuffer, renderSize);
 
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     }
     vkCmdEndRendering(commandBuffer);
 
-    barrier::ImageBarrierColorToPresent(commandBuffer, image);
+    // 3. Transition render target and swapchain image for copy
+    barrier::ImageLayoutBarrierCoarse(commandBuffer, mRenderTarget.Handle,
+                                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    barrier::ImageLayoutBarrierCoarse(commandBuffer, swapchainImage,
+                                      VK_IMAGE_LAYOUT_UNDEFINED,
+                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    // 4. Copy render target to swapchain image
+    utils::BlitImage(commandBuffer, mRenderTarget.Handle, swapchainImage, renderSize,
+                     swapchainSize);
+
+    // 5. Transition swapchain image to presentation:
+    barrier::ImageLayoutBarrierCoarse(commandBuffer, swapchainImage,
+                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    // barrier::ImageBarrierColorToPresent(commandBuffer, swapchainImage);
 
     utils::EndRecording(commandBuffer);
 }

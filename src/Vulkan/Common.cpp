@@ -2,20 +2,20 @@
 
 #include <array>
 
-void common::ViewportScissorDefaultBehaviour(VulkanContext &ctx, VkCommandBuffer buffer)
+void common::ViewportScissor(VkCommandBuffer buffer, VkExtent2D extent)
 {
     VkViewport viewport = {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(ctx.Swapchain.extent.width);
-    viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(buffer, 0, 1, &viewport);
 
     VkRect2D scissor = {};
     scissor.offset = {0, 0};
-    scissor.extent = ctx.Swapchain.extent;
+    scissor.extent = extent;
     vkCmdSetScissor(buffer, 0, 1, &scissor);
 }
 
@@ -51,16 +51,23 @@ void common::SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFe
     }
 }
 
-void common::SubmitGraphicsQueueDefault(VkQueue queue, std::span<VkCommandBuffer> buffers,
-                                        FrameData &frame)
+void common::SubmitGraphicsQueue(RenderContext::Queues &queues,
+                                 std::span<VkCommandBuffer> buffers, FrameData &frame)
 {
     std::array<VkSemaphore, 1> waitSemaphores{frame.ImageAcquiredSemaphore};
     std::array<VkPipelineStageFlags, 1> waitStages{
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     std::array<VkSemaphore, 1> signalSemaphores{frame.RenderCompletedSemaphore};
 
-    common::SubmitQueue(queue, buffers, frame.InFlightFence, waitSemaphores, waitStages,
-                        signalSemaphores);
+    SubmitQueue(queues.Graphics, buffers, frame.InFlightFence, waitSemaphores, waitStages,
+                signalSemaphores);
+}
+
+void common::SubmitGraphicsQueue(RenderContext::Queues &queues, VkCommandBuffer buffer,
+                                 FrameData &frame)
+{
+    auto buffers = std::array<VkCommandBuffer, 1>{buffer};
+    SubmitGraphicsQueue(queues, buffers, frame);
 }
 
 void common::AcquireNextImage(VulkanContext &ctx, FrameInfo &frame)
@@ -84,8 +91,8 @@ void common::AcquireNextImage(VulkanContext &ctx, FrameInfo &frame)
     }
 }
 
-void common::PresentFrame(VulkanContext &ctx, VkQueue presentQueue,
-                          FrameInfo& frame)
+void common::PresentFrame(VulkanContext &ctx, RenderContext::Queues &queues,
+                          FrameInfo &frame)
 {
     auto renderSemaphore = frame.Data[frame.Index].RenderCompletedSemaphore;
 
@@ -100,7 +107,7 @@ void common::PresentFrame(VulkanContext &ctx, VkQueue presentQueue,
     present_info.pSwapchains = swapChains.data();
     present_info.pImageIndices = &frame.ImageIndex;
 
-    VkResult result = vkQueuePresentKHR(presentQueue, &present_info);
+    VkResult result = vkQueuePresentKHR(queues.Present, &present_info);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {

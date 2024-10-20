@@ -13,9 +13,11 @@ RenderContext::RenderContext(VulkanContext &ctx)
     mQueues.Graphics = vkinit::CreateQueue(ctx, vkb::QueueType::graphics);
     mQueues.Present = vkinit::CreateQueue(ctx, vkb::QueueType::present);
 
-    // Create per frame sync-objects:
+    // Create per frame coomand pools and sync-objects:
     for (auto &data : mFrameInfo.Data)
     {
+        data.CommandPool = vkinit::CreateCommandPool(mCtx, vkb::QueueType::graphics);
+
         vkinit::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
         vkinit::CreateSemaphore(mCtx, data.RenderCompletedSemaphore);
         vkinit::CreateSignalledFence(mCtx, data.InFlightFence);
@@ -23,6 +25,8 @@ RenderContext::RenderContext(VulkanContext &ctx)
 
     for (auto &data : mFrameInfo.Data)
     {
+        mMainDeletionQueue.push_back(data.CommandPool);
+
         mMainDeletionQueue.push_back(data.InFlightFence);
         mMainDeletionQueue.push_back(data.ImageAcquiredSemaphore);
         mMainDeletionQueue.push_back(data.RenderCompletedSemaphore);

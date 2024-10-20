@@ -10,6 +10,7 @@
 
 template <Vertex V>
 struct VertexProvider {
+    virtual ~VertexProvider() = default;
     virtual std::vector<V> GetVertices() = 0;
 };
 
@@ -24,6 +25,7 @@ concept ValidIndexType = std::same_as<T, uint16_t> || std::same_as<T, uint32_t>;
 
 template <ValidIndexType I>
 struct IndexProvider {
+    virtual ~IndexProvider() = default;
     virtual std::vector<I> GetIndices() = 0;
 };
 

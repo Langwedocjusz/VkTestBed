@@ -10,6 +10,8 @@ struct FrameData {
     VkFence InFlightFence;
     VkSemaphore ImageAcquiredSemaphore;
     VkSemaphore RenderCompletedSemaphore;
+
+    VkCommandPool CommandPool;
 };
 
 struct FrameInfo {

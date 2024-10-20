@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Image.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 
@@ -22,6 +23,10 @@ class HelloRenderer : public IRenderer {
   private:
     Pipeline mGraphicsPipeline;
 
-    VkCommandPool mCommandPool;
+    Image mRenderTarget;
+    VkImageView mRenderTargetView;
+    const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    const float mInternalResolutionScale = 1.0f;
+
     std::vector<VkCommandBuffer> mCommandBuffers;
 };

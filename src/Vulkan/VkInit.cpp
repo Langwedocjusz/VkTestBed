@@ -51,6 +51,23 @@ VkCommandPool vkinit::CreateCommandPool(VulkanContext &ctx, vkb::QueueType qtype
     return pool;
 }
 
+VkCommandBuffer vkinit::CreateCommandBuffer(VulkanContext &ctx, VkCommandPool pool)
+{
+    VkCommandBuffer buffer;
+
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = pool;
+    allocInfo.commandBufferCount = 1;
+
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, &buffer) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate command buffers!");
+
+    return buffer;
+}
+
 void vkinit::AllocateCommandBuffers(VulkanContext &ctx,
                                     std::span<VkCommandBuffer> buffers,
                                     VkCommandPool pool)

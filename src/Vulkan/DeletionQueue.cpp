@@ -1,4 +1,5 @@
 #include "DeletionQueue.h"
+#include "Image.h"
 
 #include <ranges>
 
@@ -9,7 +10,7 @@ struct overloaded : Ts... {
 
 void DeletionQueue::flush()
 {
-    for (auto &obj : mDeletionObjects | std::views::reverse)
+    for (auto obj : mDeletionObjects | std::views::reverse)
     {
         // clang-format off
         std::visit(overloaded{
@@ -18,6 +19,8 @@ void DeletionQueue::flush()
             [this](VkCommandPool arg) {vkDestroyCommandPool(mCtx.Device, arg, nullptr);},
             [this](VkFence arg) {vkDestroyFence(mCtx.Device, arg, nullptr);},
             [this](VkSemaphore arg) {vkDestroySemaphore(mCtx.Device, arg, nullptr);},
+            [this](Image* arg){Image::DestroyImage(mCtx, *arg);},
+            [this](VkImageView arg){vkDestroyImageView(mCtx.Device, arg, nullptr);},
         }, obj);
         // clang-format on
     }

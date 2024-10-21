@@ -5,7 +5,6 @@
 #include "VulkanContext.h"
 
 #include <array>
-#include <vulkan/vulkan_core.h>
 
 struct FrameData {
     VkFence InFlightFence;
@@ -13,6 +12,7 @@ struct FrameData {
     VkSemaphore RenderCompletedSemaphore;
 
     VkCommandPool CommandPool;
+    VkCommandBuffer CommandBuffer;
 };
 
 struct FrameInfo {
@@ -46,6 +46,10 @@ class RenderContext {
         VkQueue Graphics;
         VkQueue Present;
     };
+
+  private:
+    void DrawFrame();
+    void DrawUI(VkCommandBuffer cmd);
 
   private:
     VulkanContext &mCtx;

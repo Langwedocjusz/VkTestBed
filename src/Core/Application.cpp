@@ -44,10 +44,10 @@ void Application::Run()
         // Poll system events:
         mWindow.PollEvents();
 
-        //Update Renderer
+        // Update Renderer
         mRender.OnUpdate(mDeltaTime);
 
-        //Collect imgui calls
+        // Collect imgui calls
         imutils::BeginGuiFrame();
         mRender.OnImGui();
         imutils::FinalizeGuiFrame();

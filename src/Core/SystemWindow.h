@@ -21,8 +21,8 @@ class SystemWindow {
     VkSurfaceKHR CreateSurface(VkInstance instance,
                                VkAllocationCallbacks *allocator = nullptr);
 
-    //Only used to initialize imgui,
-    //may think up a better way in the future
+    // Only used to initialize imgui,
+    // may think up a better way in the future
     GLFWwindow *Get()
     {
         return mWindow;

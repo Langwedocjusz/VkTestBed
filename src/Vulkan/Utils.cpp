@@ -41,7 +41,7 @@ void utils::BlitImage(VkCommandBuffer cmd, VkImage source, VkImage destination,
     blitRegion.dstSubresource.layerCount = 1;
     blitRegion.dstSubresource.mipLevel = 0;
 
-    VkBlitImageInfo2 blitInfo;
+    VkBlitImageInfo2 blitInfo = {};
     blitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
 
     blitInfo.dstImage = destination;

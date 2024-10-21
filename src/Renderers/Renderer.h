@@ -2,6 +2,9 @@
 
 #include "RenderContext.h"
 
+#include "Image.h"
+#include <vulkan/vulkan_core.h>
+
 class IRenderer {
   public:
     IRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues)
@@ -18,20 +21,37 @@ class IRenderer {
 
     virtual void CreateSwapchainResources() = 0;
 
-    void DestroySwapchainResources()
-    {
-        mSwapchainDeletionQueue.flush();
-    }
-
     // To-do:
     // virtual void RebuildPipelines() = 0;
 
     virtual void LoadScene(const Scene &scene) = 0;
 
+  public:
+    void DestroySwapchainResources()
+    {
+        mSwapchainDeletionQueue.flush();
+    }
+
+    [[nodiscard]] VkImage GetTarget() const
+    {
+        return mRenderTarget.Handle;
+    }
+    [[nodiscard]] VkImageView GetTargetView() const
+    {
+        return mRenderTargetView;
+    }
+    [[nodiscard]] VkExtent2D GetTargetSize() const
+    {
+        return {mRenderTarget.Info.Extent.width, mRenderTarget.Info.Extent.height};
+    }
+
   protected:
     VulkanContext &mCtx;
     FrameInfo &mFrame;
     RenderContext::Queues &mQueues;
+
+    Image mRenderTarget;
+    VkImageView mRenderTargetView;
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Image.h"
+#include "Buffer.h"
 #include "VulkanContext.h"
 
 #include <deque>
@@ -15,9 +16,12 @@ using DeletionObject = std::variant<
     VkCommandPool,
     VkFence,
     VkSemaphore,
-    Image*,
     VkImageView,
-    VkDescriptorPool
+    VkDescriptorPool,
+    //Custom aggregate types passed via pointer
+    //to avoid excess padding in the variant:
+    Image*,
+    Buffer*
 >;
 // clang-format on
 

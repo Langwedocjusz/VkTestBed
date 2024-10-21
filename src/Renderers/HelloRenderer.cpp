@@ -2,6 +2,9 @@
 #include "Renderer.h"
 #include "Shader.h"
 // #include "Vertex.h"
+#include "Primitives.h"
+#include "Utils.h"
+#include "Vertex.h"
 #include "VkInit.h"
 #include <vulkan/vulkan.h>
 
@@ -12,7 +15,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues)
     : IRenderer(ctx, info, queues)
 {
-    // CreateGraphicsPipelines
+    // Create Graphics Pipelines
     auto shaderStages = ShaderBuilder()
                             .SetVertexPath("assets/spirv/HelloTriangleVert.spv")
                             .SetFragmentPath("assets/spirv/HelloTriangleFrag.spv")
@@ -21,7 +24,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
     mGraphicsPipeline =
         PipelineBuilder()
             .SetShaderStages(shaderStages)
-            //.SetVertexInput<ColoredVertex>(0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetVertexInput<ColoredVertex>(0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
@@ -31,6 +34,28 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
     mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
     mMainDeletionQueue.push_back(mGraphicsPipeline.Layout);
 
+    //Create Vertex buffer:
+    std::vector<ColoredVertex> vertices = HelloTriangleVertexProvider().GetVertices();
+
+    mVertexCount = vertices.size();
+
+    GPUBufferInfo vertInfo{
+        .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        .Size = mVertexCount * sizeof(ColoredVertex),
+        .Data = vertices.data(),
+    };
+
+    {
+        auto& pool = mFrame.Data[mFrame.Index].CommandPool;
+        utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+
+        mVertexBuffer = Buffer::CreateGPUBuffer(mCtx, cmd.Buffer, vertInfo);
+    }
+
+    mMainDeletionQueue.push_back(&mVertexBuffer);
+
+    //Create swapchain resources:
     CreateSwapchainResources();
 }
 
@@ -68,7 +93,11 @@ void HelloRenderer::OnRender()
 
         common::ViewportScissor(cmd, GetTargetSize());
 
-        vkCmdDraw(cmd, 3, 1, 0, 0);
+        std::array<VkBuffer, 1> vertexBuffers{mVertexBuffer.Handle};
+        std::array<VkDeviceSize, 1> offsets{0};
+        vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
+
+        vkCmdDraw(cmd, mVertexCount, 1, 0, 0);
     }
     vkCmdEndRendering(cmd);
 }

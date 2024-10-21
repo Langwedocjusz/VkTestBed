@@ -1,6 +1,6 @@
 #include "Primitives.h"
 
-std::vector<ColoredVertex> HelloTriangleVertexProvvider::GetVertices()
+std::vector<ColoredVertex> HelloTriangleVertexProvider::GetVertices()
 {
     const float r3 = std::sqrt(3.0f);
 

@@ -54,3 +54,37 @@ void utils::BlitImage(VkCommandBuffer cmd, VkImage source, VkImage destination,
 
     vkCmdBlitImage2(cmd, &blitInfo);
 }
+
+utils::ScopedCommand::ScopedCommand(VulkanContext &ctx, VkQueue queue,
+                                    VkCommandPool commandPool)
+    : ctx(ctx), mQueue(queue), mCommandPool(commandPool)
+{
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    vkAllocateCommandBuffers(ctx.Device, &allocInfo, &Buffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(Buffer, &beginInfo);
+}
+
+utils::ScopedCommand::~ScopedCommand()
+{
+    vkEndCommandBuffer(Buffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &Buffer;
+
+    vkQueueSubmit(mQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(mQueue);
+
+    vkFreeCommandBuffers(ctx.Device, mCommandPool, 1, &Buffer);
+}

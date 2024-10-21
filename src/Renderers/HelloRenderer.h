@@ -2,6 +2,7 @@
 
 #include "Pipeline.h"
 #include "Renderer.h"
+#include "Buffer.h"
 
 class HelloRenderer : public IRenderer {
   public:
@@ -18,6 +19,9 @@ class HelloRenderer : public IRenderer {
 
   private:
     Pipeline mGraphicsPipeline;
+
+    Buffer mVertexBuffer;
+    size_t mVertexCount;
 
     const float mInternalResolutionScale = 1.0f;
     const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;

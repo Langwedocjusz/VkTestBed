@@ -22,6 +22,9 @@ class PipelineBuilder {
         return *this;
     }
 
+    ///If vertex input is not set, vertex data can't be accessed the usual way
+    ///in vertex shaders. This is actually the desired behaviour when doing
+    ///vertex pulling or generating vertices on-the-fly in the shader itself.
     template <Vertex V>
     PipelineBuilder SetVertexInput(uint32_t binding, VkVertexInputRate inputRate)
     {

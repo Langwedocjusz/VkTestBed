@@ -5,10 +5,10 @@
 
 #include <cstdint>
 
-class HelloTriangleVertexProvvider : public VertexProvider<ColoredVertex> {
+struct HelloTriangleVertexProvider : public VertexProvider<ColoredVertex> {
     std::vector<ColoredVertex> GetVertices() override;
 };
 
-class HelloTriangleIndexProvider : public IndexProvider<uint16_t> {
+struct HelloTriangleIndexProvider : public IndexProvider<uint16_t> {
     std::vector<uint16_t> GetIndices() override;
 };

@@ -18,6 +18,7 @@ using DeletionObject = std::variant<
     VkSemaphore,
     VkImageView,
     VkDescriptorPool,
+    VkDescriptorSetLayout,
     //Custom aggregate types passed via pointer
     //to avoid excess padding in the variant:
     Image*,

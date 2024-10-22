@@ -9,6 +9,7 @@
 #include <vulkan/vulkan.h>
 
 #include "Common.h"
+#include "glm/ext/matrix_transform.hpp"
 #include "imgui.h"
 
 #include <iostream>
@@ -31,7 +32,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
                             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
                             .SetColorFormat(mRenderTargetFormat)
-                            .SetPushConstantSize(sizeof(glm::vec4))
+                            .SetPushConstantSize(sizeof(glm::mat4))
                             .Build(ctx);
 
     mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
@@ -84,11 +85,11 @@ void HelloRenderer::OnRender()
             vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
                                  VK_INDEX_TYPE_UINT16);
 
-            for (auto &translation : drawable.Translations)
+            for (auto &transform : drawable.Transforms)
             {
                 vkCmdPushConstants(cmd, mGraphicsPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(translation),
-                                   &translation);
+                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
+                                   &transform);
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
         }
@@ -197,9 +198,16 @@ void HelloRenderer::LoadScene(Scene &scene)
         // Unpack instance data:
         for (auto instance : obj.Instances)
         {
-            glm::vec4 trans{instance.Translation, 1.0f};
+            glm::mat4 transform(1.0f);
 
-            drawable.Translations.push_back(trans);
+            transform = glm::scale(transform, instance.Scale);
+
+            glm::mat4 rotation = glm::mat4_cast(instance.Rotation);
+            transform = rotation * transform;
+
+            transform = glm::translate(transform, instance.Translation);
+
+            drawable.Transforms.push_back(transform);
         }
     }
 

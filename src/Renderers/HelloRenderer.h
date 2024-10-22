@@ -30,8 +30,7 @@ class HelloRenderer : public IRenderer {
         Buffer IndexBuffer;
         size_t IndexCount;
 
-        // To-do: actually implement full transform support:
-        std::vector<glm::vec4> Translations;
+        std::vector<glm::mat4> Transforms;
     };
 
     std::vector<Drawable> mDrawables;

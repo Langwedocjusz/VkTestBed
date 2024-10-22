@@ -3,6 +3,7 @@
 
 #include "ImGuiUtils.h"
 #include "Primitives.h"
+#include "glm/ext/quaternion_trigonometric.hpp"
 
 Application::Application()
     : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
@@ -21,6 +22,7 @@ Application::Application()
 
         InstanceData data{};
         data.Translation = {-0.5f, 0.0f, 0.0f};
+        data.Rotation = glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
         instances.push_back(data);
     }
@@ -32,6 +34,7 @@ Application::Application()
 
         InstanceData data{};
         data.Translation = {0.5f, 0.0f, 0.0f};
+        data.Scale = {1.0f, 1.5f, 1.0f};
 
         instances.push_back(data);
     }

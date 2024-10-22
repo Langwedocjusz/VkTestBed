@@ -7,13 +7,10 @@ layout(location = 0) out vec3 fragColor;
 
 layout( push_constant ) uniform constants
 {
-    //temporary vec4 to avoid possible alignment issues:
-    vec4 Translation;
+    mat4 Transform;
 } PushConstants;
 
 void main() {
-    vec3 offset = PushConstants.Translation.xyz;
-
-    gl_Position = vec4(aPosition + offset, 1.0);
+    gl_Position = PushConstants.Transform * vec4(aPosition, 1.0);
     fragColor = aColor;
 }

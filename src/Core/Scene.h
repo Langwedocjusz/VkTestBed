@@ -6,9 +6,9 @@
 #include "GeometryProvider.h"
 
 struct InstanceData {
-    glm::vec3 Translation;
-    glm::quat Rotation;
-    glm::vec3 Scale;
+    glm::vec3 Translation = {0.0f, 0.0f, 0.0f};
+    glm::quat Rotation = {1.0f, 0.0f, 0.0f, 0.0f};
+    glm::vec3 Scale = {1.0f, 1.0f, 1.0f};
 };
 
 struct SceneObject {

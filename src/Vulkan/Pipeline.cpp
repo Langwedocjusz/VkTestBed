@@ -1,4 +1,5 @@
 #include "Pipeline.h"
+#include <vulkan/vulkan_core.h>
 
 PipelineBuilder::PipelineBuilder()
 {
@@ -131,6 +132,13 @@ PipelineBuilder PipelineBuilder::SetDescriptorSetLayout(VkDescriptorSetLayout &d
     return *this;
 }
 
+PipelineBuilder PipelineBuilder::SetPushConstantSize(uint32_t size)
+{
+    mPushConstantSize = size;
+
+    return *this;
+}
+
 Pipeline PipelineBuilder::Build(VulkanContext &ctx)
 {
     Pipeline pipeline;
@@ -140,7 +148,18 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = mLayoutCount;
     pipelineLayoutInfo.pSetLayouts = mLayoutsPtr;
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
+
+    if (mPushConstantSize != 0)
+    {
+        VkPushConstantRange pushConstant{};
+        pushConstant.offset = 0;
+        pushConstant.size = mPushConstantSize;
+        // To-do: may expose more granular control over this:
+        pushConstant.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
+
+        pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+    }
 
     if (vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
                                &pipeline.Layout) != VK_SUCCESS)

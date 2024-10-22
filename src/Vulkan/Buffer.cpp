@@ -10,7 +10,7 @@ Buffer Buffer::CreateBuffer(VulkanContext &ctx, VkDeviceSize size,
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
     bufferInfo.usage = usage;
-    //Hardcoded for now:
+    // Hardcoded for now:
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
@@ -57,7 +57,8 @@ Buffer Buffer::CreateMappedUniformBuffer(VulkanContext &ctx, VkDeviceSize size)
     return CreateBuffer(ctx, size, usage, flags);
 }
 
-Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, VkCommandBuffer cmd, GPUBufferInfo info)
+Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, VkCommandBuffer cmd,
+                               GPUBufferInfo info)
 {
     Buffer buff;
     buff = CreateBuffer(ctx, info.Size, info.Usage, info.Properties);

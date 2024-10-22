@@ -72,7 +72,7 @@ void common::SubmitGraphicsQueue(RenderContext::Queues &queues, VkCommandBuffer 
 
 void common::AcquireNextImage(VulkanContext &ctx, FrameInfo &frame)
 {
-    auto semaphore = frame.Data[frame.Index].ImageAcquiredSemaphore;
+    auto semaphore = frame.CurrentData().ImageAcquiredSemaphore;
 
     if (ctx.SwapchainOk)
     {
@@ -94,7 +94,7 @@ void common::AcquireNextImage(VulkanContext &ctx, FrameInfo &frame)
 void common::PresentFrame(VulkanContext &ctx, RenderContext::Queues &queues,
                           FrameInfo &frame)
 {
-    auto renderSemaphore = frame.Data[frame.Index].RenderCompletedSemaphore;
+    auto renderSemaphore = frame.CurrentData().RenderCompletedSemaphore;
 
     std::array<VkSemaphore, 1> waitSemaphores{renderSemaphore};
     std::array<VkSwapchainKHR, 1> swapChains{ctx.Swapchain};

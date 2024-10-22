@@ -2,6 +2,7 @@
 #include <memory>
 
 #include "ImGuiUtils.h"
+#include "Primitives.h"
 
 Application::Application()
     : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
@@ -12,6 +13,30 @@ Application::Application()
     mRender.InitImGuiVulkanBackend();
 
     mScene = std::make_unique<Scene>();
+
+    mScene->Objects.emplace_back();
+    mScene->Objects.back().Provider = primitive::HelloTriangle();
+    {
+        auto &instances = mScene->Objects.back().Instances;
+
+        InstanceData data{};
+        data.Translation = {-0.5f, 0.0f, 0.0f};
+
+        instances.push_back(data);
+    }
+
+    mScene->Objects.emplace_back();
+    mScene->Objects.back().Provider = primitive::HelloQuad();
+    {
+        auto &instances = mScene->Objects.back().Instances;
+
+        InstanceData data{};
+        data.Translation = {0.5f, 0.0f, 0.0f};
+
+        instances.push_back(data);
+    }
+
+    mRender.LoadScene(*mScene);
 }
 
 Application::~Application()

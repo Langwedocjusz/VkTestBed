@@ -1,8 +1,8 @@
 #pragma once
 
+#include "Buffer.h"
 #include "Pipeline.h"
 #include "Renderer.h"
-#include "Buffer.h"
 
 class HelloRenderer : public IRenderer {
   public:
@@ -15,14 +15,24 @@ class HelloRenderer : public IRenderer {
 
     void CreateSwapchainResources() override;
 
-    void LoadScene(const Scene &scene) override;
+    void LoadScene(Scene &scene) override;
 
   private:
-    Pipeline mGraphicsPipeline;
-
-    Buffer mVertexBuffer;
-    size_t mVertexCount;
-
     const float mInternalResolutionScale = 1.0f;
     const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
+
+    Pipeline mGraphicsPipeline;
+
+    struct Drawable {
+        Buffer VertexBuffer;
+        size_t VertexCount;
+
+        Buffer IndexBuffer;
+        size_t IndexCount;
+
+        // To-do: actually implement full transform support:
+        std::vector<glm::vec4> Translations;
+    };
+
+    std::vector<Drawable> mDrawables;
 };

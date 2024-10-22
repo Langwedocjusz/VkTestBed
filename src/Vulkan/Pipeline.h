@@ -22,9 +22,9 @@ class PipelineBuilder {
         return *this;
     }
 
-    ///If vertex input is not set, vertex data can't be accessed the usual way
-    ///in vertex shaders. This is actually the desired behaviour when doing
-    ///vertex pulling or generating vertices on-the-fly in the shader itself.
+    /// If vertex input is not set, vertex data can't be accessed the usual way
+    /// in vertex shaders. This is actually the desired behaviour when doing
+    /// vertex pulling or generating vertices on-the-fly in the shader itself.
     template <Vertex V>
     PipelineBuilder SetVertexInput(uint32_t binding, VkVertexInputRate inputRate)
     {
@@ -47,6 +47,8 @@ class PipelineBuilder {
 
     PipelineBuilder SetDescriptorSetLayout(VkDescriptorSetLayout &descriptor);
 
+    PipelineBuilder SetPushConstantSize(uint32_t size);
+
     Pipeline Build(VulkanContext &ctx);
 
   private:
@@ -68,6 +70,8 @@ class PipelineBuilder {
 
     uint32_t mLayoutCount = 0;
     VkDescriptorSetLayout *mLayoutsPtr = nullptr;
+
+    uint32_t mPushConstantSize = 0;
 
     VkVertexInputBindingDescription mBindingDescription;
     std::vector<VkVertexInputAttributeDescription> mAttributeDescriptions;

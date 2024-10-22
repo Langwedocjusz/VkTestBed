@@ -11,7 +11,11 @@ struct InstanceData {
     glm::vec3 Scale;
 };
 
+struct SceneObject {
+    GeometryProvider Provider;
+    std::vector<InstanceData> Instances;
+};
+
 struct Scene {
-    std::vector<GeometryProvider> Providers;
-    std::vector<std::vector<InstanceData>> Instances;
+    std::vector<SceneObject> Objects;
 };

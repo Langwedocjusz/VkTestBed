@@ -1,15 +1,18 @@
 #include "HelloRenderer.h"
+#include "GeometryProvider.h"
 #include "Renderer.h"
 #include "Shader.h"
-// #include "Vertex.h"
-#include "Primitives.h"
 #include "Utils.h"
 #include "Vertex.h"
 #include "VkInit.h"
+#include <cstdint>
 #include <vulkan/vulkan.h>
 
 #include "Common.h"
 #include "imgui.h"
+
+#include <iostream>
+#include <vulkan/vulkan_core.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues)
@@ -21,41 +24,20 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetFragmentPath("assets/spirv/HelloTriangleFrag.spv")
                             .Build(ctx);
 
-    mGraphicsPipeline =
-        PipelineBuilder()
-            .SetShaderStages(shaderStages)
-            .SetVertexInput<ColoredVertex>(0, VK_VERTEX_INPUT_RATE_VERTEX)
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
-            .SetColorFormat(mRenderTargetFormat)
-            .Build(ctx);
+    mGraphicsPipeline = PipelineBuilder()
+                            .SetShaderStages(shaderStages)
+                            .SetVertexInput<ColoredVertex>(0, VK_VERTEX_INPUT_RATE_VERTEX)
+                            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+                            .SetColorFormat(mRenderTargetFormat)
+                            .SetPushConstantSize(sizeof(glm::vec4))
+                            .Build(ctx);
 
     mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
     mMainDeletionQueue.push_back(mGraphicsPipeline.Layout);
 
-    //Create Vertex buffer:
-    std::vector<ColoredVertex> vertices = HelloTriangleVertexProvider().GetVertices();
-
-    mVertexCount = vertices.size();
-
-    GPUBufferInfo vertInfo{
-        .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        .Size = mVertexCount * sizeof(ColoredVertex),
-        .Data = vertices.data(),
-    };
-
-    {
-        auto& pool = mFrame.Data[mFrame.Index].CommandPool;
-        utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
-
-        mVertexBuffer = Buffer::CreateGPUBuffer(mCtx, cmd.Buffer, vertInfo);
-    }
-
-    mMainDeletionQueue.push_back(&mVertexBuffer);
-
-    //Create swapchain resources:
+    // Create swapchain resources:
     CreateSwapchainResources();
 }
 
@@ -76,8 +58,7 @@ void HelloRenderer::OnImGui()
 
 void HelloRenderer::OnRender()
 {
-    auto &frame = mFrame.Data[mFrame.Index];
-    auto &cmd = frame.CommandBuffer;
+    auto &cmd = mFrame.CurrentCmd();
 
     VkClearValue clear{{{0.0f, 0.0f, 0.0f, 0.0f}}};
 
@@ -93,11 +74,24 @@ void HelloRenderer::OnRender()
 
         common::ViewportScissor(cmd, GetTargetSize());
 
-        std::array<VkBuffer, 1> vertexBuffers{mVertexBuffer.Handle};
-        std::array<VkDeviceSize, 1> offsets{0};
-        vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
+        for (auto &drawable : mDrawables)
+        {
+            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
+            std::array<VkDeviceSize, 1> offsets{0};
 
-        vkCmdDraw(cmd, mVertexCount, 1, 0, 0);
+            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
+
+            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
+                                 VK_INDEX_TYPE_UINT16);
+
+            for (auto &translation : drawable.Translations)
+            {
+                vkCmdPushConstants(cmd, mGraphicsPipeline.Layout,
+                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(translation),
+                                   &translation);
+                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+            }
+        }
     }
     vkCmdEndRendering(cmd);
 }
@@ -138,10 +132,82 @@ void HelloRenderer::CreateSwapchainResources()
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 }
 
-void HelloRenderer::LoadScene(const Scene &scene)
+void HelloRenderer::LoadScene(Scene &scene)
 {
-    // To-do: Actually unpack the scene
-    // and use Vertex/Index buffers to render.
+    for (auto &obj : scene.Objects)
+    {
+        auto vertPtr = obj.Provider.UnpackVertices<ColoredVertex>();
+        auto idxPtr = obj.Provider.UnpackIndices<uint16_t>();
 
-    (void)scene;
+        if (vertPtr == nullptr)
+        {
+            std::cerr << "Unsupported vertex type.\n";
+            continue;
+        }
+
+        if (idxPtr == nullptr)
+        {
+            std::cerr << "Unsupported index type.\n";
+            continue;
+        }
+
+        mDrawables.emplace_back();
+        auto &drawable = mDrawables.back();
+
+        auto &pool = mFrame.CurrentPool();
+
+        // Create Vertex buffer:
+        {
+            utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+
+            auto vertices = vertPtr->GetVertices();
+            auto vertexCount = vertices.size();
+
+            GPUBufferInfo vertInfo{
+                .Usage =
+                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                .Size = vertexCount * sizeof(ColoredVertex),
+                .Data = vertices.data(),
+            };
+
+            drawable.VertexBuffer = Buffer::CreateGPUBuffer(mCtx, cmd.Buffer, vertInfo);
+            drawable.VertexCount = vertexCount;
+        }
+
+        // Create Index buffer:
+        {
+            utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+
+            auto indices = idxPtr->GetIndices();
+            auto indexCount = indices.size();
+
+            GPUBufferInfo idxInfo{
+                .Usage =
+                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                .Size = indexCount * sizeof(uint16_t),
+                .Data = indices.data(),
+            };
+
+            drawable.IndexBuffer = Buffer::CreateGPUBuffer(mCtx, cmd.Buffer, idxInfo);
+            drawable.IndexCount = indexCount;
+        }
+
+        // Unpack instance data:
+        for (auto instance : obj.Instances)
+        {
+            glm::vec4 trans{instance.Translation, 1.0f};
+
+            drawable.Translations.push_back(trans);
+        }
+    }
+
+    // To-do: create a dedicated deletion queue for
+    // scene-depent objects:
+    for (auto &drawable : mDrawables)
+    {
+        mMainDeletionQueue.push_back(&drawable.VertexBuffer);
+        mMainDeletionQueue.push_back(&drawable.IndexBuffer);
+    }
 }

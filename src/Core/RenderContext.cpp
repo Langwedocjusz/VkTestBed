@@ -69,7 +69,7 @@ void RenderContext::OnImGui()
 
 void RenderContext::OnRender()
 {
-    auto &frame = mFrameInfo.Data[mFrameInfo.Index];
+    auto &frame = mFrameInfo.CurrentData();
 
     // 1. Wait for the in-Flight fence:
     vkWaitForFences(mCtx.Device, 1, &frame.InFlightFence, VK_TRUE, UINT64_MAX);
@@ -95,8 +95,8 @@ void RenderContext::OnRender()
 
 void RenderContext::DrawFrame()
 {
-    auto &frame = mFrameInfo.Data[mFrameInfo.Index];
-    auto &cmd = frame.CommandBuffer;
+    auto &frame = mFrameInfo.CurrentData();
+    auto &cmd = mFrameInfo.CurrentCmd();
     auto &swapchainImage = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
 
     VkExtent2D swapchainSize{mCtx.Swapchain.extent.width, mCtx.Swapchain.extent.height};
@@ -175,7 +175,7 @@ void RenderContext::DestroySwapchainResources()
     mSwapchainDeletionQueue.flush();
 }
 
-void RenderContext::LoadScene(const Scene &scene)
+void RenderContext::LoadScene(Scene &scene)
 {
     mRenderer->LoadScene(scene);
 }

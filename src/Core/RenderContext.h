@@ -22,6 +22,19 @@ struct FrameInfo {
 
     size_t Index = 0;
     uint32_t ImageIndex = 0;
+
+    auto &CurrentData()
+    {
+        return Data[Index];
+    }
+    auto &CurrentCmd()
+    {
+        return Data[Index].CommandBuffer;
+    }
+    auto &CurrentPool()
+    {
+        return Data[Index].CommandPool;
+    }
 };
 
 class IRenderer;
@@ -40,7 +53,7 @@ class RenderContext {
     void CreateSwapchainResources();
     void DestroySwapchainResources();
 
-    void LoadScene(const Scene &scene);
+    void LoadScene(Scene &scene);
 
     struct Queues {
         VkQueue Graphics;

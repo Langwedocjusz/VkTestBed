@@ -15,8 +15,8 @@ struct GPUBufferInfo {
     const void *Data;
 };
 
-struct Buffer{
-public:
+struct Buffer {
+  public:
     static Buffer CreateBuffer(VulkanContext &ctx, VkDeviceSize size,
                                VkBufferUsageFlags usage, VmaAllocationCreateFlags flags);
     static void DestroyBuffer(VulkanContext &ctx, Buffer &buf);
@@ -27,10 +27,12 @@ public:
 
     static Buffer CreateStagingBuffer(VulkanContext &ctx, VkDeviceSize size);
     static Buffer CreateMappedUniformBuffer(VulkanContext &ctx, VkDeviceSize size);
-    static Buffer CreateGPUBuffer(VulkanContext &ctx, VkCommandBuffer cmd, GPUBufferInfo info);
+    static Buffer CreateGPUBuffer(VulkanContext &ctx, VkCommandBuffer cmd,
+                                  GPUBufferInfo info);
 
     static void CopyBuffer(VkCommandBuffer cmd, CopyBufferInfo info);
-public:
+
+  public:
     VkBuffer Handle;
     VmaAllocation Allocation;
     VmaAllocationInfo AllocInfo;

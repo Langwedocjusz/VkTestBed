@@ -40,4 +40,22 @@ using IndexProviderVariant =
 struct GeometryProvider {
     VertexProviderVariant Vert;
     IndexProviderVariant Idx;
+
+    template <Vertex V>
+    VertexProviderPtr<V> UnpackVertices()
+    {
+        if (std::holds_alternative<VertexProviderPtr<V>>(Vert))
+            return std::move(std::get<VertexProviderPtr<V>>(Vert));
+
+        return nullptr;
+    }
+
+    template <ValidIndexType I>
+    IndexProviderPtr<I> UnpackIndices()
+    {
+        if (std::holds_alternative<IndexProviderPtr<I>>(Idx))
+            return std::move(std::get<IndexProviderPtr<I>>(Idx));
+
+        return nullptr;
+    }
 };

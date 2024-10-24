@@ -124,10 +124,9 @@ PipelineBuilder PipelineBuilder::EnableBlending()
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::SetDescriptorSetLayout(VkDescriptorSetLayout &descriptor)
+PipelineBuilder PipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
 {
-    mLayoutCount = 1;
-    mLayoutsPtr = &descriptor;
+    mDescriptorLayouts.push_back(descriptor);
 
     return *this;
 }
@@ -146,8 +145,13 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
     // Create pipeline layout:
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = mLayoutCount;
-    pipelineLayoutInfo.pSetLayouts = mLayoutsPtr;
+
+    if (!mDescriptorLayouts.empty())
+    {
+        pipelineLayoutInfo.setLayoutCount =
+            static_cast<uint32_t>(mDescriptorLayouts.size());
+        pipelineLayoutInfo.pSetLayouts = mDescriptorLayouts.data();
+    }
 
     if (mPushConstantSize != 0)
     {

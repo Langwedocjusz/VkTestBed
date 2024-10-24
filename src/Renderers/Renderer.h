@@ -3,13 +3,14 @@
 #include "RenderContext.h"
 
 #include "Image.h"
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 class IRenderer {
   public:
-    IRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues)
-        : mCtx(ctx), mFrame(info), mQueues(queues), mMainDeletionQueue(ctx),
-          mSwapchainDeletionQueue(ctx), mSceneDeletionQueue(ctx)
+    IRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
+              Camera &camera)
+        : mCtx(ctx), mFrame(info), mQueues(queues), mCamera(camera),
+          mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx), mSceneDeletionQueue(ctx)
     {
     }
 
@@ -49,6 +50,7 @@ class IRenderer {
     VulkanContext &mCtx;
     FrameInfo &mFrame;
     RenderContext::Queues &mQueues;
+    Camera &mCamera;
 
     Image mRenderTarget;
     VkImageView mRenderTargetView;

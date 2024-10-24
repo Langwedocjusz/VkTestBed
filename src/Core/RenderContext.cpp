@@ -39,8 +39,13 @@ RenderContext::RenderContext(VulkanContext &ctx)
         mMainDeletionQueue.push_back(data.RenderCompletedSemaphore);
     }
 
+    // Create the camera
+    //To-do: mCamera is a unique_ptr, which implies it could change,
+    //while mRenderer only has a reference to it - sort this out.
+    mCamera = std::make_unique<Camera>(mCtx, mFrameInfo);
+
     // To-do: Move this to some factory function:
-    mRenderer = std::make_unique<HelloRenderer>(mCtx, mFrameInfo, mQueues);
+    mRenderer = std::make_unique<HelloRenderer>(mCtx, mFrameInfo, mQueues, *mCamera);
 }
 
 void RenderContext::InitImGuiVulkanBackend()
@@ -59,6 +64,7 @@ RenderContext::~RenderContext()
 
 void RenderContext::OnUpdate(float deltaTime)
 {
+    mCamera->OnUpdate();
     mRenderer->OnUpdate(deltaTime);
 }
 

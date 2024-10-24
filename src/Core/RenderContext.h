@@ -1,42 +1,12 @@
 #pragma once
 
+#include "Camera.h"
 #include "DeletionQueue.h"
+#include "Frame.h"
 #include "Scene.h"
 #include "VulkanContext.h"
 
-#include <array>
 #include <memory>
-
-struct FrameData {
-    VkFence InFlightFence;
-    VkSemaphore ImageAcquiredSemaphore;
-    VkSemaphore RenderCompletedSemaphore;
-
-    VkCommandPool CommandPool;
-    VkCommandBuffer CommandBuffer;
-};
-
-struct FrameInfo {
-    static constexpr size_t MaxInFlight = 2;
-
-    std::array<FrameData, MaxInFlight> Data;
-
-    size_t Index = 0;
-    uint32_t ImageIndex = 0;
-
-    auto &CurrentData()
-    {
-        return Data[Index];
-    }
-    auto &CurrentCmd()
-    {
-        return Data[Index].CommandBuffer;
-    }
-    auto &CurrentPool()
-    {
-        return Data[Index].CommandPool;
-    }
-};
 
 class IRenderer;
 
@@ -68,10 +38,11 @@ class RenderContext {
   private:
     VulkanContext &mCtx;
 
-    std::unique_ptr<IRenderer> mRenderer;
-
     FrameInfo mFrameInfo;
     Queues mQueues;
+
+    std::unique_ptr<Camera> mCamera;
+    std::unique_ptr<IRenderer> mRenderer;
 
     VkDescriptorPool mImGuiDescriptorPool;
 

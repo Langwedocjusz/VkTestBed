@@ -28,6 +28,9 @@ target_sources(${PROJECT_NAME}
         #Also listing headers to make them visible in IDEs
         src/Core/Application.h
         src/Core/Application.cpp
+        src/Core/Camera.h
+        src/Core/Camera.cpp
+        src/Core/Frame.h
         src/Core/GeometryProvider.h
         src/Core/ImGuiUtils.h
         src/Core/ImGuiUtils.cpp

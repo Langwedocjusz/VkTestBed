@@ -6,7 +6,8 @@
 
 class HelloRenderer : public IRenderer {
   public:
-    HelloRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues);
+    HelloRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
+                  Camera &camera);
     ~HelloRenderer();
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;
@@ -25,10 +26,6 @@ class HelloRenderer : public IRenderer {
     const float mInternalResolutionScale = 1.0f;
     const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
 
-    VkDescriptorSetLayout mDescriptorSetLayout;
-    VkDescriptorPool mDescriptorPool;
-    std::vector<VkDescriptorSet> mDescriptorSets;
-
     Pipeline mGraphicsPipeline;
 
     struct Drawable {
@@ -42,11 +39,4 @@ class HelloRenderer : public IRenderer {
     };
 
     std::vector<Drawable> mDrawables;
-
-    struct UniformBufferObject {
-        glm::mat4 ViewProjection = glm::mat4(1.0f);
-    };
-    UniformBufferObject mUBOData;
-
-    std::vector<Buffer> mUniformBuffers;
 };

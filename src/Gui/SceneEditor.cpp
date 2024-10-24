@@ -48,7 +48,7 @@ void SceneEditor::OnImGui(Scene &scene)
         scene.UpdateRequested = true;
         scene.GlobalUpdate = true;
 
-        for (auto& obj : scene.Objects)
+        for (auto &obj : scene.Objects)
             obj.UpdateInstances = true;
     }
 
@@ -64,7 +64,7 @@ void SceneEditor::OnImGui(Scene &scene)
 
                 if (ImGui::TreeNodeEx(nodeName.c_str()))
                 {
-                    if(TransformWidget(instance))
+                    if (TransformWidget(instance))
                     {
                         scene.UpdateRequested = true;
                         obj.UpdateInstances = true;

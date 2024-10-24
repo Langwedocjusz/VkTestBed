@@ -45,7 +45,7 @@ class PipelineBuilder {
     PipelineBuilder EnableDepthTest();
     PipelineBuilder EnableBlending();
 
-    PipelineBuilder SetDescriptorSetLayout(VkDescriptorSetLayout &descriptor);
+    PipelineBuilder AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
 
     PipelineBuilder SetPushConstantSize(uint32_t size);
 
@@ -68,8 +68,7 @@ class PipelineBuilder {
     VkFormat mColorFormat;
     std::optional<VkFormat> mDepthFormat;
 
-    uint32_t mLayoutCount = 0;
-    VkDescriptorSetLayout *mLayoutsPtr = nullptr;
+    std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
 
     uint32_t mPushConstantSize = 0;
 

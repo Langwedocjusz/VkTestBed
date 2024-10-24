@@ -14,8 +14,20 @@ struct InstanceData {
 struct SceneObject {
     GeometryProvider Provider;
     std::vector<InstanceData> Instances;
+    bool UpdateInstances = true;
 };
 
 struct Scene {
     std::vector<SceneObject> Objects;
+    bool UpdateRequested = true;
+    bool GlobalUpdate = true;
+
+    void ClearUpdateFlags()
+    {
+        UpdateRequested = false;
+        GlobalUpdate = false;
+
+        for (auto &obj : Objects)
+            obj.UpdateInstances = false;
+    }
 };

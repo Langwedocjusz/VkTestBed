@@ -5,6 +5,7 @@
 #include "VulkanContext.h"
 
 #include <array>
+#include <memory>
 
 struct FrameData {
     VkFence InFlightFence;

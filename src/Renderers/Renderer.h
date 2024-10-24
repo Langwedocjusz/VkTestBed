@@ -9,7 +9,7 @@ class IRenderer {
   public:
     IRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues)
         : mCtx(ctx), mFrame(info), mQueues(queues), mMainDeletionQueue(ctx),
-          mSwapchainDeletionQueue(ctx)
+          mSwapchainDeletionQueue(ctx), mSceneDeletionQueue(ctx)
     {
     }
 
@@ -55,4 +55,5 @@ class IRenderer {
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;
+    DeletionQueue mSceneDeletionQueue;
 };

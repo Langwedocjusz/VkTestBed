@@ -43,6 +43,8 @@ target_sources(${PROJECT_NAME}
         src/Core/VulkanContext.h
         src/Core/VulkanContext.cpp
         src/EntryPoint.cpp
+        src/Gui/SceneEditor.h
+        src/Gui/SceneEditor.cpp
         src/Renderers/Renderer.h
         src/Renderers/HelloRenderer.h
         src/Renderers/HelloRenderer.cpp
@@ -77,6 +79,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
         src
         src/Core
+        src/Gui
         src/Renderers
         src/Vulkan
 )
@@ -84,6 +87,7 @@ target_include_directories(${PROJECT_NAME}
 #For filters in IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")
 source_group(src/Core REGULAR_EXPRESSION "src/Core/*")
+source_group(src/Gui REGULAR_EXPRESSION "src/Gui/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
 source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 source_group(imgui_impl FILES ${imgui_impl})

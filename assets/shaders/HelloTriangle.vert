@@ -9,8 +9,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 ViewProjection;
 } Ubo;
 
-layout( push_constant ) uniform constants
-{
+layout(push_constant) uniform constants {
     mat4 Transform;
 } PushConstants;
 

@@ -39,7 +39,9 @@ Application::Application()
         instances.push_back(data);
     }
 
+    // First-time scene loading
     mRender.LoadScene(*mScene);
+    mScene->ClearUpdateFlags();
 }
 
 Application::~Application()
@@ -69,6 +71,15 @@ void Application::Run()
             mCtx.SwapchainOk = true;
         }
 
+        // Reload the scene if necessary:
+        if (mScene->UpdateRequested)
+        {
+            vkDeviceWaitIdle(mCtx.Device);
+
+            mRender.LoadScene(*mScene);
+            mScene->ClearUpdateFlags();
+        }
+
         // Poll system events:
         mWindow.PollEvents();
 
@@ -77,6 +88,7 @@ void Application::Run()
 
         // Collect imgui calls
         imutils::BeginGuiFrame();
+        mSceneEditor.OnImGui(*mScene);
         mRender.OnImGui();
         imutils::FinalizeGuiFrame();
 

@@ -18,6 +18,10 @@ class HelloRenderer : public IRenderer {
     void LoadScene(Scene &scene) override;
 
   private:
+    void LoadProviders(Scene &scene);
+    void LoadInstances(Scene &scene);
+
+  private:
     const float mInternalResolutionScale = 1.0f;
     const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
 

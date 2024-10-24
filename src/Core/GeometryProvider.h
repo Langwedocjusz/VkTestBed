@@ -1,6 +1,7 @@
 #pragma once
 
-#include <memory>
+#include <functional>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -9,53 +10,41 @@
 #include "Vertex.h"
 
 template <Vertex V>
-struct VertexProvider {
-    virtual ~VertexProvider() = default;
-    virtual std::vector<V> GetVertices() = 0;
-};
+using VertexProviderFn = std::function<std::vector<V>()>;
 
-template <Vertex V>
-using VertexProviderPtr = std::unique_ptr<VertexProvider<V>>;
-
-using VertexProviderVariant = std::variant<VertexProviderPtr<ColoredVertex>>;
+// This needs to be a variant over all supported Vertex Types:
+using VertexProviderVariant = std::variant<VertexProviderFn<ColoredVertex>>;
 
 // Index data:
 template <typename T>
 concept ValidIndexType = std::same_as<T, uint16_t> || std::same_as<T, uint32_t>;
 
 template <ValidIndexType I>
-struct IndexProvider {
-    virtual ~IndexProvider() = default;
-    virtual std::vector<I> GetIndices() = 0;
-};
-
-template <ValidIndexType I>
-using IndexProviderPtr = std::unique_ptr<IndexProvider<I>>;
+using IndexProviderFn = std::function<std::vector<I>()>;
 
 using IndexProviderVariant =
-    std::variant<IndexProviderPtr<uint16_t>, IndexProviderPtr<uint32_t>>;
+    std::variant<IndexProviderFn<uint16_t>, IndexProviderFn<uint32_t>>;
 
-// Geometry provider
-
+// Geometry provider:
 struct GeometryProvider {
     VertexProviderVariant Vert;
     IndexProviderVariant Idx;
 
     template <Vertex V>
-    VertexProviderPtr<V> UnpackVertices()
+    std::optional<VertexProviderFn<V>> UnpackVertices()
     {
-        if (std::holds_alternative<VertexProviderPtr<V>>(Vert))
-            return std::move(std::get<VertexProviderPtr<V>>(Vert));
+        if (std::holds_alternative<VertexProviderFn<V>>(Vert))
+            return std::get<VertexProviderFn<V>>(Vert);
 
-        return nullptr;
+        return {};
     }
 
     template <ValidIndexType I>
-    IndexProviderPtr<I> UnpackIndices()
+    std::optional<IndexProviderFn<I>> UnpackIndices()
     {
-        if (std::holds_alternative<IndexProviderPtr<I>>(Idx))
-            return std::move(std::get<IndexProviderPtr<I>>(Idx));
+        if (std::holds_alternative<IndexProviderFn<I>>(Idx))
+            return std::get<IndexProviderFn<I>>(Idx);
 
-        return nullptr;
+        return {};
     }
 };

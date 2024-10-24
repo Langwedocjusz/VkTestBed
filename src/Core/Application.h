@@ -4,6 +4,7 @@
 #include "VulkanContext.h"
 
 #include "RenderContext.h"
+#include "SceneEditor.h"
 
 #include <chrono>
 #include <memory>
@@ -22,6 +23,7 @@ class Application {
     VulkanContext mCtx;
 
     std::unique_ptr<Scene> mScene;
+    SceneEditor mSceneEditor;
 
     RenderContext mRender;
 

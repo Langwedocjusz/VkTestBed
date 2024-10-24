@@ -1,25 +1,25 @@
 #include "HelloRenderer.h"
+#include "Descriptor.h"
 #include "GeometryProvider.h"
 #include "Renderer.h"
 #include "Shader.h"
 #include "Utils.h"
 #include "Vertex.h"
 #include "VkInit.h"
-#include "Descriptor.h"
-#include <cstdint>
-#include <vulkan/vulkan.h>
 
 #include "Common.h"
-#include "imgui.h"
 
+#include <cstdint>
 #include <iostream>
+#include <ranges>
+#include <vulkan/vulkan.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues)
     : IRenderer(ctx, info, queues)
 {
-    //Create descriptor sets:
-    // Descriptor layout
+    // Create descriptor sets:
+    //  Descriptor layout
     mDescriptorSetLayout =
         DescriptorSetLayoutBuilder()
             .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
@@ -35,8 +35,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
     mDescriptorPool = Descriptor::InitPool(ctx, maxSets, poolCounts);
 
     // Descriptor sets allocation
-    std::vector<VkDescriptorSetLayout> layouts(mFrame.MaxInFlight,
-                                               mDescriptorSetLayout);
+    std::vector<VkDescriptorSetLayout> layouts(mFrame.MaxInFlight, mDescriptorSetLayout);
 
     mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
 
@@ -63,7 +62,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
     mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
     mMainDeletionQueue.push_back(mGraphicsPipeline.Layout);
 
-    //Create Uniform Buffers:
+    // Create Uniform Buffers:
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
     mUniformBuffers.resize(mFrame.MaxInFlight);
@@ -74,7 +73,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
         mMainDeletionQueue.push_back(&uniformBuffer);
     }
 
-    //Update descriptor sets:
+    // Update descriptor sets:
     for (size_t i = 0; i < mDescriptorSets.size(); i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
@@ -102,11 +101,12 @@ HelloRenderer::~HelloRenderer()
 {
     mSwapchainDeletionQueue.flush();
     mMainDeletionQueue.flush();
+    mSceneDeletionQueue.flush();
 }
 
 void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    //Basic orthographic camera setup:
+    // Basic orthographic camera setup:
     auto width = static_cast<float>(mCtx.Swapchain.extent.width);
     auto height = static_cast<float>(mCtx.Swapchain.extent.height);
 
@@ -127,7 +127,6 @@ void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 
 void HelloRenderer::OnImGui()
 {
-    ImGui::ShowDemoWindow();
 }
 
 void HelloRenderer::OnRender()
@@ -212,22 +211,39 @@ void HelloRenderer::CreateSwapchainResources()
 
 void HelloRenderer::LoadScene(Scene &scene)
 {
+    if (scene.GlobalUpdate)
+    {
+        // This will only take efect on non-first runs:
+        mSceneDeletionQueue.flush();
+        mDrawables.clear();
+
+        LoadProviders(scene);
+    }
+
+    LoadInstances(scene);
+}
+
+void HelloRenderer::LoadProviders(Scene &scene)
+{
     for (auto &obj : scene.Objects)
     {
-        auto vertPtr = obj.Provider.UnpackVertices<ColoredVertex>();
-        auto idxPtr = obj.Provider.UnpackIndices<uint16_t>();
+        auto vertOpt = obj.Provider.UnpackVertices<ColoredVertex>();
+        auto idxOpt = obj.Provider.UnpackIndices<uint16_t>();
 
-        if (vertPtr == nullptr)
+        if (!vertOpt.has_value())
         {
             std::cerr << "Unsupported vertex type.\n";
             continue;
         }
 
-        if (idxPtr == nullptr)
+        if (!idxOpt.has_value())
         {
             std::cerr << "Unsupported index type.\n";
             continue;
         }
+
+        auto vertFn = vertOpt.value();
+        auto idxFn = idxOpt.value();
 
         mDrawables.emplace_back();
         auto &drawable = mDrawables.back();
@@ -238,7 +254,7 @@ void HelloRenderer::LoadScene(Scene &scene)
         {
             utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
 
-            auto vertices = vertPtr->GetVertices();
+            auto vertices = vertFn();
             auto vertexCount = vertices.size();
 
             GPUBufferInfo vertInfo{
@@ -257,7 +273,7 @@ void HelloRenderer::LoadScene(Scene &scene)
         {
             utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
 
-            auto indices = idxPtr->GetIndices();
+            auto indices = idxFn();
             auto indexCount = indices.size();
 
             GPUBufferInfo idxInfo{
@@ -271,28 +287,62 @@ void HelloRenderer::LoadScene(Scene &scene)
             drawable.IndexBuffer = Buffer::CreateGPUBuffer(mCtx, cmd.Buffer, idxInfo);
             drawable.IndexCount = indexCount;
         }
-
-        // Unpack instance data:
-        for (auto instance : obj.Instances)
-        {
-            glm::mat4 transform(1.0f);
-
-            transform = glm::scale(transform, instance.Scale);
-
-            glm::mat4 rotation = glm::mat4_cast(instance.Rotation);
-            transform = rotation * transform;
-
-            transform = glm::translate(transform, instance.Translation);
-
-            drawable.Transforms.push_back(transform);
-        }
     }
 
-    // To-do: create a dedicated deletion queue for
-    // scene-depent objects:
     for (auto &drawable : mDrawables)
     {
-        mMainDeletionQueue.push_back(&drawable.VertexBuffer);
-        mMainDeletionQueue.push_back(&drawable.IndexBuffer);
+        mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
+        mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+    }
+}
+
+void HelloRenderer::LoadInstances(Scene &scene)
+{
+    using namespace std::views;
+
+    size_t drawableId = 0;
+
+    for (auto& obj : scene.Objects)
+    {
+        auto vertOpt = obj.Provider.UnpackVertices<ColoredVertex>();
+        auto idxOpt = obj.Provider.UnpackIndices<uint16_t>();
+
+        if (!vertOpt.has_value())
+        {
+            std::cerr << "Unsupported vertex type.\n";
+            continue;
+        }
+
+        if (!idxOpt.has_value())
+        {
+            std::cerr << "Unsupported index type.\n";
+            continue;
+        }
+
+        auto& drawable = mDrawables[drawableId];
+
+        if (obj.UpdateInstances)
+        {
+            drawable.Transforms.clear();
+
+            // Unpack instance data:
+            for (auto instance : obj.Instances)
+            {
+                glm::mat4 transform(1.0f);
+
+                transform = glm::scale(transform, instance.Scale);
+
+                glm::mat4 rotation = glm::mat4_cast(instance.Rotation);
+                transform = rotation * transform;
+
+                glm::mat4 translation =
+                    glm::translate(glm::mat4(1.0f), instance.Translation);
+                transform = translation * transform;
+
+                drawable.Transforms.push_back(transform);
+            }
+        }
+
+        drawableId++;
     }
 }

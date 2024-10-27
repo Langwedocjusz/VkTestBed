@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <vulkan/vulkan.h>
 
+#include "Event.h"
 #include <GLFW/glfw3.h>
 
 static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
@@ -13,6 +14,35 @@ static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
     auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
 
     app->OnResize(width, height);
+}
+
+static void KeyCallback(GLFWwindow *window, int key, int /*scancode*/, int action,
+                        int /*mods*/)
+{
+    auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
+
+    switch (action)
+    {
+    case GLFW_PRESS: {
+        app->OnEvent(Event::KeyPressed(key, false));
+        break;
+    }
+    case GLFW_REPEAT: {
+        app->OnEvent(Event::KeyPressed(key, true));
+        break;
+    }
+    case GLFW_RELEASE: {
+        app->OnEvent(Event::KeyReleased(key));
+        break;
+    }
+    }
+}
+
+static void MouseMovedCallback(GLFWwindow *window, double xPos, double yPos)
+{
+    auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
+
+    app->OnEvent(Event::MouseMoved(static_cast<float>(xPos), static_cast<float>(yPos)));
 }
 
 SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
@@ -39,7 +69,11 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
     }
 
     glfwSetWindowUserPointer(mWindow, usr_ptr);
+
     glfwSetFramebufferSizeCallback(mWindow, FramebufferResizeCallback);
+
+    glfwSetKeyCallback(mWindow, KeyCallback);
+    glfwSetCursorPosCallback(mWindow, MouseMovedCallback);
 }
 
 SystemWindow::~SystemWindow()
@@ -61,6 +95,16 @@ void SystemWindow::PollEvents()
 void SystemWindow::WaitEvents()
 {
     glfwWaitEvents();
+}
+
+void SystemWindow::CaptureCursor()
+{
+    glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+}
+
+void SystemWindow::FreeCursor()
+{
+    glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
 VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance,

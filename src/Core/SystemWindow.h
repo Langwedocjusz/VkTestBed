@@ -18,6 +18,9 @@ class SystemWindow {
     void PollEvents();
     void WaitEvents();
 
+    void CaptureCursor();
+    void FreeCursor();
+
     VkSurfaceKHR CreateSurface(VkInstance instance,
                                VkAllocationCallbacks *allocator = nullptr);
 

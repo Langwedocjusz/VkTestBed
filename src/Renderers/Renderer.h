@@ -8,7 +8,7 @@
 class IRenderer {
   public:
     IRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
-              Camera &camera)
+              std::unique_ptr<Camera> &camera)
         : mCtx(ctx), mFrame(info), mQueues(queues), mCamera(camera),
           mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx), mSceneDeletionQueue(ctx)
     {
@@ -50,7 +50,7 @@ class IRenderer {
     VulkanContext &mCtx;
     FrameInfo &mFrame;
     RenderContext::Queues &mQueues;
-    Camera &mCamera;
+    std::unique_ptr<Camera> &mCamera;
 
     Image mRenderTarget;
     VkImageView mRenderTargetView;

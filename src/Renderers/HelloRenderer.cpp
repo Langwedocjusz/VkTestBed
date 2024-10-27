@@ -13,7 +13,8 @@
 #include <vulkan/vulkan.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
-                             RenderContext::Queues &queues, Camera &camera)
+                             RenderContext::Queues &queues,
+                             std::unique_ptr<Camera> &camera)
     : IRenderer(ctx, info, queues, camera)
 {
     // Create Graphics Pipelines
@@ -30,7 +31,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
                             .SetColorFormat(mRenderTargetFormat)
                             .SetPushConstantSize(sizeof(glm::mat4))
-                            .AddDescriptorSetLayout(mCamera.DescriptorSetLayout())
+                            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
                             .Build(ctx);
 
     mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
@@ -73,10 +74,10 @@ void HelloRenderer::OnRender()
 
         common::ViewportScissor(cmd, GetTargetSize());
 
-        //To-do: figure out a better way of doing this:
+        // To-do: figure out a better way of doing this:
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mGraphicsPipeline.Layout, 0, 1,
-                                mCamera.DescriptorSet(), 0, nullptr);
+                                mGraphicsPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
+                                0, nullptr);
 
         for (auto &drawable : mDrawables)
         {

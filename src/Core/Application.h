@@ -3,6 +3,7 @@
 #include "SystemWindow.h"
 #include "VulkanContext.h"
 
+#include "Event.h"
 #include "RenderContext.h"
 #include "SceneEditor.h"
 
@@ -17,6 +18,7 @@ class Application {
     void Run();
 
     void OnResize(uint32_t width, uint32_t height);
+    void OnEvent(Event::EventVariant event);
 
   private:
     SystemWindow mWindow;
@@ -29,4 +31,6 @@ class Application {
 
     float mDeltaTime = 0.0f;
     std::chrono::time_point<std::chrono::high_resolution_clock> mOldTime;
+
+    bool mCursorCaptured = false;
 };

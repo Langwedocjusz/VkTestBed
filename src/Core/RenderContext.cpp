@@ -40,12 +40,10 @@ RenderContext::RenderContext(VulkanContext &ctx)
     }
 
     // Create the camera
-    //To-do: mCamera is a unique_ptr, which implies it could change,
-    //while mRenderer only has a reference to it - sort this out.
     mCamera = std::make_unique<Camera>(mCtx, mFrameInfo);
 
     // To-do: Move this to some factory function:
-    mRenderer = std::make_unique<HelloRenderer>(mCtx, mFrameInfo, mQueues, *mCamera);
+    mRenderer = std::make_unique<HelloRenderer>(mCtx, mFrameInfo, mQueues, mCamera);
 }
 
 void RenderContext::InitImGuiVulkanBackend()
@@ -64,13 +62,14 @@ RenderContext::~RenderContext()
 
 void RenderContext::OnUpdate(float deltaTime)
 {
-    mCamera->OnUpdate();
+    mCamera->OnUpdate(deltaTime);
     mRenderer->OnUpdate(deltaTime);
 }
 
 void RenderContext::OnImGui()
 {
     mRenderer->OnImGui();
+    mCamera->OnImGui();
 }
 
 void RenderContext::OnRender()
@@ -184,4 +183,19 @@ void RenderContext::DestroySwapchainResources()
 void RenderContext::LoadScene(Scene &scene)
 {
     mRenderer->LoadScene(scene);
+}
+
+void RenderContext::OnKeyPressed(int keycode, bool repeat)
+{
+    mCamera->OnKeyPressed(keycode, repeat);
+}
+
+void RenderContext::OnKeyReleased(int keycode)
+{
+    mCamera->OnKeyReleased(keycode);
+}
+
+void RenderContext::OnMouseMoved(float x, float y)
+{
+    mCamera->OnMouseMoved(x, y);
 }

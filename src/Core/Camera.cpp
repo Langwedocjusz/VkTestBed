@@ -1,8 +1,13 @@
 #include "Camera.h"
 
 #include "Descriptor.h"
+#include "Keycodes.h"
 
 #include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/euler_angles.hpp>
+
+#include <optional>
 
 Camera::Camera(VulkanContext &ctx, FrameInfo &info)
     : mCtx(ctx), mFrame(info), mMainDeletionQueue(ctx)
@@ -68,9 +73,40 @@ Camera::~Camera()
     mMainDeletionQueue.flush();
 }
 
-void Camera::OnUpdate()
+void Camera::OnUpdate(float deltatime)
 {
-    // Basic orthographic camera setup:
+    ProcessKeyboard(deltatime);
+
+    // Vectors are not updated here, since they only change on mouse input
+    // which is handled on event.
+
+    auto view = glm::lookAt(mPos, mPos + mFront, mUp);
+
+    auto proj = ProjPerspective();
+
+    // To compensate for chane of orientation between
+    // OpenGL and Vulkan:
+    proj[1][1] *= -1;
+
+    // Upload data to uniform buffer:
+    mUBOData.ViewProjection = proj * view;
+
+    auto &uniformBuffer = mUniformBuffers[mFrame.Index];
+    Buffer::UploadToMappedBuffer(uniformBuffer, &mUBOData, sizeof(mUBOData));
+}
+
+glm::mat4 Camera::ProjPerspective()
+{
+    auto width = static_cast<float>(mCtx.Swapchain.extent.width);
+    auto height = static_cast<float>(mCtx.Swapchain.extent.height);
+
+    float aspect = width / height;
+
+    return glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+}
+
+glm::mat4 Camera::ProjOrthogonal()
+{
     auto width = static_cast<float>(mCtx.Swapchain.extent.width);
     auto height = static_cast<float>(mCtx.Swapchain.extent.height);
 
@@ -81,10 +117,116 @@ void Camera::OnUpdate()
     else
         sy = height / width;
 
-    auto proj = glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
+    return glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
+}
 
-    mUBOData.ViewProjection = proj;
+void Camera::OnImGui()
+{
+}
 
-    auto &uniformBuffer = mUniformBuffers[mFrame.Index];
-    Buffer::UploadToMappedBuffer(uniformBuffer, &mUBOData, sizeof(mUBOData));
+void Camera::UpdateVectors()
+{
+    glm::mat3 rot = glm::yawPitchRoll(mYaw, mPitch, 0.0f);
+
+    mFront = rot * glm::vec3(0, 0, 1);
+    mRight = glm::normalize(glm::cross(mFront, mWorldUp));
+    mUp = glm::normalize(glm::cross(mRight, mFront));
+}
+
+void Camera::ProcessKeyboard(float deltatime)
+{
+    float deltaPos = deltatime * mSpeed;
+
+    if (mMovementFlags[Movement::Forward])
+        mPos += deltaPos * mFront;
+
+    if (mMovementFlags[Movement::Backward])
+        mPos -= deltaPos * mFront;
+
+    if (mMovementFlags[Movement::Left])
+        mPos -= deltaPos * mRight;
+
+    if (mMovementFlags[Movement::Right])
+        mPos += deltaPos * mRight;
+}
+
+void Camera::ProcessMouse(float xoffset, float yoffset)
+{
+    mPitch += mSensitivity * yoffset;
+    mYaw += mSensitivity * xoffset;
+
+    if (mPitch > 89.0f)
+        mPitch = 89.0f;
+    if (mPitch < -89.0f)
+        mPitch = -89.0f;
+
+    UpdateVectors();
+}
+
+static std::optional<Camera::Movement> KeyToMovement(int keycode)
+{
+    switch (keycode)
+    {
+    case VKTB_KEY_W:
+        return Camera::Movement::Forward;
+    case VKTB_KEY_S:
+        return Camera::Movement::Backward;
+    case VKTB_KEY_A:
+        return Camera::Movement::Left;
+    case VKTB_KEY_D:
+        return Camera::Movement::Right;
+    }
+
+    return {};
+}
+
+void Camera::OnKeyPressed(int keycode, bool repeat)
+{
+    if (repeat)
+        return;
+
+    auto movement = KeyToMovement(keycode);
+
+    if (movement.has_value())
+        mMovementFlags.Set(movement.value());
+}
+
+void Camera::OnKeyReleased(int keycode)
+{
+    auto movement = KeyToMovement(keycode);
+
+    if (movement.has_value())
+        mMovementFlags.Unset(movement.value());
+}
+
+void Camera::OnMouseMoved(float x, float y)
+{
+    auto width = static_cast<float>(mCtx.Swapchain.extent.width);
+    auto height = static_cast<float>(mCtx.Swapchain.extent.height);
+
+    float xpos = x / width;
+    float ypos = y / height;
+
+    if (mMouseInit)
+    {
+        mMouseLastX = xpos;
+        mMouseLastY = ypos;
+        mMouseInit = false;
+    }
+
+    float xoffset = xpos - mMouseLastX;
+    float yoffset = mMouseLastY - ypos;
+
+    mMouseLastX = xpos;
+    mMouseLastY = ypos;
+
+    const float max_offset = 0.1f;
+
+    if (std::abs(xoffset) > max_offset)
+        xoffset = (xoffset > 0.0f) ? max_offset : -max_offset;
+
+    if (std::abs(yoffset) > max_offset)
+        yoffset = (yoffset > 0.0f) ? max_offset : -max_offset;
+
+    ProcessMouse(xoffset, yoffset);
 }

@@ -28,12 +28,16 @@ target_sources(${PROJECT_NAME}
         #Also listing headers to make them visible in IDEs
         src/Core/Application.h
         src/Core/Application.cpp
+        src/Core/Bitflags.h
         src/Core/Camera.h
         src/Core/Camera.cpp
+        src/Core/Event.h
+        src/Core/Frame.h
         src/Core/Frame.h
         src/Core/GeometryProvider.h
         src/Core/ImGuiUtils.h
         src/Core/ImGuiUtils.cpp
+        src/Core/Keycodes.h
         src/Core/Scene.h
         src/Core/Primitives.h
         src/Core/Primitives.cpp

@@ -1,9 +1,18 @@
 #include "Application.h"
 #include <memory>
 
+#include "Event.h"
 #include "ImGuiUtils.h"
+#include "Keycodes.h"
 #include "Primitives.h"
+
 #include "glm/ext/quaternion_trigonometric.hpp"
+#include <variant>
+
+template <class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
 
 Application::Application()
     : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
@@ -84,7 +93,7 @@ void Application::Run()
         mWindow.PollEvents();
 
         // Update Renderer
-        mRender.OnUpdate(mDeltaTime);
+        mRender.OnUpdate(mDeltaTime / 1000.0f);
 
         // Collect imgui calls
         imutils::BeginGuiFrame();
@@ -105,4 +114,35 @@ void Application::OnResize(uint32_t width, uint32_t height)
     mCtx.SwapchainOk = false;
     mCtx.RequestedWidth = width;
     mCtx.RequestedHeight = height;
+}
+
+void Application::OnEvent(Event::EventVariant event)
+{
+    // Handle esc being pressed:
+    if (std::holds_alternative<Event::KeyPressed>(event))
+    {
+        if (std::get<Event::KeyPressed>(event).Keycode == VKTB_KEY_ESCAPE)
+        {
+            mCursorCaptured = !mCursorCaptured;
+
+            if (mCursorCaptured)
+                mWindow.CaptureCursor();
+            else
+                mWindow.FreeCursor();
+        }
+    }
+
+    // If cursor not caputured, early bail - use Imgui event handling
+    if (!mCursorCaptured)
+        return;
+
+    // If not, do event handling
+    // To-do: prevent events from propagating to imgui in this case:
+    std::visit(
+        overloaded{[this](Event::KeyPressed arg) {
+                       mRender.OnKeyPressed(arg.Keycode, arg.Repeat);
+                   },
+                   [this](Event::KeyReleased arg) { mRender.OnKeyReleased(arg.Keycode); },
+                   [this](Event::MouseMoved arg) { mRender.OnMouseMoved(arg.X, arg.Y); }},
+        event);
 }

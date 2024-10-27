@@ -21,6 +21,10 @@ class RenderContext {
     void OnImGui();
     void OnRender();
 
+    void OnKeyPressed(int keycode, bool repeat);
+    void OnKeyReleased(int keycode);
+    void OnMouseMoved(float x, float y);
+
     void CreateSwapchainResources();
     void DestroySwapchainResources();
 

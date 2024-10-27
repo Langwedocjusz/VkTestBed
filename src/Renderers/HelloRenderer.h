@@ -7,7 +7,7 @@
 class HelloRenderer : public IRenderer {
   public:
     HelloRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
-                  Camera &camera);
+                  std::unique_ptr<Camera> &camera);
     ~HelloRenderer();
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;

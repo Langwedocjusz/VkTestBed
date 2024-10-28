@@ -9,14 +9,14 @@
 
 static bool TransformWidget(InstanceData &data)
 {
+    auto clampPositive = [](float &x){if (x < 0.0f) x = 0.0f;};
+
     auto prev_trans = data.Translation;
     auto prev_rot = data.Rotation;
     auto prev_scl = data.Scale;
 
-    glm::vec3 euler = glm::eulerAngles(data.Rotation);
-
     auto trans_ptr = glm::value_ptr(data.Translation);
-    auto rot_ptr = glm::value_ptr(euler);
+    auto rot_ptr = glm::value_ptr(data.Rotation);
     auto scl_ptr = glm::value_ptr(data.Scale);
 
     const float speed = 0.01f;
@@ -25,7 +25,9 @@ static bool TransformWidget(InstanceData &data)
     ImGui::DragFloat3("Rotation", rot_ptr, speed);
     ImGui::DragFloat3("Scale", scl_ptr, speed);
 
-    data.Rotation = glm::quat(euler);
+    clampPositive(data.Scale.x);
+    clampPositive(data.Scale.y);
+    clampPositive(data.Scale.z);
 
     bool changed = false;
     changed = changed || (prev_trans != data.Translation);

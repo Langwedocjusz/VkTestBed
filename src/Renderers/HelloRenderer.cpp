@@ -254,18 +254,7 @@ void HelloRenderer::LoadInstances(Scene &scene)
             // Unpack instance data:
             for (auto instance : obj.Instances)
             {
-                glm::mat4 transform(1.0f);
-
-                transform = glm::scale(transform, instance.Scale);
-
-                glm::mat4 rotation = glm::mat4_cast(instance.Rotation);
-                transform = rotation * transform;
-
-                glm::mat4 translation =
-                    glm::translate(glm::mat4(1.0f), instance.Translation);
-                transform = translation * transform;
-
-                drawable.Transforms.push_back(transform);
+                drawable.Transforms.push_back(instance.GetTransform());
             }
         }
 

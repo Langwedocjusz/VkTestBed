@@ -49,7 +49,7 @@ class Camera {
   private:
     Bitflags<Movement> mMovementFlags;
 
-    float mSpeed = 1.0f, mSensitivity = 1.0f;
+    float mSpeed = 1.0f, mSensitivity = 100.0f;
 
     glm::vec3 mPos{0.0f, 0.0f, 0.0f};
     float mYaw = 0.0f, mPitch = 0.0f;

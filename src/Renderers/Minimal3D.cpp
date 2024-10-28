@@ -1,4 +1,5 @@
-#include "HelloRenderer.h"
+#include "Minimal3D.h"
+#include "Barrier.h"
 #include "GeometryProvider.h"
 #include "Renderer.h"
 #include "Shader.h"
@@ -11,27 +12,30 @@
 #include <cstdint>
 #include <iostream>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
-HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
+Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues,
                              std::unique_ptr<Camera> &camera)
     : IRenderer(ctx, info, queues, camera)
 {
     // Create Graphics Pipelines
     auto shaderStages = ShaderBuilder()
-                            .SetVertexPath("assets/spirv/HelloTriangleVert.spv")
-                            .SetFragmentPath("assets/spirv/HelloTriangleFrag.spv")
+                            .SetVertexPath("assets/spirv/Minimal3DVert.spv")
+                            .SetFragmentPath("assets/spirv/Minimal3DFrag.spv")
                             .Build(ctx);
 
     mGraphicsPipeline = PipelineBuilder()
                             .SetShaderStages(shaderStages)
-                            .SetVertexInput<Vertex_PC>(0, VK_VERTEX_INPUT_RATE_VERTEX)
+                            .SetVertexInput<Vertex_PCN>(0, VK_VERTEX_INPUT_RATE_VERTEX)
                             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
                             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
                             .SetColorFormat(mRenderTargetFormat)
                             .SetPushConstantSize(sizeof(glm::mat4))
                             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+                            .EnableDepthTest()
+                            .SetDepthFormat(mDepthFormat)
                             .Build(ctx);
 
     mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
@@ -41,32 +45,40 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
     CreateSwapchainResources();
 }
 
-HelloRenderer::~HelloRenderer()
+Minimal3DRenderer::~Minimal3DRenderer()
 {
     mSwapchainDeletionQueue.flush();
     mMainDeletionQueue.flush();
     mSceneDeletionQueue.flush();
 }
 
-void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)
+void Minimal3DRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
 }
 
-void HelloRenderer::OnImGui()
+void Minimal3DRenderer::OnImGui()
 {
 }
 
-void HelloRenderer::OnRender()
+void Minimal3DRenderer::OnRender()
 {
     auto &cmd = mFrame.CurrentCmd();
 
-    VkClearValue clear{{{0.0f, 0.0f, 0.0f, 0.0f}}};
+    barrier::ImageBarrierDepthToRender(cmd, mDepthBuffer.Handle);
 
-    VkRenderingAttachmentInfoKHR colorAttachment = vkinit::CreateAttachmentInfo(
-        mRenderTargetView, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, clear);
+    VkClearValue clear;
+    clear.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+
+    auto colorAttachment = vkinit::CreateAttachmentInfo(
+        mRenderTargetView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, clear);
+
+    VkClearValue depthClear;
+    depthClear.depthStencil = {1.0f, 0};
+
+    auto depthAttachment = vkinit::CreateAttachmentInfo(mDepthBufferView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depthClear);
 
     VkRenderingInfoKHR renderingInfo =
-        vkinit::CreateRenderingInfo(GetTargetSize(), colorAttachment);
+        vkinit::CreateRenderingInfo(GetTargetSize(), colorAttachment, depthAttachment);
 
     vkCmdBeginRendering(cmd, &renderingInfo);
     {
@@ -87,7 +99,7 @@ void HelloRenderer::OnRender()
             vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
 
             vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 VK_INDEX_TYPE_UINT16);
+                                 VK_INDEX_TYPE_UINT32);
 
             for (auto &transform : drawable.Transforms)
             {
@@ -101,7 +113,7 @@ void HelloRenderer::OnRender()
     vkCmdEndRendering(cmd);
 }
 
-void HelloRenderer::CreateSwapchainResources()
+void Minimal3DRenderer::CreateSwapchainResources()
 {
     // Create the render target:
     auto ScaleResolution = [this](uint32_t res) {
@@ -135,9 +147,23 @@ void HelloRenderer::CreateSwapchainResources()
     mRenderTargetView = Image::CreateView2D(mCtx, mRenderTarget, mRenderTargetFormat,
                                             VK_IMAGE_ASPECT_COLOR_BIT);
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
+
+    //Create depth buffer:
+    ImageInfo depthBufferInfo{
+        .Extent = drawExtent,
+        .Format = mDepthFormat,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+    };
+
+    mDepthBuffer = Image::CreateImage2D(mCtx, depthBufferInfo);
+    mDepthBufferView = Image::CreateView2D(mCtx, mDepthBuffer, mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    mSwapchainDeletionQueue.push_back(&mDepthBuffer);
+    mSwapchainDeletionQueue.push_back(mDepthBufferView);
 }
 
-void HelloRenderer::LoadScene(Scene &scene)
+void Minimal3DRenderer::LoadScene(Scene &scene)
 {
     if (scene.GlobalUpdate)
     {
@@ -151,12 +177,12 @@ void HelloRenderer::LoadScene(Scene &scene)
     LoadInstances(scene);
 }
 
-void HelloRenderer::LoadProviders(Scene &scene)
+void Minimal3DRenderer::LoadProviders(Scene &scene)
 {
     for (auto &obj : scene.Objects)
     {
-        auto vertOpt = obj.Provider.UnpackVertices<Vertex_PC>();
-        auto idxOpt = obj.Provider.UnpackIndices<uint16_t>();
+        auto vertOpt = obj.Provider.UnpackVertices<Vertex_PCN>();
+        auto idxOpt = obj.Provider.UnpackIndices<uint32_t>();
 
         if (!vertOpt.has_value())
         {
@@ -189,7 +215,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
                 .Usage =
                     VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                 .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                .Size = vertexCount * sizeof(Vertex_PC),
+                .Size = vertexCount * sizeof(Vertex_PCN),
                 .Data = vertices.data(),
             };
 
@@ -208,7 +234,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
                 .Usage =
                     VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                 .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                .Size = indexCount * sizeof(uint16_t),
+                .Size = indexCount * sizeof(uint32_t),
                 .Data = indices.data(),
             };
 
@@ -224,14 +250,14 @@ void HelloRenderer::LoadProviders(Scene &scene)
     }
 }
 
-void HelloRenderer::LoadInstances(Scene &scene)
+void Minimal3DRenderer::LoadInstances(Scene &scene)
 {
     size_t drawableId = 0;
 
     for (auto &obj : scene.Objects)
     {
-        auto vertOpt = obj.Provider.UnpackVertices<Vertex_PC>();
-        auto idxOpt = obj.Provider.UnpackIndices<uint16_t>();
+        auto vertOpt = obj.Provider.UnpackVertices<Vertex_PCN>();
+        auto idxOpt = obj.Provider.UnpackIndices<uint32_t>();
 
         if (!vertOpt.has_value())
         {

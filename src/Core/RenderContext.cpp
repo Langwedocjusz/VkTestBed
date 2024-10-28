@@ -8,6 +8,7 @@
 #include "VkInit.h"
 
 #include "HelloRenderer.h"
+#include "Minimal3D.h"
 
 #include <memory>
 
@@ -43,7 +44,7 @@ RenderContext::RenderContext(VulkanContext &ctx)
     mCamera = std::make_unique<Camera>(mCtx, mFrameInfo);
 
     // To-do: Move this to some factory function:
-    mRenderer = std::make_unique<HelloRenderer>(mCtx, mFrameInfo, mQueues, mCamera);
+    mRenderer = std::make_unique<Minimal3DRenderer>(mCtx, mFrameInfo, mQueues, mCamera);
 }
 
 void RenderContext::InitImGuiVulkanBackend()

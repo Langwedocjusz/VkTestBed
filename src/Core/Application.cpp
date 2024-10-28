@@ -6,7 +6,6 @@
 #include "Keycodes.h"
 #include "Primitives.h"
 
-#include "glm/ext/quaternion_trigonometric.hpp"
 #include <variant>
 
 template <class... Ts>
@@ -25,28 +24,8 @@ Application::Application()
     mScene = std::make_unique<Scene>();
 
     mScene->Objects.emplace_back();
-    mScene->Objects.back().Provider = primitive::HelloTriangle();
-    {
-        auto &instances = mScene->Objects.back().Instances;
-
-        InstanceData data{};
-        data.Translation = {-0.5f, 0.0f, 0.0f};
-        data.Rotation = glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-        instances.push_back(data);
-    }
-
-    mScene->Objects.emplace_back();
-    mScene->Objects.back().Provider = primitive::HelloQuad();
-    {
-        auto &instances = mScene->Objects.back().Instances;
-
-        InstanceData data{};
-        data.Translation = {0.5f, 0.0f, 0.0f};
-        data.Scale = {1.0f, 1.5f, 1.0f};
-
-        instances.push_back(data);
-    }
+    mScene->Objects.back().Provider = primitive::ColoredCube(glm::vec3(0.5f));
+    mScene->Objects.back().Instances.push_back(InstanceData{});
 
     // First-time scene loading
     mRender.LoadScene(*mScene);

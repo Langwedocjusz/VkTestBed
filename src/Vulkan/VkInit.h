@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <span>
+#include <vulkan/vulkan_core.h>
 
 namespace vkinit
 {
@@ -20,6 +21,11 @@ void AllocateCommandBuffers(VulkanContext &ctx, std::span<VkCommandBuffer> buffe
 
 VkRenderingAttachmentInfoKHR CreateAttachmentInfo(VkImageView view, VkImageLayout layout,
                                                   std::optional<VkClearValue> clear);
+
 VkRenderingInfoKHR CreateRenderingInfo(VkExtent2D extent,
                                        VkRenderingAttachmentInfo &colorAttachment);
+
+VkRenderingInfoKHR CreateRenderingInfo(VkExtent2D extent,
+                                       VkRenderingAttachmentInfo &colorAttachment,
+                                       VkRenderingAttachmentInfo &depthAttachment);
 }; // namespace vkinit

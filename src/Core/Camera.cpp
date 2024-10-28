@@ -2,6 +2,7 @@
 
 #include "Descriptor.h"
 #include "Keycodes.h"
+#include "glm/trigonometric.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -126,7 +127,7 @@ void Camera::OnImGui()
 
 void Camera::UpdateVectors()
 {
-    glm::mat3 rot = glm::yawPitchRoll(mYaw, mPitch, 0.0f);
+    glm::mat3 rot = glm::yawPitchRoll(glm::radians(mYaw), glm::radians(mPitch), 0.0f);
 
     mFront = rot * glm::vec3(0, 0, 1);
     mRight = glm::normalize(glm::cross(mFront, mWorldUp));

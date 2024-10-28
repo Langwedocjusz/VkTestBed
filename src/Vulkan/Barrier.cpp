@@ -57,6 +57,36 @@ void barrier::ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage image)
     vkCmdPipelineBarrier2(buffer, &depInfo);
 }
 
+void barrier::ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthImage)
+{
+    VkImageMemoryBarrier2 imageBarrier{};
+    imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+
+    imageBarrier.srcAccessMask = 0;
+    imageBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    imageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+
+    imageBarrier.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    imageBarrier.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+
+    imageBarrier.image = depthImage;
+    imageBarrier.subresourceRange =
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    vkCmdPipelineBarrier2(buffer, &depInfo);
+}
+
 void barrier::ImageLayoutBarrierCoarse(VkCommandBuffer buffer, VkImage image,
                                        VkImageLayout oldLayout, VkImageLayout newLayout)
 {

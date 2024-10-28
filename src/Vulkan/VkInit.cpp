@@ -115,3 +115,19 @@ VkRenderingInfoKHR vkinit::CreateRenderingInfo(VkExtent2D extent,
 
     return renderingInfo;
 }
+
+VkRenderingInfoKHR vkinit::CreateRenderingInfo(VkExtent2D extent,
+                                       VkRenderingAttachmentInfo &colorAttachment,
+                                       VkRenderingAttachmentInfo &depthAttachment)
+{
+    VkRenderingInfoKHR renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+    renderingInfo.renderArea.extent = extent;
+    renderingInfo.renderArea.offset = {0, 0};
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+    renderingInfo.pDepthAttachment = &depthAttachment;
+
+    return renderingInfo;
+}

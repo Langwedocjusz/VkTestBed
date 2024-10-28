@@ -55,6 +55,8 @@ target_sources(${PROJECT_NAME}
         src/Renderers/Renderer.h
         src/Renderers/HelloRenderer.h
         src/Renderers/HelloRenderer.cpp
+        src/Renderers/Minimal3D.h
+        src/Renderers/Minimal3D.cpp
         src/Vulkan/Buffer.h
         src/Vulkan/Buffer.cpp
         src/Vulkan/Common.h

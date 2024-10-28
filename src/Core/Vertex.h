@@ -21,7 +21,15 @@ VkVertexInputBindingDescription GetBindingDescription(uint32_t binding,
     return bindingDescription;
 }
 
-struct ColoredVertex {
+//Vertex type naming convention:
+//P - position
+//C - color
+//N - normal vector
+//T - tangent vector
+//B - bitangent vector
+//X - tex coords
+
+struct Vertex_PC {
     glm::vec3 Position;
     glm::vec3 Color;
 
@@ -29,8 +37,26 @@ struct ColoredVertex {
     {
         const std::vector<VkVertexInputAttributeDescription> VertexAttributeDescriptions{
             // location, binding, format, offset
-            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ColoredVertex, Position)},
-            {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ColoredVertex, Color)},
+            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex_PC, Position)},
+            {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex_PC, Color)},
+        };
+
+        return VertexAttributeDescriptions;
+    }
+};
+
+struct Vertex_PCN{
+    glm::vec3 Position;
+    glm::vec3 Color;
+    glm::vec3 Normal;
+
+    static VertexAttributeDescriptions GetAttributeDescriptions()
+    {
+        const std::vector<VkVertexInputAttributeDescription> VertexAttributeDescriptions{
+            // location, binding, format, offset
+            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex_PCN, Position)},
+            {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex_PCN, Color)},
+            {2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex_PCN, Normal)},
         };
 
         return VertexAttributeDescriptions;

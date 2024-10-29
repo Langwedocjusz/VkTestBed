@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Buffer.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 
@@ -29,11 +30,8 @@ class HelloRenderer : public IRenderer {
     Pipeline mGraphicsPipeline;
 
     struct Drawable {
-        Buffer VertexBuffer;
-        size_t VertexCount;
-
-        Buffer IndexBuffer;
-        size_t IndexCount;
+        VertexBuffer Vert;
+        IndexBuffer Idx;
 
         std::vector<glm::mat4> Transforms;
     };

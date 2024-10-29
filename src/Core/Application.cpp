@@ -27,6 +27,13 @@ Application::Application()
     mScene->Objects.back().Provider = primitive::ColoredCube(glm::vec3(0.5f));
     mScene->Objects.back().Instances.push_back(InstanceData{});
 
+
+    size_t texId = mScene->Textures.insert("./assets/textures/texture.jpg");
+
+    mScene->Objects.emplace_back();
+    mScene->Objects.back().Provider = primitive::TexturedQuad();
+    mScene->Objects.back().TextureId = texId;
+
     // First-time scene loading
     mRender.LoadScene(*mScene);
     mScene->ClearUpdateFlags();

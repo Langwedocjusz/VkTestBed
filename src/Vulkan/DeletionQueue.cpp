@@ -1,7 +1,7 @@
 #include "DeletionQueue.h"
-#include "Image.h"
 
 #include <ranges>
+#include <vulkan/vulkan_core.h>
 
 template <class... Ts>
 struct overloaded : Ts... {
@@ -22,8 +22,11 @@ void DeletionQueue::flush()
             [this](VkImageView arg){vkDestroyImageView(mCtx.Device, arg, nullptr);},
             [this](VkDescriptorPool arg){vkDestroyDescriptorPool(mCtx.Device, arg, nullptr);},
             [this](VkDescriptorSetLayout arg){vkDestroyDescriptorSetLayout(mCtx.Device, arg, nullptr);},
+            [this](VkSampler arg){vkDestroySampler(mCtx.Device, arg, nullptr);},
             [this](Image* arg){Image::DestroyImage(mCtx, *arg);},
             [this](Buffer* arg){Buffer::DestroyBuffer(mCtx, *arg);},
+            [this](VertexBuffer* arg){VertexBuffer::Destroy(mCtx, *arg);},
+            [this](IndexBuffer* arg){IndexBuffer::Destroy(mCtx, *arg);},
         }, obj);
         // clang-format on
     }

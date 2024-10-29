@@ -60,8 +60,10 @@ Buffer Buffer::CreateMappedUniformBuffer(VulkanContext &ctx, VkDeviceSize size)
 Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, VkCommandBuffer cmd,
                                GPUBufferInfo info)
 {
+    const auto usage = info.Usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
     Buffer buff;
-    buff = CreateBuffer(ctx, info.Size, info.Usage, info.Properties);
+    buff = CreateBuffer(ctx, info.Size, usage, info.Properties);
 
     Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
     UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);

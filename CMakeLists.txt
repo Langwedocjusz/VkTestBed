@@ -69,12 +69,18 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Descriptor.cpp
         src/Vulkan/Image.h
         src/Vulkan/Image.cpp
+        src/Vulkan/ImageLoaders.h
+        src/Vulkan/ImageLoaders.cpp
+        src/Vulkan/IndexBuffer.h
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
+        src/Vulkan/Sampler.h
+        src/Vulkan/Sampler.cpp
         src/Vulkan/Shader.h
         src/Vulkan/Shader.cpp
         src/Vulkan/Utils.h
         src/Vulkan/Utils.cpp
+        src/Vulkan/VertexBuffer.h
         src/Vulkan/VkInit.h
         src/Vulkan/VkInit.cpp
 )
@@ -109,6 +115,7 @@ add_subdirectory(vendor/vk-bootstrap)
 add_subdirectory(vendor/VulkanMemoryAllocator)
 add_subdirectory(vendor/glm)
 add_subdirectory(vendor/imgui)
+add_subdirectory(vendor/stb_image)
 
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
@@ -121,3 +128,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
+target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)

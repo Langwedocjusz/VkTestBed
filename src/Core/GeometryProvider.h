@@ -13,7 +13,13 @@ template <Vertex V>
 using VertexProviderFn = std::function<std::vector<V>()>;
 
 // This needs to be a variant over all supported Vertex Types:
-using VertexProviderVariant = std::variant<VertexProviderFn<Vertex_PC>, VertexProviderFn<Vertex_PCN>>;
+// clang-format off
+using VertexProviderVariant = std::variant<
+    VertexProviderFn<Vertex_PC>,
+    VertexProviderFn<Vertex_PCN>,
+    VertexProviderFn<Vertex_PXN>
+>;
+// clang-format on
 
 // Index data:
 template <typename T>

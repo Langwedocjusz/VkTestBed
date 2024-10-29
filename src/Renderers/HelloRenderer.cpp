@@ -1,8 +1,8 @@
 #include "HelloRenderer.h"
 #include "GeometryProvider.h"
+#include "IndexBuffer.h"
 #include "Renderer.h"
 #include "Shader.h"
-#include "Utils.h"
 #include "Vertex.h"
 #include "VkInit.h"
 
@@ -81,20 +81,19 @@ void HelloRenderer::OnRender()
 
         for (auto &drawable : mDrawables)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
+            std::array<VkBuffer, 1> vertexBuffers{drawable.Vert.Handle};
             std::array<VkDeviceSize, 1> offsets{0};
 
             vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
 
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 VK_INDEX_TYPE_UINT16);
+            drawable.Idx.Bind(cmd, 0);
 
             for (auto &transform : drawable.Transforms)
             {
                 vkCmdPushConstants(cmd, mGraphicsPipeline.Layout,
                                    VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
                                    &transform);
-                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+                vkCmdDrawIndexed(cmd, drawable.Idx.Count, 1, 0, 0, 0);
             }
         }
     }
@@ -179,48 +178,18 @@ void HelloRenderer::LoadProviders(Scene &scene)
         auto &pool = mFrame.CurrentPool();
 
         // Create Vertex buffer:
-        {
-            utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
-
-            auto vertices = vertFn();
-            auto vertexCount = vertices.size();
-
-            GPUBufferInfo vertInfo{
-                .Usage =
-                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                .Size = vertexCount * sizeof(Vertex_PC),
-                .Data = vertices.data(),
-            };
-
-            drawable.VertexBuffer = Buffer::CreateGPUBuffer(mCtx, cmd.Buffer, vertInfo);
-            drawable.VertexCount = vertexCount;
-        }
+        auto vertices = vertFn();
+        drawable.Vert = VertexBuffer::Create(mCtx, mQueues.Graphics, pool, vertices);
 
         // Create Index buffer:
-        {
-            utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
-
-            auto indices = idxFn();
-            auto indexCount = indices.size();
-
-            GPUBufferInfo idxInfo{
-                .Usage =
-                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                .Size = indexCount * sizeof(uint16_t),
-                .Data = indices.data(),
-            };
-
-            drawable.IndexBuffer = Buffer::CreateGPUBuffer(mCtx, cmd.Buffer, idxInfo);
-            drawable.IndexCount = indexCount;
-        }
+        auto indices = idxFn();
+        drawable.Idx = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, indices);
     }
 
     for (auto &drawable : mDrawables)
     {
-        mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
-        mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+        mSceneDeletionQueue.push_back(&drawable.Vert);
+        mSceneDeletionQueue.push_back(&drawable.Idx);
     }
 }
 

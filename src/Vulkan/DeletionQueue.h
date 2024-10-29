@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Buffer.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 #include "Image.h"
 #include "VulkanContext.h"
 
@@ -8,6 +10,7 @@
 #include <variant>
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 // clang-format off
 using DeletionObject = std::variant<
@@ -19,10 +22,13 @@ using DeletionObject = std::variant<
     VkImageView,
     VkDescriptorPool,
     VkDescriptorSetLayout,
+    VkSampler,
     //Custom aggregate types passed via pointer
     //to avoid excess padding in the variant:
     Image*,
-    Buffer*
+    Buffer*,
+    VertexBuffer*,
+    IndexBuffer*
 >;
 // clang-format on
 

@@ -1,7 +1,9 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <string>
+#include "UniqueVector.h"
 
+#include <glm/glm.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
 
@@ -22,12 +24,16 @@ struct InstanceData {
 
 struct SceneObject {
     GeometryProvider Provider;
+    std::optional<size_t> TextureId;
+
     std::vector<InstanceData> Instances;
     bool UpdateInstances = true;
 };
 
 struct Scene {
     std::vector<SceneObject> Objects;
+    UniqueVector<std::string> Textures;
+
     bool UpdateRequested = true;
     bool GlobalUpdate = true;
 

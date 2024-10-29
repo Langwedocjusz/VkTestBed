@@ -1,8 +1,10 @@
 #pragma once
 
-#include "Buffer.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 #include "Pipeline.h"
 #include "Renderer.h"
+#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 class Minimal3DRenderer : public IRenderer {
@@ -21,6 +23,7 @@ class Minimal3DRenderer : public IRenderer {
 
   private:
     void LoadProviders(Scene &scene);
+    void LoadTextures(Scene& scene);
     void LoadInstances(Scene &scene);
 
   private:
@@ -31,17 +34,29 @@ class Minimal3DRenderer : public IRenderer {
     Image mDepthBuffer;
     VkImageView mDepthBufferView;
 
-    Pipeline mGraphicsPipeline;
+    Pipeline mColoredPipeline;
+    Pipeline mTexturedPipeline;
 
     struct Drawable {
-        Buffer VertexBuffer;
-        size_t VertexCount;
-
-        Buffer IndexBuffer;
-        size_t IndexCount;
+        VertexBuffer Vert;
+        IndexBuffer Idx;
 
         std::vector<glm::mat4> Transforms;
+        size_t TextureId = 0;
     };
 
-    std::vector<Drawable> mDrawables;
+    std::vector<Drawable> mColoredDrawables;
+    std::vector<Drawable> mTexturedDrawables;
+
+    VkDescriptorSetLayout mTextureDescriptorSetLayout;
+    VkDescriptorPool mTextureDescriptorPool;
+
+    struct Texture{
+        Image TexImage;
+        VkImageView View;
+        VkDescriptorSet DescriptorSet;
+    };
+
+    std::vector<Texture> mTextures;
+    VkSampler mSampler;
 };

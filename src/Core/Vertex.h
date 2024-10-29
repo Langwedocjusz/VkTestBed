@@ -62,3 +62,21 @@ struct Vertex_PCN{
         return VertexAttributeDescriptions;
     }
 };
+
+struct Vertex_PXN{
+    glm::vec3 Position;
+    glm::vec2 TexCoord;
+    glm::vec3 Normal;
+
+    static VertexAttributeDescriptions GetAttributeDescriptions()
+    {
+        const std::vector<VkVertexInputAttributeDescription> VertexAttributeDescriptions{
+            // location, binding, format, offset
+            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex_PXN, Position)},
+            {1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex_PXN, TexCoord)},
+            {2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex_PXN, Normal)},
+        };
+
+        return VertexAttributeDescriptions;
+    }
+};

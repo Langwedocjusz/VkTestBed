@@ -18,3 +18,6 @@ def download_asset(url: str, destination: str):
         file_data = response.content
 
         handle.write(file_data)
+
+#Quad texture:
+download_asset("https://vulkan-tutorial.com/images/texture.jpg", "./assets/textures")

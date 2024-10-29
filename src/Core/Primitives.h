@@ -8,4 +8,5 @@ GeometryProvider HelloTriangle();
 GeometryProvider HelloQuad();
 
 GeometryProvider ColoredCube(glm::vec3 color);
+GeometryProvider TexturedQuad();
 } // namespace primitive

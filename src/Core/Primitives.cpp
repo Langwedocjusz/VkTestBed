@@ -56,6 +56,34 @@ GeometryProvider primitive::HelloQuad()
     };
 }
 
+GeometryProvider primitive::TexturedQuad()
+{
+    // clang-format off
+    auto vertices = []() -> std::vector<Vertex_PXN>
+    {
+        return {
+            {{-0.5f,-0.5f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
+            {{ 0.5f,-0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
+            {{ 0.5f, 0.5f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
+            {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}}
+        };
+    };
+
+    auto indices = []() -> std::vector<uint32_t>
+    {
+        return {
+            0, 1, 2, 2, 3, 0
+        };
+    };
+
+    // clang-format on
+
+    return GeometryProvider{
+        vertices,
+        indices
+    };
+}
+
 GeometryProvider primitive::ColoredCube(glm::vec3 color)
 {
     (void)color;

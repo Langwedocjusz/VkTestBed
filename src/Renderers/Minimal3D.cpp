@@ -3,11 +3,12 @@
 #include "GeometryProvider.h"
 #include "Renderer.h"
 #include "Shader.h"
-#include "Utils.h"
 #include "Vertex.h"
 #include "VkInit.h"
-
+#include "Descriptor.h"
 #include "Common.h"
+#include "ImageLoaders.h"
+#include "Sampler.h"
 
 #include <cstdint>
 #include <iostream>
@@ -18,14 +19,35 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                              std::unique_ptr<Camera> &camera)
     : IRenderer(ctx, info, queues, camera)
 {
+    //Create descriptor set layout for sampling textures
+    mTextureDescriptorSetLayout =
+        DescriptorSetLayoutBuilder()
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT)
+            .Build(ctx);
+
+    //Create a single descriptor pool (temporary, will crash if
+    //if it runs out of space)
+    // Descriptor pool
+    const uint32_t maxSets = 32;
+
+    std::vector<Descriptor::PoolCount> poolCounts{
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, maxSets},
+    };
+
+    mTextureDescriptorPool = Descriptor::InitPool(ctx, maxSets, poolCounts);
+
+    mMainDeletionQueue.push_back(mTextureDescriptorPool);
+    mMainDeletionQueue.push_back(mTextureDescriptorSetLayout);
+
     // Create Graphics Pipelines
-    auto shaderStages = ShaderBuilder()
-                            .SetVertexPath("assets/spirv/Minimal3DVert.spv")
-                            .SetFragmentPath("assets/spirv/Minimal3DFrag.spv")
+    auto coloredShaderStages = ShaderBuilder()
+                            .SetVertexPath("assets/spirv/Minimal3DColoredVert.spv")
+                            .SetFragmentPath("assets/spirv/Minimal3DColoredFrag.spv")
                             .Build(ctx);
 
-    mGraphicsPipeline = PipelineBuilder()
-                            .SetShaderStages(shaderStages)
+    mColoredPipeline = PipelineBuilder()
+                            .SetShaderStages(coloredShaderStages)
                             .SetVertexInput<Vertex_PCN>(0, VK_VERTEX_INPUT_RATE_VERTEX)
                             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -37,8 +59,39 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetDepthFormat(mDepthFormat)
                             .Build(ctx);
 
-    mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
-    mMainDeletionQueue.push_back(mGraphicsPipeline.Layout);
+    mMainDeletionQueue.push_back(mColoredPipeline.Handle);
+    mMainDeletionQueue.push_back(mColoredPipeline.Layout);
+
+    auto textuedShaderStages = ShaderBuilder()
+                            .SetVertexPath("assets/spirv/Minimal3DTexturedVert.spv")
+                            .SetFragmentPath("assets/spirv/Minimal3DTexturedFrag.spv")
+                            .Build(ctx);
+
+    mTexturedPipeline = PipelineBuilder()
+                            .SetShaderStages(textuedShaderStages)
+                            .SetVertexInput<Vertex_PXN>(0, VK_VERTEX_INPUT_RATE_VERTEX)
+                            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+                            .SetColorFormat(mRenderTargetFormat)
+                            .SetPushConstantSize(sizeof(glm::mat4))
+                            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+                            .AddDescriptorSetLayout(mTextureDescriptorSetLayout)
+                            .EnableDepthTest()
+                            .SetDepthFormat(mDepthFormat)
+                            .Build(ctx);
+
+    mMainDeletionQueue.push_back(mTexturedPipeline.Handle);
+    mMainDeletionQueue.push_back(mTexturedPipeline.Layout);
+
+    //Create the texture sampler:
+    mSampler = SamplerBuilder()
+                .SetMagFilter(VK_FILTER_LINEAR)
+                .SetMinFilter(VK_FILTER_LINEAR)
+                .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                .Build(mCtx);
+
+    mMainDeletionQueue.push_back(mSampler);
 
     // Create swapchain resources:
     CreateSwapchainResources();
@@ -81,31 +134,65 @@ void Minimal3DRenderer::OnRender()
 
     vkCmdBeginRendering(cmd, &renderingInfo);
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline.Handle);
+        //1. Colored vertices pass:
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mColoredPipeline.Handle);
 
         common::ViewportScissor(cmd, GetTargetSize());
 
         // To-do: figure out a better way of doing this:
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mGraphicsPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
+                                mColoredPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &drawable : mDrawables)
+        for (auto &drawable : mColoredDrawables)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
+            std::array<VkBuffer, 1> vertexBuffers{drawable.Vert.Handle};
             std::array<VkDeviceSize, 1> offsets{0};
 
             vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
 
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 VK_INDEX_TYPE_UINT32);
+            drawable.Idx.Bind(cmd, 0);
 
             for (auto &transform : drawable.Transforms)
             {
-                vkCmdPushConstants(cmd, mGraphicsPipeline.Layout,
+                vkCmdPushConstants(cmd, mColoredPipeline.Layout,
                                    VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
                                    &transform);
-                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+                vkCmdDrawIndexed(cmd, drawable.Idx.Count, 1, 0, 0, 0);
+            }
+        }
+
+        //2. Textured vertices pass:
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mTexturedPipeline.Handle);
+
+        common::ViewportScissor(cmd, GetTargetSize());
+
+        // To-do: figure out a better way of doing this:
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mTexturedPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
+                                0, nullptr);
+
+        for (auto &drawable : mTexturedDrawables)
+        {
+            std::array<VkBuffer, 1> vertexBuffers{drawable.Vert.Handle};
+            std::array<VkDeviceSize, 1> offsets{0};
+
+            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
+
+            drawable.Idx.Bind(cmd, 0);
+
+            auto& texture = mTextures[drawable.TextureId];
+
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mTexturedPipeline.Layout, 1, 1, &texture.DescriptorSet,
+                                0, nullptr);
+
+            for (auto &transform : drawable.Transforms)
+            {
+                vkCmdPushConstants(cmd, mColoredPipeline.Layout,
+                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
+                                   &transform);
+                vkCmdDrawIndexed(cmd, drawable.Idx.Count, 1, 0, 0, 0);
             }
         }
     }
@@ -168,9 +255,12 @@ void Minimal3DRenderer::LoadScene(Scene &scene)
     {
         // This will only take efect on non-first runs:
         mSceneDeletionQueue.flush();
-        mDrawables.clear();
+        mColoredDrawables.clear();
+        mTexturedDrawables.clear();
+        mTextures.clear();
 
         LoadProviders(scene);
+        LoadTextures(scene);
     }
 
     LoadInstances(scene);
@@ -178,6 +268,8 @@ void Minimal3DRenderer::LoadScene(Scene &scene)
 
 void Minimal3DRenderer::LoadProviders(Scene &scene)
 {
+    auto &pool = mFrame.CurrentPool();
+
     for (auto &obj : scene.Objects)
     {
         auto vertOpt = obj.Provider.UnpackVertices<Vertex_PCN>();
@@ -185,67 +277,121 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
 
         if (!vertOpt.has_value())
         {
-            std::cerr << "Unsupported vertex type.\n";
+            //std::cerr << "Unsupported vertex type.\n";
             continue;
         }
 
         if (!idxOpt.has_value())
         {
-            std::cerr << "Unsupported index type.\n";
+            //std::cerr << "Unsupported index type.\n";
             continue;
         }
 
         auto vertFn = vertOpt.value();
         auto idxFn = idxOpt.value();
 
-        mDrawables.emplace_back();
-        auto &drawable = mDrawables.back();
-
-        auto &pool = mFrame.CurrentPool();
+        mColoredDrawables.emplace_back();
+        auto &drawable = mColoredDrawables.back();
 
         // Create Vertex buffer:
-        {
-            utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
-
-            auto vertices = vertFn();
-            auto vertexCount = vertices.size();
-
-            GPUBufferInfo vertInfo{
-                .Usage =
-                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                .Size = vertexCount * sizeof(Vertex_PCN),
-                .Data = vertices.data(),
-            };
-
-            drawable.VertexBuffer = Buffer::CreateGPUBuffer(mCtx, cmd.Buffer, vertInfo);
-            drawable.VertexCount = vertexCount;
-        }
+        auto vertices = vertFn();
+        drawable.Vert = VertexBuffer::Create(mCtx, mQueues.Graphics, pool, vertices);
 
         // Create Index buffer:
-        {
-            utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
-
-            auto indices = idxFn();
-            auto indexCount = indices.size();
-
-            GPUBufferInfo idxInfo{
-                .Usage =
-                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                .Size = indexCount * sizeof(uint32_t),
-                .Data = indices.data(),
-            };
-
-            drawable.IndexBuffer = Buffer::CreateGPUBuffer(mCtx, cmd.Buffer, idxInfo);
-            drawable.IndexCount = indexCount;
-        }
+        auto indices = idxFn();
+        drawable.Idx = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, indices);
     }
 
-    for (auto &drawable : mDrawables)
+    for (auto &obj : scene.Objects)
     {
-        mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
-        mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+        auto vertOpt = obj.Provider.UnpackVertices<Vertex_PXN>();
+        auto idxOpt = obj.Provider.UnpackIndices<uint32_t>();
+
+        if (!vertOpt.has_value())
+        {
+            //std::cerr << "Unsupported vertex type.\n";
+            continue;
+        }
+
+        if (!idxOpt.has_value())
+        {
+            //std::cerr << "Unsupported index type.\n";
+            continue;
+        }
+
+        auto vertFn = vertOpt.value();
+        auto idxFn = idxOpt.value();
+
+        mTexturedDrawables.emplace_back();
+        auto &drawable = mTexturedDrawables.back();
+
+        // Create Vertex buffer:
+        auto vertices = vertFn();
+        drawable.Vert = VertexBuffer::Create(mCtx, mQueues.Graphics, pool, vertices);
+
+        // Create Index buffer:
+        auto indices = idxFn();
+        drawable.Idx = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, indices);
+
+        //Retrieve texture id
+        if (obj.TextureId.has_value())
+            drawable.TextureId = obj.TextureId.value();
+    }
+
+    for (auto &drawable : mColoredDrawables)
+    {
+        mSceneDeletionQueue.push_back(&drawable.Vert);
+        mSceneDeletionQueue.push_back(&drawable.Idx);
+    }
+
+    for (auto &drawable : mTexturedDrawables)
+    {
+        mSceneDeletionQueue.push_back(&drawable.Vert);
+        mSceneDeletionQueue.push_back(&drawable.Idx);
+    }
+}
+
+void Minimal3DRenderer::LoadTextures(Scene& scene)
+{
+    auto &pool = mFrame.CurrentPool();
+
+    //Create images and views, allocate descriptor sets:
+    for (const auto& path : scene.Textures.data())
+    {
+        mTextures.emplace_back();
+        auto& texture = mTextures.back();
+
+        texture.TexImage = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, path);
+
+        auto format = texture.TexImage.Info.Format;
+        texture.View = Image::CreateView2D(mCtx, texture.TexImage, format, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        mSceneDeletionQueue.push_back(&texture.TexImage);
+        mSceneDeletionQueue.push_back(texture.View);
+
+        //To-do: add variant of allocate that allocates singular descriptor set:
+        std::array<VkDescriptorSetLayout, 1> layouts{mTextureDescriptorSetLayout};
+        texture.DescriptorSet = Descriptor::Allocate(mCtx, mTextureDescriptorPool, layouts)[0];
+    }
+
+    //Update descriptor sets:
+    for (const auto& texture : mTextures)
+    {
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = texture.View;
+        imageInfo.sampler = mSampler;
+
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = texture.DescriptorSet;
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(mCtx.Device, 1, &descriptorWrite, 0, nullptr);
     }
 }
 
@@ -260,17 +406,52 @@ void Minimal3DRenderer::LoadInstances(Scene &scene)
 
         if (!vertOpt.has_value())
         {
-            std::cerr << "Unsupported vertex type.\n";
+            //std::cerr << "Unsupported vertex type.\n";
             continue;
         }
 
         if (!idxOpt.has_value())
         {
-            std::cerr << "Unsupported index type.\n";
+            //std::cerr << "Unsupported index type.\n";
             continue;
         }
 
-        auto &drawable = mDrawables[drawableId];
+        auto &drawable = mColoredDrawables[drawableId];
+
+        if (obj.UpdateInstances)
+        {
+            drawable.Transforms.clear();
+
+            // Unpack instance data:
+            for (auto instance : obj.Instances)
+            {
+                drawable.Transforms.push_back(instance.GetTransform());
+            }
+        }
+
+        drawableId++;
+    }
+
+    drawableId = 0;
+
+    for (auto &obj : scene.Objects)
+    {
+        auto vertOpt = obj.Provider.UnpackVertices<Vertex_PXN>();
+        auto idxOpt = obj.Provider.UnpackIndices<uint32_t>();
+
+        if (!vertOpt.has_value())
+        {
+            //std::cerr << "Unsupported vertex type.\n";
+            continue;
+        }
+
+        if (!idxOpt.has_value())
+        {
+            //std::cerr << "Unsupported index type.\n";
+            continue;
+        }
+
+        auto &drawable = mTexturedDrawables[drawableId];
 
         if (obj.UpdateInstances)
         {

@@ -12,7 +12,9 @@
 
 #include <cstdint>
 #include <iostream>
+#include <format>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues,
@@ -51,7 +53,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetVertexInput<Vertex_PCN>(0, VK_VERTEX_INPUT_RATE_VERTEX)
                             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
                             .SetColorFormat(mRenderTargetFormat)
                             .SetPushConstantSize(sizeof(glm::mat4))
                             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
@@ -72,7 +74,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetVertexInput<Vertex_PXN>(0, VK_VERTEX_INPUT_RATE_VERTEX)
                             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
                             .SetColorFormat(mRenderTargetFormat)
                             .SetPushConstantSize(sizeof(glm::mat4))
                             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
@@ -100,8 +102,8 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
 Minimal3DRenderer::~Minimal3DRenderer()
 {
     mSwapchainDeletionQueue.flush();
-    mMainDeletionQueue.flush();
     mSceneDeletionQueue.flush();
+    mMainDeletionQueue.flush();
 }
 
 void Minimal3DRenderer::OnUpdate([[maybe_unused]] float deltaTime)
@@ -366,8 +368,10 @@ void Minimal3DRenderer::LoadTextures(Scene& scene)
         auto format = texture.TexImage.Info.Format;
         texture.View = Image::CreateView2D(mCtx, texture.TexImage, format, VK_IMAGE_ASPECT_COLOR_BIT);
 
-        mSceneDeletionQueue.push_back(&texture.TexImage);
-        mSceneDeletionQueue.push_back(texture.View);
+        //To-do: If deletion queue is updated directly here, image handle of the
+        //first texture gets corrupted, investigate why:
+        //mSceneDeletionQueue.push_back(&texture.TexImage);
+        //mSceneDeletionQueue.push_back(texture.View);
 
         //To-do: add variant of allocate that allocates singular descriptor set:
         std::array<VkDescriptorSetLayout, 1> layouts{mTextureDescriptorSetLayout};
@@ -392,6 +396,12 @@ void Minimal3DRenderer::LoadTextures(Scene& scene)
         descriptorWrite.pImageInfo = &imageInfo;
 
         vkUpdateDescriptorSets(mCtx.Device, 1, &descriptorWrite, 0, nullptr);
+    }
+
+    for (auto& texture : mTextures)
+    {
+        mSceneDeletionQueue.push_back(&texture.TexImage);
+        mSceneDeletionQueue.push_back(texture.View);
     }
 }
 

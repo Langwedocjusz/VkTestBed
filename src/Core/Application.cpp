@@ -5,8 +5,10 @@
 #include "ImGuiUtils.h"
 #include "Keycodes.h"
 #include "Primitives.h"
+#include "ModelLoader.h"
 
 #include <variant>
+#include <iostream>
 
 template <class... Ts>
 struct overloaded : Ts... {
@@ -31,8 +33,26 @@ Application::Application()
     size_t texId = mScene->Textures.insert("./assets/textures/texture.jpg");
 
     mScene->Objects.emplace_back();
-    mScene->Objects.back().Provider = primitive::TexturedQuad();
+    mScene->Objects.back().Provider = primitive::TexturedCube();
     mScene->Objects.back().TextureId = texId;
+
+    InstanceData data = {};
+    data.Translation = {1.5f, 0.0f, 0.0f};
+    mScene->Objects.back().Instances.push_back(data);
+
+
+    texId = mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
+
+    TexturedVertexLoader loader;
+    loader.LoadGltf("assets/gltf/DamagedHelmet/DamagedHelmet.gltf");
+
+    mScene->Objects.emplace_back();
+    mScene->Objects.back().Provider = loader.GetProvider();
+    mScene->Objects.back().TextureId = texId;
+
+    data.Translation = {3.0f, 0.0f, 0.0f};
+    data.Rotation = {-0.5f * 3.14f, 0.0f, 0.0f};
+    mScene->Objects.back().Instances.push_back(data);
 
     // First-time scene loading
     mRender.LoadScene(*mScene);

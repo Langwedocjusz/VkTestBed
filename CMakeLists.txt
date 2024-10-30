@@ -38,6 +38,8 @@ target_sources(${PROJECT_NAME}
         src/Core/ImGuiUtils.h
         src/Core/ImGuiUtils.cpp
         src/Core/Keycodes.h
+        src/Core/ModelLoader.h
+        src/Core/ModelLoader.cpp
         src/Core/Scene.h
         src/Core/Primitives.h
         src/Core/Primitives.cpp
@@ -116,10 +118,14 @@ add_subdirectory(vendor/VulkanMemoryAllocator)
 add_subdirectory(vendor/glm)
 add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/stb_image)
+add_subdirectory(vendor/fastgltf)
 
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(VulkanMemoryAllocator SYSTEM INTERFACE ${_inc})
+
+get_target_property(_inc fastgltf::fastgltf INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 
 #Link dependencies:
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
@@ -129,3 +135,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
 target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
+target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)

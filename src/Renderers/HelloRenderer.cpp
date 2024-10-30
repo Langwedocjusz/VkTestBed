@@ -28,7 +28,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetVertexInput<Vertex_PC>(0, VK_VERTEX_INPUT_RATE_VERTEX)
                             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
                             .SetColorFormat(mRenderTargetFormat)
                             .SetPushConstantSize(sizeof(glm::mat4))
                             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())

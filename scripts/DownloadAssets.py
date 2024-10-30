@@ -21,3 +21,8 @@ def download_asset(url: str, destination: str):
 
 #Quad texture:
 download_asset("https://vulkan-tutorial.com/images/texture.jpg", "./assets/textures")
+
+#Gltf Model:
+download_asset("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/refs/heads/main/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf", "./assets/gltf/DamagedHelmet")
+download_asset("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/refs/heads/main/2.0/DamagedHelmet/glTF/DamagedHelmet.bin", "./assets/gltf/DamagedHelmet")
+download_asset("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/refs/heads/main/2.0/DamagedHelmet/glTF/Default_albedo.jpg", "./assets/gltf/DamagedHelmet")

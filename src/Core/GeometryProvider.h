@@ -1,56 +1,39 @@
 #pragma once
 
+#include "VertexLayout.h"
+
+#include <cstdint>
 #include <functional>
-#include <optional>
-#include <variant>
-#include <vector>
+#include <memory>
+#include <new>
 
-// Vertex data:
+struct GeometryLayout {
+    Vertex::Layout VertexLayout;
+    VkIndexType IndexType;
 
-#include "Vertex.h"
+    bool IsCompatible(const GeometryLayout &other)
+    {
+        bool idxCompat = IndexType == other.IndexType;
+        // To-do: this will be weakened in the future:
+        bool vertCompat = VertexLayout == other.VertexLayout;
 
-template <Vertex V>
-using VertexProviderFn = std::function<std::vector<V>()>;
+        return idxCompat && vertCompat;
+    }
+};
 
-// This needs to be a variant over all supported Vertex Types:
-// clang-format off
-using VertexProviderVariant = std::variant<
-    VertexProviderFn<Vertex_PC>,
-    VertexProviderFn<Vertex_PCN>,
-    VertexProviderFn<Vertex_PXN>
->;
-// clang-format on
+struct OpaqueBuffer {
+    size_t Count;
+    size_t Size;
+    std::unique_ptr<uint8_t> Data;
 
-// Index data:
-template <typename T>
-concept ValidIndexType = std::same_as<T, uint16_t> || std::same_as<T, uint32_t>;
+    OpaqueBuffer(size_t count, size_t size, size_t alignment) : Count(count), Size(size)
+    {
+        Data = std::unique_ptr<uint8_t>(new (std::align_val_t(alignment)) uint8_t[size]);
+    }
+};
 
-template <ValidIndexType I>
-using IndexProviderFn = std::function<std::vector<I>()>;
-
-using IndexProviderVariant =
-    std::variant<IndexProviderFn<uint16_t>, IndexProviderFn<uint32_t>>;
-
-// Geometry provider:
 struct GeometryProvider {
-    VertexProviderVariant Vert;
-    IndexProviderVariant Idx;
-
-    template <Vertex V>
-    std::optional<VertexProviderFn<V>> UnpackVertices()
-    {
-        if (std::holds_alternative<VertexProviderFn<V>>(Vert))
-            return std::get<VertexProviderFn<V>>(Vert);
-
-        return {};
-    }
-
-    template <ValidIndexType I>
-    std::optional<IndexProviderFn<I>> UnpackIndices()
-    {
-        if (std::holds_alternative<IndexProviderFn<I>>(Idx))
-            return std::get<IndexProviderFn<I>>(Idx);
-
-        return {};
-    }
+    GeometryLayout Layout;
+    std::function<OpaqueBuffer()> GetVertexData;
+    std::function<OpaqueBuffer()> GetIndexData;
 };

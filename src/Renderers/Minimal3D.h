@@ -1,16 +1,16 @@
 #pragma once
 
-#include "VertexBuffer.h"
-#include "IndexBuffer.h"
+#include "GeometryProvider.h"
 #include "Pipeline.h"
 #include "Renderer.h"
+#include "VertexLayout.h"
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 class Minimal3DRenderer : public IRenderer {
   public:
     Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
-                  std::unique_ptr<Camera> &camera);
+                      std::unique_ptr<Camera> &camera);
     ~Minimal3DRenderer();
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;
@@ -23,7 +23,7 @@ class Minimal3DRenderer : public IRenderer {
 
   private:
     void LoadProviders(Scene &scene);
-    void LoadTextures(Scene& scene);
+    void LoadTextures(Scene &scene);
     void LoadInstances(Scene &scene);
 
   private:
@@ -37,9 +37,24 @@ class Minimal3DRenderer : public IRenderer {
     Pipeline mColoredPipeline;
     Pipeline mTexturedPipeline;
 
+    using enum Vertex::AttributeType;
+
+    GeometryLayout mColoredLayout{
+        .VertexLayout = {Vec3, Vec3, Vec3},
+        .IndexType = VK_INDEX_TYPE_UINT32,
+    };
+
+    GeometryLayout mTexturedLayout{
+        .VertexLayout = {Vec3, Vec2, Vec3},
+        .IndexType = VK_INDEX_TYPE_UINT32,
+    };
+
     struct Drawable {
-        VertexBuffer Vert;
-        IndexBuffer Idx;
+        Buffer VertexBuffer;
+        size_t VertexCount;
+
+        Buffer IndexBuffer;
+        size_t IndexCount;
 
         std::vector<glm::mat4> Transforms;
         size_t TextureId = 0;
@@ -51,7 +66,7 @@ class Minimal3DRenderer : public IRenderer {
     VkDescriptorSetLayout mTextureDescriptorSetLayout;
     VkDescriptorPool mTextureDescriptorPool;
 
-    struct Texture{
+    struct Texture {
         Image TexImage;
         VkImageView View;
         VkDescriptorSet DescriptorSet;

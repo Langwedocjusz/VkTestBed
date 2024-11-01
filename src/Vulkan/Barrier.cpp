@@ -69,9 +69,9 @@ void barrier::ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthIma
     imageBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
     imageBarrier.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+                                VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
     imageBarrier.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+                                VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 
     imageBarrier.image = depthImage;
     imageBarrier.subresourceRange =

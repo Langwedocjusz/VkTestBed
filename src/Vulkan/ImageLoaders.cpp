@@ -4,11 +4,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool, const std::string& path)
+Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+                                const std::string &path)
 {
     int texWidth, texHeight, texChannels;
-    stbi_uc *pixels = stbi_load(path.c_str(), &texWidth, &texHeight,
-                                &texChannels, STBI_rgb_alpha);
+    stbi_uc *pixels =
+        stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
     if (!pixels)
     {
@@ -20,11 +21,8 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool
 
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
-    VkExtent3D extent{
-        static_cast<uint32_t>(texWidth),
-        static_cast<uint32_t>(texHeight),
-        1
-    };
+    VkExtent3D extent{static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight),
+                      1};
 
     ImageInfo img_info{
         .Extent = extent,
@@ -35,13 +33,11 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool
 
     Image img = Image::CreateImage2D(ctx, img_info);
 
-    ImageUploadInfo data_info{
-        .Queue = queue,
-        .Pool = pool,
-        .Data = pixels,
-        .Size = imageSize,
-        .DstLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    };
+    ImageUploadInfo data_info{.Queue = queue,
+                              .Pool = pool,
+                              .Data = pixels,
+                              .Size = imageSize,
+                              .DstLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
     Image::UploadToImage(ctx, img, data_info);
 

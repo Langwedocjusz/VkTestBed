@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Vertex.h"
+#include "VertexLayout.h"
 #include "VulkanContext.h"
 
 #include <optional>
@@ -16,7 +16,8 @@ class PipelineBuilder {
   public:
     PipelineBuilder();
 
-    PipelineBuilder SetShaderStages(std::vector<VkPipelineShaderStageCreateInfo> stages)
+    PipelineBuilder SetShaderStages(
+        const std::vector<VkPipelineShaderStageCreateInfo> &stages)
     {
         mShaderStages = stages;
         return *this;
@@ -25,11 +26,11 @@ class PipelineBuilder {
     /// If vertex input is not set, vertex data can't be accessed the usual way
     /// in vertex shaders. This is actually the desired behaviour when doing
     /// vertex pulling or generating vertices on-the-fly in the shader itself.
-    template <Vertex V>
-    PipelineBuilder SetVertexInput(uint32_t binding, VkVertexInputRate inputRate)
+    PipelineBuilder SetVertexInput(const Vertex::Layout &layout, uint32_t binding,
+                                   VkVertexInputRate inputRate)
     {
-        mBindingDescription = GetBindingDescription<V>(binding, inputRate);
-        mAttributeDescriptions = V::GetAttributeDescriptions();
+        mBindingDescription = Vertex::GetBindingDescription(layout, binding, inputRate);
+        mAttributeDescriptions = Vertex::GetAttributeDescriptions(layout);
 
         UpdateVertexInput();
         return *this;

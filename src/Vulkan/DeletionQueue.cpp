@@ -28,8 +28,6 @@ void DeletionQueue::flush()
             [this](VkSampler arg){vkDestroySampler(mCtx.Device, arg, nullptr);},
             [this](Image* arg){Image::DestroyImage(mCtx, *arg);},
             [this](Buffer* arg){Buffer::DestroyBuffer(mCtx, *arg);},
-            [this](VertexBuffer* arg){VertexBuffer::Destroy(mCtx, *arg);},
-            [this](IndexBuffer* arg){IndexBuffer::Destroy(mCtx, *arg);},
         }, obj);
         // clang-format on
     }

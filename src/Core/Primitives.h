@@ -2,6 +2,8 @@
 
 #include "GeometryProvider.h"
 
+#include <glm/glm.hpp>
+
 namespace primitive
 {
 GeometryProvider HelloTriangle();

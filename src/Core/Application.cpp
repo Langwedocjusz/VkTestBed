@@ -4,11 +4,11 @@
 #include "Event.h"
 #include "ImGuiUtils.h"
 #include "Keycodes.h"
-#include "Primitives.h"
 #include "ModelLoader.h"
+#include "Primitives.h"
 
-#include <variant>
 #include <iostream>
+#include <variant>
 
 template <class... Ts>
 struct overloaded : Ts... {
@@ -29,7 +29,6 @@ Application::Application()
     mScene->Objects.back().Provider = primitive::ColoredCube(glm::vec3(0.5f));
     mScene->Objects.back().Instances.push_back(InstanceData{});
 
-
     size_t texId = mScene->Textures.insert("./assets/textures/texture.jpg");
 
     mScene->Objects.emplace_back();
@@ -40,14 +39,11 @@ Application::Application()
     data.Translation = {1.5f, 0.0f, 0.0f};
     mScene->Objects.back().Instances.push_back(data);
 
-
     texId = mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
 
-    TexturedVertexLoader loader;
-    loader.LoadGltf("assets/gltf/DamagedHelmet/DamagedHelmet.gltf");
-
     mScene->Objects.emplace_back();
-    mScene->Objects.back().Provider = loader.GetProvider();
+    mScene->Objects.back().Provider =
+        ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf");
     mScene->Objects.back().TextureId = texId;
 
     data.Translation = {3.0f, 0.0f, 0.0f};

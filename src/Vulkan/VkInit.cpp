@@ -117,8 +117,8 @@ VkRenderingInfoKHR vkinit::CreateRenderingInfo(VkExtent2D extent,
 }
 
 VkRenderingInfoKHR vkinit::CreateRenderingInfo(VkExtent2D extent,
-                                       VkRenderingAttachmentInfo &colorAttachment,
-                                       VkRenderingAttachmentInfo &depthAttachment)
+                                               VkRenderingAttachmentInfo &colorAttachment,
+                                               VkRenderingAttachmentInfo &depthAttachment)
 {
     VkRenderingInfoKHR renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;

@@ -47,7 +47,8 @@ target_sources(${PROJECT_NAME}
         src/Core/RenderContext.cpp
         src/Core/SystemWindow.h
         src/Core/SystemWindow.cpp
-        src/Core/Vertex.h
+        src/Core/VertexLayout.h
+        src/Core/VertexLayout.cpp
         src/Core/VmaImpl.cpp
         src/Core/VulkanContext.h
         src/Core/VulkanContext.cpp
@@ -73,7 +74,7 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Image.cpp
         src/Vulkan/ImageLoaders.h
         src/Vulkan/ImageLoaders.cpp
-        src/Vulkan/IndexBuffer.h
+        src/Vulkan/MeshBuffers.h
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
         src/Vulkan/Sampler.h
@@ -82,7 +83,6 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Shader.cpp
         src/Vulkan/Utils.h
         src/Vulkan/Utils.cpp
-        src/Vulkan/VertexBuffer.h
         src/Vulkan/VkInit.h
         src/Vulkan/VkInit.cpp
 )

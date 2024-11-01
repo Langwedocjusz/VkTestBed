@@ -1,8 +1,6 @@
 #pragma once
 
 #include "Buffer.h"
-#include "VertexBuffer.h"
-#include "IndexBuffer.h"
 #include "Image.h"
 #include "VulkanContext.h"
 
@@ -26,9 +24,7 @@ using DeletionObject = std::variant<
     //Custom aggregate types passed via pointer
     //to avoid excess padding in the variant:
     Image*,
-    Buffer*,
-    VertexBuffer*,
-    IndexBuffer*
+    Buffer*
 >;
 // clang-format on
 

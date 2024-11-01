@@ -74,29 +74,31 @@ VkImageView Image::CreateView2D(VulkanContext &ctx, Image &img, VkFormat format,
 
 void Image::UploadToImage(VulkanContext &ctx, Image img, ImageUploadInfo info)
 {
-    //Create buffer and upload image data
+    // Create buffer and upload image data
     Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
     Buffer::UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);
 
-    //Submit single-time command to queue
+    // Submit single-time command to queue
     {
         utils::ScopedCommand cmd(ctx, info.Queue, info.Pool);
 
-        //Change image layout to transfer destination:
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, img.Handle, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        // Change image layout to transfer destination:
+        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, img.Handle,
+                                          VK_IMAGE_LAYOUT_UNDEFINED,
+                                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-        //Copy buffer to image
-        //Assumes that we are copying to entire image
+        // Copy buffer to image
+        // Assumes that we are copying to entire image
         VkBufferImageCopy region{};
         region.bufferOffset = 0;
         region.bufferRowLength = 0;
         region.bufferImageHeight = 0;
         region.imageOffset = {0, 0, 0};
         region.imageExtent = img.Info.Extent;
-        //Assumes that image is color (not depth/stencil)
+        // Assumes that image is color (not depth/stencil)
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        //Assumes that we are targeting mip level zero,
-        //and that we have single image (not array)
+        // Assumes that we are targeting mip level zero,
+        // and that we have single image (not array)
         region.imageSubresource.mipLevel = 0;
         region.imageSubresource.baseArrayLayer = 0;
         region.imageSubresource.layerCount = 1;
@@ -104,8 +106,9 @@ void Image::UploadToImage(VulkanContext &ctx, Image img, ImageUploadInfo info)
         vkCmdCopyBufferToImage(cmd.Buffer, stagingBuffer.Handle, img.Handle,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-        //Transition layout to whatever is needed
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, img.Handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, info.DstLayout);
+        // Transition layout to whatever is needed
+        barrier::ImageLayoutBarrierCoarse(
+            cmd.Buffer, img.Handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, info.DstLayout);
     }
 
     Buffer::DestroyBuffer(ctx, stagingBuffer);

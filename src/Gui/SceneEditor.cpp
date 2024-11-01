@@ -9,7 +9,10 @@
 
 static bool TransformWidget(InstanceData &data)
 {
-    auto clampPositive = [](float &x){if (x < 0.0f) x = 0.0f;};
+    auto clampPositive = [](float &x) {
+        if (x < 0.0f)
+            x = 0.0f;
+    };
 
     auto prev_trans = data.Translation;
     auto prev_rot = data.Rotation;

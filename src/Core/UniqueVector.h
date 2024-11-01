@@ -1,18 +1,18 @@
 #pragma once
 
-#include <vector>
 #include <algorithm>
+#include <vector>
 
 template <typename T>
-class UniqueVector{
-public:
-    size_t insert(const T& t)
+class UniqueVector {
+  public:
+    size_t insert(const T &t)
     {
-        //To-do: maybe keep mData sorted to lower complexity
-        //of search to O(log(N))
+        // To-do: maybe keep mData sorted to lower complexity
+        // of search to O(log(N))
         auto it = std::find(mData.begin(), mData.end(), t);
 
-        if(it != mData.end())
+        if (it != mData.end())
         {
             return it - mData.begin();
         }
@@ -23,11 +23,11 @@ public:
         }
     }
 
-    const std::vector<T>& data() const
+    const std::vector<T> &data() const
     {
         return mData;
     }
 
-private:
+  private:
     std::vector<T> mData;
 };

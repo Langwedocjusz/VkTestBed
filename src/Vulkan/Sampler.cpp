@@ -15,7 +15,7 @@ VkSampler SamplerBuilder::Build(VulkanContext &ctx)
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(ctx.PhysicalDevice, &properties);
 
-    //To-do: Un-hardcode those samper parameters:
+    // To-do: Un-hardcode those samper parameters:
     samplerInfo.anisotropyEnable = VK_TRUE;
     samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
 

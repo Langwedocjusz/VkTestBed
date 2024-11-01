@@ -1,97 +1,195 @@
 #include "Primitives.h"
 
 #include "GeometryProvider.h"
-#include "Vertex.h"
+#include "VertexLayout.h"
 
 #include <cstdint>
+#include <vulkan/vulkan.h>
 
-static std::vector<Vertex_PC> HelloTriangleVertices()
-{
-    const float r3 = std::sqrt(3.0f);
+// clang-format off
+struct HelloVertex{
+    glm::vec3 Position;
+    glm::vec3 Color;
+};
 
-    // clang-format off
-    return {
-        {{ 0.0f,-r3/3.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.5f, r3/6.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, r3/6.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-    };
-    // clang-format on
-}
+struct Vertex_PosTexCol{
+    glm::vec3 Position;
+    glm::vec2 TexCoord;
+    glm::vec3 Color;
+};
 
-static std::vector<uint16_t> HelloTriangleIndices()
-{
-    return {0, 1, 2};
-}
+struct Vertex_PosColNorm{
+    glm::vec3 Position;
+    glm::vec3 Color;
+    glm::vec3 Normal;
+};
+
+struct Vertex_PosTexNorm{
+    glm::vec3 Position;
+    glm::vec2 TexCoord;
+    glm::vec3 Normal;
+};
 
 GeometryProvider primitive::HelloTriangle()
 {
+    using enum Vertex::AttributeType;
+
+    GeometryLayout layout{
+        .VertexLayout = {Vec3, Vec3},
+        .IndexType = VK_INDEX_TYPE_UINT16
+    };
+
+    auto vertexProvider = []()
+    {
+        constexpr size_t vertexCount = 3;
+        constexpr size_t size = vertexCount * sizeof(HelloVertex);
+
+        OpaqueBuffer buf(vertexCount, size, 4);
+
+        const float r3 = std::sqrt(3.0f);
+
+        new (buf.Data.get()) HelloVertex[vertexCount]
+        {
+            {{ 0.0f,-r3/3.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+            {{ 0.5f, r3/6.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+            {{-0.5f, r3/6.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+        };
+
+        return buf;
+    };
+
+    auto indexProvider = []()
+    {
+        constexpr size_t idxCount = 3;
+        constexpr size_t size = idxCount * sizeof(uint16_t);
+
+        OpaqueBuffer buf(idxCount, size, 2);
+
+        new (buf.Data.get()) uint16_t[idxCount]{0, 1, 2};
+
+        return buf;
+    };
+
     return GeometryProvider{
-        HelloTriangleVertices,
-        HelloTriangleIndices,
+        layout,
+        vertexProvider,
+        indexProvider,
     };
-}
-
-static std::vector<Vertex_PC> HelloQuadVertices()
-{
-    // clang-format off
-    return {
-        {{-0.33f, 0.33f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.33f, 0.33f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-        {{ 0.33f,-0.33f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.33f,-0.33f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-    };
-    // clang-format on
-}
-
-static std::vector<uint16_t> HelloQuadIndices()
-{
-    return {0, 2, 1, 2, 0, 3};
 }
 
 GeometryProvider primitive::HelloQuad()
 {
+    using enum Vertex::AttributeType;
+
+    GeometryLayout layout{
+        .VertexLayout = {Vec3, Vec3},
+        .IndexType = VK_INDEX_TYPE_UINT16
+    };
+
+    auto vertexProvider = []()
+    {
+        constexpr size_t vertexCount = 4;
+        constexpr size_t size = vertexCount * sizeof(HelloVertex);
+
+        OpaqueBuffer buf(vertexCount, size, 4);
+
+        new (buf.Data.get()) HelloVertex[vertexCount]
+        {
+            {{-0.33f, 0.33f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+            {{ 0.33f, 0.33f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+            {{ 0.33f,-0.33f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+            {{-0.33f,-0.33f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        };
+
+        return buf;
+    };
+
+    auto indexProvider = []()
+    {
+        constexpr size_t idxCount = 6;
+        constexpr size_t size = idxCount * sizeof(uint16_t);
+
+        OpaqueBuffer buf(idxCount, size, 2);
+
+        new (buf.Data.get()) uint16_t[idxCount]{0, 2, 1, 2, 0, 3};
+
+        return buf;
+    };
+
     return GeometryProvider{
-        HelloQuadVertices,
-        HelloQuadIndices,
+        layout,
+        vertexProvider,
+        indexProvider,
     };
 }
 
 GeometryProvider primitive::TexturedQuad()
 {
-    // clang-format off
-    auto vertices = []() -> std::vector<Vertex_PXN>
+    using enum Vertex::AttributeType;
+
+    GeometryLayout layout{
+        .VertexLayout = {Vec3, Vec2, Vec3},
+        .IndexType = VK_INDEX_TYPE_UINT32
+    };
+
+    auto vertexProvider = []()
     {
-        return {
+        constexpr size_t vertexCount = 4;
+        constexpr size_t size = vertexCount * sizeof(Vertex_PosTexCol);
+
+        OpaqueBuffer buf(vertexCount, size, 4);
+
+        new (buf.Data.get()) Vertex_PosTexCol[vertexCount]
+        {
             {{-0.5f,-0.5f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
             {{ 0.5f,-0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
             {{ 0.5f, 0.5f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
-            {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}}
+            {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
         };
+
+        return buf;
     };
 
-    auto indices = []() -> std::vector<uint32_t>
+    auto indexProvider = []()
     {
-        return {
-            0, 1, 2, 2, 3, 0
-        };
-    };
+        constexpr size_t idxCount = 6;
+        constexpr size_t size = idxCount * sizeof(uint32_t);
 
-    // clang-format on
+        OpaqueBuffer buf(idxCount, size, 4);
+
+        new (buf.Data.get()) uint32_t[idxCount]{0, 1, 2, 2, 3, 0};
+
+        return buf;
+    };
 
     return GeometryProvider{
-        vertices,
-        indices
+        layout,
+        vertexProvider,
+        indexProvider,
     };
 }
 
 GeometryProvider primitive::ColoredCube(glm::vec3 color)
 {
+    //To-do: actually use this:
     (void)color;
 
-    // clang-format off
-    auto vertices = []() -> std::vector<Vertex_PCN>
+    using enum Vertex::AttributeType;
+
+    GeometryLayout layout{
+        .VertexLayout = {Vec3, Vec3, Vec3},
+        .IndexType = VK_INDEX_TYPE_UINT32
+    };
+
+    auto vertexProvider = []()
     {
-        return {
+        constexpr size_t vertexCount = 24;
+        constexpr size_t size = vertexCount * sizeof(Vertex_PosColNorm);
+
+        OpaqueBuffer buf(vertexCount, size, 4);
+
+        new (buf.Data.get()) Vertex_PosColNorm[vertexCount]
+        {
             //Top
             {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
             {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
@@ -123,11 +221,19 @@ GeometryProvider primitive::ColoredCube(glm::vec3 color)
             {{-0.5f, 0.5f,-0.5f}, {0.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
             {{-0.5f,-0.5f,-0.5f}, {0.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
         };
+
+        return buf;
     };
 
-    auto indices = []() -> std::vector<uint32_t>
+    auto indexProvider = []()
     {
-        return {
+        constexpr size_t idxCount = 36;
+        constexpr size_t size = idxCount * sizeof(uint32_t);
+
+        OpaqueBuffer buf(idxCount, size, 4);
+
+        new (buf.Data.get()) uint32_t[idxCount]
+        {
             //Top
             0,1,2, 2,3,0,
             //Bottom
@@ -141,21 +247,35 @@ GeometryProvider primitive::ColoredCube(glm::vec3 color)
             //Left
             20,21,22, 22,23,20
         };
+
+        return buf;
     };
-    // clang-format on
 
     return GeometryProvider{
-        vertices,
-        indices
+        layout,
+        vertexProvider,
+        indexProvider,
     };
 }
 
 GeometryProvider primitive::TexturedCube()
 {
-    // clang-format off
-    auto vertices = []() -> std::vector<Vertex_PXN>
+    using enum Vertex::AttributeType;
+
+    GeometryLayout layout{
+        .VertexLayout = {Vec3, Vec2, Vec3},
+        .IndexType = VK_INDEX_TYPE_UINT32
+    };
+
+    auto vertexProvider = []()
     {
-        return {
+        constexpr size_t vertexCount = 24;
+        constexpr size_t size = vertexCount * sizeof(Vertex_PosTexNorm);
+
+        OpaqueBuffer buf(vertexCount, size, 4);
+
+        new (buf.Data.get()) Vertex_PosTexNorm[vertexCount]
+        {
             //Top
             {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
             {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
@@ -187,11 +307,19 @@ GeometryProvider primitive::TexturedCube()
             {{-0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
             {{-0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}},
         };
+
+        return buf;
     };
 
-    auto indices = []() -> std::vector<uint32_t>
+    auto indexProvider = []()
     {
-        return {
+        constexpr size_t idxCount = 36;
+        constexpr size_t size = idxCount * sizeof(uint32_t);
+
+        OpaqueBuffer buf(idxCount, size, 4);
+
+        new (buf.Data.get()) uint32_t[idxCount]
+        {
             //Top
             0,1,2, 2,3,0,
             //Bottom
@@ -205,11 +333,15 @@ GeometryProvider primitive::TexturedCube()
             //Left
             20,21,22, 22,23,20
         };
+
+        return buf;
     };
-    // clang-format on
 
     return GeometryProvider{
-        vertices,
-        indices
+        layout,
+        vertexProvider,
+        indexProvider,
     };
 }
+
+// clang-format on

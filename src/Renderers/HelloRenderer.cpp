@@ -1,9 +1,8 @@
 #include "HelloRenderer.h"
 #include "GeometryProvider.h"
-#include "IndexBuffer.h"
+#include "MeshBuffers.h"
 #include "Renderer.h"
 #include "Shader.h"
-#include "Vertex.h"
 #include "VkInit.h"
 
 #include "Common.h"
@@ -11,6 +10,7 @@
 #include <cstdint>
 #include <iostream>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues,
@@ -23,16 +23,17 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetFragmentPath("assets/spirv/HelloTriangleFrag.spv")
                             .Build(ctx);
 
-    mGraphicsPipeline = PipelineBuilder()
-                            .SetShaderStages(shaderStages)
-                            .SetVertexInput<Vertex_PC>(0, VK_VERTEX_INPUT_RATE_VERTEX)
-                            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                            .SetColorFormat(mRenderTargetFormat)
-                            .SetPushConstantSize(sizeof(glm::mat4))
-                            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
-                            .Build(ctx);
+    mGraphicsPipeline =
+        PipelineBuilder()
+            .SetShaderStages(shaderStages)
+            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .SetColorFormat(mRenderTargetFormat)
+            .SetPushConstantSize(sizeof(glm::mat4))
+            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+            .Build(ctx);
 
     mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
     mMainDeletionQueue.push_back(mGraphicsPipeline.Layout);
@@ -81,19 +82,19 @@ void HelloRenderer::OnRender()
 
         for (auto &drawable : mDrawables)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.Vert.Handle};
+            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
             std::array<VkDeviceSize, 1> offsets{0};
 
             vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
-
-            drawable.Idx.Bind(cmd, 0);
+            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
+                                 mGeometryLayout.IndexType);
 
             for (auto &transform : drawable.Transforms)
             {
                 vkCmdPushConstants(cmd, mGraphicsPipeline.Layout,
                                    VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
                                    &transform);
-                vkCmdDrawIndexed(cmd, drawable.Idx.Count, 1, 0, 0, 0);
+                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
         }
     }
@@ -152,44 +153,35 @@ void HelloRenderer::LoadScene(Scene &scene)
 
 void HelloRenderer::LoadProviders(Scene &scene)
 {
+    auto &pool = mFrame.CurrentPool();
+
     for (auto &obj : scene.Objects)
     {
-        auto vertOpt = obj.Provider.UnpackVertices<Vertex_PC>();
-        auto idxOpt = obj.Provider.UnpackIndices<uint16_t>();
-
-        if (!vertOpt.has_value())
+        if (!mGeometryLayout.IsCompatible(obj.Provider.Layout))
         {
-            std::cerr << "Unsupported vertex type.\n";
+            std::cerr << "Unsupported geometry layout.\n";
             continue;
         }
-
-        if (!idxOpt.has_value())
-        {
-            std::cerr << "Unsupported index type.\n";
-            continue;
-        }
-
-        auto vertFn = vertOpt.value();
-        auto idxFn = idxOpt.value();
 
         mDrawables.emplace_back();
         auto &drawable = mDrawables.back();
 
-        auto &pool = mFrame.CurrentPool();
-
         // Create Vertex buffer:
-        auto vertices = vertFn();
-        drawable.Vert = VertexBuffer::Create(mCtx, mQueues.Graphics, pool, vertices);
+        OpaqueBuffer vertices = obj.Provider.GetVertexData();
+        drawable.VertexBuffer =
+            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, vertices);
+        drawable.VertexCount = vertices.Count;
 
         // Create Index buffer:
-        auto indices = idxFn();
-        drawable.Idx = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, indices);
+        OpaqueBuffer indices = obj.Provider.GetIndexData();
+        drawable.IndexBuffer = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, indices);
+        drawable.IndexCount = indices.Count;
     }
 
     for (auto &drawable : mDrawables)
     {
-        mSceneDeletionQueue.push_back(&drawable.Vert);
-        mSceneDeletionQueue.push_back(&drawable.Idx);
+        mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
+        mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
     }
 }
 
@@ -199,18 +191,9 @@ void HelloRenderer::LoadInstances(Scene &scene)
 
     for (auto &obj : scene.Objects)
     {
-        auto vertOpt = obj.Provider.UnpackVertices<Vertex_PC>();
-        auto idxOpt = obj.Provider.UnpackIndices<uint16_t>();
-
-        if (!vertOpt.has_value())
+        if (!mGeometryLayout.IsCompatible(obj.Provider.Layout))
         {
-            std::cerr << "Unsupported vertex type.\n";
-            continue;
-        }
-
-        if (!idxOpt.has_value())
-        {
-            std::cerr << "Unsupported index type.\n";
+            std::cerr << "Unsupported geometry layout.\n";
             continue;
         }
 

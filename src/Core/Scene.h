@@ -1,7 +1,7 @@
 #pragma once
 
-#include <string>
 #include "UniqueVector.h"
+#include <string>
 
 #include <glm/glm.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -16,9 +16,9 @@ struct InstanceData {
 
     glm::mat4 GetTransform()
     {
-        return glm::translate(glm::mat4(1.0f), Translation)
-        * glm::eulerAngleXYZ(Rotation.x, Rotation.y, Rotation.z)
-        * glm::scale(glm::mat4(1.0f), Scale);
+        return glm::translate(glm::mat4(1.0f), Translation) *
+               glm::eulerAngleXYZ(Rotation.x, Rotation.y, Rotation.z) *
+               glm::scale(glm::mat4(1.0f), Scale);
     }
 };
 

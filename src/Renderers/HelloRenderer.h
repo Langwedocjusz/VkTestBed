@@ -1,9 +1,10 @@
 #pragma once
 
-#include "VertexBuffer.h"
-#include "IndexBuffer.h"
+#include "GeometryProvider.h"
 #include "Pipeline.h"
 #include "Renderer.h"
+#include "VertexLayout.h"
+#include <vulkan/vulkan_core.h>
 
 class HelloRenderer : public IRenderer {
   public:
@@ -29,9 +30,17 @@ class HelloRenderer : public IRenderer {
 
     Pipeline mGraphicsPipeline;
 
+    GeometryLayout mGeometryLayout{
+        .VertexLayout = {Vertex::AttributeType::Vec3, Vertex::AttributeType::Vec3},
+        .IndexType = VK_INDEX_TYPE_UINT16,
+    };
+
     struct Drawable {
-        VertexBuffer Vert;
-        IndexBuffer Idx;
+        Buffer VertexBuffer;
+        size_t VertexCount;
+
+        Buffer IndexBuffer;
+        size_t IndexCount;
 
         std::vector<glm::mat4> Transforms;
     };

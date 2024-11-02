@@ -43,6 +43,23 @@ PipelineBuilder::PipelineBuilder()
     mMultisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 }
 
+PipelineBuilder PipelineBuilder::SetShaderStages(
+        const std::vector<VkPipelineShaderStageCreateInfo> &stages)
+{
+    mShaderStages = stages;
+    return *this;
+}
+
+PipelineBuilder PipelineBuilder::SetVertexInput(const Vertex::Layout &layout, uint32_t binding,
+                                   VkVertexInputRate inputRate)
+{
+    mBindingDescription = Vertex::GetBindingDescription(layout, binding, inputRate);
+    mAttributeDescriptions = Vertex::GetAttributeDescriptions(layout);
+
+    UpdateVertexInput();
+    return *this;
+}
+
 void PipelineBuilder::UpdateVertexInput()
 {
     mVertexInput.vertexBindingDescriptionCount = 1;
@@ -239,6 +256,12 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
         vkDestroyShaderModule(ctx.Device, shaderInfo.module, nullptr);
 
     return pipeline;
+}
+
+ComputePipelineBuilder ComputePipelineBuilder::SetShaderStage(VkPipelineShaderStageCreateInfo stage)
+{
+    mShaderStage = stage;
+    return *this;
 }
 
 Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx,

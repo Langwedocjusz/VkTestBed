@@ -286,16 +286,16 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
         mColoredDrawables.emplace_back();
         auto &drawable = mColoredDrawables.back();
 
+        auto geo = obj.Provider.GetGeometry();
+
         // Create Vertex buffer:
-        OpaqueBuffer vertices = obj.Provider.GetVertexData();
         drawable.VertexBuffer =
-            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, vertices);
-        drawable.VertexCount = vertices.Count;
+            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
+        drawable.VertexCount = geo.VertexData.Count;
 
         // Create Index buffer:
-        OpaqueBuffer indices = obj.Provider.GetIndexData();
-        drawable.IndexBuffer = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, indices);
-        drawable.IndexCount = indices.Count;
+        drawable.IndexBuffer = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+        drawable.IndexCount = geo.IndexData.Count;
     }
 
     for (auto &obj : scene.Objects)
@@ -308,16 +308,16 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
         mTexturedDrawables.emplace_back();
         auto &drawable = mTexturedDrawables.back();
 
+        auto geo = obj.Provider.GetGeometry();
+
         // Create Vertex buffer:
-        OpaqueBuffer vertices = obj.Provider.GetVertexData();
         drawable.VertexBuffer =
-            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, vertices);
-        drawable.VertexCount = vertices.Count;
+            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
+        drawable.VertexCount = geo.VertexData.Count;
 
         // Create Index buffer:
-        OpaqueBuffer indices = obj.Provider.GetIndexData();
-        drawable.IndexBuffer = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, indices);
-        drawable.IndexCount = indices.Count;
+        drawable.IndexBuffer = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+        drawable.IndexCount = geo.IndexData.Count;
 
         // Retrieve texture id
         if (obj.TextureId.has_value())

@@ -46,7 +46,7 @@ GeometryProvider ModelLoader::PosTex(const std::string& filepath)
     GeometryLayout layout{.VertexLayout = {Vec3, Vec2, Vec3},
                           .IndexType = VK_INDEX_TYPE_UINT32};
 
-    auto vertexProvider = [filepath]() {
+    auto geoProvider = [filepath]() {
         auto gltf = GetAsset(filepath);
 
         // Temporary, load just the first mesh:
@@ -64,12 +64,12 @@ GeometryProvider ModelLoader::PosTex(const std::string& filepath)
             glm::vec3 Normal;
         };
 
-        const size_t vertexCount = posAccessor.count;
-        const size_t size = vertexCount * sizeof(Vertex);
+        const size_t vertCount = posAccessor.count;
+        const size_t vertSize = vertCount * sizeof(Vertex);
 
-        OpaqueBuffer buf(vertexCount, size, 4);
+        OpaqueBuffer vertBuf(vertCount, vertSize, 4);
 
-        auto Vertices = new (buf.Data.get()) Vertex[vertexCount];
+        auto Vertices = new (vertBuf.Data.get()) Vertex[vertCount];
 
         fastgltf::iterateAccessorWithIndex<glm::vec3>(
             gltf, posAccessor, [&](glm::vec3 v, size_t index) {
@@ -93,40 +93,34 @@ GeometryProvider ModelLoader::PosTex(const std::string& filepath)
                 });
         }
 
-        return buf;
-    };
-
-    auto indexProvider = [filepath]() {
-        auto gltf = GetAsset(filepath);
-
-        // Temporary, load just the first mesh:
-        auto &mesh = gltf.meshes[0];
-        //Temporary, load just the first mesh primitive:
-        auto& primitive = mesh.primitives[0];
-
+        //Retrieve index data:
         fastgltf::Accessor &indexAccessor =
                 gltf.accessors[primitive.indicesAccessor.value()];
 
-        const size_t indexCount = indexAccessor.count;
-        const size_t size = indexCount * sizeof(uint32_t);
+        const size_t idxCount = indexAccessor.count;
+        const size_t idxSize = idxCount * sizeof(uint32_t);
 
-        OpaqueBuffer buf(indexCount, size, 4);
+        OpaqueBuffer idxBuf(idxCount, idxSize, 4);
 
-        auto Indices = new (buf.Data.get()) uint32_t[indexCount];
-        size_t current = 0;
+        auto Indices = new (idxBuf.Data.get()) uint32_t[idxCount];
 
-        fastgltf::iterateAccessor<std::uint32_t>(
-            gltf, indexAccessor, [&](std::uint32_t idx) {
-                Indices[current] = idx;
-                current++;
+        {
+            size_t current = 0;
+
+            fastgltf::iterateAccessor<std::uint32_t>(
+                gltf, indexAccessor, [&](std::uint32_t idx) {
+                    Indices[current] = idx;
+                    current++;
             });
+        }
 
-        return buf;
+        return GeometryData{
+            std::move(vertBuf), std::move(idxBuf)
+        };
     };
 
     return GeometryProvider{
         layout,
-        vertexProvider,
-        indexProvider,
+        geoProvider,
     };
 }

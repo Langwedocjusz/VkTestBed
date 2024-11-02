@@ -17,24 +17,13 @@ class PipelineBuilder {
     PipelineBuilder();
 
     PipelineBuilder SetShaderStages(
-        const std::vector<VkPipelineShaderStageCreateInfo> &stages)
-    {
-        mShaderStages = stages;
-        return *this;
-    }
+        const std::vector<VkPipelineShaderStageCreateInfo> &stages);
 
     /// If vertex input is not set, vertex data can't be accessed the usual way
     /// in vertex shaders. This is actually the desired behaviour when doing
     /// vertex pulling or generating vertices on-the-fly in the shader itself.
     PipelineBuilder SetVertexInput(const Vertex::Layout &layout, uint32_t binding,
-                                   VkVertexInputRate inputRate)
-    {
-        mBindingDescription = Vertex::GetBindingDescription(layout, binding, inputRate);
-        mAttributeDescriptions = Vertex::GetAttributeDescriptions(layout);
-
-        UpdateVertexInput();
-        return *this;
-    }
+                                   VkVertexInputRate inputRate);
 
     PipelineBuilder SetTopology(VkPrimitiveTopology topo);
     PipelineBuilder SetPolygonMode(VkPolygonMode mode);
@@ -81,11 +70,7 @@ class ComputePipelineBuilder {
   public:
     ComputePipelineBuilder() = default;
 
-    ComputePipelineBuilder SetShaderStage(VkPipelineShaderStageCreateInfo stage)
-    {
-        mShaderStage = stage;
-        return *this;
-    }
+    ComputePipelineBuilder SetShaderStage(VkPipelineShaderStageCreateInfo stage);
 
     Pipeline Build(VulkanContext &ctx, VkDescriptorSetLayout &descriptor);
 

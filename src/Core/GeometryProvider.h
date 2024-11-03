@@ -32,12 +32,13 @@ struct OpaqueBuffer {
     }
 };
 
-struct GeometryData{
+struct GeometryData {
     OpaqueBuffer VertexData;
     OpaqueBuffer IndexData;
 };
 
 struct GeometryProvider {
+    std::string Name;
     GeometryLayout Layout;
     std::function<GeometryData()> GetGeometry;
 };

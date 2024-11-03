@@ -68,6 +68,7 @@ GeometryProvider primitive::HelloTriangle()
     };
 
     return GeometryProvider{
+        "Hello Triangle",
         layout,
         geoProvider,
     };
@@ -110,6 +111,7 @@ GeometryProvider primitive::HelloQuad()
     };
 
     return GeometryProvider{
+        "Hello Quad",
         layout,
         geoProvider,
     };
@@ -152,6 +154,7 @@ GeometryProvider primitive::TexturedQuad()
     };
 
     return GeometryProvider{
+        "Textured Quad",
         layout,
         geoProvider,
     };
@@ -237,6 +240,7 @@ GeometryProvider primitive::ColoredCube(glm::vec3 color)
     };
 
     return GeometryProvider{
+        "Colored Cube",
         layout,
         geoProvider,
     };
@@ -319,6 +323,7 @@ GeometryProvider primitive::TexturedCube()
     };
 
     return GeometryProvider{
+        "Textured Cube",
         layout,
         geoProvider,
     };

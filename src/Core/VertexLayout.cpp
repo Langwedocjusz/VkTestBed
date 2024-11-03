@@ -50,6 +50,25 @@ static uint32_t GetSize(const Vertex::Layout &layout)
     return res;
 }
 
+std::string Vertex::ToString(AttributeType type)
+{
+    using enum AttributeType;
+
+    switch (type)
+    {
+    case Float:
+        return "float";
+    case Vec2:
+        return "vec2";
+    case Vec3:
+        return "vec3";
+    case Vec4:
+        return "vec4";
+    }
+
+    std::unreachable();
+}
+
 Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const Layout &layout)
 {
     AttributeDescriptions res;

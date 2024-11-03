@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -14,6 +15,8 @@ enum class AttributeType
     Vec3,
     Vec4
 };
+
+std::string ToString(AttributeType type);
 
 using Layout = std::vector<AttributeType>;
 

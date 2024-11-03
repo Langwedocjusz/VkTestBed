@@ -35,8 +35,8 @@ target_sources(${PROJECT_NAME}
         src/Core/Frame.h
         src/Core/Frame.h
         src/Core/GeometryProvider.h
-        src/Core/ImGuiUtils.h
-        src/Core/ImGuiUtils.cpp
+        src/Core/ImGuiInit.h
+        src/Core/ImGuiInit.cpp
         src/Core/Keycodes.h
         src/Core/ModelLoader.h
         src/Core/ModelLoader.cpp

@@ -2,7 +2,7 @@
 #include <memory>
 
 #include "Event.h"
-#include "ImGuiUtils.h"
+#include "ImGuiInit.h"
 #include "Keycodes.h"
 #include "ModelLoader.h"
 #include "Primitives.h"
@@ -19,36 +19,41 @@ Application::Application()
     : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
       mCtx(800, 600, "VkTestBed", mWindow), mRender(mCtx)
 {
-    imutils::InitImGui();
-    imutils::InitGlfwBackend(mWindow.Get());
+    iminit::InitImGui();
+    iminit::InitGlfwBackend(mWindow.Get());
     mRender.InitImGuiVulkanBackend();
 
     mScene = std::make_unique<Scene>();
 
-    mScene->Objects.emplace_back();
-    mScene->Objects.back().Provider = primitive::ColoredCube(glm::vec3(0.5f));
-    mScene->Objects.back().Instances.push_back(InstanceData{});
+    mScene->Objects.push_back(SceneObject{
+        .Provider = primitive::ColoredCube(glm::vec3(0.5f)),
+        .TextureId = {},
+        .Instances = {InstanceData{}},
+    });
 
     size_t texId = mScene->Textures.insert("./assets/textures/texture.jpg");
 
-    mScene->Objects.emplace_back();
-    mScene->Objects.back().Provider = primitive::TexturedCube();
-    mScene->Objects.back().TextureId = texId;
-
-    InstanceData data = {};
-    data.Translation = {1.5f, 0.0f, 0.0f};
-    mScene->Objects.back().Instances.push_back(data);
+    mScene->Objects.push_back(SceneObject{
+        .Provider = primitive::TexturedCube(),
+        .TextureId = texId,
+        .Instances = {InstanceData{
+            .Translation = {1.5f, 0.0f, 0.0f},
+            .Rotation = glm::vec3(0.0f),
+            .Scale = glm::vec3(1.0f),
+        }},
+    });
 
     texId = mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
 
-    mScene->Objects.emplace_back();
-    mScene->Objects.back().Provider =
-        ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf");
-    mScene->Objects.back().TextureId = texId;
-
-    data.Translation = {3.0f, 0.0f, 0.0f};
-    data.Rotation = {-0.5f * 3.14f, 0.0f, 0.0f};
-    mScene->Objects.back().Instances.push_back(data);
+    mScene->Objects.push_back(SceneObject{
+        .Provider = ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf"),
+        .TextureId = texId,
+        .Instances = {InstanceData{
+            .Translation = {3.0f, 0.0f, 0.0f},
+            .Rotation = {-0.5f * 3.14f, 0.0f, 0.0f},
+            .Scale = glm::vec3(1.0f),
+        }},
+    });
 
     // First-time scene loading
     mRender.LoadScene(*mScene);
@@ -98,17 +103,17 @@ void Application::Run()
         mRender.OnUpdate(mDeltaTime / 1000.0f);
 
         // Collect imgui calls
-        imutils::BeginGuiFrame();
+        iminit::BeginGuiFrame();
         mSceneEditor.OnImGui(*mScene);
         mRender.OnImGui();
-        imutils::FinalizeGuiFrame();
+        iminit::FinalizeGuiFrame();
 
         // Render things:
         mRender.OnRender();
     }
 
     vkDeviceWaitIdle(mCtx.Device);
-    imutils::DestroyImGui();
+    iminit::DestroyImGui();
 }
 
 void Application::OnResize(uint32_t width, uint32_t height)

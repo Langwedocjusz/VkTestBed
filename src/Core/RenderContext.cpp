@@ -2,7 +2,7 @@
 
 #include "Barrier.h"
 #include "Common.h"
-#include "ImGuiUtils.h"
+#include "ImGuiInit.h"
 #include "Renderer.h"
 #include "Utils.h"
 #include "VkInit.h"
@@ -49,11 +49,11 @@ RenderContext::RenderContext(VulkanContext &ctx)
 
 void RenderContext::InitImGuiVulkanBackend()
 {
-    mImGuiDescriptorPool = imutils::CreateDescriptorPool(mCtx);
+    mImGuiDescriptorPool = iminit::CreateDescriptorPool(mCtx);
     mMainDeletionQueue.push_back(mImGuiDescriptorPool);
 
-    imutils::InitVulkanBackend(mCtx, mImGuiDescriptorPool, mQueues.Graphics,
-                               mFrameInfo.MaxInFlight);
+    iminit::InitVulkanBackend(mCtx, mImGuiDescriptorPool, mQueues.Graphics,
+                              mFrameInfo.MaxInFlight);
 }
 
 RenderContext::~RenderContext()
@@ -165,7 +165,7 @@ void RenderContext::DrawUI(VkCommandBuffer cmd)
     {
         common::ViewportScissor(cmd, swapchainSize);
 
-        imutils::RecordImguiToCommandBuffer(cmd);
+        iminit::RecordImguiToCommandBuffer(cmd);
     }
     vkCmdEndRendering(cmd);
 }

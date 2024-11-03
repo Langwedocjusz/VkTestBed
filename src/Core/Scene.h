@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include "GeometryProvider.h"
 
@@ -17,8 +18,7 @@ struct InstanceData {
     glm::mat4 GetTransform()
     {
         return glm::translate(glm::mat4(1.0f), Translation) *
-               glm::eulerAngleXYZ(Rotation.x, Rotation.y, Rotation.z) *
-               glm::scale(glm::mat4(1.0f), Scale);
+               glm::toMat4(glm::quat(Rotation)) * glm::scale(glm::mat4(1.0f), Scale);
     }
 };
 

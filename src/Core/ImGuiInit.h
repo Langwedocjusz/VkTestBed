@@ -4,7 +4,7 @@
 
 struct GLFWwindow;
 
-namespace imutils
+namespace iminit
 {
 void InitImGui();
 void InitGlfwBackend(GLFWwindow *window);
@@ -17,4 +17,4 @@ void FinalizeGuiFrame();
 void RecordImguiToCommandBuffer(VkCommandBuffer cmd);
 
 void DestroyImGui();
-} // namespace imutils
+} // namespace iminit

@@ -1,7 +1,9 @@
 #include "SceneEditor.h"
 
 #include "Scene.h"
+#include "VertexLayout.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include <ranges>
 #include <string>
 
@@ -40,11 +42,9 @@ static bool TransformWidget(InstanceData &data)
     return changed;
 }
 
-void SceneEditor::OnImGui(Scene &scene)
+static void DataMenu(Scene &scene)
 {
     using namespace std::views;
-
-    ImGui::Begin("Scene");
 
     auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
 
@@ -59,39 +59,135 @@ void SceneEditor::OnImGui(Scene &scene)
 
     for (const auto [objId, obj] : enumerate(scene.Objects))
     {
-        std::string nodeName = "Object " + std::to_string(objId);
+        std::string nodeName = obj.Provider.Name + "##" + std::to_string(objId);
 
         if (ImGui::TreeNodeEx(nodeName.c_str()))
         {
-            for (const auto [instId, instance] : enumerate(obj.Instances))
-            {
-                std::string nodeName = "Instance " + std::to_string(instId);
+            std::string vertLayout = "Vertex Layout: ";
 
-                if (ImGui::TreeNodeEx(nodeName.c_str()))
-                {
-                    if (TransformWidget(instance))
-                    {
-                        scene.UpdateRequested = true;
-                        obj.UpdateInstances = true;
-                    }
+            for (auto type : obj.Provider.Layout.VertexLayout)
+                vertLayout += Vertex::ToString(type) + ", ";
 
-                    ImGui::TreePop();
-                }
-            }
-
-            auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
-
-            if (ImGui::Button("Add instance", size))
-            {
-                obj.Instances.push_back(InstanceData{});
-
-                scene.UpdateRequested = true;
-                obj.UpdateInstances = true;
-            }
+            ImGui::Text("%s", vertLayout.c_str());
 
             ImGui::TreePop();
         }
     }
+}
+
+static void InstanceMenu(Scene &scene)
+{
+    using namespace std::views;
+
+    struct EraseData{
+        //For some reaseon enumerate returns
+        //signed index
+        int64_t ObjId;
+        int64_t InstId;
+    };
+
+    std::optional<EraseData> erase;
+
+    for (const auto [objId, obj] : enumerate(scene.Objects))
+    {
+        for (const auto [instId, instance] : enumerate(obj.Instances))
+        {
+            std::string nodeName = obj.Provider.Name + " " + std::to_string(instId);
+            const auto flags = ImGuiTreeNodeFlags_AllowOverlap;
+
+            const bool nodeOpen = ImGui::TreeNodeEx(nodeName.c_str(), flags);
+
+            ImGui::SameLine();
+
+            ImGuiWindow* window = ImGui::GetCurrentWindow();
+            ImGuiID id = window->GetID(nodeName.c_str());
+            ImGuiID closeButtonId = ImGui::GetIDWithSeed("#CLOSE", nullptr, id);
+
+            ImGuiContext& g = *GImGui;
+            float buttonSize = g.FontSize;
+            ImVec2 buttonPos = ImGui::GetCursorScreenPos();
+            buttonPos.x += ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - buttonSize;
+
+            ImGui::NewLine();
+
+            if (ImGui::CloseButton(closeButtonId + 1, buttonPos))
+            {
+                erase = EraseData{objId, instId};
+            }
+
+            if (nodeOpen)
+            {
+
+                if (TransformWidget(instance))
+                {
+                    obj.UpdateInstances = true;
+                    scene.UpdateRequested = true;
+                }
+
+                ImGui::TreePop();
+            }
+        }
+    }
+
+    if (erase.has_value())
+    {
+        auto& obj = scene.Objects[erase->ObjId];
+        auto& instances = obj.Instances;
+        instances.erase(instances.begin() + erase->InstId);
+
+        obj.UpdateInstances = true;
+        scene.UpdateRequested = true;
+    }
+}
+
+static void AddInstanceOnRightClick(Scene &scene)
+{
+    using namespace std::views;
+
+    if (ImGui::BeginPopupContextWindow())
+    {
+        ImGui::Text("Add instance:");
+        ImGui::Separator();
+
+        for (const auto [objId, obj] : enumerate(scene.Objects))
+        {
+            std::string name = obj.Provider.Name + "##" + std::to_string(objId);
+
+            if (ImGui::Selectable(name.c_str()))
+            {
+                obj.Instances.emplace_back();
+
+                obj.UpdateInstances = true;
+                scene.UpdateRequested = true;
+            }
+        }
+
+        ImGui::EndPopup();
+    }
+}
+
+void SceneEditor::OnImGui(Scene &scene)
+{
+    ImGui::Begin("Scene");
+
+    ImGui::SameLine();
+
+    ImGui::BeginTabBar("We");
+
+    if (ImGui::BeginTabItem("Instances"))
+    {
+        InstanceMenu(scene);
+        AddInstanceOnRightClick(scene);
+        ImGui::EndTabItem();
+    }
+
+    if (ImGui::BeginTabItem("Data"))
+    {
+        DataMenu(scene);
+        ImGui::EndTabItem();
+    }
+
+    ImGui::EndTabBar();
 
     ImGui::End();
 }

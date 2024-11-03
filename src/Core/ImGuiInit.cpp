@@ -1,4 +1,4 @@
-#include "ImGuiUtils.h"
+#include "ImGuiInit.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -10,7 +10,7 @@
 static void ImGuiStyleCustom();
 [[maybe_unused]] static void check_vk_result(VkResult err);
 
-void imutils::InitImGui()
+void iminit::InitImGui()
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -25,7 +25,7 @@ void imutils::InitImGui()
     ImGuiStyleCustom();
 }
 
-VkDescriptorPool imutils::CreateDescriptorPool(VulkanContext &ctx)
+VkDescriptorPool iminit::CreateDescriptorPool(VulkanContext &ctx)
 {
     VkDescriptorPool pool;
 
@@ -48,13 +48,13 @@ VkDescriptorPool imutils::CreateDescriptorPool(VulkanContext &ctx)
     return pool;
 }
 
-void imutils::InitGlfwBackend(GLFWwindow *window)
+void iminit::InitGlfwBackend(GLFWwindow *window)
 {
     ImGui_ImplGlfw_InitForVulkan(window, true);
 }
 
-void imutils::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPool,
-                                VkQueue graphicsQueue, uint32_t framesInFlight)
+void iminit::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPool,
+                               VkQueue graphicsQueue, uint32_t framesInFlight)
 {
     ImGui_ImplVulkan_InitInfo init_info = {};
 
@@ -85,26 +85,26 @@ void imutils::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorP
     ImGui_ImplVulkan_Init(&init_info);
 }
 
-void imutils::DestroyImGui()
+void iminit::DestroyImGui()
 {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 }
 
-void imutils::BeginGuiFrame()
+void iminit::BeginGuiFrame()
 {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
 
-void imutils::FinalizeGuiFrame()
+void iminit::FinalizeGuiFrame()
 {
     ImGui::Render();
 }
 
-void imutils::RecordImguiToCommandBuffer(VkCommandBuffer cmd)
+void iminit::RecordImguiToCommandBuffer(VkCommandBuffer cmd)
 {
     ImDrawData *draw_data = ImGui::GetDrawData();
 

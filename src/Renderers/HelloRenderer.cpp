@@ -174,7 +174,8 @@ void HelloRenderer::LoadProviders(Scene &scene)
         drawable.VertexCount = geo.VertexData.Count;
 
         // Create Index buffer:
-        drawable.IndexBuffer = IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+        drawable.IndexBuffer =
+            IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
         drawable.IndexCount = geo.IndexData.Count;
     }
 

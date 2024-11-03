@@ -44,14 +44,15 @@ PipelineBuilder::PipelineBuilder()
 }
 
 PipelineBuilder PipelineBuilder::SetShaderStages(
-        const std::vector<VkPipelineShaderStageCreateInfo> &stages)
+    const std::vector<VkPipelineShaderStageCreateInfo> &stages)
 {
     mShaderStages = stages;
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::SetVertexInput(const Vertex::Layout &layout, uint32_t binding,
-                                   VkVertexInputRate inputRate)
+PipelineBuilder PipelineBuilder::SetVertexInput(const Vertex::Layout &layout,
+                                                uint32_t binding,
+                                                VkVertexInputRate inputRate)
 {
     mBindingDescription = Vertex::GetBindingDescription(layout, binding, inputRate);
     mAttributeDescriptions = Vertex::GetAttributeDescriptions(layout);
@@ -258,7 +259,8 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
     return pipeline;
 }
 
-ComputePipelineBuilder ComputePipelineBuilder::SetShaderStage(VkPipelineShaderStageCreateInfo stage)
+ComputePipelineBuilder ComputePipelineBuilder::SetShaderStage(
+    VkPipelineShaderStageCreateInfo stage)
 {
     mShaderStage = stage;
     return *this;

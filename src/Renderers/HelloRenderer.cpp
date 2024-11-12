@@ -155,9 +155,9 @@ void HelloRenderer::LoadProviders(Scene &scene)
 {
     auto &pool = mFrame.CurrentPool();
 
-    for (auto &obj : scene.Objects)
+    for (auto &provider : scene.GeoProviders)
     {
-        if (!mGeometryLayout.IsCompatible(obj.Provider.Layout))
+        if (!mGeometryLayout.IsCompatible(provider.Layout))
         {
             std::cerr << "Unsupported geometry layout.\n";
             continue;
@@ -166,7 +166,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
         mDrawables.emplace_back();
         auto &drawable = mDrawables.back();
 
-        auto geo = obj.Provider.GetGeometry();
+        auto geo = provider.GetGeometry();
 
         // Create Vertex buffer:
         drawable.VertexBuffer =
@@ -188,29 +188,30 @@ void HelloRenderer::LoadProviders(Scene &scene)
 
 void HelloRenderer::LoadInstances(Scene &scene)
 {
-    size_t drawableId = 0;
+    for (auto &drawable : mDrawables)
+        drawable.Transforms.clear();
 
     for (auto &obj : scene.Objects)
     {
-        if (!mGeometryLayout.IsCompatible(obj.Provider.Layout))
+        if (!obj.has_value())
+            continue;
+
+        bool hasGeo = obj->GeometryId.has_value();
+
+        if (!hasGeo)
+            continue;
+
+        size_t geoId = obj->GeometryId.value();
+
+        auto &geo = scene.GeoProviders[geoId];
+
+        if (!mGeometryLayout.IsCompatible(geo.Layout))
         {
             std::cerr << "Unsupported geometry layout.\n";
             continue;
         }
 
-        auto &drawable = mDrawables[drawableId];
-
-        if (obj.UpdateInstances)
-        {
-            drawable.Transforms.clear();
-
-            // Unpack instance data:
-            for (auto instance : obj.Instances)
-            {
-                drawable.Transforms.push_back(instance.GetTransform());
-            }
-        }
-
-        drawableId++;
+        auto &drawable = mDrawables[geoId];
+        drawable.Transforms.push_back(obj->Transform);
     }
 }

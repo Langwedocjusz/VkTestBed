@@ -25,35 +25,14 @@ Application::Application()
 
     mScene = std::make_unique<Scene>();
 
-    mScene->Objects.push_back(SceneObject{
-        .Provider = primitive::ColoredCube(glm::vec3(0.5f)),
-        .TextureId = {},
-        .Instances = {InstanceData{}},
-    });
+    mScene->GeoProviders.push_back(primitive::ColoredCube(glm::vec3(0.5f)));
+    mScene->GeoProviders.push_back(primitive::TexturedCube());
 
-    size_t texId = mScene->Textures.insert("./assets/textures/texture.jpg");
+    mScene->Textures.insert("./assets/textures/texture.jpg");
 
-    mScene->Objects.push_back(SceneObject{
-        .Provider = primitive::TexturedCube(),
-        .TextureId = texId,
-        .Instances = {InstanceData{
-            .Translation = {1.5f, 0.0f, 0.0f},
-            .Rotation = glm::vec3(0.0f),
-            .Scale = glm::vec3(1.0f),
-        }},
-    });
-
-    texId = mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
-
-    mScene->Objects.push_back(SceneObject{
-        .Provider = ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf"),
-        .TextureId = texId,
-        .Instances = {InstanceData{
-            .Translation = {3.0f, 0.0f, 0.0f},
-            .Rotation = {-0.5f * 3.14f, 0.0f, 0.0f},
-            .Scale = glm::vec3(1.0f),
-        }},
-    });
+    mScene->GeoProviders.push_back(
+        ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf"));
+    mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
 
     // First-time scene loading
     mRender.LoadScene(*mScene);

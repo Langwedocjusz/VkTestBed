@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <format>
 #include <iostream>
+#include <ranges>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -274,20 +275,11 @@ void Minimal3DRenderer::LoadScene(Scene &scene)
 
 void Minimal3DRenderer::LoadProviders(Scene &scene)
 {
+    using namespace std::views;
+
     auto &pool = mFrame.CurrentPool();
 
-    for (auto &obj : scene.Objects)
-    {
-        if (!mColoredLayout.IsCompatible(obj.Provider.Layout))
-        {
-            continue;
-        }
-
-        mColoredDrawables.emplace_back();
-        auto &drawable = mColoredDrawables.back();
-
-        auto geo = obj.Provider.GetGeometry();
-
+    auto CreateBuffers = [&](Drawable &drawable, GeometryData &geo) {
         // Create Vertex buffer:
         drawable.VertexBuffer =
             VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
@@ -297,33 +289,35 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
         drawable.IndexBuffer =
             IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
         drawable.IndexCount = geo.IndexData.Count;
-    }
+    };
 
-    for (auto &obj : scene.Objects)
+    for (const auto [id, provider] : enumerate(scene.GeoProviders))
     {
-        if (!mTexturedLayout.IsCompatible(obj.Provider.Layout))
+        if (mColoredLayout.IsCompatible(provider.Layout))
         {
+            mColoredDrawables.emplace_back();
+            mColoredProviderMap[id] = mColoredDrawables.size() - 1;
+
+            auto &drawable = mColoredDrawables.back();
+            auto geo = provider.GetGeometry();
+
+            CreateBuffers(drawable, geo);
+
             continue;
         }
 
-        mTexturedDrawables.emplace_back();
-        auto &drawable = mTexturedDrawables.back();
+        if (mTexturedLayout.IsCompatible(provider.Layout))
+        {
+            mTexturedDrawables.emplace_back();
+            mTexturedProviderMap[id] = mTexturedDrawables.size() - 1;
 
-        auto geo = obj.Provider.GetGeometry();
+            auto &drawable = mTexturedDrawables.back();
+            auto geo = provider.GetGeometry();
 
-        // Create Vertex buffer:
-        drawable.VertexBuffer =
-            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
-        drawable.VertexCount = geo.VertexData.Count;
+            CreateBuffers(drawable, geo);
 
-        // Create Index buffer:
-        drawable.IndexBuffer =
-            IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
-        drawable.IndexCount = geo.IndexData.Count;
-
-        // Retrieve texture id
-        if (obj.TextureId.has_value())
-            drawable.TextureId = obj.TextureId.value();
+            continue;
+        }
     }
 
     for (auto &drawable : mColoredDrawables)
@@ -395,53 +389,48 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
 
 void Minimal3DRenderer::LoadInstances(Scene &scene)
 {
-    size_t drawableId = 0;
+    for (auto &drawable : mColoredDrawables)
+        drawable.Transforms.clear();
+
+    for (auto &drawable : mTexturedDrawables)
+        drawable.Transforms.clear();
 
     for (auto &obj : scene.Objects)
     {
-        if (!mColoredLayout.IsCompatible(obj.Provider.Layout))
+        if (!obj.has_value())
+            continue;
+
+        if (!obj->GeometryId.has_value())
+            continue;
+
+        size_t geoId = obj->GeometryId.value();
+
+        auto &provider = scene.GeoProviders[geoId];
+
+        if (mColoredLayout.IsCompatible(provider.Layout))
         {
+            size_t id = mColoredProviderMap[geoId];
+            auto &drawable = mColoredDrawables[id];
+
+            drawable.Transforms.push_back(obj->Transform);
+
+            if (auto texId = obj->TextureId)
+                drawable.TextureId = *texId;
+
             continue;
         }
 
-        auto &drawable = mColoredDrawables[drawableId];
-
-        if (obj.UpdateInstances)
+        if (mTexturedLayout.IsCompatible(provider.Layout))
         {
-            drawable.Transforms.clear();
+            size_t id = mTexturedProviderMap[geoId];
+            auto &drawable = mTexturedDrawables[id];
 
-            // Unpack instance data:
-            for (auto instance : obj.Instances)
-            {
-                drawable.Transforms.push_back(instance.GetTransform());
-            }
-        }
+            drawable.Transforms.push_back(obj->Transform);
 
-        drawableId++;
-    }
+            if (auto texId = obj->TextureId)
+                drawable.TextureId = *texId;
 
-    drawableId = 0;
-
-    for (auto &obj : scene.Objects)
-    {
-        if (!mTexturedLayout.IsCompatible(obj.Provider.Layout))
-        {
             continue;
         }
-
-        auto &drawable = mTexturedDrawables[drawableId];
-
-        if (obj.UpdateInstances)
-        {
-            drawable.Transforms.clear();
-
-            // Unpack instance data:
-            for (auto instance : obj.Instances)
-            {
-                drawable.Transforms.push_back(instance.GetTransform());
-            }
-        }
-
-        drawableId++;
     }
 }

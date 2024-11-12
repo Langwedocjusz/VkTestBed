@@ -41,6 +41,7 @@ target_sources(${PROJECT_NAME}
         src/Core/ModelLoader.h
         src/Core/ModelLoader.cpp
         src/Core/Scene.h
+        src/Core/Scene.cpp
         src/Core/Primitives.h
         src/Core/Primitives.cpp
         src/Core/RenderContext.h

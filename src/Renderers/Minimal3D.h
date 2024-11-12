@@ -7,6 +7,8 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
+#include <map>
+
 class Minimal3DRenderer : public IRenderer {
   public:
     Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
@@ -62,6 +64,9 @@ class Minimal3DRenderer : public IRenderer {
 
     std::vector<Drawable> mColoredDrawables;
     std::vector<Drawable> mTexturedDrawables;
+
+    std::map<size_t, size_t> mColoredProviderMap;
+    std::map<size_t, size_t> mTexturedProviderMap;
 
     VkDescriptorSetLayout mTextureDescriptorSetLayout;
     VkDescriptorPool mTextureDescriptorPool;

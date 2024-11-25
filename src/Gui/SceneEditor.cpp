@@ -6,11 +6,7 @@
 #include "imgui_internal.h"
 #include <optional>
 #include <ranges>
-#include <stdexcept>
 #include <string>
-
-#include <format>
-#include <iostream>
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -300,7 +296,7 @@ void SceneEditor::AddInstancePopup(Scene &scene)
             {
                 size_t idx = scene.EmplaceObject(SceneObject{
                     .GeometryId = id,
-                    .TextureId = std::nullopt,
+                    .MaterialId = std::nullopt,
                     .Transform = glm::mat4(1.0f),
                 });
 
@@ -355,8 +351,8 @@ void SceneEditor::DataMenu(Scene &scene)
 
     if (ImGui::BeginTabItem("Textures"))
     {
-        for (auto &path : scene.Textures.data())
-            ImGui::Selectable(path.c_str());
+        for (auto &mat : scene.Materials)
+            ImGui::Selectable(mat.Name.c_str());
 
         ImGui::EndTabItem();
     }
@@ -431,9 +427,9 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
 
             auto &obj = scene.Objects[mSelectedNode->GetIndex()];
 
-            if (obj->TextureId.has_value())
+            if (obj->MaterialId.has_value())
             {
-                label = scene.Textures.data()[obj->TextureId.value()] + label;
+                label = scene.Materials[obj->MaterialId.value()].Name + label;
             }
 
             ImGui::Text("Texture: ");
@@ -446,11 +442,11 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
             {
                 using namespace std::views;
 
-                for (const auto [texId, path] : enumerate(scene.Textures.data()))
+                for (const auto [matId, mat] : enumerate(scene.Materials))
                 {
-                    if (ImGui::Selectable(path.c_str()))
+                    if (ImGui::Selectable(mat.Name.c_str()))
                     {
-                        obj->TextureId = texId;
+                        obj->MaterialId = matId;
                         scene.UpdateRequested = true;
                     }
                 }

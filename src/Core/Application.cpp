@@ -28,11 +28,31 @@ Application::Application()
     mScene->GeoProviders.push_back(primitive::ColoredCube(glm::vec3(0.5f)));
     mScene->GeoProviders.push_back(primitive::TexturedCube());
 
-    mScene->Textures.insert("./assets/textures/texture.jpg");
+    //mScene->Textures.insert("./assets/textures/texture.jpg");
+    {
+        auto& mat = mScene->Materials.emplace_back();
+
+        mat.Name = "Test Material";
+
+        mat[Material::Albedo] = Material::ImageSource{
+            .Path = "./assets/textures/texture.jpg",
+            .Channel = Material::ImageChannel::RGB,
+        };
+    }
 
     mScene->GeoProviders.push_back(
         ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf"));
-    mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
+    //mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
+    {
+        auto& mat = mScene->Materials.emplace_back();
+
+        mat.Name = "Damaged Helmet";
+
+        mat[Material::Albedo] = Material::ImageSource{
+            .Path = "./assets/gltf/DamagedHelmet/Default_albedo.jpg",
+            .Channel = Material::ImageChannel::RGB,
+        };
+    }
 
     // First-time scene loading
     mRender.LoadScene(*mScene);

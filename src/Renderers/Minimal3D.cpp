@@ -11,9 +11,9 @@
 #include "VkInit.h"
 
 #include <cstdint>
-#include <format>
 #include <iostream>
 #include <ranges>
+#include <variant>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -338,12 +338,26 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
     auto &pool = mFrame.CurrentPool();
 
     // Create images and views, allocate descriptor sets:
-    for (const auto &path : scene.Textures.data())
+    for (auto& mat : scene.Materials)
     {
-        mTextures.emplace_back();
-        auto &texture = mTextures.back();
+        //Check if material has albedo
+        if (mat.count(Material::Albedo) == 0)
+            continue;
 
-        texture.TexImage = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, path);
+        //Check if albedo is represented by an image texture
+        auto& val = mat[Material::Albedo];
+
+        if (!std::holds_alternative<Material::ImageSource>(val))
+            continue;
+
+        //Load said texture
+        auto& imgSrc = std::get<Material::ImageSource>(val);
+
+        if(imgSrc.Channel != Material::ImageChannel::RGB)
+            std::cerr << "Unsupported channel layout!\n";
+
+        auto &texture = mTextures.emplace_back();
+        texture.TexImage = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgSrc.Path);
 
         auto format = texture.TexImage.Info.Format;
         texture.View = Image::CreateView2D(mCtx, texture.TexImage, format,
@@ -414,7 +428,7 @@ void Minimal3DRenderer::LoadInstances(Scene &scene)
 
             drawable.Transforms.push_back(obj->Transform);
 
-            if (auto texId = obj->TextureId)
+            if (auto texId = obj->MaterialId)
                 drawable.TextureId = *texId;
 
             continue;
@@ -427,7 +441,7 @@ void Minimal3DRenderer::LoadInstances(Scene &scene)
 
             drawable.Transforms.push_back(obj->Transform);
 
-            if (auto texId = obj->TextureId)
+            if (auto texId = obj->MaterialId)
                 drawable.TextureId = *texId;
 
             continue;

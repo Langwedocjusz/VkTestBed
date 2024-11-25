@@ -1,16 +1,17 @@
 #pragma once
 
-#include "UniqueVector.h"
 #include <string>
+#include <optional>
 #include <variant>
 
 #include <glm/glm.hpp>
 
 #include "GeometryProvider.h"
+#include "Material.h"
 
 struct SceneObject {
     std::optional<size_t> GeometryId;
-    std::optional<size_t> TextureId;
+    std::optional<size_t> MaterialId;
 
     glm::mat4 Transform;
 };
@@ -48,7 +49,7 @@ class SceneGraphNode {
 struct Scene {
     // Data sources for renderers:
     std::vector<GeometryProvider> GeoProviders;
-    UniqueVector<std::string> Textures;
+    std::vector<Material> Materials;
 
     // Object instances to be rendered::
     std::vector<std::optional<SceneObject>> Objects;

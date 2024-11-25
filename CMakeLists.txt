@@ -38,6 +38,7 @@ target_sources(${PROJECT_NAME}
         src/Core/ImGuiInit.h
         src/Core/ImGuiInit.cpp
         src/Core/Keycodes.h
+        src/Core/Material.h
         src/Core/ModelLoader.h
         src/Core/ModelLoader.cpp
         src/Core/Scene.h

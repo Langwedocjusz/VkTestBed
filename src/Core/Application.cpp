@@ -6,6 +6,7 @@
 #include "Keycodes.h"
 #include "ModelLoader.h"
 #include "Primitives.h"
+#include "imgui.h"
 
 #include <iostream>
 #include <variant>
@@ -28,9 +29,9 @@ Application::Application()
     mScene->GeoProviders.push_back(primitive::ColoredCube(glm::vec3(0.5f)));
     mScene->GeoProviders.push_back(primitive::TexturedCube());
 
-    //mScene->Textures.insert("./assets/textures/texture.jpg");
+    // mScene->Textures.insert("./assets/textures/texture.jpg");
     {
-        auto& mat = mScene->Materials.emplace_back();
+        auto &mat = mScene->Materials.emplace_back();
 
         mat.Name = "Test Material";
 
@@ -42,9 +43,9 @@ Application::Application()
 
     mScene->GeoProviders.push_back(
         ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf"));
-    //mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
+    // mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
     {
-        auto& mat = mScene->Materials.emplace_back();
+        auto &mat = mScene->Materials.emplace_back();
 
         mat.Name = "Damaged Helmet";
 

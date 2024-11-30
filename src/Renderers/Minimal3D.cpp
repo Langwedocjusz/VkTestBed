@@ -161,11 +161,11 @@ void Minimal3DRenderer::OnRender()
             vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
                                  mColoredLayout.IndexType);
 
-            for (auto &transform : drawable.Transforms)
+            for (auto &instance : drawable.Instances)
             {
                 vkCmdPushConstants(cmd, mColoredPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
-                                   &transform);
+                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                                   sizeof(instance.Transform), &instance.Transform);
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
         }
@@ -189,14 +189,20 @@ void Minimal3DRenderer::OnRender()
             vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
                                  mTexturedLayout.IndexType);
 
-            auto &texture = mTextures[drawable.TextureId];
-
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    mTexturedPipeline.Layout, 1, 1,
-                                    &texture.DescriptorSet, 0, nullptr);
-
-            for (auto &transform : drawable.Transforms)
+            for (auto &instance : drawable.Instances)
             {
+                auto &transform = instance.Transform;
+                auto &texture = mTextures[instance.TextureId];
+
+                // To-do: currently descriptor for the texture is bound each draw
+                // In reality draws should be sorted according to the material
+                // and corresponding descriptors only re-bound when change
+                // is necessary.
+
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                        mTexturedPipeline.Layout, 1, 1,
+                                        &texture.DescriptorSet, 0, nullptr);
+
                 vkCmdPushConstants(cmd, mColoredPipeline.Layout,
                                    VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
                                    &transform);
@@ -295,10 +301,9 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
     {
         if (mColoredLayout.IsCompatible(provider.Layout))
         {
-            mColoredDrawables.emplace_back();
+            auto &drawable = mColoredDrawables.emplace_back();
             mColoredProviderMap[id] = mColoredDrawables.size() - 1;
 
-            auto &drawable = mColoredDrawables.back();
             auto geo = provider.GetGeometry();
 
             CreateBuffers(drawable, geo);
@@ -308,10 +313,9 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
 
         if (mTexturedLayout.IsCompatible(provider.Layout))
         {
-            mTexturedDrawables.emplace_back();
+            auto &drawable = mTexturedDrawables.emplace_back();
             mTexturedProviderMap[id] = mTexturedDrawables.size() - 1;
 
-            auto &drawable = mTexturedDrawables.back();
             auto geo = provider.GetGeometry();
 
             CreateBuffers(drawable, geo);
@@ -338,26 +342,27 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
     auto &pool = mFrame.CurrentPool();
 
     // Create images and views, allocate descriptor sets:
-    for (auto& mat : scene.Materials)
+    for (auto &mat : scene.Materials)
     {
-        //Check if material has albedo
+        // Check if material has albedo
         if (mat.count(Material::Albedo) == 0)
             continue;
 
-        //Check if albedo is represented by an image texture
-        auto& val = mat[Material::Albedo];
+        // Check if albedo is represented by an image texture
+        auto &val = mat[Material::Albedo];
 
         if (!std::holds_alternative<Material::ImageSource>(val))
             continue;
 
-        //Load said texture
-        auto& imgSrc = std::get<Material::ImageSource>(val);
+        // Load said texture
+        auto &imgSrc = std::get<Material::ImageSource>(val);
 
-        if(imgSrc.Channel != Material::ImageChannel::RGB)
+        if (imgSrc.Channel != Material::ImageChannel::RGB)
             std::cerr << "Unsupported channel layout!\n";
 
         auto &texture = mTextures.emplace_back();
-        texture.TexImage = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgSrc.Path);
+        texture.TexImage =
+            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgSrc.Path);
 
         auto format = texture.TexImage.Info.Format;
         texture.View = Image::CreateView2D(mCtx, texture.TexImage, format,
@@ -404,10 +409,10 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
 void Minimal3DRenderer::LoadInstances(Scene &scene)
 {
     for (auto &drawable : mColoredDrawables)
-        drawable.Transforms.clear();
+        drawable.Instances.clear();
 
     for (auto &drawable : mTexturedDrawables)
-        drawable.Transforms.clear();
+        drawable.Instances.clear();
 
     for (auto &obj : scene.Objects)
     {
@@ -426,10 +431,15 @@ void Minimal3DRenderer::LoadInstances(Scene &scene)
             size_t id = mColoredProviderMap[geoId];
             auto &drawable = mColoredDrawables[id];
 
-            drawable.Transforms.push_back(obj->Transform);
+            InstanceData data{
+                .Transform = obj->Transform,
+                .TextureId = 0,
+            };
 
             if (auto texId = obj->MaterialId)
-                drawable.TextureId = *texId;
+                data.TextureId = *texId;
+
+            drawable.Instances.push_back(data);
 
             continue;
         }
@@ -439,10 +449,15 @@ void Minimal3DRenderer::LoadInstances(Scene &scene)
             size_t id = mTexturedProviderMap[geoId];
             auto &drawable = mTexturedDrawables[id];
 
-            drawable.Transforms.push_back(obj->Transform);
+            InstanceData data{
+                .Transform = obj->Transform,
+                .TextureId = 0,
+            };
 
             if (auto texId = obj->MaterialId)
-                drawable.TextureId = *texId;
+                data.TextureId = *texId;
+
+            drawable.Instances.push_back(data);
 
             continue;
         }

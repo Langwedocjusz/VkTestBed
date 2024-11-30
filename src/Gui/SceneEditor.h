@@ -25,7 +25,7 @@ class SceneEditor {
 
     void ObjectPropertiesMenu(Scene &scene);
 
-    void HandleNodeOp(Scene& scene);
+    void HandleNodeOp(Scene &scene);
     void HandleNodeMove();
     void HandleNodeDelete(Scene &scene);
     void HandleNodeCopy(Scene &scene);
@@ -33,15 +33,22 @@ class SceneEditor {
   private:
     SceneGraphNode *mSelectedNode = nullptr;
 
-    enum class OpType{
-        None, Move, Delete, Copy
+    enum class OpType
+    {
+        None,
+        Move,
+        Delete,
+        Copy
     };
 
     struct OpInfo {
         OpType RequestedOp = OpType::None;
         SceneGraphNode *Parent;
-        int64_t Idx;
+        int64_t ChildId;
         SceneGraphNode *DstParent;
+
+        SceneGraphNode &GetSourceNode();
+        auto GetSourceNodeIterator();
     };
     OpInfo mOpInfo;
 };

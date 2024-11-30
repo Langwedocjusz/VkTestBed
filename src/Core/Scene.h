@@ -1,7 +1,7 @@
 #pragma once
 
-#include <string>
 #include <optional>
+#include <string>
 #include <variant>
 
 #include <glm/glm.hpp>
@@ -29,13 +29,17 @@ class SceneGraphNode {
     size_t GetIndex();
     ChildrenArray &GetChildren();
 
-    void AddChild();
-    void AddChild(size_t idx);
+    /// Emplaces a non-leaf node as child
+    SceneGraphNode &EmplaceChild();
+    /// Emplaces a leaf node as child
+    SceneGraphNode &EmplaceChild(size_t idx);
 
     glm::mat4 GetTransform();
     void UpdateTransforms(ObjectArray &objs, glm::mat4 current = 1.0f);
 
   public:
+    SceneGraphNode *Parent = nullptr;
+
     glm::vec3 Translation = {0.0f, 0.0f, 0.0f};
     glm::vec3 Rotation = {0.0f, 0.0f, 0.0f};
     glm::vec3 Scale = {1.0f, 1.0f, 1.0f};

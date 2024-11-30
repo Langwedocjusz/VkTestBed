@@ -8,7 +8,14 @@
 #include <ranges>
 #include <string>
 
+#include <format>
 #include <glm/gtc/type_ptr.hpp>
+#include <variant>
+
+template <class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
 
 void SceneEditor::OnImGui(Scene &scene)
 {
@@ -22,13 +29,16 @@ void SceneEditor::SceneHierarchyMenu(Scene &scene)
 {
     ImGui::Begin("Scene hierarchy", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);
 
+    // Draw nodes for all children of the scene root:
     using namespace std::views;
 
     for (const auto [id, child] : enumerate(scene.GraphRoot.GetChildren()))
         InstanceMenu(*child, &scene.GraphRoot, id);
 
+    // Setup right-click context menu for adding things:
     AddInstancePopup(scene);
 
+    // Add drop target spanning whole window
     ImGuiWindow *window = ImGui::GetCurrentWindow();
 
     if (ImGui::BeginDragDropTargetCustom(window->Rect(), window->ID))
@@ -43,11 +53,12 @@ void SceneEditor::SceneHierarchyMenu(Scene &scene)
 void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
                                int64_t childId)
 {
-    if (parent)
+    if (parent != nullptr)
         assert(!parent->IsLeaf());
     else
         assert(!node.IsLeaf());
 
+    // Assemble node name and flags:
     std::string nodeName = node.Name + "##" + std::to_string(childId);
 
     int32_t flags = ImGuiTreeNodeFlags_AllowOverlap;
@@ -60,17 +71,17 @@ void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
     if (mSelectedNode == &node)
         flags |= ImGuiTreeNodeFlags_Selected;
 
-    // Calculate position for the delete button:
+    // Calculate position for the delete button (must happen before node is drawn):
     ImGuiContext &g = *GImGui;
-    float buttonSize = g.FontSize;
+
     ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
     closeButtonPos.x +=
-        ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - buttonSize;
+        ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
 
     // Drawing tree node:
     const bool nodeOpen = ImGui::TreeNodeEx(nodeName.c_str(), flags);
 
-    // Handling all associated events:
+    // Handling associated drag/drop/clicked events:
     if (ImGui::IsItemClicked())
     {
         mSelectedNode = &node;
@@ -99,6 +110,7 @@ void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
     {
         ImGui::SameLine();
 
+        // Delete button:
         ImGuiWindow *window = ImGui::GetCurrentWindow();
         ImGuiID id = window->GetID(nodeName.c_str());
         ImGuiID closeButtonId = ImGui::GetIDWithSeed("#CLOSE", nullptr, id);
@@ -108,27 +120,28 @@ void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
             mOpInfo = OpInfo{
                 .RequestedOp = OpType::Delete,
                 .Parent = parent,
-                .Idx = childId,
+                .ChildId = childId,
                 .DstParent = nullptr,
             };
         }
 
+        // Copy button:
+        std::string copyButtonName = "+##" + nodeName;
+
         ImVec2 plusButtonPos = ImGui::GetCursorScreenPos();
-        plusButtonPos.x = closeButtonPos.x - g.Style.FramePadding.x - buttonSize;
+        plusButtonPos.x = closeButtonPos.x - g.Style.FramePadding.x - g.FontSize;
         plusButtonPos.y -= g.Style.FramePadding.y;
 
         ImGui::SetCursorScreenPos(plusButtonPos);
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
-        std::string copyButtonName = "+##" + nodeName;
-
         if (ImGui::Button(copyButtonName.c_str()))
         {
             mOpInfo = OpInfo{
                 .RequestedOp = OpType::Copy,
                 .Parent = parent,
-                .Idx = childId,
+                .ChildId = childId,
                 .DstParent = nullptr,
             };
         }
@@ -136,6 +149,7 @@ void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
         ImGui::PopStyleColor();
     }
 
+    // Recurse to also draw children nodes:
     if (nodeOpen)
     {
         if (!node.IsLeaf())
@@ -158,113 +172,115 @@ void SceneEditor::HandleSceneDropPayload(SceneGraphNode &node)
     {
         auto payload = static_cast<DragPayload *>(imPayload->Data);
 
-        bool validTarget = true;
+        bool isLeaf = node.IsLeaf();
+        bool sameNode = &node == payload->Parent;
 
-        if (node.IsLeaf())
-            validTarget = false;
-        if (&node == payload->Parent)
-            validTarget = false;
+        bool validTarget = !isLeaf && !sameNode;
 
         if (validTarget)
         {
             mOpInfo = OpInfo{
                 .RequestedOp = OpType::Move,
                 .Parent = payload->Parent,
-                .Idx = static_cast<int64_t>(payload->ChildId),
+                .ChildId = payload->ChildId,
                 .DstParent = &node,
             };
         }
     }
 }
 
-void SceneEditor::HandleNodeOp(Scene& scene)
+void SceneEditor::HandleNodeOp(Scene &scene)
 {
-    switch(mOpInfo.RequestedOp)
+    switch (mOpInfo.RequestedOp)
     {
-        case OpType::Move:
-        {
-            HandleNodeMove();
-            // To-do: this can be optimized to only update
-            // affected nodes:
-            scene.GraphRoot.UpdateTransforms(scene.Objects);
-            scene.UpdateRequested = true;
-            break;
-        }
-        case OpType::Delete:
-        {
-            HandleNodeDelete(scene);
-            scene.UpdateRequested = true;
-            break;
-        }
-        case OpType::Copy:
-        {
-            HandleNodeCopy(scene);
-            scene.UpdateRequested = true;
-            break;
-        }
-        case OpType::None:
-        {
-            break;
-        }
+    case OpType::Move: {
+        HandleNodeMove();
+        // To-do: this can be optimized to only update
+        // affected nodes:
+        scene.GraphRoot.UpdateTransforms(scene.Objects);
+        scene.UpdateRequested = true;
+        break;
+    }
+    case OpType::Delete: {
+        HandleNodeDelete(scene);
+        scene.UpdateRequested = true;
+        break;
+    }
+    case OpType::Copy: {
+        HandleNodeCopy(scene);
+        scene.UpdateRequested = true;
+        break;
+    }
+    case OpType::None: {
+        break;
+    }
     }
 
     mOpInfo.RequestedOp = OpType::None;
 }
 
+SceneGraphNode &SceneEditor::OpInfo::GetSourceNode()
+{
+    auto &children = Parent->GetChildren();
+    auto &ptr = children[ChildId];
+    return *ptr;
+}
+
+auto SceneEditor::OpInfo::GetSourceNodeIterator()
+{
+    auto &children = Parent->GetChildren();
+    return children.begin() + ChildId;
+}
+
 void SceneEditor::HandleNodeMove()
 {
+    // We can assume src and dst are different, since
+    // move operation wouldn't be scheduled otherwise.
     auto &srcChildren = mOpInfo.Parent->GetChildren();
     auto &dstChildren = mOpInfo.DstParent->GetChildren();
 
-    {
-        auto iter = srcChildren.begin() + mOpInfo.Idx;
-        dstChildren.push_back(std::move(*iter));
-    }
+    // Move to dst, erase from src:
+    auto iter = mOpInfo.GetSourceNodeIterator();
 
-    {
-        auto iter = srcChildren.begin() + mOpInfo.Idx;
-        srcChildren.erase(iter);
-    }
+    dstChildren.push_back(std::move(*iter));
+    srcChildren.erase(iter);
 }
 
 void SceneEditor::HandleNodeDelete(Scene &scene)
 {
-    auto &children = mOpInfo.Parent->GetChildren();
-    auto &node = children[mOpInfo.Idx];
+    auto &node = mOpInfo.GetSourceNode();
 
-    if (node.get() == mSelectedNode)
+    // Reset selection if necessary:
+    if (&node == mSelectedNode)
         mSelectedNode = nullptr;
 
-    scene.Objects[node->GetIndex()] = std::nullopt;
+    // Remove object, the node pointed to:
+    scene.Objects[node.GetIndex()] = std::nullopt;
 
-    auto it = children.begin() + mOpInfo.Idx;
+    // Erase the node:
+    auto &children = mOpInfo.Parent->GetChildren();
+    auto it = mOpInfo.GetSourceNodeIterator();
+
     children.erase(it);
 }
 
 void SceneEditor::HandleNodeCopy(Scene &scene)
 {
-    auto &children = mOpInfo.Parent->GetChildren();
+    // Retrieve old node:
+    auto &oldNode = mOpInfo.GetSourceNode();
 
-    {
-        //Duplicate object:
-        auto &node = children[mOpInfo.Idx];
-        auto& obj = scene.Objects[node->GetIndex()];
-        scene.Objects.emplace_back(obj);
-    }
+    // Duplicate object:
+    auto &obj = scene.Objects[oldNode.GetIndex()];
+    scene.Objects.emplace_back(obj);
 
-    {
-        //Duplicate node:
-        auto id = scene.Objects.size() - 1;
-        mOpInfo.Parent->AddChild(id);
+    // Duplicate node:
+    auto id = scene.Objects.size() - 1;
+    auto &newNode = mOpInfo.Parent->EmplaceChild(id);
 
-        auto &oldNode = children[mOpInfo.Idx];
-        auto &newNode = mOpInfo.Parent->GetChildren().back();
-
-        newNode->Translation = oldNode->Translation;
-        newNode->Rotation = oldNode->Rotation;
-        newNode->Scale = oldNode->Scale;
-        newNode->Name = oldNode->Name;
-    }
+    newNode.Translation = oldNode.Translation;
+    newNode.Rotation = oldNode.Rotation;
+    newNode.Scale = oldNode.Scale;
+    newNode.Name = oldNode.Name;
 }
 
 void SceneEditor::AddInstancePopup(Scene &scene)
@@ -276,8 +292,8 @@ void SceneEditor::AddInstancePopup(Scene &scene)
 
         if (ImGui::Selectable("Empty Group"))
         {
-            scene.GraphRoot.AddChild();
-            scene.GraphRoot.GetChildren().back()->Name = "Group";
+            auto &groupNode = scene.GraphRoot.EmplaceChild();
+            groupNode.Name = "Group";
 
             scene.UpdateRequested = true;
         }
@@ -300,8 +316,8 @@ void SceneEditor::AddInstancePopup(Scene &scene)
                     .Transform = glm::mat4(1.0f),
                 });
 
-                scene.GraphRoot.AddChild(idx);
-                scene.GraphRoot.GetChildren().back()->Name = provider.Name;
+                auto &newNode = scene.GraphRoot.EmplaceChild(idx);
+                newNode.Name = provider.Name;
 
                 scene.UpdateRequested = true;
             }
@@ -314,7 +330,7 @@ void SceneEditor::AddInstancePopup(Scene &scene)
 void SceneEditor::DataMenu(Scene &scene)
 {
     ImGui::Begin("Scene data", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);
-    // ImGui::SameLine();
+
     auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
 
     if (ImGui::Button("Full reload", size))
@@ -349,10 +365,35 @@ void SceneEditor::DataMenu(Scene &scene)
         ImGui::EndTabItem();
     }
 
-    if (ImGui::BeginTabItem("Textures"))
+    if (ImGui::BeginTabItem("Materials"))
     {
         for (auto &mat : scene.Materials)
-            ImGui::Selectable(mat.Name.c_str());
+        {
+            if (ImGui::TreeNodeEx(mat.Name.c_str()))
+            {
+                for (const auto &[key, value] : mat)
+                {
+                    std::string entry;
+                    entry += key.Name;
+                    entry += ": ";
+
+                    // clang-format off
+                    std::visit(
+                        overloaded{
+                            [&entry](Material::ImageSource img) {entry += img.Path.string();},
+                            [&entry](float val) {entry += std::to_string(val);},
+                            [&entry](glm::vec2 v) {entry += std::format("[{}, {}]", v.x, v.y);},
+                            [&entry](glm::vec3 v) {entry += std::format("[{}, {}, {}]", v.x, v.y, v.z);},
+                            [&entry](glm::vec4 v) {entry += std::format("[{}, {}, {}, {}]", v.x, v.y, v.z, v.w);},
+                    }, value);
+                    // clang-format on
+
+                    ImGui::Text("%s", entry.c_str());
+                }
+
+                ImGui::TreePop();
+            }
+        }
 
         ImGui::EndTabItem();
     }
@@ -414,7 +455,11 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
         {
             if (TransformWidget(*mSelectedNode))
             {
-                mSelectedNode->UpdateTransforms(scene.Objects);
+                // To-do: this should only really update
+                // objects associated with subtree rooted at mSelectedNode
+                // This will require going along the path from root to
+                // mSelectedNode and then propagating as usual.
+                scene.GraphRoot.UpdateTransforms(scene.Objects);
                 scene.UpdateRequested = true;
             }
 
@@ -432,13 +477,13 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
                 label = scene.Materials[obj->MaterialId.value()].Name + label;
             }
 
-            ImGui::Text("Texture: ");
+            ImGui::Text("Material: ");
             ImGui::SameLine();
 
             if (ImGui::Selectable(label.c_str()))
-                ImGui::OpenPopup("Select texture:");
+                ImGui::OpenPopup("Select material:");
 
-            if (ImGui::BeginPopup("Select texture:"))
+            if (ImGui::BeginPopup("Select material:"))
             {
                 using namespace std::views;
 

@@ -37,14 +37,24 @@ SceneGraphNode::ChildrenArray &SceneGraphNode::GetChildren()
     return std::get<ChildrenArray>(Payload);
 }
 
-void SceneGraphNode::AddChild()
+SceneGraphNode &SceneGraphNode::EmplaceChild()
 {
     GetChildren().push_back(std::make_unique<SceneGraphNode>());
+
+    auto &child = *GetChildren().back();
+    child.Parent = this;
+
+    return child;
 }
 
-void SceneGraphNode::AddChild(size_t idx)
+SceneGraphNode &SceneGraphNode::EmplaceChild(size_t idx)
 {
     GetChildren().push_back(std::make_unique<SceneGraphNode>(idx));
+
+    auto &child = *GetChildren().back();
+    child.Parent = this;
+
+    return child;
 }
 
 glm::mat4 SceneGraphNode::GetTransform()
@@ -76,6 +86,8 @@ void SceneGraphNode::UpdateTransforms(ObjectArray &objs, glm::mat4 current)
 
 size_t Scene::EmplaceObject(SceneObject obj)
 {
+    // To-do: maybe keep a separate list of nullopts
+    // to do this in less than O(N)
     for (size_t i = 0; i < Objects.size(); i++)
     {
         if (Objects[i] == std::nullopt)

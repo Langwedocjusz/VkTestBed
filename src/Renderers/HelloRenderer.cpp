@@ -163,9 +163,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
             continue;
         }
 
-        mDrawables.emplace_back();
-        auto &drawable = mDrawables.back();
-
+        auto &drawable = mDrawables.emplace_back();
         auto geo = provider.GetGeometry();
 
         // Create Vertex buffer:

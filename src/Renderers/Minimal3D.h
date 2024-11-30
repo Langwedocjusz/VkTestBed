@@ -51,6 +51,11 @@ class Minimal3DRenderer : public IRenderer {
         .IndexType = VK_INDEX_TYPE_UINT32,
     };
 
+    struct InstanceData {
+        glm::mat4 Transform;
+        size_t TextureId = 0;
+    };
+
     struct Drawable {
         Buffer VertexBuffer;
         size_t VertexCount;
@@ -58,8 +63,7 @@ class Minimal3DRenderer : public IRenderer {
         Buffer IndexBuffer;
         size_t IndexCount;
 
-        std::vector<glm::mat4> Transforms;
-        size_t TextureId = 0;
+        std::vector<InstanceData> Instances;
     };
 
     std::vector<Drawable> mColoredDrawables;

@@ -6,5 +6,9 @@
 
 namespace ModelLoader
 {
-GeometryProvider PosTex(const std::string &filepath);
+struct Config {
+    std::string Filepath;
+};
+
+GeometryProvider PosTex(const Config &config);
 } // namespace ModelLoader

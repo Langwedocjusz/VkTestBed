@@ -55,6 +55,10 @@ target_sources(${PROJECT_NAME}
         src/Core/VulkanContext.h
         src/Core/VulkanContext.cpp
         src/EntryPoint.cpp
+        src/Gui/FilesystemBrowser.h
+        src/Gui/FilesystemBrowser.cpp
+        src/Gui/ModelLoaderGui.h
+        src/Gui/ModelLoaderGui.cpp
         src/Gui/SceneEditor.h
         src/Gui/SceneEditor.cpp
         src/Renderers/Renderer.h

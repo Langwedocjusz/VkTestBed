@@ -23,6 +23,8 @@ void SceneEditor::OnImGui(Scene &scene)
     SceneHierarchyMenu(scene);
     ObjectPropertiesMenu(scene);
     HandleNodeOp(scene);
+
+    mModelLoader.OnImGui();
 }
 
 void SceneEditor::SceneHierarchyMenu(Scene &scene)
@@ -321,6 +323,14 @@ void SceneEditor::AddInstancePopup(Scene &scene)
 
                 scene.UpdateRequested = true;
             }
+        }
+
+        //To-do: maybe move this to the data menu
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+        if (ImGui::Selectable("Load Model"))
+        {
+            mModelLoader.TriggerLoad(scene);
         }
 
         ImGui::EndPopup();

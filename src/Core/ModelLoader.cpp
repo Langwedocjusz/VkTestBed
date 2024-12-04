@@ -36,10 +36,10 @@ static fastgltf::Asset GetAsset(const std::filesystem::path &path)
     return std::move(load.get());
 }
 
-GeometryProvider ModelLoader::PosTex(const std::string &filepath)
+GeometryProvider ModelLoader::PosTex(const Config &config)
 {
     auto working_dir = std::filesystem::current_path();
-    std::filesystem::path path = working_dir / filepath;
+    std::filesystem::path path = working_dir / config.Filepath;
 
     using enum Vertex::AttributeType;
 

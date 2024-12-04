@@ -29,7 +29,6 @@ Application::Application()
     mScene->GeoProviders.push_back(primitive::ColoredCube(glm::vec3(0.5f)));
     mScene->GeoProviders.push_back(primitive::TexturedCube());
 
-    // mScene->Textures.insert("./assets/textures/texture.jpg");
     {
         auto &mat = mScene->Materials.emplace_back();
 
@@ -41,9 +40,8 @@ Application::Application()
         };
     }
 
-    mScene->GeoProviders.push_back(
-        ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf"));
-    // mScene->Textures.insert("./assets/gltf/DamagedHelmet/Default_albedo.jpg");
+    //mScene->GeoProviders.push_back(
+    //    ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf"));
     {
         auto &mat = mScene->Materials.emplace_back();
 
@@ -54,6 +52,8 @@ Application::Application()
             .Channel = Material::ImageChannel::RGB,
         };
     }
+
+    //mScene->GeoProviders.push_back(ModelLoader::PosTex("assets/gltf/Sponza/Sponza.gltf"));
 
     // First-time scene loading
     mRender.LoadScene(*mScene);

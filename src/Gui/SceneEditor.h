@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ModelLoaderGui.h"
 #include "Scene.h"
 
 class SceneEditor {
@@ -51,4 +52,6 @@ class SceneEditor {
         auto GetSourceNodeIterator();
     };
     OpInfo mOpInfo;
+
+    ModelLoaderGui mModelLoader;
 };

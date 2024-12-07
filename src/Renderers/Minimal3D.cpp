@@ -152,21 +152,25 @@ void Minimal3DRenderer::OnRender()
                                 mColoredPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &drawable : mColoredDrawables)
+        for (auto &mesh : mColoredMeshes)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-            std::array<VkDeviceSize, 1> offsets{0};
-
-            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 mColoredLayout.IndexType);
-
-            for (auto &instance : drawable.Instances)
+            for (auto &transform : mesh.Transforms)
             {
-                vkCmdPushConstants(cmd, mColoredPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                                   sizeof(instance.Transform), &instance.Transform);
-                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+                for (auto &drawable : mesh.Drawables)
+                {
+                    std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
+                    std::array<VkDeviceSize, 1> offsets{0};
+
+                    vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(),
+                                           offsets.data());
+                    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
+                                         mColoredLayout.IndexType);
+
+                    vkCmdPushConstants(cmd, mColoredPipeline.Layout,
+                                       VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
+                                       &transform);
+                    vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+                }
             }
         }
 
@@ -180,33 +184,35 @@ void Minimal3DRenderer::OnRender()
                                 mTexturedPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &drawable : mTexturedDrawables)
+        for (auto &mesh : mTexturedMeshes)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-            std::array<VkDeviceSize, 1> offsets{0};
-
-            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 mTexturedLayout.IndexType);
-
-            for (auto &instance : drawable.Instances)
+            for (auto &transform : mesh.Transforms)
             {
-                auto &transform = instance.Transform;
-                auto &texture = mTextures[instance.TextureId];
+                for (auto &drawable : mesh.Drawables)
+                {
+                    std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
+                    std::array<VkDeviceSize, 1> offsets{0};
 
-                // To-do: currently descriptor for the texture is bound each draw
-                // In reality draws should be sorted according to the material
-                // and corresponding descriptors only re-bound when change
-                // is necessary.
+                    vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(),
+                                           offsets.data());
+                    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
+                                         mTexturedLayout.IndexType);
 
-                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        mTexturedPipeline.Layout, 1, 1,
-                                        &texture.DescriptorSet, 0, nullptr);
+                    // To-do: currently descriptor for the texture is bound each draw
+                    // In reality draws should be sorted according to the material
+                    // and corresponding descriptors only re-bound when change
+                    // is necessary.
+                    auto &texture = mTextures[drawable.TextureId];
 
-                vkCmdPushConstants(cmd, mColoredPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
-                                   &transform);
-                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                            mTexturedPipeline.Layout, 1, 1,
+                                            &texture.DescriptorSet, 0, nullptr);
+
+                    vkCmdPushConstants(cmd, mColoredPipeline.Layout,
+                                       VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
+                                       &transform);
+                    vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+                }
             }
         }
     }
@@ -268,9 +274,11 @@ void Minimal3DRenderer::LoadScene(Scene &scene)
     {
         // This will only take efect on non-first runs:
         mSceneDeletionQueue.flush();
-        mColoredDrawables.clear();
-        mTexturedDrawables.clear();
+        mColoredMeshes.clear();
+        mTexturedMeshes.clear();
         mTextures.clear();
+        mColoredIdMap.clear();
+        mTexturedIdMap.clear();
 
         LoadProviders(scene);
         LoadTextures(scene);
@@ -297,43 +305,60 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
         drawable.IndexCount = geo.IndexData.Count;
     };
 
-    for (const auto [id, provider] : enumerate(scene.GeoProviders))
+    for (const auto [id, mesh] : enumerate(scene.Meshes))
     {
-        if (mColoredLayout.IsCompatible(provider.Layout))
+        if (mColoredLayout.IsCompatible(mesh.GeoProvider.Layout))
         {
-            auto &drawable = mColoredDrawables.emplace_back();
-            mColoredProviderMap[id] = mColoredDrawables.size() - 1;
+            auto &newMesh = mColoredMeshes.emplace_back();
+            mColoredIdMap[id] = mColoredMeshes.size() - 1;
 
-            auto geo = provider.GetGeometry();
+            auto geometries = mesh.GeoProvider.GetGeometry();
 
-            CreateBuffers(drawable, geo);
+            for (auto &geo : geometries)
+            {
+                auto &drawable = newMesh.Drawables.emplace_back();
+                CreateBuffers(drawable, geo);
+            }
 
             continue;
         }
 
-        if (mTexturedLayout.IsCompatible(provider.Layout))
+        if (mTexturedLayout.IsCompatible(mesh.GeoProvider.Layout))
         {
-            auto &drawable = mTexturedDrawables.emplace_back();
-            mTexturedProviderMap[id] = mTexturedDrawables.size() - 1;
+            auto &newMesh = mTexturedMeshes.emplace_back();
+            mTexturedIdMap[id] = mTexturedMeshes.size() - 1;
 
-            auto geo = provider.GetGeometry();
+            auto geometries = mesh.GeoProvider.GetGeometry();
 
-            CreateBuffers(drawable, geo);
+            for (auto [geoId, geo] : enumerate(geometries))
+            {
+                auto &drawable = newMesh.Drawables.emplace_back();
+                CreateBuffers(drawable, geo);
+
+                if (static_cast<size_t>(geoId) < mesh.MaterialIds.size())
+                    drawable.TextureId = mesh.MaterialIds[geoId];
+            }
 
             continue;
         }
     }
 
-    for (auto &drawable : mColoredDrawables)
+    for (auto &mesh : mColoredMeshes)
     {
-        mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
-        mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+        for (auto &drawable : mesh.Drawables)
+        {
+            mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
+            mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+        }
     }
 
-    for (auto &drawable : mTexturedDrawables)
+    for (auto &mesh : mTexturedMeshes)
     {
-        mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
-        mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+        for (auto &drawable : mesh.Drawables)
+        {
+            mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
+            mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+        }
     }
 }
 
@@ -408,56 +433,40 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
 
 void Minimal3DRenderer::LoadInstances(Scene &scene)
 {
-    for (auto &drawable : mColoredDrawables)
-        drawable.Instances.clear();
+    for (auto &mesh : mColoredMeshes)
+        mesh.Transforms.clear();
 
-    for (auto &drawable : mTexturedDrawables)
-        drawable.Instances.clear();
+    for (auto &mesh : mTexturedMeshes)
+        mesh.Transforms.clear();
 
     for (auto &obj : scene.Objects)
     {
         if (!obj.has_value())
             continue;
 
-        if (!obj->GeometryId.has_value())
+        if (!obj->MeshId.has_value())
             continue;
 
-        size_t geoId = obj->GeometryId.value();
+        size_t meshId = obj->MeshId.value();
 
-        auto &provider = scene.GeoProviders[geoId];
+        auto &sceneMesh = scene.Meshes[meshId];
 
-        if (mColoredLayout.IsCompatible(provider.Layout))
+        if (mColoredLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
         {
-            size_t id = mColoredProviderMap[geoId];
-            auto &drawable = mColoredDrawables[id];
+            size_t id = mColoredIdMap[meshId];
+            auto &mesh = mColoredMeshes[id];
 
-            InstanceData data{
-                .Transform = obj->Transform,
-                .TextureId = 0,
-            };
-
-            if (auto texId = obj->MaterialId)
-                data.TextureId = *texId;
-
-            drawable.Instances.push_back(data);
+            mesh.Transforms.push_back(obj->Transform);
 
             continue;
         }
 
-        if (mTexturedLayout.IsCompatible(provider.Layout))
+        if (mTexturedLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
         {
-            size_t id = mTexturedProviderMap[geoId];
-            auto &drawable = mTexturedDrawables[id];
+            size_t id = mTexturedIdMap[meshId];
+            auto &mesh = mTexturedMeshes[id];
 
-            InstanceData data{
-                .Transform = obj->Transform,
-                .TextureId = 0,
-            };
-
-            if (auto texId = obj->MaterialId)
-                data.TextureId = *texId;
-
-            drawable.Instances.push_back(data);
+            mesh.Transforms.push_back(obj->Transform);
 
             continue;
         }

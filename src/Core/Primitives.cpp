@@ -41,34 +41,28 @@ GeometryProvider primitive::HelloTriangle()
 
     auto geoProvider = []()
     {
-        constexpr size_t vertCount = 3;
-        constexpr size_t vertSize = vertCount * sizeof(HelloVertex);
+        std::vector<GeometryData> res;
 
-        OpaqueBuffer vertBuf(vertCount, vertSize, 4);
+        constexpr auto spec = GeometrySpec::Build<HelloVertex, uint16_t>(3, 3);
+
+        auto& geo = res.emplace_back(spec);
 
         const float r3 = std::sqrt(3.0f);
 
-        new (vertBuf.Data.get()) HelloVertex[vertCount]
+        new (geo.VertexData.Data.get()) HelloVertex[spec.VertCount]
         {
             {{ 0.0f,-r3/3.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
             {{ 0.5f, r3/6.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
             {{-0.5f, r3/6.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
         };
 
-        constexpr size_t idxCount = 3;
-        constexpr size_t size = idxCount * sizeof(uint16_t);
+        new (geo.IndexData.Data.get()) uint16_t[spec.IdxCount]{0, 1, 2};
 
-        OpaqueBuffer idxBuf(idxCount, size, 2);
-
-        new (idxBuf.Data.get()) uint16_t[idxCount]{0, 1, 2};
-
-        return GeometryData{
-            std::move(vertBuf), std::move(idxBuf)
-        };
+        return res;
     };
 
     return GeometryProvider{
-        "Hello Triangle",
+        //"Hello Triangle",
         layout,
         geoProvider,
     };
@@ -85,12 +79,13 @@ GeometryProvider primitive::HelloQuad()
 
     auto geoProvider = []()
     {
-        constexpr size_t vertCount = 4;
-        constexpr size_t vertSize = vertCount * sizeof(HelloVertex);
+        std::vector<GeometryData> res;
 
-        OpaqueBuffer vertBuf(vertCount, vertSize, 4);
+        constexpr auto spec = GeometrySpec::Build<HelloVertex, uint16_t>(4, 6);
 
-        new (vertBuf.Data.get()) HelloVertex[vertCount]
+        auto& geo = res.emplace_back(spec);
+
+        new (geo.VertexData.Data.get()) HelloVertex[spec.VertCount]
         {
             {{-0.33f, 0.33f, 0.0f}, {1.0f, 0.0f, 0.0f}},
             {{ 0.33f, 0.33f, 0.0f}, {0.0f, 1.0f, 0.0f}},
@@ -98,20 +93,13 @@ GeometryProvider primitive::HelloQuad()
             {{-0.33f,-0.33f, 0.0f}, {1.0f, 1.0f, 1.0f}},
         };
 
-        constexpr size_t idxCount = 6;
-        constexpr size_t idxSize = idxCount * sizeof(uint16_t);
+        new (geo.IndexData.Data.get()) uint16_t[spec.IdxCount]{0, 2, 1, 2, 0, 3};
 
-        OpaqueBuffer idxBuf(idxCount, idxSize, 2);
-
-        new (idxBuf.Data.get()) uint16_t[idxCount]{0, 2, 1, 2, 0, 3};
-
-        return GeometryData{
-            std::move(vertBuf), std::move(idxBuf)
-        };
+        return res;
     };
 
     return GeometryProvider{
-        "Hello Quad",
+        //"Hello Quad",
         layout,
         geoProvider,
     };
@@ -128,12 +116,13 @@ GeometryProvider primitive::TexturedQuad()
 
     auto geoProvider = []()
     {
-        constexpr size_t vertCount = 4;
-        constexpr size_t vertSize = vertCount * sizeof(Vertex_PosTexCol);
+        std::vector<GeometryData> res;
 
-        OpaqueBuffer vertBuf(vertCount, vertSize, 4);
+        constexpr auto spec = GeometrySpec::Build<HelloVertex, uint32_t>(4, 6);
 
-        new (vertBuf.Data.get()) Vertex_PosTexCol[vertCount]
+        auto& geo = res.emplace_back(spec);
+
+        new (geo.VertexData.Data.get()) Vertex_PosTexCol[spec.VertCount]
         {
             {{-0.5f,-0.5f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
             {{ 0.5f,-0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
@@ -141,20 +130,13 @@ GeometryProvider primitive::TexturedQuad()
             {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
         };
 
-        constexpr size_t idxCount = 6;
-        constexpr size_t idxSize = idxCount * sizeof(uint32_t);
+        new (geo.IndexData.Data.get()) uint32_t[spec.IdxCount]{0, 1, 2, 2, 3, 0};
 
-        OpaqueBuffer idxBuf(idxCount, idxSize, 4);
-
-        new (idxBuf.Data.get()) uint32_t[idxCount]{0, 1, 2, 2, 3, 0};
-
-        return GeometryData{
-            std::move(vertBuf), std::move(idxBuf)
-        };
+        return res;
     };
 
     return GeometryProvider{
-        "Textured Quad",
+        //"Textured Quad",
         layout,
         geoProvider,
     };
@@ -174,12 +156,13 @@ GeometryProvider primitive::ColoredCube(glm::vec3 color)
 
     auto geoProvider = []()
     {
-        constexpr size_t vertCount = 24;
-        constexpr size_t vertSize = vertCount * sizeof(Vertex_PosColNorm);
+        std::vector<GeometryData> res;
 
-        OpaqueBuffer vertBuf(vertCount, vertSize, 4);
+        constexpr auto spec = GeometrySpec::Build<Vertex_PosColNorm, uint32_t>(24, 36);
 
-        new (vertBuf.Data.get()) Vertex_PosColNorm[vertCount]
+        auto& geo = res.emplace_back(spec);
+
+        new (geo.VertexData.Data.get()) Vertex_PosColNorm[spec.VertCount]
         {
             //Top
             {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
@@ -213,12 +196,7 @@ GeometryProvider primitive::ColoredCube(glm::vec3 color)
             {{-0.5f,-0.5f,-0.5f}, {0.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
         };
 
-        constexpr size_t idxCount = 36;
-        constexpr size_t idxSize = idxCount * sizeof(uint32_t);
-
-        OpaqueBuffer idxBuf(idxCount, idxSize, 4);
-
-        new (idxBuf.Data.get()) uint32_t[idxCount]
+        new (geo.IndexData.Data.get()) uint32_t[spec.IdxCount]
         {
             //Top
             0,1,2, 2,3,0,
@@ -234,13 +212,11 @@ GeometryProvider primitive::ColoredCube(glm::vec3 color)
             20,21,22, 22,23,20
         };
 
-        return GeometryData{
-            std::move(vertBuf), std::move(idxBuf)
-        };
+        return res;
     };
 
     return GeometryProvider{
-        "Colored Cube",
+        //"Colored Cube",
         layout,
         geoProvider,
     };
@@ -257,12 +233,13 @@ GeometryProvider primitive::TexturedCube()
 
     auto geoProvider = []()
     {
-        constexpr size_t vertCount = 24;
-        constexpr size_t vertSize = vertCount * sizeof(Vertex_PosTexNorm);
+        std::vector<GeometryData> res;
 
-        OpaqueBuffer vertBuf(vertCount, vertSize, 4);
+        constexpr auto spec = GeometrySpec::Build<Vertex_PosTexNorm, uint32_t>(24, 36);
 
-        new (vertBuf.Data.get()) Vertex_PosTexNorm[vertCount]
+        auto& geo = res.emplace_back(spec);
+
+        new (geo.VertexData.Data.get()) Vertex_PosTexNorm[spec.VertCount]
         {
             //Top
             {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
@@ -296,12 +273,7 @@ GeometryProvider primitive::TexturedCube()
             {{-0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}},
         };
 
-        constexpr size_t idxCount = 36;
-        constexpr size_t idxSize = idxCount * sizeof(uint32_t);
-
-        OpaqueBuffer idxBuf(idxCount, idxSize, 4);
-
-        new (idxBuf.Data.get()) uint32_t[idxCount]
+        new (geo.IndexData.Data.get()) uint32_t[spec.IdxCount]
         {
             //Top
             0,1,2, 2,3,0,
@@ -317,13 +289,11 @@ GeometryProvider primitive::TexturedCube()
             20,21,22, 22,23,20
         };
 
-        return GeometryData{
-            std::move(vertBuf), std::move(idxBuf)
-        };
+        return res;
     };
 
     return GeometryProvider{
-        "Textured Cube",
+        //"Textured Cube",
         layout,
         geoProvider,
     };

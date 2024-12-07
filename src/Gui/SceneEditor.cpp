@@ -306,26 +306,25 @@ void SceneEditor::AddInstancePopup(Scene &scene)
 
         using namespace std::views;
 
-        for (const auto [id, provider] : enumerate(scene.GeoProviders))
+        for (const auto [id, mesh] : enumerate(scene.Meshes))
         {
-            std::string name = provider.Name + "##" + std::to_string(id);
+            std::string name = mesh.Name + "##" + std::to_string(id);
 
             if (ImGui::Selectable(name.c_str()))
             {
                 size_t idx = scene.EmplaceObject(SceneObject{
-                    .GeometryId = id,
-                    .MaterialId = std::nullopt,
+                    .MeshId = id,
                     .Transform = glm::mat4(1.0f),
                 });
 
                 auto &newNode = scene.GraphRoot.EmplaceChild(idx);
-                newNode.Name = provider.Name;
+                newNode.Name = mesh.Name;
 
                 scene.UpdateRequested = true;
             }
         }
 
-        //To-do: maybe move this to the data menu
+        // To-do: maybe move this to the data menu
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         if (ImGui::Selectable("Load Model"))
@@ -351,21 +350,45 @@ void SceneEditor::DataMenu(Scene &scene)
 
     ImGui::BeginTabBar("We");
 
-    if (ImGui::BeginTabItem("Geometry"))
+    if (ImGui::BeginTabItem("Meshes"))
     {
         using namespace std::views;
-        for (const auto [id, provider] : enumerate(scene.GeoProviders))
+
+        for (const auto [id, mesh] : enumerate(scene.Meshes))
         {
-            std::string nodeName = provider.Name + "##" + std::to_string(id);
+            std::string nodeName = mesh.Name + "##" + std::to_string(id);
 
             if (ImGui::TreeNodeEx(nodeName.c_str()))
             {
+                // Display vertex layout:
                 std::string vertLayout = "Vertex Layout: ";
 
-                for (auto type : provider.Layout.VertexLayout)
+                for (auto type : mesh.GeoProvider.Layout.VertexLayout)
                     vertLayout += Vertex::ToString(type) + ", ";
 
                 ImGui::Text("%s", vertLayout.c_str());
+
+                ImGui::Separator();
+
+                // Material editing gui:
+                ImGui::Text("Materials:");
+
+                const std::string label = "##texlabel";
+
+                for (auto &matId : mesh.MaterialIds)
+                {
+                    std::string matName = scene.Materials[matId].Name + label;
+
+                    ImGui::Text("Material: ");
+                    ImGui::SameLine();
+
+                    if (ImGui::Selectable(label.c_str()))
+                    {
+                        // To-do: changing and deleting materials
+                    }
+
+                    // To-do: adding new maerials
+                }
 
                 ImGui::TreePop();
             }
@@ -474,40 +497,6 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
             }
 
             ImGui::TreePop();
-        }
-
-        if (mSelectedNode->IsLeaf())
-        {
-            std::string label = "##texlabel";
-
-            auto &obj = scene.Objects[mSelectedNode->GetIndex()];
-
-            if (obj->MaterialId.has_value())
-            {
-                label = scene.Materials[obj->MaterialId.value()].Name + label;
-            }
-
-            ImGui::Text("Material: ");
-            ImGui::SameLine();
-
-            if (ImGui::Selectable(label.c_str()))
-                ImGui::OpenPopup("Select material:");
-
-            if (ImGui::BeginPopup("Select material:"))
-            {
-                using namespace std::views;
-
-                for (const auto [matId, mat] : enumerate(scene.Materials))
-                {
-                    if (ImGui::Selectable(mat.Name.c_str()))
-                    {
-                        obj->MaterialId = matId;
-                        scene.UpdateRequested = true;
-                    }
-                }
-
-                ImGui::EndPopup();
-            }
         }
     }
 

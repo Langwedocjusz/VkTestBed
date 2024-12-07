@@ -4,24 +4,26 @@
 
 #include "imgui.h"
 
+#include <fastgltf/types.hpp>
 #include <filesystem>
+#include <ranges>
+#include <iostream>
 
-void ModelLoaderGui::TriggerLoad(Scene& scene)
+void ModelLoaderGui::TriggerLoad(Scene &scene)
 {
     mScene = &scene;
     mFilePopup = true;
-
 }
 
 void ModelLoaderGui::ModelLoaderGui::OnImGui()
 {
-    if(mFilePopup)
+    if (mFilePopup)
     {
         ImGui::OpenPopup("Load...");
         mFilePopup = false;
     }
 
-    if(mImportPopup)
+    if (mImportPopup)
     {
         ImGui::OpenPopup("Import options");
         mImportPopup = false;
@@ -77,6 +79,8 @@ void ModelLoaderGui::ImportMenu()
     {
         ImGui::Text("WORK IN PROGRESS");
 
+        // Do a preliminary scan of the gltf and retrieve materials etc:
+
         if (ImGui::Button("Load"))
         {
             ImGui::CloseCurrentPopup();
@@ -90,24 +94,74 @@ void ModelLoaderGui::ImportMenu()
 
 void ModelLoaderGui::LoadModel()
 {
+    using namespace std::views;
+
     assert(mScene != nullptr);
 
-    //Load Geo Providers:
-    ModelLoader::Config config{
-        .Filepath = mBrowser.ChosenFile,
-    };
+    // Get gltf object:
+    auto gltf = ModelLoader::GetGltf(mBrowser.ChosenFile);
 
-    mScene->GeoProviders.push_back(ModelLoader::PosTex(config));
+    // Load Geo Providers:
+    auto &newMesh = mScene->Meshes.emplace_back();
+    newMesh.Name = mBrowser.ChosenFile.stem().string();
+    newMesh.GeoProvider = ModelLoader::LoadModel(mBrowser.ChosenFile);
 
-    //Load Materials:
+    // Load Materials:
+    size_t matIdOffset = mScene->Materials.size();
 
+    for (auto [id, material] : enumerate(gltf.materials))
+    {
+        //1. Does albedo texture exist?
+        auto& albedoTex = material.pbrData.baseColorTexture;
 
-    //Create an instance:
+        if(!albedoTex.has_value())
+            continue;
 
-    //Set update flags:
+        //2. Retrieve image index if present
+        auto imgId = gltf.textures[albedoTex->textureIndex].imageIndex;
+
+        if(!imgId.has_value())
+            continue;
+
+        //3. Get data source
+        auto& dataSource = gltf.images[imgId.value()].data;
+
+        //4. Retrieve the URI if present;
+        if (!std::holds_alternative<fastgltf::sources::URI>(dataSource))
+            continue;
+
+        auto& uri = std::get<fastgltf::sources::URI>(dataSource);
+
+        //5. Retrieve the filepath:
+        auto relPath = uri.uri.fspath();
+        auto path = mBrowser.CurrentPath / relPath;
+
+        //6. Create new scene material, pointing to the albedo texture
+        auto &mat = mScene->Materials.emplace_back();
+        mat.Name = newMesh.Name + std::to_string(id);
+
+        mat[Material::Albedo] = Material::ImageSource{
+            .Path = path,
+            .Channel = Material::ImageChannel::RGB,
+        };
+    }
+
+    for (auto &mesh : gltf.meshes)
+    {
+        for (auto &primitive : mesh.primitives)
+        {
+            auto matId = matIdOffset + (*primitive.materialIndex);
+
+            newMesh.MaterialIds.push_back(matId);
+        }
+    }
+
+    // Create an instance:
+
+    // Set update flags:
     mScene->UpdateRequested = true;
     mScene->GlobalUpdate = true;
 
-    //Reset scene ptr:
+    // Reset scene ptr:
     mScene = nullptr;
 }

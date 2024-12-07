@@ -9,9 +9,14 @@
 #include "GeometryProvider.h"
 #include "Material.h"
 
+struct SceneMesh {
+    std::string Name;
+    GeometryProvider GeoProvider;
+    std::vector<size_t> MaterialIds;
+};
+
 struct SceneObject {
-    std::optional<size_t> GeometryId;
-    std::optional<size_t> MaterialId;
+    std::optional<size_t> MeshId;
 
     glm::mat4 Transform;
 };
@@ -52,7 +57,7 @@ class SceneGraphNode {
 
 struct Scene {
     // Data sources for renderers:
-    std::vector<GeometryProvider> GeoProviders;
+    std::vector<SceneMesh> Meshes;
     std::vector<Material> Materials;
 
     // Object instances to be rendered::

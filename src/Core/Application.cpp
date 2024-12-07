@@ -26,8 +26,20 @@ Application::Application()
 
     mScene = std::make_unique<Scene>();
 
-    mScene->GeoProviders.push_back(primitive::ColoredCube(glm::vec3(0.5f)));
-    mScene->GeoProviders.push_back(primitive::TexturedCube());
+    // mScene->GeoProviders.push_back(primitive::ColoredCube(glm::vec3(0.5f)));
+    // mScene->GeoProviders.push_back(primitive::TexturedCube());
+
+    {
+        auto &mesh = mScene->Meshes.emplace_back();
+        mesh.Name = "Colored Cube";
+        mesh.GeoProvider = primitive::ColoredCube(glm::vec3(0.5f));
+    }
+
+    {
+        auto &mesh = mScene->Meshes.emplace_back();
+        mesh.Name = "Textured Cube";
+        mesh.GeoProvider = primitive::TexturedCube();
+    }
 
     {
         auto &mat = mScene->Materials.emplace_back();
@@ -40,8 +52,8 @@ Application::Application()
         };
     }
 
-    //mScene->GeoProviders.push_back(
-    //    ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf"));
+    // mScene->GeoProviders.push_back(
+    //     ModelLoader::PosTex("assets/gltf/DamagedHelmet/DamagedHelmet.gltf"));
     {
         auto &mat = mScene->Materials.emplace_back();
 
@@ -53,7 +65,7 @@ Application::Application()
         };
     }
 
-    //mScene->GeoProviders.push_back(ModelLoader::PosTex("assets/gltf/Sponza/Sponza.gltf"));
+    // mScene->GeoProviders.push_back(ModelLoader::PosTex("assets/gltf/Sponza/Sponza.gltf"));
 
     // First-time scene loading
     mRender.LoadScene(*mScene);

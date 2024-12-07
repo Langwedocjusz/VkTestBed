@@ -32,13 +32,52 @@ struct OpaqueBuffer {
     }
 };
 
+struct GeometrySpec {
+    size_t VertCount = 0;
+    size_t VertBuffSize = 0;
+    size_t VertAlignment = 4;
+    size_t IdxCount = 0;
+    size_t IdxBuffSize = 0;
+    size_t IdxAlignment = 4;
+
+    // This assumes vertex alignment is equal to 4
+    // which is typically the case.
+    template <typename VertType, typename IdxType>
+    static constexpr GeometrySpec Build(size_t vertCount, size_t idxCount)
+    {
+        static_assert(std::is_same<IdxType, uint16_t>::value ||
+                      std::is_same<IdxType, uint32_t>::value);
+
+        constexpr auto idxAlignment = []() -> size_t {
+            if constexpr (std::is_same<IdxType, uint16_t>::value)
+                return 2;
+            else
+                return 4;
+        }();
+
+        return GeometrySpec{
+            .VertCount = vertCount,
+            .VertBuffSize = vertCount * sizeof(VertType),
+            .VertAlignment = 4,
+            .IdxCount = idxCount,
+            .IdxBuffSize = idxCount * sizeof(IdxType),
+            .IdxAlignment = idxAlignment,
+        };
+    }
+};
+
 struct GeometryData {
+    GeometryData(const GeometrySpec &spec)
+        : VertexData(spec.VertCount, spec.VertBuffSize, spec.VertAlignment),
+          IndexData(spec.IdxCount, spec.IdxBuffSize, spec.IdxAlignment)
+    {
+    }
+
     OpaqueBuffer VertexData;
     OpaqueBuffer IndexData;
 };
 
 struct GeometryProvider {
-    std::string Name;
     GeometryLayout Layout;
-    std::function<GeometryData()> GetGeometry;
+    std::function<std::vector<GeometryData>()> GetGeometry;
 };

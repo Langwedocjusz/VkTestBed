@@ -6,6 +6,8 @@
 #include "VertexLayout.h"
 #include <vulkan/vulkan_core.h>
 
+#include <map>
+
 class HelloRenderer : public IRenderer {
   public:
     HelloRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
@@ -41,9 +43,14 @@ class HelloRenderer : public IRenderer {
 
         Buffer IndexBuffer;
         size_t IndexCount;
+    };
 
+    struct Mesh {
+        std::vector<Drawable> Drawables;
         std::vector<glm::mat4> Transforms;
     };
 
-    std::vector<Drawable> mDrawables;
+    std::map<size_t, size_t> mMeshIdMap;
+
+    std::vector<Mesh> mMeshes;
 };

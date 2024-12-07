@@ -80,21 +80,26 @@ void HelloRenderer::OnRender()
                                 mGraphicsPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &drawable : mDrawables)
+        for (auto &mesh : mMeshes)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-            std::array<VkDeviceSize, 1> offsets{0};
-
-            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 mGeometryLayout.IndexType);
-
-            for (auto &transform : drawable.Transforms)
+            for (auto &transform : mesh.Transforms)
             {
-                vkCmdPushConstants(cmd, mGraphicsPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
-                                   &transform);
-                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+                for (auto &drawable : mesh.Drawables)
+                {
+                    std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
+                    std::array<VkDeviceSize, 1> offsets{0};
+
+                    vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(),
+                                           offsets.data());
+                    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
+                                         mGeometryLayout.IndexType);
+
+                    vkCmdPushConstants(cmd, mGraphicsPipeline.Layout,
+                                       VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
+                                       &transform);
+
+                    vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+                }
             }
         }
     }
@@ -143,7 +148,7 @@ void HelloRenderer::LoadScene(Scene &scene)
     {
         // This will only take efect on non-first runs:
         mSceneDeletionQueue.flush();
-        mDrawables.clear();
+        mMeshes.clear();
 
         LoadProviders(scene);
     }
@@ -155,61 +160,74 @@ void HelloRenderer::LoadProviders(Scene &scene)
 {
     auto &pool = mFrame.CurrentPool();
 
-    for (auto &provider : scene.GeoProviders)
+    for (auto &sceneMesh : scene.Meshes)
     {
-        if (!mGeometryLayout.IsCompatible(provider.Layout))
+        if (!mGeometryLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
         {
             std::cerr << "Unsupported geometry layout.\n";
             continue;
         }
 
-        auto &drawable = mDrawables.emplace_back();
-        auto geo = provider.GetGeometry();
+        auto &mesh = mMeshes.emplace_back();
 
-        // Create Vertex buffer:
-        drawable.VertexBuffer =
-            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
-        drawable.VertexCount = geo.VertexData.Count;
+        auto geometries = sceneMesh.GeoProvider.GetGeometry();
 
-        // Create Index buffer:
-        drawable.IndexBuffer =
-            IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
-        drawable.IndexCount = geo.IndexData.Count;
+        for (auto &geo : geometries)
+        {
+            auto &drawable = mesh.Drawables.emplace_back();
+
+            // Create Vertex buffer:
+            drawable.VertexBuffer =
+                VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
+            drawable.VertexCount = geo.VertexData.Count;
+
+            // Create Index buffer:
+            drawable.IndexBuffer =
+                IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+            drawable.IndexCount = geo.IndexData.Count;
+        }
     }
 
-    for (auto &drawable : mDrawables)
+    for (auto &mesh : mMeshes)
     {
-        mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
-        mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+        for (auto &drawable : mesh.Drawables)
+        {
+            mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
+            mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+        }
     }
 }
 
 void HelloRenderer::LoadInstances(Scene &scene)
 {
-    for (auto &drawable : mDrawables)
-        drawable.Transforms.clear();
+    for (auto &mesh : mMeshes)
+        mesh.Transforms.clear();
 
     for (auto &obj : scene.Objects)
     {
+        // Is valid object?
         if (!obj.has_value())
             continue;
 
-        bool hasGeo = obj->GeometryId.has_value();
-
-        if (!hasGeo)
+        // Has mesh component?
+        if (!obj->MeshId.has_value())
             continue;
 
-        size_t geoId = obj->GeometryId.value();
+        auto meshId = obj->MeshId.value();
 
-        auto &geo = scene.GeoProviders[geoId];
+        // Geometry layout compatible?
+        auto &sceneMesh = scene.Meshes[meshId];
 
-        if (!mGeometryLayout.IsCompatible(geo.Layout))
+        if (!mGeometryLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
         {
             std::cerr << "Unsupported geometry layout.\n";
             continue;
         }
 
-        auto &drawable = mDrawables[geoId];
-        drawable.Transforms.push_back(obj->Transform);
+        // Load transform:
+        meshId = mMeshIdMap[meshId];
+        auto &mesh = mMeshes[meshId];
+
+        mesh.Transforms.push_back(obj->Transform);
     }
 }

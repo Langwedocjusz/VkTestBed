@@ -43,16 +43,16 @@ PipelineBuilder::PipelineBuilder()
     mMultisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 }
 
-PipelineBuilder PipelineBuilder::SetShaderStages(
+PipelineBuilder &PipelineBuilder::SetShaderStages(
     const std::vector<VkPipelineShaderStageCreateInfo> &stages)
 {
     mShaderStages = stages;
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::SetVertexInput(const Vertex::Layout &layout,
-                                                uint32_t binding,
-                                                VkVertexInputRate inputRate)
+PipelineBuilder &PipelineBuilder::SetVertexInput(const Vertex::Layout &layout,
+                                                 uint32_t binding,
+                                                 VkVertexInputRate inputRate)
 {
     mBindingDescription = Vertex::GetBindingDescription(layout, binding, inputRate);
     mAttributeDescriptions = Vertex::GetAttributeDescriptions(layout);
@@ -71,27 +71,27 @@ void PipelineBuilder::UpdateVertexInput()
     mVertexInput.pVertexAttributeDescriptions = mAttributeDescriptions.data();
 }
 
-PipelineBuilder PipelineBuilder::SetTopology(VkPrimitiveTopology topo)
+PipelineBuilder &PipelineBuilder::SetTopology(VkPrimitiveTopology topo)
 {
     mInputAssembly.topology = topo;
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::SetPolygonMode(VkPolygonMode mode)
+PipelineBuilder &PipelineBuilder::SetPolygonMode(VkPolygonMode mode)
 {
     mRaster.polygonMode = mode;
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::SetCullMode(VkCullModeFlags cullMode,
-                                             VkFrontFace frontFace)
+PipelineBuilder &PipelineBuilder::SetCullMode(VkCullModeFlags cullMode,
+                                              VkFrontFace frontFace)
 {
     mRaster.cullMode = cullMode;
     mRaster.frontFace = frontFace;
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::EnableDepthTest()
+PipelineBuilder &PipelineBuilder::EnableDepthTest()
 {
     mDepthStencil.depthTestEnable = VK_TRUE;
     mDepthStencil.depthWriteEnable = VK_TRUE;
@@ -105,19 +105,19 @@ PipelineBuilder PipelineBuilder::EnableDepthTest()
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::SetColorFormat(VkFormat format)
+PipelineBuilder &PipelineBuilder::SetColorFormat(VkFormat format)
 {
     mColorFormat = format;
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::SetDepthFormat(VkFormat format)
+PipelineBuilder &PipelineBuilder::SetDepthFormat(VkFormat format)
 {
     mDepthFormat = format;
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::EnableBlending()
+PipelineBuilder &PipelineBuilder::EnableBlending()
 {
     mColorBlendAttachment.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
@@ -142,14 +142,14 @@ PipelineBuilder PipelineBuilder::EnableBlending()
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
+PipelineBuilder &PipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
 {
     mDescriptorLayouts.push_back(descriptor);
 
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::SetPushConstantSize(uint32_t size)
+PipelineBuilder &PipelineBuilder::SetPushConstantSize(uint32_t size)
 {
     mPushConstantSize = size;
 
@@ -259,7 +259,7 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
     return pipeline;
 }
 
-ComputePipelineBuilder ComputePipelineBuilder::SetShaderStage(
+ComputePipelineBuilder &ComputePipelineBuilder::SetShaderStage(
     VkPipelineShaderStageCreateInfo stage)
 {
     mShaderStage = stage;

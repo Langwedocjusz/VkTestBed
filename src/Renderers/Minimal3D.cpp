@@ -20,7 +20,7 @@
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                                      RenderContext::Queues &queues,
                                      std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, queues, camera)
+    : IRenderer(ctx, info, queues, camera), mTextureDescriptorAllocator(ctx)
 {
     // Create descriptor set layout for sampling textures
     mTextureDescriptorSetLayout =
@@ -29,19 +29,16 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx);
 
-    // Create a single descriptor pool (temporary, will crash if
-    // if it runs out of space)
-    //  Descriptor pool
-    const uint32_t maxSets = 32;
+    mMainDeletionQueue.push_back(mTextureDescriptorSetLayout);
 
-    std::vector<Descriptor::PoolCount> poolCounts{
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, maxSets},
+    // Initialize descriptor allocator for materials
+    constexpr uint32_t imgPerMat = 1;
+
+    std::vector<VkDescriptorPoolSize> poolCounts{
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imgPerMat},
     };
 
-    mTextureDescriptorPool = Descriptor::InitPool(ctx, maxSets, poolCounts);
-
-    mMainDeletionQueue.push_back(mTextureDescriptorPool);
-    mMainDeletionQueue.push_back(mTextureDescriptorSetLayout);
+    mTextureDescriptorAllocator.OnInit(poolCounts);
 
     // Create Graphics Pipelines
     auto coloredShaderStages =
@@ -106,6 +103,8 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
 
 Minimal3DRenderer::~Minimal3DRenderer()
 {
+    mTextureDescriptorAllocator.DestoyPools();
+
     mSwapchainDeletionQueue.flush();
     mSceneDeletionQueue.flush();
     mMainDeletionQueue.flush();
@@ -202,7 +201,8 @@ void Minimal3DRenderer::OnRender()
                     // In reality draws should be sorted according to the material
                     // and corresponding descriptors only re-bound when change
                     // is necessary.
-                    auto &texture = mTextures[drawable.TextureId];
+                    // auto &texture = mTextures[drawable.TextureId];
+                    auto &texture = mTextures.at(drawable.TextureId);
 
                     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                             mTexturedPipeline.Layout, 1, 1,
@@ -279,6 +279,8 @@ void Minimal3DRenderer::LoadScene(Scene &scene)
         mTextures.clear();
         mColoredIdMap.clear();
         mTexturedIdMap.clear();
+
+        mTextureDescriptorAllocator.ResetPools();
 
         LoadProviders(scene);
         LoadTextures(scene);
@@ -398,30 +400,18 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
         // mSceneDeletionQueue.push_back(&texture.TexImage);
         // mSceneDeletionQueue.push_back(texture.View);
 
-        // To-do: add variant of allocate that allocates singular descriptor set:
-        std::array<VkDescriptorSetLayout, 1> layouts{mTextureDescriptorSetLayout};
+        // texture.DescriptorSet = Descriptor::Allocate(mCtx, mTextureDescriptorPool,
+        //                                              mTextureDescriptorSetLayout);
         texture.DescriptorSet =
-            Descriptor::Allocate(mCtx, mTextureDescriptorPool, layouts)[0];
+            mTextureDescriptorAllocator.Allocate(mTextureDescriptorSetLayout);
     }
 
     // Update descriptor sets:
     for (const auto &texture : mTextures)
     {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = texture.View;
-        imageInfo.sampler = mSampler;
-
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = texture.DescriptorSet;
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pImageInfo = &imageInfo;
-
-        vkUpdateDescriptorSets(mCtx.Device, 1, &descriptorWrite, 0, nullptr);
+        DescriptorUpdater(texture.DescriptorSet)
+            .WriteImage(0, texture.View, mSampler)
+            .Update(mCtx);
     }
 
     for (auto &texture : mTextures)

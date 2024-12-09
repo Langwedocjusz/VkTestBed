@@ -23,7 +23,7 @@ Camera::Camera(VulkanContext &ctx, FrameInfo &info)
     // Descriptor pool
     uint32_t maxSets = mFrame.MaxInFlight;
 
-    std::vector<Descriptor::PoolCount> poolCounts{
+    std::vector<VkDescriptorPoolSize> poolCounts{
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, maxSets},
     };
 
@@ -51,21 +51,9 @@ Camera::Camera(VulkanContext &ctx, FrameInfo &info)
     // Update descriptor sets:
     for (size_t i = 0; i < mDescriptorSets.size(); i++)
     {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = mUniformBuffers[i].Handle;
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
-
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = mDescriptorSets[i];
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pBufferInfo = &bufferInfo;
-
-        vkUpdateDescriptorSets(ctx.Device, 1, &descriptorWrite, 0, nullptr);
+        DescriptorUpdater(mDescriptorSets[i])
+            .WriteUniformBuffer(0, mUniformBuffers[i].Handle, sizeof(UniformBufferObject))
+            .Update(ctx);
     }
 }
 
@@ -85,7 +73,7 @@ void Camera::OnUpdate(float deltatime)
 
     auto proj = ProjPerspective();
 
-    // To compensate for chane of orientation between
+    // To compensate for change of orientation between
     // OpenGL and Vulkan:
     proj[1][1] *= -1;
 

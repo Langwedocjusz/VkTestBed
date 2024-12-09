@@ -6,8 +6,8 @@
 
 #include <fastgltf/types.hpp>
 #include <filesystem>
-#include <ranges>
 #include <iostream>
+#include <ranges>
 
 void ModelLoaderGui::TriggerLoad(Scene &scene)
 {
@@ -111,32 +111,32 @@ void ModelLoaderGui::LoadModel()
 
     for (auto [id, material] : enumerate(gltf.materials))
     {
-        //1. Does albedo texture exist?
-        auto& albedoTex = material.pbrData.baseColorTexture;
+        // 1. Does albedo texture exist?
+        auto &albedoTex = material.pbrData.baseColorTexture;
 
-        if(!albedoTex.has_value())
+        if (!albedoTex.has_value())
             continue;
 
-        //2. Retrieve image index if present
+        // 2. Retrieve image index if present
         auto imgId = gltf.textures[albedoTex->textureIndex].imageIndex;
 
-        if(!imgId.has_value())
+        if (!imgId.has_value())
             continue;
 
-        //3. Get data source
-        auto& dataSource = gltf.images[imgId.value()].data;
+        // 3. Get data source
+        auto &dataSource = gltf.images[imgId.value()].data;
 
-        //4. Retrieve the URI if present;
+        // 4. Retrieve the URI if present;
         if (!std::holds_alternative<fastgltf::sources::URI>(dataSource))
             continue;
 
-        auto& uri = std::get<fastgltf::sources::URI>(dataSource);
+        auto &uri = std::get<fastgltf::sources::URI>(dataSource);
 
-        //5. Retrieve the filepath:
+        // 5. Retrieve the filepath:
         auto relPath = uri.uri.fspath();
         auto path = mBrowser.CurrentPath / relPath;
 
-        //6. Create new scene material, pointing to the albedo texture
+        // 6. Create new scene material, pointing to the albedo texture
         auto &mat = mScene->Materials.emplace_back();
         mat.Name = newMesh.Name + std::to_string(id);
 
@@ -150,9 +150,12 @@ void ModelLoaderGui::LoadModel()
     {
         for (auto &primitive : mesh.primitives)
         {
-            auto matId = matIdOffset + (*primitive.materialIndex);
+            if (auto id = primitive.materialIndex)
+            {
+                auto matId = matIdOffset + (*id);
 
-            newMesh.MaterialIds.push_back(matId);
+                newMesh.MaterialIds.push_back(matId);
+            }
         }
     }
 

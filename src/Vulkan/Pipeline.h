@@ -16,28 +16,28 @@ class PipelineBuilder {
   public:
     PipelineBuilder();
 
-    PipelineBuilder SetShaderStages(
+    PipelineBuilder &SetShaderStages(
         const std::vector<VkPipelineShaderStageCreateInfo> &stages);
 
     /// If vertex input is not set, vertex data can't be accessed the usual way
     /// in vertex shaders. This is actually the desired behaviour when doing
     /// vertex pulling or generating vertices on-the-fly in the shader itself.
-    PipelineBuilder SetVertexInput(const Vertex::Layout &layout, uint32_t binding,
-                                   VkVertexInputRate inputRate);
+    PipelineBuilder &SetVertexInput(const Vertex::Layout &layout, uint32_t binding,
+                                    VkVertexInputRate inputRate);
 
-    PipelineBuilder SetTopology(VkPrimitiveTopology topo);
-    PipelineBuilder SetPolygonMode(VkPolygonMode mode);
-    PipelineBuilder SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
+    PipelineBuilder &SetTopology(VkPrimitiveTopology topo);
+    PipelineBuilder &SetPolygonMode(VkPolygonMode mode);
+    PipelineBuilder &SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
 
-    PipelineBuilder SetColorFormat(VkFormat format);
-    PipelineBuilder SetDepthFormat(VkFormat format);
+    PipelineBuilder &SetColorFormat(VkFormat format);
+    PipelineBuilder &SetDepthFormat(VkFormat format);
 
-    PipelineBuilder EnableDepthTest();
-    PipelineBuilder EnableBlending();
+    PipelineBuilder &EnableDepthTest();
+    PipelineBuilder &EnableBlending();
 
-    PipelineBuilder AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
+    PipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
 
-    PipelineBuilder SetPushConstantSize(uint32_t size);
+    PipelineBuilder &SetPushConstantSize(uint32_t size);
 
     Pipeline Build(VulkanContext &ctx);
 
@@ -70,7 +70,7 @@ class ComputePipelineBuilder {
   public:
     ComputePipelineBuilder() = default;
 
-    ComputePipelineBuilder SetShaderStage(VkPipelineShaderStageCreateInfo stage);
+    ComputePipelineBuilder &SetShaderStage(VkPipelineShaderStageCreateInfo stage);
 
     Pipeline Build(VulkanContext &ctx, VkDescriptorSetLayout &descriptor);
 

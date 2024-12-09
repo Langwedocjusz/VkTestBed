@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Descriptor.h"
 #include "GeometryProvider.h"
 #include "Pipeline.h"
 #include "Renderer.h"
@@ -73,7 +74,8 @@ class Minimal3DRenderer : public IRenderer {
     std::map<size_t, size_t> mTexturedIdMap;
 
     VkDescriptorSetLayout mTextureDescriptorSetLayout;
-    VkDescriptorPool mTextureDescriptorPool;
+    // VkDescriptorPool mTextureDescriptorPool;
+    DescriptorAllocator mTextureDescriptorAllocator;
 
     struct Texture {
         Image TexImage;

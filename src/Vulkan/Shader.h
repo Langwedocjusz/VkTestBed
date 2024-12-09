@@ -9,18 +9,18 @@ class ShaderBuilder {
   public:
     ShaderBuilder() = default;
 
-    ShaderBuilder SetVertexPath(std::string_view path)
+    ShaderBuilder &SetVertexPath(std::string_view path)
     {
         mVertexPath = path;
         return *this;
     }
-    ShaderBuilder SetFragmentPath(std::string_view path)
+    ShaderBuilder &SetFragmentPath(std::string_view path)
     {
         mFragmentPath = path;
         return *this;
     }
 
-    ShaderBuilder SetComputePath(std::string_view path)
+    ShaderBuilder &SetComputePath(std::string_view path)
     {
         mComputePath = path;
         return *this;

@@ -36,19 +36,19 @@ VkSampler SamplerBuilder::Build(VulkanContext &ctx)
     return sampler;
 }
 
-SamplerBuilder SamplerBuilder::SetMagFilter(VkFilter filter)
+SamplerBuilder &SamplerBuilder::SetMagFilter(VkFilter filter)
 {
     mMagFiler = filter;
     return *this;
 }
 
-SamplerBuilder SamplerBuilder::SetMinFilter(VkFilter filter)
+SamplerBuilder &SamplerBuilder::SetMinFilter(VkFilter filter)
 {
     mMinFiler = filter;
     return *this;
 }
 
-SamplerBuilder SamplerBuilder::SetAddressMode(VkSamplerAddressMode adressMode)
+SamplerBuilder &SamplerBuilder::SetAddressMode(VkSamplerAddressMode adressMode)
 {
     mAddressMode = adressMode;
     return *this;

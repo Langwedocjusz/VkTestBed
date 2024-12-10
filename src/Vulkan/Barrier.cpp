@@ -1,5 +1,6 @@
 #include "Barrier.h"
-#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.h>
 
 void barrier::ImageBarrierColorToRender(VkCommandBuffer buffer, VkImage image)
 {

@@ -5,8 +5,8 @@
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "VertexLayout.h"
+
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #include <map>
 
@@ -27,6 +27,7 @@ class Minimal3DRenderer : public IRenderer {
   private:
     void LoadProviders(Scene &scene);
     void LoadTextures(Scene &scene);
+    void LoadMeshMaterials(Scene &scene);
     void LoadInstances(Scene &scene);
 
   private:

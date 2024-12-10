@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanContext.h"
+
 #include <vulkan/vulkan.h>
 
 namespace utils

@@ -1,13 +1,14 @@
 #pragma once
 
-#include <optional>
-#include <string>
-#include <variant>
+#include "Bitflags.h"
+#include "GeometryProvider.h"
+#include "Material.h"
 
 #include <glm/glm.hpp>
 
-#include "GeometryProvider.h"
-#include "Material.h"
+#include <optional>
+#include <string>
+#include <variant>
 
 struct SceneMesh {
     std::string Name;
@@ -55,7 +56,8 @@ class SceneGraphNode {
     std::variant<ChildrenArray, ObjectId> Payload;
 };
 
-struct Scene {
+class Scene {
+  public:
     // Data sources for renderers:
     std::vector<SceneMesh> Meshes;
     std::vector<Material> Materials;
@@ -68,9 +70,29 @@ struct Scene {
     // Root of the scene-graph used by UI to control objects:
     SceneGraphNode GraphRoot;
 
-    // Update flags to inform renderers:
-    bool UpdateRequested = true;
-    bool GlobalUpdate = true;
-
+    // Api to manage update flags, to communicate with renderers:
+    bool UpdateRequested();
     void ClearUpdateFlags();
+
+    void RequestFullUpdate();
+    void RequestMaterialUpdate();
+    void RequestGeometryUpdate();
+    void RequestMeshMaterialUpdate();
+    void RequestInstanceUpdate();
+
+    bool UpdateMaterials();
+    bool UpdateGeometry();
+    bool UpdateMeshMaterials();
+    bool UpdateInstances();
+
+  private:
+    enum class Update
+    {
+        Materials,
+        MeshGeo,
+        MeshMaterials,
+        Instances,
+    };
+
+    Bitflags<Update> mUpdateFlags;
 };

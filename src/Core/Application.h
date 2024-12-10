@@ -1,11 +1,10 @@
 #pragma once
 
-#include "SystemWindow.h"
-#include "VulkanContext.h"
-
 #include "Event.h"
 #include "RenderContext.h"
 #include "SceneEditor.h"
+#include "SystemWindow.h"
+#include "VulkanContext.h"
 
 #include <chrono>
 #include <memory>

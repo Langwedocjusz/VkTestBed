@@ -5,14 +5,16 @@
 
 class ModelLoaderGui {
   public:
-    void TriggerLoad(Scene &scene);
-    void OnImGui();
+    ModelLoaderGui();
+
+    void TriggerLoad();
+    void OnImGui(Scene &scene);
 
   private:
     void FileMenu();
-    void ImportMenu();
+    void ImportMenu(Scene &scene);
 
-    void LoadModel();
+    void LoadModel(Scene &scene);
 
   private:
     bool mFilePopup = false;
@@ -20,8 +22,6 @@ class ModelLoaderGui {
 
     bool mFileMenuOpen = true;
     bool mImportMenuOpen = true;
-
-    Scene *mScene = nullptr;
 
     FilesystemBrowser mBrowser;
 };

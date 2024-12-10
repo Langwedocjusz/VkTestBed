@@ -19,9 +19,34 @@ class Bitflags {
         mBitset.reset(static_cast<utype>(t));
     }
 
+    void SetAll()
+    {
+        mBitset.set();
+    }
+
+    void Clear()
+    {
+        mBitset.reset();
+    }
+
     bool operator[](T t)
     {
         return mBitset[static_cast<utype>(t)];
+    }
+
+    bool All()
+    {
+        return mBitset.all();
+    }
+
+    bool None()
+    {
+        return mBitset.none();
+    }
+
+    bool Any()
+    {
+        return mBitset.any();
     }
 
     std::string to_string()

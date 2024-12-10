@@ -1,15 +1,9 @@
 #include "DeletionQueue.h"
 
+#include "CppUtils.h"
+
 #include <ranges>
-#include <vulkan/vulkan_core.h>
-
-#include <format>
-#include <iostream>
-
-template <class... Ts>
-struct overloaded : Ts... {
-    using Ts::operator()...;
-};
+#include <vulkan/vulkan.h>
 
 void DeletionQueue::flush()
 {

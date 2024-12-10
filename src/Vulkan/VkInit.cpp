@@ -1,5 +1,6 @@
 #include "VkInit.h"
-#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.h>
 
 VkQueue vkinit::CreateQueue(VulkanContext &ctx, vkb::QueueType type)
 {

@@ -3,7 +3,7 @@
 #include "VulkanContext.h"
 
 #include <span>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 class DescriptorSetLayoutBuilder {
   public:
@@ -66,7 +66,7 @@ class DescriptorAllocator {
     std::vector<VkDescriptorSet> Allocate(std::span<VkDescriptorSetLayout> layouts);
 
     void ResetPools();
-    void DestoyPools();
+    void DestroyPools();
 
   private:
     VkDescriptorPool GetPool();

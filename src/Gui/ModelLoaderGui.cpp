@@ -9,13 +9,17 @@
 #include <iostream>
 #include <ranges>
 
-void ModelLoaderGui::TriggerLoad(Scene &scene)
+ModelLoaderGui::ModelLoaderGui()
 {
-    mScene = &scene;
+    mBrowser.AddExtensionToFilter(".gltf");
+}
+
+void ModelLoaderGui::TriggerLoad()
+{
     mFilePopup = true;
 }
 
-void ModelLoaderGui::ModelLoaderGui::OnImGui()
+void ModelLoaderGui::ModelLoaderGui::OnImGui(Scene &scene)
 {
     if (mFilePopup)
     {
@@ -30,7 +34,7 @@ void ModelLoaderGui::ModelLoaderGui::OnImGui()
     }
 
     FileMenu();
-    ImportMenu();
+    ImportMenu(scene);
 
     mFileMenuOpen = true;
     mImportMenuOpen = true;
@@ -73,7 +77,7 @@ void ModelLoaderGui::FileMenu()
     }
 }
 
-void ModelLoaderGui::ImportMenu()
+void ModelLoaderGui::ImportMenu(Scene &scene)
 {
     if (ImGui::BeginPopupModal("Import options", &mImportMenuOpen))
     {
@@ -85,29 +89,27 @@ void ModelLoaderGui::ImportMenu()
         {
             ImGui::CloseCurrentPopup();
 
-            LoadModel();
+            LoadModel(scene);
         }
 
         ImGui::EndPopup();
     }
 }
 
-void ModelLoaderGui::LoadModel()
+void ModelLoaderGui::LoadModel(Scene &scene)
 {
     using namespace std::views;
-
-    assert(mScene != nullptr);
 
     // Get gltf object:
     auto gltf = ModelLoader::GetGltf(mBrowser.ChosenFile);
 
     // Load Geo Providers:
-    auto &newMesh = mScene->Meshes.emplace_back();
+    auto &newMesh = scene.Meshes.emplace_back();
     newMesh.Name = mBrowser.ChosenFile.stem().string();
     newMesh.GeoProvider = ModelLoader::LoadModel(mBrowser.ChosenFile);
 
     // Load Materials:
-    size_t matIdOffset = mScene->Materials.size();
+    size_t matIdOffset = scene.Materials.size();
 
     for (auto [id, material] : enumerate(gltf.materials))
     {
@@ -137,7 +139,7 @@ void ModelLoaderGui::LoadModel()
         auto path = mBrowser.CurrentPath / relPath;
 
         // 6. Create new scene material, pointing to the albedo texture
-        auto &mat = mScene->Materials.emplace_back();
+        auto &mat = scene.Materials.emplace_back();
         mat.Name = newMesh.Name + std::to_string(id);
 
         mat[Material::Albedo] = Material::ImageSource{
@@ -159,12 +161,6 @@ void ModelLoaderGui::LoadModel()
         }
     }
 
-    // Create an instance:
-
-    // Set update flags:
-    mScene->UpdateRequested = true;
-    mScene->GlobalUpdate = true;
-
-    // Reset scene ptr:
-    mScene = nullptr;
+    scene.RequestMaterialUpdate();
+    scene.RequestGeometryUpdate();
 }

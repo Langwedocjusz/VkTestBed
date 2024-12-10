@@ -4,7 +4,7 @@
 
 #include <optional>
 #include <span>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 namespace vkinit
 {

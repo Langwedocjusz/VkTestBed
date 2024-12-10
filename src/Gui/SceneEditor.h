@@ -5,6 +5,7 @@
 
 class SceneEditor {
   public:
+    void OnInit(Scene &scene);
     void OnImGui(Scene &scene);
 
   private:

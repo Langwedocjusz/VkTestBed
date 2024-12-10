@@ -15,7 +15,6 @@
 #include <ranges>
 #include <variant>
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                                      RenderContext::Queues &queues,
@@ -103,7 +102,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
 
 Minimal3DRenderer::~Minimal3DRenderer()
 {
-    mTextureDescriptorAllocator.DestoyPools();
+    mTextureDescriptorAllocator.DestroyPools();
 
     mSwapchainDeletionQueue.flush();
     mSceneDeletionQueue.flush();
@@ -270,23 +269,30 @@ void Minimal3DRenderer::CreateSwapchainResources()
 
 void Minimal3DRenderer::LoadScene(Scene &scene)
 {
-    if (scene.GlobalUpdate)
+    if (scene.UpdateGeometry())
     {
-        // This will only take efect on non-first runs:
         mSceneDeletionQueue.flush();
         mColoredMeshes.clear();
         mTexturedMeshes.clear();
-        mTextures.clear();
         mColoredIdMap.clear();
         mTexturedIdMap.clear();
 
+        LoadProviders(scene);
+    }
+
+    if (scene.UpdateMaterials())
+    {
+        mTextures.clear();
         mTextureDescriptorAllocator.ResetPools();
 
-        LoadProviders(scene);
         LoadTextures(scene);
     }
 
-    LoadInstances(scene);
+    if (scene.UpdateMeshMaterials())
+        LoadMeshMaterials(scene);
+
+    if (scene.UpdateInstances())
+        LoadInstances(scene);
 }
 
 void Minimal3DRenderer::LoadProviders(Scene &scene)
@@ -337,8 +343,8 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
                 auto &drawable = newMesh.Drawables.emplace_back();
                 CreateBuffers(drawable, geo);
 
-                if (static_cast<size_t>(geoId) < mesh.MaterialIds.size())
-                    drawable.TextureId = mesh.MaterialIds[geoId];
+                // if (static_cast<size_t>(geoId) < mesh.MaterialIds.size())
+                //     drawable.TextureId = mesh.MaterialIds[geoId];
             }
 
             continue;
@@ -418,6 +424,28 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
     {
         mSceneDeletionQueue.push_back(&texture.TexImage);
         mSceneDeletionQueue.push_back(texture.View);
+    }
+}
+
+void Minimal3DRenderer::LoadMeshMaterials(Scene &scene)
+{
+    using namespace std::views;
+
+    size_t meshId = 0;
+
+    for (const auto &mesh : scene.Meshes)
+    {
+        if (mTexturedLayout.IsCompatible(mesh.GeoProvider.Layout))
+        {
+            auto &ourMesh = mTexturedMeshes[meshId];
+
+            for (const auto [idx, drawable] : enumerate(ourMesh.Drawables))
+            {
+                drawable.TextureId = mesh.MaterialIds[idx];
+            }
+
+            meshId++;
+        }
     }
 }
 

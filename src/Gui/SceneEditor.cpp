@@ -1,21 +1,49 @@
 #include "SceneEditor.h"
 
+#include "CppUtils.h"
+#include "Primitives.h"
 #include "Scene.h"
 #include "VertexLayout.h"
+
 #include "imgui.h"
 #include "imgui_internal.h"
+
+#include <glm/gtc/type_ptr.hpp>
+
+#include <format>
 #include <optional>
 #include <ranges>
 #include <string>
-
-#include <format>
-#include <glm/gtc/type_ptr.hpp>
 #include <variant>
 
-template <class... Ts>
-struct overloaded : Ts... {
-    using Ts::operator()...;
-};
+void SceneEditor::OnInit(Scene &scene)
+{
+    {
+        auto &mat = scene.Materials.emplace_back();
+
+        mat.Name = "Test Material";
+
+        mat[Material::Albedo] = Material::ImageSource{
+            .Path = "./assets/textures/texture.jpg",
+            .Channel = Material::ImageChannel::RGB,
+        };
+    }
+
+    {
+        auto &mesh = scene.Meshes.emplace_back();
+        mesh.Name = "Colored Cube";
+        mesh.GeoProvider = primitive::ColoredCube(glm::vec3(0.5f));
+    }
+
+    {
+        auto &mesh = scene.Meshes.emplace_back();
+        mesh.Name = "Textured Cube";
+        mesh.GeoProvider = primitive::TexturedCube();
+        mesh.MaterialIds.push_back(0);
+    }
+
+    scene.RequestFullUpdate();
+}
 
 void SceneEditor::OnImGui(Scene &scene)
 {
@@ -24,7 +52,7 @@ void SceneEditor::OnImGui(Scene &scene)
     ObjectPropertiesMenu(scene);
     HandleNodeOp(scene);
 
-    mModelLoader.OnImGui();
+    mModelLoader.OnImGui(scene);
 }
 
 void SceneEditor::SceneHierarchyMenu(Scene &scene)
@@ -200,17 +228,17 @@ void SceneEditor::HandleNodeOp(Scene &scene)
         // To-do: this can be optimized to only update
         // affected nodes:
         scene.GraphRoot.UpdateTransforms(scene.Objects);
-        scene.UpdateRequested = true;
+        scene.RequestInstanceUpdate();
         break;
     }
     case OpType::Delete: {
         HandleNodeDelete(scene);
-        scene.UpdateRequested = true;
+        scene.RequestInstanceUpdate();
         break;
     }
     case OpType::Copy: {
         HandleNodeCopy(scene);
-        scene.UpdateRequested = true;
+        scene.RequestInstanceUpdate();
         break;
     }
     case OpType::None: {
@@ -297,7 +325,7 @@ void SceneEditor::AddInstancePopup(Scene &scene)
             auto &groupNode = scene.GraphRoot.EmplaceChild();
             groupNode.Name = "Group";
 
-            scene.UpdateRequested = true;
+            scene.RequestInstanceUpdate();
         }
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
@@ -320,7 +348,7 @@ void SceneEditor::AddInstancePopup(Scene &scene)
                 auto &newNode = scene.GraphRoot.EmplaceChild(idx);
                 newNode.Name = mesh.Name;
 
-                scene.UpdateRequested = true;
+                scene.RequestInstanceUpdate();
             }
         }
 
@@ -329,7 +357,7 @@ void SceneEditor::AddInstancePopup(Scene &scene)
 
         if (ImGui::Selectable("Load Model"))
         {
-            mModelLoader.TriggerLoad(scene);
+            mModelLoader.TriggerLoad();
         }
 
         ImGui::EndPopup();
@@ -344,8 +372,8 @@ void SceneEditor::DataMenu(Scene &scene)
 
     if (ImGui::Button("Full reload", size))
     {
-        scene.UpdateRequested = true;
-        scene.GlobalUpdate = true;
+        scene.RequestMaterialUpdate();
+        scene.RequestGeometryUpdate();
     }
 
     ImGui::BeginTabBar("We");
@@ -373,21 +401,36 @@ void SceneEditor::DataMenu(Scene &scene)
                 // Material editing gui:
                 ImGui::Text("Materials:");
 
-                const std::string label = "##texlabel";
+                // To-do: this is kind of ugly:
+                static size_t *idToChange = nullptr;
 
-                for (auto &matId : mesh.MaterialIds)
+                for (const auto [num, id] : enumerate(mesh.MaterialIds))
                 {
-                    std::string matName = scene.Materials[matId].Name + label;
+                    const std::string suffix = "##mat" + mesh.Name + std::to_string(num);
+                    std::string matName = scene.Materials[id].Name + suffix;
 
-                    ImGui::Text("Material: ");
+                    ImGui::Text("Material %lu: ", num);
                     ImGui::SameLine();
 
-                    if (ImGui::Selectable(label.c_str()))
+                    if (ImGui::Selectable(matName.c_str()))
                     {
-                        // To-do: changing and deleting materials
+                        idToChange = &id;
+                        ImGui::OpenPopup("Select material:");
                     }
-
                     // To-do: adding new maerials
+                }
+
+                if (ImGui::BeginPopup("Select material:") && idToChange != nullptr)
+                {
+                    for (const auto [id, mat] : enumerate(scene.Materials))
+                    {
+                        if (ImGui::Selectable(mat.Name.c_str()))
+                        {
+                            *idToChange = id;
+                            scene.RequestMeshMaterialUpdate();
+                        }
+                    }
+                    ImGui::EndPopup();
                 }
 
                 ImGui::TreePop();
@@ -452,28 +495,28 @@ static bool TransformWidget(SceneGraphNode &node)
             x = 0.0f;
     };
 
-    auto prev_trans = node.Translation;
-    auto prev_rot = node.Rotation;
-    auto prev_scl = node.Scale;
+    auto prevTrans = node.Translation;
+    auto prevRot = node.Rotation;
+    auto prevScl = node.Scale;
 
-    auto trans_ptr = glm::value_ptr(node.Translation);
-    auto rot_ptr = glm::value_ptr(node.Rotation);
-    auto scl_ptr = glm::value_ptr(node.Scale);
+    auto transPtr = glm::value_ptr(node.Translation);
+    auto rotPtr = glm::value_ptr(node.Rotation);
+    auto sclPtr = glm::value_ptr(node.Scale);
 
     const float speed = 0.01f;
 
-    ImGui::DragFloat3("Translation", trans_ptr, speed);
-    ImGui::DragFloat3("Rotation", rot_ptr, speed);
-    ImGui::DragFloat3("Scale", scl_ptr, speed);
+    ImGui::DragFloat3("Translation", transPtr, speed);
+    ImGui::DragFloat3("Rotation", rotPtr, speed);
+    ImGui::DragFloat3("Scale", sclPtr, speed);
 
     clampPositive(node.Scale.x);
     clampPositive(node.Scale.y);
     clampPositive(node.Scale.z);
 
     bool changed = false;
-    changed = changed || (prev_trans != node.Translation);
-    changed = changed || (prev_rot != node.Rotation);
-    changed = changed || (prev_scl != node.Scale);
+    changed = changed || (prevTrans != node.Translation);
+    changed = changed || (prevRot != node.Rotation);
+    changed = changed || (prevScl != node.Scale);
 
     return changed;
 }
@@ -493,7 +536,7 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
                 // This will require going along the path from root to
                 // mSelectedNode and then propagating as usual.
                 scene.GraphRoot.UpdateTransforms(scene.Objects);
-                scene.UpdateRequested = true;
+                scene.RequestInstanceUpdate();
             }
 
             ImGui::TreePop();

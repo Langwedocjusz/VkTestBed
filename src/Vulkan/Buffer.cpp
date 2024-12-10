@@ -1,5 +1,6 @@
 #include "Buffer.h"
-#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.h>
 
 Buffer Buffer::CreateBuffer(VulkanContext &ctx, VkDeviceSize size,
                             VkBufferUsageFlags usage, VmaAllocationCreateFlags flags)

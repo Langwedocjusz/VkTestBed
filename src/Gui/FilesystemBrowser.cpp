@@ -13,6 +13,19 @@ FilesystemBrowser::FilesystemBrowser(std::filesystem::path currentPath)
 {
 }
 
+void FilesystemBrowser::AddExtensionToFilter(const std::string &ext)
+{
+    if (!mValidExtensions.has_value())
+        mValidExtensions = ExtensionSet();
+
+    mValidExtensions->insert(ext);
+}
+
+void FilesystemBrowser::ClearExtensionFilter()
+{
+    mValidExtensions = std::nullopt;
+}
+
 void FilesystemBrowser::OnImGui(float lowerMargin)
 {
     // To-do: add icons to make things pretty
@@ -62,6 +75,14 @@ void FilesystemBrowser::OnImGui(float lowerMargin)
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(192, 192, 192, 255));
     for (const auto &path : files)
     {
+        if (mValidExtensions.has_value())
+        {
+            if (!mValidExtensions->contains(path.extension()))
+            {
+                continue;
+            }
+        }
+
         const std::string text = "<FILE> " + path.filename().string();
 
         if (ImGui::Selectable(text.c_str()))

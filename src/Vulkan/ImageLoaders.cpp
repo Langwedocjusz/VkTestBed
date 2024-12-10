@@ -1,8 +1,9 @@
 #include "ImageLoaders.h"
-#include <cstdint>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+#include <cstdint>
 
 Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
                                 const std::string &path)

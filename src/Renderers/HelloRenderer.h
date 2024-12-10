@@ -4,7 +4,8 @@
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "VertexLayout.h"
-#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.h>
 
 #include <map>
 

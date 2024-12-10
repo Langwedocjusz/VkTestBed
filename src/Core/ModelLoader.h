@@ -3,6 +3,7 @@
 #include "GeometryProvider.h"
 
 #include <fastgltf/core.hpp>
+
 #include <filesystem>
 
 namespace ModelLoader

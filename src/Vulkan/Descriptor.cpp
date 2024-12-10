@@ -1,4 +1,5 @@
 #include "Descriptor.h"
+
 #include <cstdint>
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t binding,
@@ -272,7 +273,7 @@ void DescriptorAllocator::ResetPools()
     mFullPools.clear();
 }
 
-void DescriptorAllocator::DestoyPools()
+void DescriptorAllocator::DestroyPools()
 {
     for (auto pool : mReadyPools)
         vkDestroyDescriptorPool(mCtx.Device, pool, nullptr);

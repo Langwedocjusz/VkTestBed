@@ -3,9 +3,10 @@
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 
+#include <vulkan/vulkan.h>
+
 #include <optional>
 #include <vector>
-#include <vulkan/vulkan.h>
 
 struct Pipeline {
     VkPipeline Handle;

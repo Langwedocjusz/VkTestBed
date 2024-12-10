@@ -2,13 +2,12 @@
 
 #include "Barrier.h"
 #include "Common.h"
+#include "HelloRenderer.h"
 #include "ImGuiInit.h"
+#include "Minimal3D.h"
 #include "Renderer.h"
 #include "Utils.h"
 #include "VkInit.h"
-
-#include "HelloRenderer.h"
-#include "Minimal3D.h"
 
 #include <memory>
 

@@ -4,11 +4,10 @@
 #include "Image.h"
 #include "VulkanContext.h"
 
+#include <vulkan/vulkan.h>
+
 #include <deque>
 #include <variant>
-
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 // clang-format off
 using DeletionObject = std::variant<

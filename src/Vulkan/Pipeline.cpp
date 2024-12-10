@@ -1,5 +1,6 @@
 #include "Pipeline.h"
-#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.h>
 
 PipelineBuilder::PipelineBuilder()
 {

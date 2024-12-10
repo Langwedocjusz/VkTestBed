@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <iostream>
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues,
@@ -144,7 +143,7 @@ void HelloRenderer::CreateSwapchainResources()
 
 void HelloRenderer::LoadScene(Scene &scene)
 {
-    if (scene.GlobalUpdate)
+    if (scene.UpdateGeometry())
     {
         // This will only take efect on non-first runs:
         mSceneDeletionQueue.flush();
@@ -153,7 +152,8 @@ void HelloRenderer::LoadScene(Scene &scene)
         LoadProviders(scene);
     }
 
-    LoadInstances(scene);
+    if (scene.UpdateInstances())
+        LoadInstances(scene);
 }
 
 void HelloRenderer::LoadProviders(Scene &scene)

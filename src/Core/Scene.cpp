@@ -101,8 +101,60 @@ size_t Scene::EmplaceObject(SceneObject obj)
     return Objects.size() - 1;
 }
 
+bool Scene::UpdateRequested()
+{
+    return mUpdateFlags.Any();
+}
+
 void Scene::ClearUpdateFlags()
 {
-    UpdateRequested = false;
-    GlobalUpdate = false;
+    mUpdateFlags.Clear();
+}
+
+void Scene::RequestFullUpdate()
+{
+    mUpdateFlags.SetAll();
+}
+
+void Scene::RequestMaterialUpdate()
+{
+    mUpdateFlags.Set(Update::Materials);
+    mUpdateFlags.Set(Update::MeshMaterials);
+}
+
+void Scene::RequestGeometryUpdate()
+{
+    mUpdateFlags.Set(Update::MeshGeo);
+    mUpdateFlags.Set(Update::MeshMaterials);
+    mUpdateFlags.Set(Update::Instances);
+}
+
+void Scene::RequestMeshMaterialUpdate()
+{
+    mUpdateFlags.Set(Update::MeshMaterials);
+}
+
+void Scene::RequestInstanceUpdate()
+{
+    mUpdateFlags.Set(Update::Instances);
+}
+
+bool Scene::UpdateMaterials()
+{
+    return mUpdateFlags[Update::Materials];
+}
+
+bool Scene::UpdateGeometry()
+{
+    return mUpdateFlags[Update::MeshGeo];
+}
+
+bool Scene::UpdateMeshMaterials()
+{
+    return mUpdateFlags[Update::MeshMaterials];
+}
+
+bool Scene::UpdateInstances()
+{
+    return mUpdateFlags[Update::Instances];
 }

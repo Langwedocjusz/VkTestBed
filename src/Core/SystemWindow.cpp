@@ -1,13 +1,13 @@
 #include "SystemWindow.h"
 
 #include "Application.h"
+#include "Event.h"
+
+#include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 
 #include <iostream>
 #include <stdexcept>
-#include <vulkan/vulkan.h>
-
-#include "Event.h"
-#include <GLFW/glfw3.h>
 
 static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
 {

@@ -144,8 +144,13 @@ void ModelLoaderGui::LoadModel(Scene &scene)
 
         mat[Material::Albedo] = Material::ImageSource{
             .Path = path,
-            .Channel = Material::ImageChannel::RGB,
+            .Channel = Material::ImageChannel::RGBA,
         };
+
+        if (material.alphaMode == fastgltf::AlphaMode::Mask)
+        {
+            mat[Material::AlphaCutoff] = material.alphaCutoff;
+        }
     }
 
     for (auto &mesh : gltf.meshes)

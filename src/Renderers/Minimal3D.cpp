@@ -77,7 +77,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
-            .SetPushConstantSize(sizeof(glm::mat4))
+            .SetPushConstantSize(sizeof(PushConstantData))
             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
             .AddDescriptorSetLayout(mTextureDescriptorSetLayout)
             .EnableDepthTest()
@@ -207,9 +207,11 @@ void Minimal3DRenderer::OnRender()
                                             mTexturedPipeline.Layout, 1, 1,
                                             &texture.DescriptorSet, 0, nullptr);
 
-                    vkCmdPushConstants(cmd, mColoredPipeline.Layout,
-                                       VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
-                                       &transform);
+                    PushConstantData pcData{glm::vec4(texture.AlphaCutoff), transform};
+
+                    vkCmdPushConstants(cmd, mTexturedPipeline.Layout,
+                                       VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
+                                       &pcData);
                     vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
                 }
             }
@@ -390,7 +392,7 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
         // Load said texture
         auto &imgSrc = std::get<Material::ImageSource>(val);
 
-        if (imgSrc.Channel != Material::ImageChannel::RGB)
+        if (imgSrc.Channel != Material::ImageChannel::RGBA)
             std::cerr << "Unsupported channel layout!\n";
 
         auto &texture = mTextures.emplace_back();
@@ -401,13 +403,19 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
         texture.View = Image::CreateView2D(mCtx, texture.TexImage, format,
                                            VK_IMAGE_ASPECT_COLOR_BIT);
 
+        // Unpack alpha-cutoff if present:
+        if (mat.count(Material::AlphaCutoff))
+        {
+            auto &var = mat[Material::AlphaCutoff];
+            texture.AlphaCutoff = std::get<float>(var);
+        }
+
         // To-do: If deletion queue is updated directly here, image handle of the
         // first texture gets corrupted, investigate why:
         // mSceneDeletionQueue.push_back(&texture.TexImage);
         // mSceneDeletionQueue.push_back(texture.View);
 
-        // texture.DescriptorSet = Descriptor::Allocate(mCtx, mTextureDescriptorPool,
-        //                                              mTextureDescriptorSetLayout);
+        // Allocate descriptor set for the texture:
         texture.DescriptorSet =
             mTextureDescriptorAllocator.Allocate(mTextureDescriptorSetLayout);
     }

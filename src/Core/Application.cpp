@@ -21,7 +21,6 @@ Application::Application()
     mSceneEditor.OnInit(*mScene);
 
     // First-time scene loading
-    mScene->RequestFullUpdate();
     mRender.LoadScene(*mScene);
     mScene->ClearUpdateFlags();
 }

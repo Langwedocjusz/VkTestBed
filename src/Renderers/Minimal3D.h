@@ -82,6 +82,15 @@ class Minimal3DRenderer : public IRenderer {
         Image TexImage;
         VkImageView View;
         VkDescriptorSet DescriptorSet;
+
+        float AlphaCutoff = 0.5f;
+    };
+
+    // For textured pipeline to also upload alpha cutoff:
+    struct PushConstantData {
+        // Vec4 because of std430 alignment rules:
+        glm::vec4 AlphaCutoff;
+        glm::mat4 Transform;
     };
 
     std::vector<Texture> mTextures;

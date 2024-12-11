@@ -25,7 +25,7 @@ void SceneEditor::OnInit(Scene &scene)
 
         mat[Material::Albedo] = Material::ImageSource{
             .Path = "./assets/textures/texture.jpg",
-            .Channel = Material::ImageChannel::RGB,
+            .Channel = Material::ImageChannel::RGBA,
         };
     }
 

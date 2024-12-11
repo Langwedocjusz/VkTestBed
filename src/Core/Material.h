@@ -51,6 +51,7 @@ class Material {
         MaterialKey{"Roughness", MaterialValueType::Float};
     static constexpr MaterialKey Metallic =
         MaterialKey{"Metallic", MaterialValueType::Float};
+    static constexpr MaterialKey AlphaCutoff = {"AlphaCutoff", MaterialValueType::Float};
 
     enum class ImageChannel
     {
@@ -59,7 +60,8 @@ class Material {
         B,
         A,
         RGB,
-        GBA
+        GBA,
+        RGBA
     };
 
     struct ImageSource {

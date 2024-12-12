@@ -20,7 +20,7 @@ class HelloRenderer : public IRenderer {
     void OnRender() override;
 
     void CreateSwapchainResources() override;
-
+    void RebuildPipelines() override;
     void LoadScene(Scene &scene) override;
 
   private:

@@ -21,7 +21,7 @@ class Minimal3DRenderer : public IRenderer {
     void OnRender() override;
 
     void CreateSwapchainResources() override;
-
+    void RebuildPipelines() override;
     void LoadScene(Scene &scene) override;
 
   private:
@@ -75,7 +75,6 @@ class Minimal3DRenderer : public IRenderer {
     std::map<size_t, size_t> mTexturedIdMap;
 
     VkDescriptorSetLayout mTextureDescriptorSetLayout;
-    // VkDescriptorPool mTextureDescriptorPool;
     DescriptorAllocator mTextureDescriptorAllocator;
 
     struct Texture {

@@ -21,10 +21,7 @@ class IRenderer {
     virtual void OnRender() = 0;
 
     virtual void CreateSwapchainResources() = 0;
-
-    // To-do:
-    // virtual void RebuildPipelines() = 0;
-
+    virtual void RebuildPipelines() = 0;
     virtual void LoadScene(Scene &scene) = 0;
 
   public:
@@ -58,4 +55,5 @@ class IRenderer {
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;
     DeletionQueue mSceneDeletionQueue;
+    DeletionQueue mPipelineDeletionQueue;
 };

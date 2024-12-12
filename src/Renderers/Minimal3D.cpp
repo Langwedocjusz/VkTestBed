@@ -39,53 +39,8 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
 
     mTextureDescriptorAllocator.OnInit(poolCounts);
 
-    // Create Graphics Pipelines
-    auto coloredShaderStages =
-        ShaderBuilder()
-            .SetVertexPath("assets/spirv/Minimal3DColoredVert.spv")
-            .SetFragmentPath("assets/spirv/Minimal3DColoredFrag.spv")
-            .Build(ctx);
-
-    mColoredPipeline =
-        PipelineBuilder()
-            .SetShaderStages(coloredShaderStages)
-            .SetVertexInput(mColoredLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(mRenderTargetFormat)
-            .SetPushConstantSize(sizeof(glm::mat4))
-            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
-            .EnableDepthTest()
-            .SetDepthFormat(mDepthFormat)
-            .Build(ctx);
-
-    mMainDeletionQueue.push_back(mColoredPipeline.Handle);
-    mMainDeletionQueue.push_back(mColoredPipeline.Layout);
-
-    auto textuedShaderStages =
-        ShaderBuilder()
-            .SetVertexPath("assets/spirv/Minimal3DTexturedVert.spv")
-            .SetFragmentPath("assets/spirv/Minimal3DTexturedFrag.spv")
-            .Build(ctx);
-
-    mTexturedPipeline =
-        PipelineBuilder()
-            .SetShaderStages(textuedShaderStages)
-            .SetVertexInput(mTexturedLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(mRenderTargetFormat)
-            .SetPushConstantSize(sizeof(PushConstantData))
-            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
-            .AddDescriptorSetLayout(mTextureDescriptorSetLayout)
-            .EnableDepthTest()
-            .SetDepthFormat(mDepthFormat)
-            .Build(ctx);
-
-    mMainDeletionQueue.push_back(mTexturedPipeline.Handle);
-    mMainDeletionQueue.push_back(mTexturedPipeline.Layout);
+    // Build the graphics pipelines:
+    RebuildPipelines();
 
     // Create the texture sampler:
     mSampler = SamplerBuilder()
@@ -103,10 +58,62 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
 Minimal3DRenderer::~Minimal3DRenderer()
 {
     mTextureDescriptorAllocator.DestroyPools();
-
-    mSwapchainDeletionQueue.flush();
     mSceneDeletionQueue.flush();
+    mSwapchainDeletionQueue.flush();
+    mPipelineDeletionQueue.flush();
     mMainDeletionQueue.flush();
+}
+
+void Minimal3DRenderer::RebuildPipelines()
+{
+    mPipelineDeletionQueue.flush();
+
+    auto coloredShaderStages =
+        ShaderBuilder()
+            .SetVertexPath("assets/spirv/Minimal3DColoredVert.spv")
+            .SetFragmentPath("assets/spirv/Minimal3DColoredFrag.spv")
+            .Build(mCtx);
+
+    mColoredPipeline =
+        PipelineBuilder()
+            .SetShaderStages(coloredShaderStages)
+            .SetVertexInput(mColoredLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .SetColorFormat(mRenderTargetFormat)
+            .SetPushConstantSize(sizeof(glm::mat4))
+            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+            .EnableDepthTest()
+            .SetDepthFormat(mDepthFormat)
+            .Build(mCtx);
+
+    mPipelineDeletionQueue.push_back(mColoredPipeline.Handle);
+    mPipelineDeletionQueue.push_back(mColoredPipeline.Layout);
+
+    auto textuedShaderStages =
+        ShaderBuilder()
+            .SetVertexPath("assets/spirv/Minimal3DTexturedVert.spv")
+            .SetFragmentPath("assets/spirv/Minimal3DTexturedFrag.spv")
+            .Build(mCtx);
+
+    mTexturedPipeline =
+        PipelineBuilder()
+            .SetShaderStages(textuedShaderStages)
+            .SetVertexInput(mTexturedLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .SetColorFormat(mRenderTargetFormat)
+            .SetPushConstantSize(sizeof(PushConstantData))
+            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+            .AddDescriptorSetLayout(mTextureDescriptorSetLayout)
+            .EnableDepthTest()
+            .SetDepthFormat(mDepthFormat)
+            .Build(mCtx);
+
+    mPipelineDeletionQueue.push_back(mTexturedPipeline.Handle);
+    mPipelineDeletionQueue.push_back(mTexturedPipeline.Layout);
 }
 
 void Minimal3DRenderer::OnUpdate([[maybe_unused]] float deltaTime)

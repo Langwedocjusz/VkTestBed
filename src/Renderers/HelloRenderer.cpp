@@ -16,11 +16,26 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                              std::unique_ptr<Camera> &camera)
     : IRenderer(ctx, info, queues, camera)
 {
-    // Create Graphics Pipelines
+    RebuildPipelines();
+    CreateSwapchainResources();
+}
+
+HelloRenderer::~HelloRenderer()
+{
+    mSceneDeletionQueue.flush();
+    mSwapchainDeletionQueue.flush();
+    mPipelineDeletionQueue.flush();
+    mMainDeletionQueue.flush();
+}
+
+void HelloRenderer::RebuildPipelines()
+{
+    mPipelineDeletionQueue.flush();
+
     auto shaderStages = ShaderBuilder()
                             .SetVertexPath("assets/spirv/HelloTriangleVert.spv")
                             .SetFragmentPath("assets/spirv/HelloTriangleFrag.spv")
-                            .Build(ctx);
+                            .Build(mCtx);
 
     mGraphicsPipeline =
         PipelineBuilder()
@@ -32,20 +47,10 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(glm::mat4))
             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
-            .Build(ctx);
+            .Build(mCtx);
 
-    mMainDeletionQueue.push_back(mGraphicsPipeline.Handle);
-    mMainDeletionQueue.push_back(mGraphicsPipeline.Layout);
-
-    // Create swapchain resources:
-    CreateSwapchainResources();
-}
-
-HelloRenderer::~HelloRenderer()
-{
-    mSwapchainDeletionQueue.flush();
-    mMainDeletionQueue.flush();
-    mSceneDeletionQueue.flush();
+    mPipelineDeletionQueue.push_back(mGraphicsPipeline.Handle);
+    mPipelineDeletionQueue.push_back(mGraphicsPipeline.Layout);
 }
 
 void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)

@@ -29,6 +29,7 @@ class RenderContext {
     void DestroySwapchainResources();
 
     void LoadScene(Scene &scene);
+    void RebuildPipelines();
 
     struct Queues {
         VkQueue Graphics;

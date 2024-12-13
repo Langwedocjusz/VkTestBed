@@ -185,6 +185,11 @@ void RenderContext::LoadScene(Scene &scene)
     mRenderer->LoadScene(scene);
 }
 
+void RenderContext::RebuildPipelines()
+{
+    mRenderer->RebuildPipelines();
+}
+
 void RenderContext::OnKeyPressed(int keycode, bool repeat)
 {
     mCamera->OnKeyPressed(keycode, repeat);

@@ -47,6 +47,8 @@ target_sources(${PROJECT_NAME}
         src/Core/Primitives.cpp
         src/Core/RenderContext.h
         src/Core/RenderContext.cpp
+        src/Core/ShaderManager.h
+        src/Core/ShaderManager.cpp
         src/Core/SystemWindow.h
         src/Core/SystemWindow.cpp
         src/Core/VertexLayout.h

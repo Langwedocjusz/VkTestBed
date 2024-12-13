@@ -3,6 +3,7 @@
 #include "Event.h"
 #include "RenderContext.h"
 #include "SceneEditor.h"
+#include "ShaderManager.h"
 #include "SystemWindow.h"
 #include "VulkanContext.h"
 
@@ -22,6 +23,7 @@ class Application {
   private:
     SystemWindow mWindow;
     VulkanContext mCtx;
+    ShaderManager mShaderManager;
 
     std::unique_ptr<Scene> mScene;
     SceneEditor mSceneEditor;

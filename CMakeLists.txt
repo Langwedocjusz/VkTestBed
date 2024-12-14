@@ -31,6 +31,7 @@ target_sources(${PROJECT_NAME}
         src/Core/Bitflags.h
         src/Core/Camera.h
         src/Core/Camera.cpp
+	src/Core/CppUtils.h
         src/Core/Event.h
         src/Core/Frame.h
         src/Core/Frame.h
@@ -39,6 +40,7 @@ target_sources(${PROJECT_NAME}
         src/Core/ImGuiInit.cpp
         src/Core/Keycodes.h
         src/Core/Material.h
+        src/Core/Material.cpp
         src/Core/ModelLoader.h
         src/Core/ModelLoader.cpp
         src/Core/Scene.h

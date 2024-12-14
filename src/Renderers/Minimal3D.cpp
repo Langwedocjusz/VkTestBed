@@ -314,12 +314,12 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
         // Create Vertex buffer:
         drawable.VertexBuffer =
             VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
-        drawable.VertexCount = geo.VertexData.Count;
+        drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
         drawable.IndexBuffer =
             IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
-        drawable.IndexCount = geo.IndexData.Count;
+        drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
     };
 
     for (const auto [id, mesh] : enumerate(scene.Meshes))
@@ -404,7 +404,7 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
 
         auto &texture = mTextures.emplace_back();
         texture.TexImage =
-            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgSrc.Path);
+            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgSrc.Path.string());
 
         auto format = texture.TexImage.Info.Format;
         texture.View = Image::CreateView2D(mCtx, texture.TexImage, format,

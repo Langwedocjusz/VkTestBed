@@ -45,16 +45,15 @@ struct hash<MaterialKey> {
 
 class Material {
   public:
-    static constexpr MaterialKey Albedo = MaterialKey{"Albedo", MaterialValueType::Vec3};
-    static constexpr MaterialKey Normal = MaterialKey{"Normal", MaterialValueType::Vec3};
-    static constexpr MaterialKey Roughness =
-        MaterialKey{"Roughness", MaterialValueType::Float};
-    static constexpr MaterialKey Metallic =
-        MaterialKey{"Metallic", MaterialValueType::Float};
-    static constexpr MaterialKey AlphaCutoff = {"AlphaCutoff", MaterialValueType::Float};
+    static const MaterialKey Albedo;
+    static const MaterialKey Normal;
+    static const MaterialKey Roughness;
+    static const MaterialKey Metallic;
+    static const MaterialKey AlphaCutoff;
 
     enum class ImageChannel
     {
+        None,
         R,
         G,
         B,
@@ -66,7 +65,7 @@ class Material {
 
     struct ImageSource {
         std::filesystem::path Path;
-        ImageChannel Channel;
+        ImageChannel Channel = ImageChannel::None;
     };
 
     using Value = std::variant<ImageSource, float, glm::vec2, glm::vec3, glm::vec4>;

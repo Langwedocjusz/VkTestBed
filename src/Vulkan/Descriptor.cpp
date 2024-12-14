@@ -135,7 +135,7 @@ DescriptorUpdater &DescriptorUpdater::WriteImage(uint32_t binding, VkImageView i
 
 void DescriptorUpdater::Update(VulkanContext &ctx)
 {
-    vkUpdateDescriptorSets(ctx.Device, mWrites.size(), mWrites.data(), 0, nullptr);
+    vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(mWrites.size()), mWrites.data(), 0, nullptr);
 }
 
 DescriptorAllocator::DescriptorAllocator(VulkanContext &ctx) : mCtx(ctx)
@@ -189,7 +189,7 @@ std::vector<VkDescriptorSet> DescriptorAllocator::Allocate(
     allocInfo.pNext = nullptr;
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = pool;
-    allocInfo.descriptorSetCount = layouts.size();
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
     allocInfo.pSetLayouts = layouts.data();
 
     std::vector<VkDescriptorSet> sets(layouts.size());

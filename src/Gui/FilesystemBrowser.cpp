@@ -77,7 +77,9 @@ void FilesystemBrowser::OnImGui(float lowerMargin)
     {
         if (mValidExtensions.has_value())
         {
-            if (!mValidExtensions->contains(path.extension()))
+            auto ext = path.extension().string();
+
+            if (!mValidExtensions->contains(ext))
             {
                 continue;
             }

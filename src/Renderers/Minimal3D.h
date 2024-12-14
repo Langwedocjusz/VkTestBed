@@ -55,10 +55,10 @@ class Minimal3DRenderer : public IRenderer {
 
     struct Drawable {
         Buffer VertexBuffer;
-        size_t VertexCount;
+        uint32_t VertexCount;
 
         Buffer IndexBuffer;
-        size_t IndexCount;
+        uint32_t IndexCount;
 
         size_t TextureId = 0;
     };

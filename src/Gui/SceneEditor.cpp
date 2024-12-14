@@ -382,9 +382,9 @@ void SceneEditor::DataMenu(Scene &scene)
     {
         using namespace std::views;
 
-        for (const auto [id, mesh] : enumerate(scene.Meshes))
+        for (const auto [meshId, mesh] : enumerate(scene.Meshes))
         {
-            std::string nodeName = mesh.Name + "##" + std::to_string(id);
+            std::string nodeName = mesh.Name + "##" + std::to_string(meshId);
 
             if (ImGui::TreeNodeEx(nodeName.c_str()))
             {

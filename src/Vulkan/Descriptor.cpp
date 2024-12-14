@@ -135,7 +135,8 @@ DescriptorUpdater &DescriptorUpdater::WriteImage(uint32_t binding, VkImageView i
 
 void DescriptorUpdater::Update(VulkanContext &ctx)
 {
-    vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(mWrites.size()), mWrites.data(), 0, nullptr);
+    vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(mWrites.size()),
+                           mWrites.data(), 0, nullptr);
 }
 
 DescriptorAllocator::DescriptorAllocator(VulkanContext &ctx) : mCtx(ctx)

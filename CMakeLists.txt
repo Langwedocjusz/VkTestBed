@@ -31,7 +31,7 @@ target_sources(${PROJECT_NAME}
         src/Core/Bitflags.h
         src/Core/Camera.h
         src/Core/Camera.cpp
-	src/Core/CppUtils.h
+	    src/Core/CppUtils.h
         src/Core/Event.h
         src/Core/Frame.h
         src/Core/Frame.h
@@ -129,6 +129,7 @@ add_subdirectory(vendor/glm)
 add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/stb_image)
 add_subdirectory(vendor/fastgltf)
+add_subdirectory(vendor/efsw)
 
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
@@ -146,3 +147,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
 target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
 target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
+target_link_libraries(${PROJECT_NAME} PRIVATE efsw)

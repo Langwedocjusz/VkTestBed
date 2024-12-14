@@ -12,14 +12,13 @@
 Application::Application()
     : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
       mCtx(800, 600, "VkTestBed", mWindow),
-      mShaderManager("assets/shaders", "assets/spirv"),
-      mRender(mCtx)
+      mShaderManager("assets/shaders", "assets/spirv"), mRender(mCtx)
 {
     iminit::InitImGui();
     iminit::InitGlfwBackend(mWindow.Get());
     mRender.InitImGuiVulkanBackend();
 
-    //mShaderManager.CompileToBytecode();
+    // mShaderManager.CompileToBytecode();
 
     mScene = std::make_unique<Scene>();
     mSceneEditor.OnInit(*mScene);
@@ -84,7 +83,6 @@ void Application::Run()
         iminit::BeginGuiFrame();
         mSceneEditor.OnImGui(*mScene);
         mRender.OnImGui();
-        mShaderManager.OnImGui();
         iminit::FinalizeGuiFrame();
 
         // Render things:

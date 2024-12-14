@@ -1,11 +1,44 @@
 #include "ShaderManager.h"
 
+#include "imgui.h"
+#include <efsw/efsw.hpp>
+
 #include <cstdlib>
 #include <filesystem>
-#include <vector>
+#include <functional>
+#include <iostream>
 #include <format>
+#include <vector>
 
-#include "imgui.h"
+class UpdateListener : public efsw::FileWatchListener {
+  public:
+    UpdateListener(std::function<void()> callback)
+        : mCallback(std::move(callback))
+    {
+
+    }
+
+    void handleFileAction(efsw::WatchID watchid, const std::string &dir,
+                          const std::string &filename, efsw::Action action,
+                          std::string oldFilename) override
+    {
+        (void)watchid;
+        (void)dir;
+        (void)filename;
+        (void)oldFilename;
+
+        switch (action)
+        {
+        case efsw::Actions::Modified:
+            mCallback();
+            break;
+        default:
+            break;
+        }
+    }
+  private:
+    std::function<void()> mCallback;
+};
 
 ShaderManager::ShaderManager(std::string_view srcDir, std::string_view byteDir)
 {
@@ -16,6 +49,13 @@ ShaderManager::ShaderManager(std::string_view srcDir, std::string_view byteDir)
     std::filesystem::create_directory(mBytecodeDir);
 
     CompileToBytecode();
+
+    //Setup directory watcher:
+    mFileWatcher = new efsw::FileWatcher();
+    mUpdateListener = new UpdateListener([this](){mCompilationScheduled = true;});
+
+    mFileWatcher->addWatch(mSourceDir.string(), mUpdateListener, true);
+    mFileWatcher->watch();
 }
 
 bool ShaderManager::CompilationScheduled()
@@ -23,17 +63,7 @@ bool ShaderManager::CompilationScheduled()
     return mCompilationScheduled;
 }
 
-void ShaderManager::OnImGui()
-{
-    ImGui::Begin("Shader Manager");
-
-    if (ImGui::Button("Force reload"))
-        mCompilationScheduled = true;
-
-    ImGui::End();
-}
-
-std::optional<std::filesystem::path> ShaderManager::GetDstPath(std::filesystem::path& src)
+std::optional<std::filesystem::path> ShaderManager::GetDstPath(std::filesystem::path &src)
 {
     auto parentPath = src.parent_path();
     auto relParentPath = std::filesystem::relative(parentPath, mSourceDir);
@@ -58,7 +88,7 @@ void ShaderManager::CompileToBytecode()
 {
     mCompilationScheduled = false;
 
-    struct CompilerArgs{
+    struct CompilerArgs {
         std::filesystem::path Src;
         std::filesystem::path Dst;
     };
@@ -78,8 +108,8 @@ void ShaderManager::CompileToBytecode()
 
         auto dstPath = dstPathOpt.value();
 
-        //If dst exists and is newer than src
-        //there is no need to call the compiler.
+        // If dst exists and is newer than src
+        // there is no need to call the compiler.
         bool alreadyExists = std::filesystem::exists(dstPath);
 
         if (alreadyExists)
@@ -91,21 +121,21 @@ void ShaderManager::CompileToBytecode()
                 continue;
         }
 
-        //Append compiler call arguments:
+        // Append compiler call arguments:
         data.push_back(CompilerArgs{
             .Src = srcPath,
             .Dst = dstPath,
         });
     }
 
-    for (const auto& args : data)
+    for (const auto &args : data)
     {
         auto srcDir = args.Src.string();
         auto dstDir = args.Dst.string();
 
         std::string cmd = std::format("glslc {} -o {}", srcDir, dstDir);
 
-        //To-do: maybe figure out a nicer way to do this:
+        // To-do: maybe figure out a nicer way to do this:
         system(cmd.c_str());
     }
 }

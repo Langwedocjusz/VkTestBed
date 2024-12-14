@@ -109,7 +109,8 @@ void barrier::ImageLayoutBarrierCoarse(VkCommandBuffer buffer, VkImage image,
     bool depth = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     auto aspect = depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
-    imageBarrier.subresourceRange = VkImageSubresourceRange{static_cast<uint32_t>(aspect), 0, 1, 0, 1};
+    imageBarrier.subresourceRange =
+        VkImageSubresourceRange{static_cast<uint32_t>(aspect), 0, 1, 0, 1};
 
     VkDependencyInfo depInfo{};
     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;

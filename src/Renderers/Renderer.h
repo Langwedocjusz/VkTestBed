@@ -10,8 +10,8 @@ class IRenderer {
     IRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
               std::unique_ptr<Camera> &camera)
         : mCtx(ctx), mFrame(info), mQueues(queues), mCamera(camera),
-          mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx),
-          mSceneDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
+          mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx), mSceneDeletionQueue(ctx),
+          mPipelineDeletionQueue(ctx)
     {
     }
 

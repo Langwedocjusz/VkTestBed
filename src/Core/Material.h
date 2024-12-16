@@ -58,6 +58,7 @@ class Material {
         G,
         B,
         A,
+        GB,
         RGB,
         GBA,
         RGBA

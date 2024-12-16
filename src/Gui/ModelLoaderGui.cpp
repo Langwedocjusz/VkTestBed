@@ -1,7 +1,6 @@
 #include "ModelLoaderGui.h"
 
 #include "ModelLoader.h"
-
 #include "imgui.h"
 
 #include <fastgltf/types.hpp>
@@ -81,11 +80,31 @@ void ModelLoaderGui::ImportMenu(Scene &scene)
 {
     if (ImGui::BeginPopupModal("Import options", &mImportMenuOpen))
     {
-        ImGui::Text("WORK IN PROGRESS");
+        ImGui::Text("Vertex Attributes:");
+        ImGui::Separator();
 
-        // Do a preliminary scan of the gltf and retrieve materials etc:
+        bool v = true;
+        ImGui::Checkbox("Position", &v);
 
-        if (ImGui::Button("Load"))
+        ImGui::Checkbox("TexCoord", &mVertexConfig.LoadTexCoord);
+        ImGui::Checkbox("Normal", &mVertexConfig.LoadNormals);
+        ImGui::Checkbox("Color", &mVertexConfig.LoadColor);
+
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+        ImGui::Text("Material Options:");
+        ImGui::Separator();
+
+        ImGui::Checkbox("Fetch Albedo", &v);
+        ImGui::Checkbox("Fetch Normal", &mMatrialConfig.FetchNormal);
+        ImGui::Checkbox("Fetch Roughness", &mMatrialConfig.FetchRoughness);
+
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+        // Final load button:
+        auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
+
+        if (ImGui::Button("Load", size))
         {
             ImGui::CloseCurrentPopup();
 
@@ -106,50 +125,73 @@ void ModelLoaderGui::LoadModel(Scene &scene)
     // Load Geo Providers:
     auto &newMesh = scene.Meshes.emplace_back();
     newMesh.Name = mBrowser.ChosenFile.stem().string();
-    newMesh.GeoProvider = ModelLoader::LoadModel(mBrowser.ChosenFile);
+
+    auto config = ModelLoader::ModelConfig{
+        .Filepath = mBrowser.ChosenFile,
+        .Vertex = mVertexConfig,
+    };
+
+    newMesh.GeoProvider = ModelLoader::LoadModel(config);
 
     // Load Materials:
     size_t matIdOffset = scene.Materials.size();
 
     for (auto [id, material] : enumerate(gltf.materials))
     {
-        // 1. Does albedo texture exist?
-        auto &albedoTex = material.pbrData.baseColorTexture;
+        // Check if there is an albedo texture, skip otherwise
+        auto &albedoInfo = material.pbrData.baseColorTexture;
 
-        if (!albedoTex.has_value())
+        auto albedoPath = GetTexturePath(gltf, albedoInfo);
+
+        if (!albedoPath.has_value())
             continue;
 
-        // 2. Retrieve image index if present
-        auto imgId = gltf.textures[albedoTex->textureIndex].imageIndex;
-
-        if (!imgId.has_value())
-            continue;
-
-        // 3. Get data source
-        auto &dataSource = gltf.images[imgId.value()].data;
-
-        // 4. Retrieve the URI if present;
-        if (!std::holds_alternative<fastgltf::sources::URI>(dataSource))
-            continue;
-
-        auto &uri = std::get<fastgltf::sources::URI>(dataSource);
-
-        // 5. Retrieve the filepath:
-        auto relPath = uri.uri.fspath();
-        auto path = mBrowser.CurrentPath / relPath;
-
-        // 6. Create new scene material, pointing to the albedo texture
+        // Create new scene material
         auto &mat = scene.Materials.emplace_back();
         mat.Name = newMesh.Name + std::to_string(id);
 
+        // Supply albedo texture info
         mat[Material::Albedo] = Material::ImageSource{
-            .Path = path,
+            .Path = albedoPath.value(),
             .Channel = Material::ImageChannel::RGBA,
         };
 
+        // Load alpha cutoff where applicable
         if (material.alphaMode == fastgltf::AlphaMode::Mask)
         {
             mat[Material::AlphaCutoff] = material.alphaCutoff;
+        }
+
+        // Load Normalmap if requested:
+        if (mMatrialConfig.FetchNormal)
+        {
+            auto &normalInfo = material.normalTexture;
+
+            auto normalPath = GetTexturePath(gltf, normalInfo);
+
+            if (normalPath.has_value())
+            {
+                mat[Material::Normal] = Material::ImageSource{
+                    .Path = normalPath.value(),
+                    .Channel = Material::ImageChannel::RGB,
+                };
+            }
+        }
+
+        // Load roughness map if requested:
+        if (mMatrialConfig.FetchNormal)
+        {
+            auto &roughnessInfo = material.pbrData.metallicRoughnessTexture;
+
+            auto roughnessPath = GetTexturePath(gltf, roughnessInfo);
+
+            if (roughnessPath.has_value())
+            {
+                mat[Material::Roughness] = Material::ImageSource{
+                    .Path = roughnessPath.value(),
+                    .Channel = Material::ImageChannel::GB,
+                };
+            }
         }
     }
 

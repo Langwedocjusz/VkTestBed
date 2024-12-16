@@ -27,5 +27,5 @@ class ShaderManager {
     bool mCompilationScheduled = false;
 
     efsw::FileWatcher *mFileWatcher;
-    UpdateListener* mUpdateListener;
+    UpdateListener *mUpdateListener;
 };

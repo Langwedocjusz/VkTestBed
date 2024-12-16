@@ -64,10 +64,10 @@ struct GeometrySpec {
     size_t IdxBuffSize = 0;
     size_t IdxAlignment = 4;
 
-    // This assumes vertex alignment is equal to 4
-    // which is typically the case.
-    template <typename VertType, typename IdxType>
-    static constexpr GeometrySpec Build(size_t vertCount, size_t idxCount)
+    // Builds geometry spec based on vertex size and index type.
+    // Assumes vertex alignment is equal to 4.
+    template <size_t VertSize, typename IdxType>
+    static constexpr GeometrySpec BuildS(size_t vertCount, size_t idxCount)
     {
         static_assert(std::is_same<IdxType, uint16_t>::value ||
                       std::is_same<IdxType, uint32_t>::value);
@@ -81,12 +81,20 @@ struct GeometrySpec {
 
         return GeometrySpec{
             .VertCount = vertCount,
-            .VertBuffSize = vertCount * sizeof(VertType),
+            .VertBuffSize = vertCount * VertSize,
             .VertAlignment = 4,
             .IdxCount = idxCount,
             .IdxBuffSize = idxCount * sizeof(IdxType),
             .IdxAlignment = idxAlignment,
         };
+    }
+
+    // Builds geometry spec based on vertex and index types.
+    // Assumes vertex alignment is equal to 4.
+    template <typename VertType, typename IdxType>
+    static constexpr GeometrySpec BuildV(size_t vertCount, size_t idxCount)
+    {
+        return BuildS<sizeof(VertType), IdxType>(vertCount, idxCount);
     }
 };
 

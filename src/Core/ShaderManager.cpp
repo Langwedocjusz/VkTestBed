@@ -5,17 +5,15 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <functional>
 #include <iostream>
-#include <format>
 #include <vector>
 
 class UpdateListener : public efsw::FileWatchListener {
   public:
-    UpdateListener(std::function<void()> callback)
-        : mCallback(std::move(callback))
+    UpdateListener(std::function<void()> callback) : mCallback(std::move(callback))
     {
-
     }
 
     void handleFileAction(efsw::WatchID watchid, const std::string &dir,
@@ -36,6 +34,7 @@ class UpdateListener : public efsw::FileWatchListener {
             break;
         }
     }
+
   private:
     std::function<void()> mCallback;
 };
@@ -50,9 +49,9 @@ ShaderManager::ShaderManager(std::string_view srcDir, std::string_view byteDir)
 
     CompileToBytecode();
 
-    //Setup directory watcher:
+    // Setup directory watcher:
     mFileWatcher = new efsw::FileWatcher();
-    mUpdateListener = new UpdateListener([this](){mCompilationScheduled = true;});
+    mUpdateListener = new UpdateListener([this]() { mCompilationScheduled = true; });
 
     mFileWatcher->addWatch(mSourceDir.string(), mUpdateListener, true);
     mFileWatcher->watch();

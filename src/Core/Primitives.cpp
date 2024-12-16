@@ -43,7 +43,7 @@ GeometryProvider primitive::HelloTriangle()
     {
         std::vector<GeometryData> res;
 
-        constexpr auto spec = GeometrySpec::Build<HelloVertex, uint16_t>(3, 3);
+        constexpr auto spec = GeometrySpec::BuildV<HelloVertex, uint16_t>(3, 3);
 
         auto& geo = res.emplace_back(spec);
 
@@ -81,7 +81,7 @@ GeometryProvider primitive::HelloQuad()
     {
         std::vector<GeometryData> res;
 
-        constexpr auto spec = GeometrySpec::Build<HelloVertex, uint16_t>(4, 6);
+        constexpr auto spec = GeometrySpec::BuildV<HelloVertex, uint16_t>(4, 6);
 
         auto& geo = res.emplace_back(spec);
 
@@ -118,7 +118,7 @@ GeometryProvider primitive::TexturedQuad()
     {
         std::vector<GeometryData> res;
 
-        constexpr auto spec = GeometrySpec::Build<HelloVertex, uint32_t>(4, 6);
+        constexpr auto spec = GeometrySpec::BuildV<HelloVertex, uint32_t>(4, 6);
 
         auto& geo = res.emplace_back(spec);
 
@@ -158,7 +158,7 @@ GeometryProvider primitive::ColoredCube(glm::vec3 color)
     {
         std::vector<GeometryData> res;
 
-        constexpr auto spec = GeometrySpec::Build<Vertex_PosColNorm, uint32_t>(24, 36);
+        constexpr auto spec = GeometrySpec::BuildV<Vertex_PosColNorm, uint32_t>(24, 36);
 
         auto& geo = res.emplace_back(spec);
 
@@ -235,7 +235,7 @@ GeometryProvider primitive::TexturedCube()
     {
         std::vector<GeometryData> res;
 
-        constexpr auto spec = GeometrySpec::Build<Vertex_PosTexNorm, uint32_t>(24, 36);
+        constexpr auto spec = GeometrySpec::BuildV<Vertex_PosTexNorm, uint32_t>(24, 36);
 
         auto& geo = res.emplace_back(spec);
 

@@ -8,15 +8,22 @@
 
 namespace ModelLoader
 {
-// To-do, maybe use custom retrun type instead:
+// To-do: maybe use custom return type instead:
 fastgltf::Asset GetGltf(const std::filesystem::path &filepath);
 
-struct Config {
-    std::filesystem::path Filepath;
-    int64_t MeshId;
-    int64_t PrimitiveId;
+struct VertexConfig {
+    bool LoadTexCoord = true;
+    bool LoadNormals = true;
+    bool LoadColor = false;
 };
 
-GeometryProvider LoadPrimitive(const Config &config);
-GeometryProvider LoadModel(const std::filesystem::path &filepath);
+struct ModelConfig {
+    std::filesystem::path Filepath;
+    VertexConfig Vertex;
+};
+
+GeometryProvider LoadModel(const ModelConfig &config);
+
+GeometryProvider LoadPrimitive(const ModelConfig &config, int64_t meshId,
+                               int64_t primitiveId);
 } // namespace ModelLoader

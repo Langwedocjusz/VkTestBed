@@ -1,5 +1,7 @@
 #include "ModelLoader.h"
+
 #include "GeometryProvider.h"
+#include "VertexLayout.h"
 
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/tools.hpp>
@@ -12,12 +14,7 @@ static fastgltf::Asset GetAsset(const std::filesystem::path &path,
     auto data = fastgltf::GltfDataBuffer::FromPath(path);
 
     if (data.error() != fastgltf::Error::None)
-    {
-        std::string err_msg = "Failed to load a gltf file!\n";
-        err_msg += "Filepath: " + path.string();
-
-        throw std::runtime_error(err_msg);
-    }
+        throw std::runtime_error("Failed to load a gltf file: " + path.string());
 
     auto loadOptions = fastgltf::Options::None;
 
@@ -27,12 +24,7 @@ static fastgltf::Asset GetAsset(const std::filesystem::path &path,
     auto load = parser.loadGltf(data.get(), path.parent_path(), loadOptions);
 
     if (load.error() != fastgltf::Error::None)
-    {
-        std::string err_msg = "Failed to parse a gltf file!\n";
-        err_msg += "Filepath: " + path.string();
-
-        throw std::runtime_error(err_msg);
-    }
+        throw std::runtime_error("Failed to load a gltf file: " + path.string());
 
     return std::move(load.get());
 }
@@ -49,85 +41,135 @@ static fastgltf::Accessor &GetAttributeAccessor(fastgltf::Asset &gltf,
     return gltf.accessors[primitive.findAttribute(name)->accessorIndex];
 }
 
-static fastgltf::Accessor &GetIndexAccessor(fastgltf::Asset &gltf,
-                                            fastgltf::Primitive &primitive)
+static size_t GetIndexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitive)
 {
-    return gltf.accessors[primitive.indicesAccessor.value()];
+    auto indexAccessor = gltf.accessors[primitive.indicesAccessor.value()];
+    return indexAccessor.count;
 }
 
-GeometryProvider ModelLoader::LoadPrimitive(const Config &config)
+static size_t GetVertexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitive)
+{
+    fastgltf::Accessor &posAccessor = GetAttributeAccessor(gltf, primitive, "POSITION");
+    return posAccessor.count;
+}
+
+static void RetrieveVertices(fastgltf::Asset &gltf, fastgltf::Primitive &primitive,
+                             const ModelLoader::VertexConfig &config, GeometryData &geo)
+{
+    uint32_t vertexStride = 3;
+    if (config.LoadTexCoord)
+        vertexStride += 2;
+    if (config.LoadNormals)
+        vertexStride += 3;
+
+    auto vertCount = GetVertexCount(gltf, primitive);
+    auto compCount = vertCount * vertexStride;
+
+    auto data = new (geo.VertexData.Data.get()) float[compCount];
+
+    // Retrieve the positions
+    fastgltf::Accessor &posAccessor = GetAttributeAccessor(gltf, primitive, "POSITION");
+
+    fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, posAccessor,
+                                                  [&](glm::vec3 v, size_t index) {
+                                                      auto idx = vertexStride * index;
+
+                                                      data[idx + 0] = v.x;
+                                                      data[idx + 1] = v.y;
+                                                      data[idx + 2] = v.z;
+                                                  });
+
+    // Retrieve texture coords
+    auto texcoordIt = primitive.findAttribute("TEXCOORD_0");
+
+    if (config.LoadTexCoord && texcoordIt != primitive.attributes.end())
+    {
+        uint32_t texOffset = 3;
+
+        fastgltf::Accessor &texcoordAccessor = gltf.accessors[texcoordIt->accessorIndex];
+
+        fastgltf::iterateAccessorWithIndex<glm::vec2>(
+            gltf, texcoordAccessor, [&](glm::vec2 v, size_t index) {
+                auto idx = vertexStride * index + texOffset;
+
+                data[idx + 0] = v.x;
+                data[idx + 1] = v.y;
+            });
+    }
+
+    // Retrieve normals
+    auto normalIt = primitive.findAttribute("NORMAL");
+
+    if (config.LoadNormals && normalIt != primitive.attributes.end())
+    {
+        uint32_t normOffset = 3;
+        if (config.LoadTexCoord)
+            normOffset += 2;
+
+        fastgltf::Accessor &normalAccessor = gltf.accessors[normalIt->accessorIndex];
+
+        fastgltf::iterateAccessorWithIndex<glm::vec3>(
+            gltf, normalAccessor, [&](glm::vec3 v, size_t index) {
+                auto idx = vertexStride * index + normOffset;
+
+                data[idx + 0] = v.x;
+                data[idx + 1] = v.y;
+                data[idx + 2] = v.z;
+            });
+    }
+}
+
+static void RetrieveIndices(fastgltf::Asset &gltf, fastgltf::Primitive &primitive,
+                            GeometryData &geo)
+{
+    auto accessor = gltf.accessors[primitive.indicesAccessor.value()];
+
+    auto Indices = new (geo.IndexData.Data.get()) uint32_t[accessor.count];
+    size_t current = 0;
+
+    fastgltf::iterateAccessor<std::uint32_t>(gltf, accessor, [&](std::uint32_t idx) {
+        Indices[current] = idx;
+        current++;
+    });
+}
+
+GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
 {
     using enum Vertex::AttributeType;
 
-    GeometryLayout layout{.VertexLayout = {Vec3, Vec2, Vec3},
-                          .IndexType = VK_INDEX_TYPE_UINT32};
+    GeometryLayout layout{};
+    layout.IndexType = VK_INDEX_TYPE_UINT32;
+
+    layout.VertexLayout.push_back(Vec3);
+
+    if (config.Vertex.LoadTexCoord)
+        layout.VertexLayout.push_back(Vec2);
+
+    if (config.Vertex.LoadNormals)
+        layout.VertexLayout.push_back(Vec3);
 
     auto geoProvider = [config]() {
         std::vector<GeometryData> res;
 
-        // Parse the gltf:
         auto gltf = GetAsset(config.Filepath, true);
 
-        // Temporary, load just the first mesh:
-        auto &mesh = gltf.meshes[config.MeshId];
-        // Temporary, load just the first mesh primitive:
-        auto &primitive = mesh.primitives[config.PrimitiveId];
-
-        struct Vertex {
-            glm::vec3 Position;
-            glm::vec2 TexCoord;
-            glm::vec3 Normal;
-        };
-
-        // Retrieve essential info about the mesh:
-        fastgltf::Accessor &posAccessor =
-            GetAttributeAccessor(gltf, primitive, "POSITION");
-
-        const size_t vertCount = posAccessor.count;
-
-        fastgltf::Accessor &indexAccessor = GetIndexAccessor(gltf, primitive);
-
-        const size_t idxCount = indexAccessor.count;
-
-        // Allocate memory for vertex and index data
-        const auto spec = GeometrySpec::Build<Vertex, uint32_t>(vertCount, idxCount);
-        auto &geo = res.emplace_back(spec);
-
-        // Retrieve the vertex data
-        auto Vertices = new (geo.VertexData.Data.get()) Vertex[vertCount];
-
-        // Retrieve the positions
-        fastgltf::iterateAccessorWithIndex<glm::vec3>(
-            gltf, posAccessor, [&](glm::vec3 v, size_t index) {
-                Vertices[index].Position = v;
-                Vertices[index].TexCoord = {0.0f, 0.0f};
-                Vertices[index].Normal = {0.0f, 0.0f, 0.0f};
-            });
-
-        // Retrieve texture coords
-        auto texcoordIt = primitive.findAttribute("TEXCOORD_0");
-
-        if (texcoordIt != primitive.attributes.end())
+        for (auto &mesh : gltf.meshes)
         {
-            fastgltf::Accessor &texcoordAccessor =
-                gltf.accessors[texcoordIt->accessorIndex];
+            for (auto &primitive : mesh.primitives)
+            {
+                // Retrieve essential info about the mesh:
+                const size_t vertCount = GetVertexCount(gltf, primitive);
+                const size_t idxCount = GetIndexCount(gltf, primitive);
 
-            fastgltf::iterateAccessorWithIndex<glm::vec2>(
-                gltf, texcoordAccessor,
-                [&](glm::vec2 v, size_t index) { Vertices[index].TexCoord = v; });
-        }
+                // Allocate memory for vertex and index data:
+                const auto spec = GeometrySpec::BuildS<40, uint32_t>(vertCount, idxCount);
 
-        // Retrieve index data:
-        auto Indices = new (geo.IndexData.Data.get()) uint32_t[idxCount];
+                auto &geo = res.emplace_back(spec);
 
-        {
-            size_t current = 0;
-
-            fastgltf::iterateAccessor<std::uint32_t>(gltf, indexAccessor,
-                                                     [&](std::uint32_t idx) {
-                                                         Indices[current] = idx;
-                                                         current++;
-                                                     });
+                // Retrieve the data:
+                RetrieveVertices(gltf, primitive, config.Vertex, geo);
+                RetrieveIndices(gltf, primitive, geo);
+            }
         }
 
         return res;
@@ -140,81 +182,36 @@ GeometryProvider ModelLoader::LoadPrimitive(const Config &config)
     };
 }
 
-GeometryProvider ModelLoader::LoadModel(const std::filesystem::path &filepath)
+GeometryProvider ModelLoader::LoadPrimitive(const ModelConfig &config, int64_t meshId,
+                                            int64_t primitiveId)
 {
     using enum Vertex::AttributeType;
 
     GeometryLayout layout{.VertexLayout = {Vec3, Vec2, Vec3},
                           .IndexType = VK_INDEX_TYPE_UINT32};
 
-    auto geoProvider = [filepath]() {
+    auto geoProvider = [config, meshId, primitiveId]() {
         std::vector<GeometryData> res;
 
-        auto gltf = GetAsset(filepath, true);
+        // Parse the gltf:
+        auto gltf = GetAsset(config.Filepath, true);
 
-        for (auto &mesh : gltf.meshes)
-        {
-            for (auto &primitive : mesh.primitives)
-            {
-                struct Vertex {
-                    glm::vec3 Position;
-                    glm::vec2 TexCoord;
-                    glm::vec3 Normal;
-                };
+        // Select the specified primitive:
+        auto &mesh = gltf.meshes[meshId];
+        auto &primitive = mesh.primitives[primitiveId];
 
-                // Retrieve essential info about the mesh:
-                fastgltf::Accessor &posAccessor =
-                    GetAttributeAccessor(gltf, primitive, "POSITION");
+        // Retrieve essential info about the mesh:
+        const size_t vertCount = GetVertexCount(gltf, primitive);
+        const size_t idxCount = GetIndexCount(gltf, primitive);
 
-                const size_t vertCount = posAccessor.count;
+        // Allocate memory for vertex and index data
+        const auto spec = GeometrySpec::BuildS<40, uint32_t>(vertCount, idxCount);
 
-                fastgltf::Accessor &indexAccessor = GetIndexAccessor(gltf, primitive);
+        auto &geo = res.emplace_back(spec);
 
-                const size_t idxCount = indexAccessor.count;
-
-                // Allocate memory for vertex and index data
-                const auto spec =
-                    GeometrySpec::Build<Vertex, uint32_t>(vertCount, idxCount);
-                auto &geo = res.emplace_back(spec);
-
-                // Retrieve the vertex data
-                auto Vertices = new (geo.VertexData.Data.get()) Vertex[vertCount];
-
-                // Retrieve the positions
-                fastgltf::iterateAccessorWithIndex<glm::vec3>(
-                    gltf, posAccessor, [&](glm::vec3 v, size_t index) {
-                        Vertices[index].Position = v;
-                        Vertices[index].TexCoord = {0.0f, 0.0f};
-                        Vertices[index].Normal = {0.0f, 0.0f, 0.0f};
-                    });
-
-                // Retrieve texture coords
-                auto texcoordIt = primitive.findAttribute("TEXCOORD_0");
-
-                if (texcoordIt != primitive.attributes.end())
-                {
-                    fastgltf::Accessor &texcoordAccessor =
-                        gltf.accessors[texcoordIt->accessorIndex];
-
-                    fastgltf::iterateAccessorWithIndex<glm::vec2>(
-                        gltf, texcoordAccessor,
-                        [&](glm::vec2 v, size_t index) { Vertices[index].TexCoord = v; });
-                }
-
-                // Retrieve index data:
-                auto Indices = new (geo.IndexData.Data.get()) uint32_t[idxCount];
-
-                {
-                    size_t current = 0;
-
-                    fastgltf::iterateAccessor<std::uint32_t>(gltf, indexAccessor,
-                                                             [&](std::uint32_t idx) {
-                                                                 Indices[current] = idx;
-                                                                 current++;
-                                                             });
-                }
-            }
-        }
+        // Retrieve the data:
+        RetrieveVertices(gltf, primitive, config.Vertex, geo);
+        RetrieveIndices(gltf, primitive, geo);
 
         return res;
     };

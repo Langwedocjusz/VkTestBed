@@ -1,13 +1,24 @@
 #pragma once
 
+#include "VulkanContext.h"
+
 #include "Buffer.h"
 #include "Image.h"
-#include "VulkanContext.h"
 
 #include <vulkan/vulkan.h>
 
 #include <deque>
 #include <variant>
+
+struct VkAllocatedImage {
+    VkImage Handle;
+    VmaAllocation Allocation;
+};
+
+struct VkAllocatedBuffer {
+    VkBuffer Handle;
+    VmaAllocation Allocation;
+};
 
 // clang-format off
 using DeletionObject = std::variant<
@@ -20,10 +31,8 @@ using DeletionObject = std::variant<
     VkDescriptorPool,
     VkDescriptorSetLayout,
     VkSampler,
-    //Custom aggregate types passed via pointer
-    //to avoid excess padding in the variant:
-    Image*,
-    Buffer*
+    VkAllocatedImage,
+    VkAllocatedBuffer
 >;
 // clang-format on
 
@@ -35,6 +44,16 @@ class DeletionQueue {
     void push_back(T &&obj)
     {
         mDeletionObjects.push_back(std::forward<T>(obj));
+    }
+
+    void push_back(Buffer &buf)
+    {
+        mDeletionObjects.emplace_back(VkAllocatedBuffer{buf.Handle, buf.Allocation});
+    }
+
+    void push_back(Image &img)
+    {
+        mDeletionObjects.emplace_back(VkAllocatedImage{img.Handle, img.Allocation});
     }
 
     void flush();

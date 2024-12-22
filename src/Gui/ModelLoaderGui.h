@@ -17,11 +17,11 @@ class ModelLoaderGui {
 
     void LoadModel(Scene &scene);
 
-    //Templated, because it handles several types
-    //from fastgltf
+    // Templated, because it handles several types
+    // from fastgltf
     template <typename T>
-    std::optional<std::filesystem::path> GetTexturePath(
-        fastgltf::Asset &gltf, std::optional<T> &texInfo)
+    auto GetTexturePath(fastgltf::Asset &gltf,
+                        std::optional<T> &texInfo) -> std::optional<std::filesystem::path>
     {
         // 1. Check if info has value
         if (!texInfo.has_value())

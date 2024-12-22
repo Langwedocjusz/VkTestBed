@@ -70,6 +70,8 @@ target_sources(${PROJECT_NAME}
         src/Renderers/HelloRenderer.cpp
         src/Renderers/Minimal3D.h
         src/Renderers/Minimal3D.cpp
+        src/Renderers/MinimalPBR.h
+        src/Renderers/MinimalPBR.cpp
         src/Vulkan/Buffer.h
         src/Vulkan/Buffer.cpp
         src/Vulkan/Common.h

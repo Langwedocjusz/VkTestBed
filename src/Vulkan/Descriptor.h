@@ -47,10 +47,22 @@ class DescriptorUpdater {
     void Update(VulkanContext &ctx);
 
   private:
+    enum class WriteType
+    {
+        UniformBuffer,
+        CombinedImageSampler
+    };
+
+    struct WriteInfo {
+        uint32_t Binding;
+        WriteType Type;
+        size_t InfoId;
+    };
+
     std::vector<VkDescriptorBufferInfo> mBufferInfos;
     std::vector<VkDescriptorImageInfo> mImageInfos;
 
-    std::vector<VkWriteDescriptorSet> mWrites;
+    std::vector<WriteInfo> mWriteInfos;
 
     VkDescriptorSet mDescriptorSet;
 };

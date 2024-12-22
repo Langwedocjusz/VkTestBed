@@ -46,3 +46,33 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool
 
     return img;
 }
+
+Image ImageLoaders::Image2DFromData(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+                                    const Image2DData &data)
+{
+    assert(data.Data.size() == data.Width * data.Height);
+
+    VkDeviceSize imageSize = data.Width * data.Height * 4;
+
+    VkExtent3D extent{static_cast<uint32_t>(data.Width),
+                      static_cast<uint32_t>(data.Height), 1};
+
+    ImageInfo img_info{
+        .Extent = extent,
+        .Format = VK_FORMAT_R8G8B8A8_SRGB,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    };
+
+    Image img = Image::CreateImage2D(ctx, img_info);
+
+    ImageUploadInfo data_info{.Queue = queue,
+                              .Pool = pool,
+                              .Data = data.Data.data(),
+                              .Size = imageSize,
+                              .DstLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+
+    Image::UploadToImage(ctx, img, data_info);
+
+    return img;
+}

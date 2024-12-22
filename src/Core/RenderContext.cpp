@@ -5,6 +5,7 @@
 #include "HelloRenderer.h"
 #include "ImGuiInit.h"
 #include "Minimal3D.h"
+#include "MinimalPBR.h"
 #include "Renderer.h"
 #include "Utils.h"
 #include "VkInit.h"
@@ -43,7 +44,7 @@ RenderContext::RenderContext(VulkanContext &ctx)
     mCamera = std::make_unique<Camera>(mCtx, mFrameInfo);
 
     // To-do: Move this to some factory function:
-    mRenderer = std::make_unique<Minimal3DRenderer>(mCtx, mFrameInfo, mQueues, mCamera);
+    mRenderer = std::make_unique<MinimalPbrRenderer>(mCtx, mFrameInfo, mQueues, mCamera);
 }
 
 void RenderContext::InitImGuiVulkanBackend()

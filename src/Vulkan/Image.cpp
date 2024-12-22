@@ -2,6 +2,7 @@
 
 #include "Barrier.h"
 #include "Buffer.h"
+#include "DeletionQueue.h"
 #include "Utils.h"
 
 Image Image::CreateImage2D(VulkanContext &ctx, ImageInfo info)

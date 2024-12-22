@@ -45,7 +45,7 @@ Camera::Camera(VulkanContext &ctx, FrameInfo &info)
     for (auto &uniformBuffer : mUniformBuffers)
     {
         uniformBuffer = Buffer::CreateMappedUniformBuffer(ctx, bufferSize);
-        mMainDeletionQueue.push_back(&uniformBuffer);
+        mMainDeletionQueue.push_back(uniformBuffer);
     }
 
     // Update descriptor sets:

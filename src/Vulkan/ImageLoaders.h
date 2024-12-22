@@ -8,4 +8,21 @@ namespace ImageLoaders
 {
 Image LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
                   const std::string &path);
-}
+
+struct Pixel {
+    uint8_t R;
+    uint8_t G;
+    uint8_t B;
+    uint8_t A;
+};
+
+struct Image2DData {
+    uint32_t Width;
+    uint32_t Height;
+
+    std::vector<Pixel> Data;
+};
+
+Image Image2DFromData(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+                      const Image2DData &data);
+} // namespace ImageLoaders

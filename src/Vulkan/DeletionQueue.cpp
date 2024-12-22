@@ -20,8 +20,8 @@ void DeletionQueue::flush()
             [this](VkDescriptorPool arg){vkDestroyDescriptorPool(mCtx.Device, arg, nullptr);},
             [this](VkDescriptorSetLayout arg){vkDestroyDescriptorSetLayout(mCtx.Device, arg, nullptr);},
             [this](VkSampler arg){vkDestroySampler(mCtx.Device, arg, nullptr);},
-            [this](Image* arg){Image::DestroyImage(mCtx, *arg);},
-            [this](Buffer* arg){Buffer::DestroyBuffer(mCtx, *arg);},
+            [this](VkAllocatedImage arg){vmaDestroyImage(mCtx.Allocator, arg.Handle, arg.Allocation);},
+            [this](VkAllocatedBuffer arg){vmaDestroyBuffer(mCtx.Allocator, arg.Handle, arg.Allocation);},
         }, obj);
         // clang-format on
     }

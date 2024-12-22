@@ -14,6 +14,7 @@ fastgltf::Asset GetGltf(const std::filesystem::path &filepath);
 struct VertexConfig {
     bool LoadTexCoord = true;
     bool LoadNormals = true;
+    bool LoadTangents = true;
     bool LoadColor = false;
 };
 

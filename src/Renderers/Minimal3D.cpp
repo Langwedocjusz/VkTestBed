@@ -255,7 +255,7 @@ void Minimal3DRenderer::CreateSwapchainResources()
     };
 
     mRenderTarget = Image::CreateImage2D(mCtx, renderTargetInfo);
-    mSwapchainDeletionQueue.push_back(&mRenderTarget);
+    mSwapchainDeletionQueue.push_back(mRenderTarget);
 
     // Create the render target view:
     mRenderTargetView = Image::CreateView2D(mCtx, mRenderTarget, mRenderTargetFormat,
@@ -272,7 +272,7 @@ void Minimal3DRenderer::CreateSwapchainResources()
     mDepthBufferView =
         Image::CreateView2D(mCtx, mDepthBuffer, mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    mSwapchainDeletionQueue.push_back(&mDepthBuffer);
+    mSwapchainDeletionQueue.push_back(mDepthBuffer);
     mSwapchainDeletionQueue.push_back(mDepthBufferView);
 }
 
@@ -351,9 +351,6 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
             {
                 auto &drawable = newMesh.Drawables.emplace_back();
                 CreateBuffers(drawable, geo);
-
-                // if (static_cast<size_t>(geoId) < mesh.MaterialIds.size())
-                //     drawable.TextureId = mesh.MaterialIds[geoId];
             }
 
             continue;
@@ -364,8 +361,8 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
     {
         for (auto &drawable : mesh.Drawables)
         {
-            mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
-            mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+            mSceneDeletionQueue.push_back(drawable.VertexBuffer);
+            mSceneDeletionQueue.push_back(drawable.IndexBuffer);
         }
     }
 
@@ -373,8 +370,8 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
     {
         for (auto &drawable : mesh.Drawables)
         {
-            mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
-            mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+            mSceneDeletionQueue.push_back(drawable.VertexBuffer);
+            mSceneDeletionQueue.push_back(drawable.IndexBuffer);
         }
     }
 }
@@ -437,7 +434,7 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
 
     for (auto &texture : mTextures)
     {
-        mSceneDeletionQueue.push_back(&texture.TexImage);
+        mSceneDeletionQueue.push_back(texture.TexImage);
         mSceneDeletionQueue.push_back(texture.View);
     }
 }

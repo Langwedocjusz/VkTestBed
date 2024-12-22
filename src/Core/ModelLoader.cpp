@@ -7,6 +7,8 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 
+#include <iostream>
+
 static fastgltf::Asset GetAsset(const std::filesystem::path &path,
                                 bool loadBuffers = false)
 {
@@ -61,6 +63,8 @@ static void RetrieveVertices(fastgltf::Asset &gltf, fastgltf::Primitive &primiti
         vertexStride += 2;
     if (config.LoadNormals)
         vertexStride += 3;
+    if (config.LoadTangents)
+        vertexStride += 4;
 
     auto vertCount = GetVertexCount(gltf, primitive);
     auto compCount = vertCount * vertexStride;
@@ -117,6 +121,30 @@ static void RetrieveVertices(fastgltf::Asset &gltf, fastgltf::Primitive &primiti
                 data[idx + 2] = v.z;
             });
     }
+
+    // Retrieve tangents
+    auto tangentIt = primitive.findAttribute("TANGENT");
+
+    if (config.LoadTangents && tangentIt != primitive.attributes.end())
+    {
+        uint32_t tangentOffset = 3;
+        if (config.LoadTexCoord)
+            tangentOffset += 2;
+        if (config.LoadNormals)
+            tangentOffset += 3;
+
+        fastgltf::Accessor &tangentAccessor = gltf.accessors[tangentIt->accessorIndex];
+
+        fastgltf::iterateAccessorWithIndex<glm::vec4>(
+            gltf, tangentAccessor, [&](glm::vec4 v, size_t index) {
+                auto idx = vertexStride * index + tangentOffset;
+
+                data[idx + 0] = v.x;
+                data[idx + 1] = v.y;
+                data[idx + 2] = v.z;
+                data[idx + 3] = v.w;
+            });
+    }
 }
 
 static void RetrieveIndices(fastgltf::Asset &gltf, fastgltf::Primitive &primitive,
@@ -148,6 +176,9 @@ GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
     if (config.Vertex.LoadNormals)
         layout.VertexLayout.push_back(Vec3);
 
+    if (config.Vertex.LoadTangents)
+        layout.VertexLayout.push_back(Vec4);
+
     auto geoProvider = [config]() {
         std::vector<GeometryData> res;
 
@@ -162,7 +193,7 @@ GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
                 const size_t idxCount = GetIndexCount(gltf, primitive);
 
                 // Allocate memory for vertex and index data:
-                const auto spec = GeometrySpec::BuildS<40, uint32_t>(vertCount, idxCount);
+                const auto spec = GeometrySpec::BuildS<48, uint32_t>(vertCount, idxCount);
 
                 auto &geo = res.emplace_back(spec);
 

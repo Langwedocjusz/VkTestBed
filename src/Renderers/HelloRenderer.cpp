@@ -138,7 +138,7 @@ void HelloRenderer::CreateSwapchainResources()
     };
 
     mRenderTarget = Image::CreateImage2D(mCtx, renderTargetInfo);
-    mSwapchainDeletionQueue.push_back(&mRenderTarget);
+    mSwapchainDeletionQueue.push_back(mRenderTarget);
 
     // Create the render target view:
     mRenderTargetView = Image::CreateView2D(mCtx, mRenderTarget, mRenderTargetFormat,
@@ -197,8 +197,8 @@ void HelloRenderer::LoadProviders(Scene &scene)
     {
         for (auto &drawable : mesh.Drawables)
         {
-            mSceneDeletionQueue.push_back(&drawable.VertexBuffer);
-            mSceneDeletionQueue.push_back(&drawable.IndexBuffer);
+            mSceneDeletionQueue.push_back(drawable.VertexBuffer);
+            mSceneDeletionQueue.push_back(drawable.IndexBuffer);
         }
     }
 }

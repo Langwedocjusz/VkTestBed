@@ -101,14 +101,11 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t binding,
     bufferInfo.offset = 0;
     bufferInfo.range = size;
 
-    auto &descriptorWrite = mWrites.emplace_back();
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = mDescriptorSet;
-    descriptorWrite.dstBinding = binding;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pBufferInfo = &bufferInfo;
+    mWriteInfos.push_back(WriteInfo{
+        .Binding = binding,
+        .Type = WriteType::UniformBuffer,
+        .InfoId = mBufferInfos.size() - 1,
+    });
 
     return *this;
 }
@@ -121,22 +118,52 @@ DescriptorUpdater &DescriptorUpdater::WriteImage(uint32_t binding, VkImageView i
     imageInfo.imageView = imageView;
     imageInfo.sampler = sampler;
 
-    auto &descriptorWrite = mWrites.emplace_back();
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = mDescriptorSet;
-    descriptorWrite.dstBinding = binding;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pImageInfo = &imageInfo;
+    mWriteInfos.push_back(WriteInfo{
+        .Binding = binding,
+        .Type = WriteType::CombinedImageSampler,
+        .InfoId = mImageInfos.size() - 1,
+    });
 
     return *this;
 }
 
 void DescriptorUpdater::Update(VulkanContext &ctx)
 {
-    vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(mWrites.size()),
-                           mWrites.data(), 0, nullptr);
+    std::vector<VkWriteDescriptorSet> writes;
+
+    for (auto &writeInfo : mWriteInfos)
+    {
+        auto &write = writes.emplace_back();
+
+        switch (writeInfo.Type)
+        {
+        case WriteType::UniformBuffer: {
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = mDescriptorSet;
+            write.dstBinding = writeInfo.Binding;
+            ;
+            write.dstArrayElement = 0;
+            write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            write.descriptorCount = 1;
+            write.pBufferInfo = &mBufferInfos[writeInfo.InfoId];
+
+            break;
+        }
+        case WriteType::CombinedImageSampler: {
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = mDescriptorSet;
+            write.dstBinding = writeInfo.Binding;
+            write.dstArrayElement = 0;
+            write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write.descriptorCount = 1;
+            write.pImageInfo = &mImageInfos[writeInfo.InfoId];
+            break;
+        }
+        }
+    }
+
+    vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(writes.size()),
+                           writes.data(), 0, nullptr);
 }
 
 DescriptorAllocator::DescriptorAllocator(VulkanContext &ctx) : mCtx(ctx)

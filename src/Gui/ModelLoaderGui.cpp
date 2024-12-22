@@ -88,6 +88,7 @@ void ModelLoaderGui::ImportMenu(Scene &scene)
 
         ImGui::Checkbox("TexCoord", &mVertexConfig.LoadTexCoord);
         ImGui::Checkbox("Normal", &mVertexConfig.LoadNormals);
+        ImGui::Checkbox("Tangent", &mVertexConfig.LoadTangents);
         ImGui::Checkbox("Color", &mVertexConfig.LoadColor);
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));

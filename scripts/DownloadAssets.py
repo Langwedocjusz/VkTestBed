@@ -45,9 +45,7 @@ def download_git_dir(repo: str, subdir: str, destination: str):
 download_asset("https://vulkan-tutorial.com/images/texture.jpg", "./assets/textures")
 
 #Damaged helmet GLTF:
-download_asset("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/refs/heads/main/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf", "./assets/gltf/DamagedHelmet")
-download_asset("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/refs/heads/main/2.0/DamagedHelmet/glTF/DamagedHelmet.bin", "./assets/gltf/DamagedHelmet")
-download_asset("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/refs/heads/main/2.0/DamagedHelmet/glTF/Default_albedo.jpg", "./assets/gltf/DamagedHelmet")
+download_git_dir("KhronosGroup/glTF-Sample-Models", "2.0/DamagedHelmet", "./assets/gltf/DamagedHelmet")
 
 #Sponza GLTF:
 download_git_dir("KhronosGroup/glTF-Sample-Models", "2.0/Sponza", "./assets/gltf/Sponza")

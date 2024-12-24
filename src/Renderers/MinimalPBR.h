@@ -35,7 +35,7 @@ class MinimalPbrRenderer : public IRenderer {
 
     void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source);
     void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source,
-                         ::ImageLoaders::Image2DData &defaultData);
+                         ::ImageLoaders::Image2DData &defaultData, bool unorm = false);
 
   private:
     const float mInternalResolutionScale = 1.0f;

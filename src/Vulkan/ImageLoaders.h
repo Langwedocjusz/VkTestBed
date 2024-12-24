@@ -7,7 +7,7 @@
 namespace ImageLoaders
 {
 Image LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
-                  const std::string &path);
+                  const std::string &path, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB);
 
 struct Pixel {
     uint8_t R;
@@ -24,5 +24,5 @@ struct Image2DData {
 };
 
 Image Image2DFromData(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
-                      const Image2DData &data);
+                      const Image2DData &data, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB);
 } // namespace ImageLoaders

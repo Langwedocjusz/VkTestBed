@@ -21,8 +21,10 @@ layout(push_constant) uniform constants {
 void main() {
     mat4 MVP = Ubo.ViewProjection * PushConstants.Transform;
 
+    mat3 NORMAL = mat3(transpose(inverse(PushConstants.Transform)));
+
     texCoord = aTexCoord;
-    normal = aNormal;
+    normal = normalize(NORMAL * aNormal);
     tangent = aTangent;
 
     gl_Position = MVP * vec4(aPosition, 1.0);

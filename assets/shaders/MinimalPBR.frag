@@ -25,8 +25,7 @@ void main() {
 
     vec4 res = texAlbedo;
 
-    vec3 normal = pow(texNormal.xyz, vec3(1.0/2.2));
-    normal = 2.0 * normal - 1.0;
+    vec3 normal = 2.0 * texNormal.xyz - 1.0;
 
     vec3 N = vertNormal;
     vec3 T = vertTangent.xyz;
@@ -35,15 +34,13 @@ void main() {
     mat3 TBN = mat3(T,B,N);
 
     normal = normalize(TBN * normal);
-    //normal = N;
 
-    const vec3 ldir = normalize(vec3(1,1,1));
+    const vec3 ldir = normalize(vec3(1,-1,1));
     float dif = dot(ldir, normal);
     dif = clamp(dif, 0.0, 1.0);
 
     res.rgb *= 0.1 + 0.9*dif;
     res.rgb = pow(res.rgb, vec3(0.9));
-
 
     outColor = res;
 }

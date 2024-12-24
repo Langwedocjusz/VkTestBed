@@ -6,7 +6,7 @@
 #include <cstdint>
 
 Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
-                                const std::string &path)
+                                const std::string &path, VkFormat format)
 {
     int texWidth, texHeight, texChannels;
     stbi_uc *pixels =
@@ -27,7 +27,7 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool
 
     ImageInfo img_info{
         .Extent = extent,
-        .Format = VK_FORMAT_R8G8B8A8_SRGB,
+        .Format = format,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
     };
@@ -48,7 +48,7 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool
 }
 
 Image ImageLoaders::Image2DFromData(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
-                                    const Image2DData &data)
+                                    const Image2DData &data, VkFormat format)
 {
     assert(data.Data.size() == data.Width * data.Height);
 
@@ -59,7 +59,7 @@ Image ImageLoaders::Image2DFromData(VulkanContext &ctx, VkQueue queue, VkCommand
 
     ImageInfo img_info{
         .Extent = extent,
-        .Format = VK_FORMAT_R8G8B8A8_SRGB,
+        .Format = format,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
     };

@@ -11,6 +11,7 @@
 #include "VkInit.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <ranges>
 #include <variant>
@@ -326,8 +327,18 @@ static Material::ImageSource *GetTextureSource(Material &mat, const MaterialKey 
     if (!std::holds_alternative<Material::ImageSource>(val))
         return nullptr;
 
+    auto *src = &std::get<Material::ImageSource>(val);
+
+    bool validPath = std::filesystem::is_regular_file(src->Path);
+
+    if (!validPath)
+    {
+        std::cerr << "Invalid texture path: " << src->Path.string() << '\n';
+        return nullptr;
+    }
+
     // Return image source
-    return &std::get<Material::ImageSource>(val);
+    return src;
 }
 
 void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
@@ -343,17 +354,20 @@ void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
 
 void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
                                          ::Material::ImageSource *source,
-                                         ::ImageLoaders::Image2DData &defaultData)
+                                         ::ImageLoaders::Image2DData &defaultData,
+                                         bool unorm)
 {
     auto &pool = mFrame.CurrentPool();
 
+    auto format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+
     if (source)
         img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool,
-                                        source->Path.string());
+                                        source->Path.string(), format);
     else
-        img = ImageLoaders::Image2DFromData(mCtx, mQueues.Graphics, pool, defaultData);
+        img = ImageLoaders::Image2DFromData(mCtx, mQueues.Graphics, pool, defaultData, format);
 
-    auto format = img.Info.Format;
+    // auto format = img.Info.Format;
     view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
@@ -386,11 +400,10 @@ void MinimalPbrRenderer::LoadTextures(Scene &scene)
             .Data = {ImageLoaders::Pixel{0, 255, 0, 0}},
         };
 
-        (void)roughness; (void)normal;
-
         TextureFromPath(material.RoughnessImage, material.RoughnessView, roughness,
                         roughnessDefault);
-        TextureFromPath(material.NormalImage, material.NormalView, normal, normalDefault);
+        TextureFromPath(material.NormalImage, material.NormalView, normal, normalDefault,
+                        true);
 
         // Unpack alpha-cutoff if present:
         if (mat.count(::Material::AlphaCutoff))

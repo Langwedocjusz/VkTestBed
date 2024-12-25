@@ -5,6 +5,8 @@
 #include "ImGuiInit.h"
 #include "Keycodes.h"
 
+#include <tracy/Tracy.hpp>
+
 #include <iostream>
 #include <memory>
 #include <variant>
@@ -87,6 +89,9 @@ void Application::Run()
 
         // Render things:
         mRender.OnRender();
+
+        // Tracy profiler:
+        FrameMark;
     }
 
     vkDeviceWaitIdle(mCtx.Device);

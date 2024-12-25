@@ -121,6 +121,9 @@ source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
 source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 source_group(imgui_impl FILES ${imgui_impl})
 
+#Subdirectory options:
+option(TRACY_ENABLE "" ON )
+
 #Get dependencies:
 find_package(Vulkan REQUIRED)
 
@@ -132,6 +135,7 @@ add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/stb_image)
 add_subdirectory(vendor/fastgltf)
 add_subdirectory(vendor/efsw)
+add_subdirectory(vendor/tracy)
 
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
@@ -150,3 +154,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
 target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
 target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
 target_link_libraries(${PROJECT_NAME} PRIVATE efsw)
+target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)

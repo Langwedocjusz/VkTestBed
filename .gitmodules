@@ -19,3 +19,6 @@
 [submodule "vendor/efsw"]
 	path = vendor/efsw
 	url = https://github.com/SpartanJ/efsw
+[submodule "vendor/tracy"]
+	path = vendor/tracy
+	url = https://github.com/wolfpld/tracy

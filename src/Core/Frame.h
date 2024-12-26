@@ -17,6 +17,7 @@ struct FrameInfo {
 
     std::array<FrameData, MaxInFlight> Data;
 
+    size_t FrameNumber = 0;
     size_t Index = 0;
     uint32_t ImageIndex = 0;
 

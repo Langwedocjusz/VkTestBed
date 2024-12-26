@@ -8,6 +8,10 @@
 
 #include <memory>
 
+#ifdef ENABLE_TRACY_VULKAN
+#include <tracy/TracyVulkan.hpp>
+#endif
+
 class IRenderer;
 
 class RenderContext {
@@ -53,4 +57,8 @@ class RenderContext {
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;
+
+    #ifdef ENABLE_TRACY_VULKAN
+    std::vector<TracyVkCtx> mProfilerContexts;
+    #endif
 };

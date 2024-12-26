@@ -4,6 +4,8 @@ project(VkTestBed)
 
 include(cmake/utils.cmake)
 
+option(VKTB_TRACY_VULKAN "Enables vulkan data collection for tracy profiler" ON)
+
 if(MSVC)
     msvc_enable_multiprocess_global()
 endif()
@@ -120,6 +122,11 @@ source_group(src/Gui REGULAR_EXPRESSION "src/Gui/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
 source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 source_group(imgui_impl FILES ${imgui_impl})
+
+#Compile definitions:
+if(VKTB_TRACY_VULKAN)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_TRACY_VULKAN)
+endif()
 
 #Subdirectory options:
 option(TRACY_ENABLE "" ON )

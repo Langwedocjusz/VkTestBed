@@ -9,6 +9,8 @@ assets/spirv
 assets/textures
 #Gltf models
 assets/gltf
+#Cubemaps
+assets/cubemaps
 
 #Imgui conifg:
 imgui.ini

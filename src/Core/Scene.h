@@ -58,17 +58,8 @@ class SceneGraphNode {
 
 class Scene {
   public:
-    // Data sources for renderers:
-    std::vector<SceneMesh> Meshes;
-    std::vector<Material> Materials;
-
-    // Object instances to be rendered::
-    std::vector<std::optional<SceneObject>> Objects;
-
+    // Emplaces an object in first empty slot:
     size_t EmplaceObject(SceneObject obj);
-
-    // Root of the scene-graph used by UI to control objects:
-    SceneGraphNode GraphRoot;
 
     // Api to manage update flags, to communicate with renderers:
     bool UpdateRequested();
@@ -79,11 +70,27 @@ class Scene {
     void RequestGeometryUpdate();
     void RequestMeshMaterialUpdate();
     void RequestInstanceUpdate();
+    void RequestEnvironmentUpdate();
 
     bool UpdateMaterials();
     bool UpdateGeometry();
     bool UpdateMeshMaterials();
     bool UpdateInstances();
+    bool UpdateEnvironment();
+
+  public:
+    // Data sources for renderers:
+    std::vector<SceneMesh> Meshes;
+    std::vector<Material> Materials;
+
+    // Environment texture (hdri) path:
+    std::optional<std::filesystem::path> HdriPath;
+
+    // Object instances to be rendered::
+    std::vector<std::optional<SceneObject>> Objects;
+
+    // Root of the scene-graph used by UI to control objects:
+    SceneGraphNode GraphRoot;
 
   private:
     enum class Update
@@ -92,6 +99,7 @@ class Scene {
         MeshGeo,
         MeshMaterials,
         Instances,
+        Environment,
     };
 
     Bitflags<Update> mUpdateFlags;

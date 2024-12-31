@@ -33,7 +33,7 @@ class PipelineBuilder {
     PipelineBuilder &SetColorFormat(VkFormat format);
     PipelineBuilder &SetDepthFormat(VkFormat format);
 
-    PipelineBuilder &EnableDepthTest();
+    PipelineBuilder &EnableDepthTest(VkCompareOp compareOp = VK_COMPARE_OP_LESS);
     PipelineBuilder &EnableBlending();
 
     PipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);

@@ -94,4 +94,6 @@ class Minimal3DRenderer : public IRenderer {
 
     std::vector<Texture> mTextures;
     VkSampler mSampler;
+
+    DeletionQueue mSceneDeletionQueue;
 };

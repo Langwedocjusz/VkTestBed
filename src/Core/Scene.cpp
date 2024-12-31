@@ -139,6 +139,11 @@ void Scene::RequestInstanceUpdate()
     mUpdateFlags.Set(Update::Instances);
 }
 
+void Scene::RequestEnvironmentUpdate()
+{
+    mUpdateFlags.Set(Update::Environment);
+}
+
 bool Scene::UpdateMaterials()
 {
     return mUpdateFlags[Update::Materials];
@@ -157,4 +162,9 @@ bool Scene::UpdateMeshMaterials()
 bool Scene::UpdateInstances()
 {
     return mUpdateFlags[Update::Instances];
+}
+
+bool Scene::UpdateEnvironment()
+{
+    return mUpdateFlags[Update::Environment];
 }

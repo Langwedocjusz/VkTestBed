@@ -3,12 +3,15 @@
 #include "Common.h"
 #include "Descriptor.h"
 #include "GeometryProvider.h"
+#include "ImageLoaders.h"
 #include "Material.h"
 #include "MeshBuffers.h"
+#include "Pipeline.h"
 #include "Renderer.h"
 #include "Sampler.h"
 #include "Shader.h"
 #include "VkInit.h"
+#include "glm/matrix.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -21,11 +24,12 @@
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        RenderContext::Queues &queues,
                                        std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, queues, camera), mTextureDescriptorAllocator(ctx),
-      mMaterialDeletionQueue(ctx)
+    : IRenderer(ctx, info, queues, camera), mMaterialDescriptorAllocator(ctx),
+      mMainDescriptorAllocator(ctx), mSceneDeletionQueue(ctx),
+      mMaterialDeletionQueue(ctx), mEnvironmentDeletionQueue(ctx)
 {
     // Create descriptor set layout for sampling textures
-    mTextureDescriptorSetLayout =
+    mMaterialDescriptorSetLayout =
         DescriptorSetLayoutBuilder()
             .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -35,44 +39,48 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx);
 
-    mMainDeletionQueue.push_back(mTextureDescriptorSetLayout);
+    mMainDeletionQueue.push_back(mMaterialDescriptorSetLayout);
 
     // Initialize descriptor allocator for materials
-    constexpr uint32_t imgPerMat = 3;
+    {
+        std::vector<VkDescriptorPoolSize> poolCounts{
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
+        };
 
-    std::vector<VkDescriptorPoolSize> poolCounts{
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imgPerMat},
-    };
+        mMaterialDescriptorAllocator.OnInit(poolCounts);
+    }
 
-    mTextureDescriptorAllocator.OnInit(poolCounts);
+    // Descriptor layout for sampling the cubemap:
+    mEnvironmentDescriptorSetLayout =
+        DescriptorSetLayoutBuilder()
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT)
+            .Build(ctx);
+
+    mMainDeletionQueue.push_back(mEnvironmentDescriptorSetLayout);
+
+    {
+        std::vector<VkDescriptorPoolSize> poolCounts{
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+        };
+
+        mMainDescriptorAllocator.OnInit(poolCounts);
+    }
+
+    mEnvironmentDescriptorSet =
+        mMainDescriptorAllocator.Allocate(mEnvironmentDescriptorSetLayout);
 
     // Build the graphics pipelines:
     RebuildPipelines();
 
     // Create the texture sampler:
-    mAlbedoSampler = SamplerBuilder()
-                         .SetMagFilter(VK_FILTER_LINEAR)
-                         .SetMinFilter(VK_FILTER_LINEAR)
-                         .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                         .Build(mCtx);
+    mSampler = SamplerBuilder()
+                   .SetMagFilter(VK_FILTER_LINEAR)
+                   .SetMinFilter(VK_FILTER_LINEAR)
+                   .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                   .Build(mCtx);
 
-    mMainDeletionQueue.push_back(mAlbedoSampler);
-
-    mRoughnessSampler = SamplerBuilder()
-                            .SetMagFilter(VK_FILTER_LINEAR)
-                            .SetMinFilter(VK_FILTER_LINEAR)
-                            .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                            .Build(mCtx);
-
-    mMainDeletionQueue.push_back(mRoughnessSampler);
-
-    mNormalSampler = SamplerBuilder()
-                         .SetMagFilter(VK_FILTER_LINEAR)
-                         .SetMinFilter(VK_FILTER_LINEAR)
-                         .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                         .Build(mCtx);
-
-    mMainDeletionQueue.push_back(mNormalSampler);
+    mMainDeletionQueue.push_back(mSampler);
 
     // Create swapchain resources:
     CreateSwapchainResources();
@@ -80,9 +88,11 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
 MinimalPbrRenderer::~MinimalPbrRenderer()
 {
-    mTextureDescriptorAllocator.DestroyPools();
+    mMaterialDescriptorAllocator.DestroyPools();
+    mMainDescriptorAllocator.DestroyPools();
     mSceneDeletionQueue.flush();
     mMaterialDeletionQueue.flush();
+    mEnvironmentDeletionQueue.flush();
     mSwapchainDeletionQueue.flush();
     mPipelineDeletionQueue.flush();
     mMainDeletionQueue.flush();
@@ -92,28 +102,54 @@ void MinimalPbrRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    auto textuedShaderStages = ShaderBuilder()
-                                   .SetVertexPath("assets/spirv/MinimalPBRVert.spv")
-                                   .SetFragmentPath("assets/spirv/MinimalPBRFrag.spv")
-                                   .Build(mCtx);
+    // Main PBR pipeline:
+    auto mainShaderStages = ShaderBuilder()
+                                .SetVertexPath("assets/spirv/MinimalPBRVert.spv")
+                                .SetFragmentPath("assets/spirv/MinimalPBRFrag.spv")
+                                .Build(mCtx);
 
-    mPipeline =
+    mMainPipeline =
         PipelineBuilder()
-            .SetShaderStages(textuedShaderStages)
+            .SetShaderStages(mainShaderStages)
             .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
-            .SetPushConstantSize(sizeof(PushConstantData))
+            .SetPushConstantSize(sizeof(MaterialPCData))
             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
-            .AddDescriptorSetLayout(mTextureDescriptorSetLayout)
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx);
 
-    mPipelineDeletionQueue.push_back(mPipeline.Handle);
-    mPipelineDeletionQueue.push_back(mPipeline.Layout);
+    mPipelineDeletionQueue.push_back(mMainPipeline.Handle);
+    mPipelineDeletionQueue.push_back(mMainPipeline.Layout);
+
+    // Background rendering pipeline:
+    auto backgroundShaderStages = ShaderBuilder()
+                                      .SetVertexPath("assets/spirv/BackgroundVert.spv")
+                                      .SetFragmentPath("assets/spirv/BackgroundFrag.spv")
+                                      .Build(mCtx);
+
+    // No vertex format, since we just hardcode the fullscreen triangle in
+    // the vertex shader:
+    mBackgroundPipeline =
+        PipelineBuilder()
+            .SetShaderStages(backgroundShaderStages)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .SetColorFormat(mRenderTargetFormat)
+            .SetPushConstantSize(sizeof(BackgroundPCData))
+            //.AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+            .AddDescriptorSetLayout(mEnvironmentDescriptorSetLayout)
+            .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
+            .SetDepthFormat(mDepthFormat)
+            .Build(mCtx);
+
+    mPipelineDeletionQueue.push_back(mBackgroundPipeline.Handle);
+    mPipelineDeletionQueue.push_back(mBackgroundPipeline.Layout);
 }
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
@@ -147,13 +183,13 @@ void MinimalPbrRenderer::OnRender()
 
     vkCmdBeginRendering(cmd, &renderingInfo);
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline.Handle);
-
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mMainPipeline.Handle);
         common::ViewportScissor(cmd, GetTargetSize());
 
         // To-do: figure out a better way of doing this:
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline.Layout, 0,
-                                1, mCamera->DescriptorSet(), 0, nullptr);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mMainPipeline.Layout, 0, 1, mCamera->DescriptorSet(), 0,
+                                nullptr);
 
         for (auto &mesh : mMeshes)
         {
@@ -176,17 +212,46 @@ void MinimalPbrRenderer::OnRender()
                     auto &material = mMaterials.at(drawable.MaterialId);
 
                     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                            mPipeline.Layout, 1, 1,
+                                            mMainPipeline.Layout, 1, 1,
                                             &material.DescriptorSet, 0, nullptr);
 
-                    PushConstantData pcData{glm::vec4(material.AlphaCutoff), transform};
+                    MaterialPCData pcData{glm::vec4(material.AlphaCutoff), transform};
 
-                    vkCmdPushConstants(cmd, mPipeline.Layout,
+                    vkCmdPushConstants(cmd, mMainPipeline.Layout,
                                        VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
                                        &pcData);
                     vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
                 }
             }
+        }
+
+        // Draw the background:
+        if (mEnvironment)
+        {
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    mBackgroundPipeline.Layout, 0, 1,
+                                    &mEnvironmentDescriptorSet, 0, nullptr);
+
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              mBackgroundPipeline.Handle);
+            common::ViewportScissor(cmd, GetTargetSize());
+
+            auto proj = mCamera->GetProj();
+            auto view = mCamera->GetView();
+            auto inv = glm::inverse(proj * view);
+
+            BackgroundPCData pcData{};
+
+            pcData.BottomLeft = inv * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f);
+            pcData.BottomRight = inv * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+            pcData.TopLeft = inv * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f);
+            pcData.TopRight = inv * glm::vec4(1.0f, -1.0f, 1.0f, 1.0f);
+
+            vkCmdPushConstants(cmd, mBackgroundPipeline.Layout,
+                                       VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
+                                       &pcData);
+
+            vkCmdDraw(cmd, 3, 1, 0, 0);
         }
     }
     vkCmdEndRendering(cmd);
@@ -256,7 +321,7 @@ void MinimalPbrRenderer::LoadScene(Scene &scene)
     {
         mMaterialDeletionQueue.flush();
         mMaterials.clear();
-        mTextureDescriptorAllocator.ResetPools();
+        mMaterialDescriptorAllocator.ResetPools();
 
         LoadTextures(scene);
     }
@@ -266,6 +331,9 @@ void MinimalPbrRenderer::LoadScene(Scene &scene)
 
     if (scene.UpdateInstances())
         LoadInstances(scene);
+
+    if (scene.UpdateEnvironment())
+        LoadEnvironment(scene);
 }
 
 void MinimalPbrRenderer::LoadProviders(Scene &scene)
@@ -365,7 +433,8 @@ void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
         img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool,
                                         source->Path.string(), format);
     else
-        img = ImageLoaders::Image2DFromData(mCtx, mQueues.Graphics, pool, defaultData, format);
+        img = ImageLoaders::Image2DFromData(mCtx, mQueues.Graphics, pool, defaultData,
+                                            format);
 
     // auto format = img.Info.Format;
     view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -414,16 +483,16 @@ void MinimalPbrRenderer::LoadTextures(Scene &scene)
 
         // Allocate descriptor set for the texture:
         material.DescriptorSet =
-            mTextureDescriptorAllocator.Allocate(mTextureDescriptorSetLayout);
+            mMaterialDescriptorAllocator.Allocate(mMaterialDescriptorSetLayout);
     }
 
     // Update descriptor sets:
     for (const auto &material : mMaterials)
     {
         DescriptorUpdater(material.DescriptorSet)
-            .WriteImage(0, material.AlbedoView, mAlbedoSampler)
-            .WriteImage(1, material.RoughnessView, mRoughnessSampler)
-            .WriteImage(2, material.NormalView, mNormalSampler)
+            .WriteImage(0, material.AlbedoView, mSampler)
+            .WriteImage(1, material.RoughnessView, mSampler)
+            .WriteImage(2, material.NormalView, mSampler)
             .Update(mCtx);
     }
 
@@ -488,5 +557,40 @@ void MinimalPbrRenderer::LoadInstances(Scene &scene)
 
             continue;
         }
+    }
+}
+
+void MinimalPbrRenderer::LoadEnvironment(Scene &scene)
+{
+    mEnvironmentDeletionQueue.flush();
+
+    if (auto path = scene.HdriPath)
+    {
+        bool validPath = std::filesystem::is_regular_file(*path);
+
+        if (!validPath)
+        {
+            std::cerr << "Invalid hdri path: " << (*path).string() << '\n';
+            return;
+        }
+
+        auto &pool = mFrame.CurrentPool();
+
+        mEnvironmentMap = ImageLoaders::LoadHDRI(mCtx, mQueues.Graphics, pool, *path);
+
+        auto format = mEnvironmentMap.Info.Format;
+        mEnvironmentView =
+            Image::CreateView2D(mCtx, mEnvironmentMap, format, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        mEnvironmentDeletionQueue.push_back(mEnvironmentMap);
+        mEnvironmentDeletionQueue.push_back(mEnvironmentView);
+
+        // To-do: this is bad, this should probably be allocated once in the beginning
+        // and only updated afterwards:
+        DescriptorUpdater(mEnvironmentDescriptorSet)
+            .WriteImage(0, mEnvironmentView, mSampler)
+            .Update(mCtx);
+
+        mEnvironment = true;
     }
 }

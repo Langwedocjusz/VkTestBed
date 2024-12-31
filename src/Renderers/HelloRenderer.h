@@ -54,4 +54,6 @@ class HelloRenderer : public IRenderer {
     std::map<size_t, size_t> mMeshIdMap;
 
     std::vector<Mesh> mMeshes;
+
+    DeletionQueue mSceneDeletionQueue;
 };

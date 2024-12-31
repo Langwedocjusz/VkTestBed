@@ -58,7 +58,7 @@ class RenderContext {
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;
 
-    #ifdef ENABLE_TRACY_VULKAN
+#ifdef ENABLE_TRACY_VULKAN
     std::vector<TracyVkCtx> mProfilerContexts;
-    #endif
+#endif
 };

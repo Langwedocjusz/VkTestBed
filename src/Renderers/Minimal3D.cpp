@@ -19,7 +19,8 @@
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                                      RenderContext::Queues &queues,
                                      std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, queues, camera), mTextureDescriptorAllocator(ctx)
+    : IRenderer(ctx, info, queues, camera), mTextureDescriptorAllocator(ctx),
+      mSceneDeletionQueue(ctx)
 {
     // Create descriptor set layout for sampling textures
     mTextureDescriptorSetLayout =

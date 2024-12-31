@@ -11,6 +11,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <format>
+#include <iostream>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -18,6 +19,17 @@
 
 void SceneEditor::OnInit(Scene &scene)
 {
+    mHdriBrowser.AddExtensionToFilter(".exr");
+
+    mHdriBrowser.SetCallbackFn([&]() {
+        scene.HdriPath = mHdriBrowser.ChosenFile;
+        scene.RequestEnvironmentUpdate();
+    });
+
+    mHdriBrowser.SetCheckFn([](const std::filesystem::path &path) {
+        return std::filesystem::is_regular_file(path);
+    });
+
     {
         auto &mat = scene.Materials.emplace_back();
 
@@ -51,6 +63,7 @@ void SceneEditor::OnImGui(Scene &scene)
     SceneHierarchyMenu(scene);
     ObjectPropertiesMenu(scene);
     HandleNodeOp(scene);
+    SelectHdri();
 
     mModelLoader.OnImGui(scene);
 }
@@ -474,6 +487,23 @@ void SceneEditor::DataMenu(Scene &scene)
         ImGui::EndTabItem();
     }
 
+    if (ImGui::BeginTabItem("Environment"))
+    {
+        ImGui::Text("Hdri path:");
+
+        ImGui::SameLine();
+
+        std::string selText = scene.HdriPath ? (*scene.HdriPath).string() : "";
+        selText += "##HDRI";
+
+        if (ImGui::Selectable(selText.c_str()))
+        {
+            mOpenHdriPopup = true;
+        }
+
+        ImGui::EndTabItem();
+    }
+
     ImGui::EndTabBar();
 
     ImGui::End();
@@ -544,4 +574,19 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
     }
 
     ImGui::End();
+}
+
+void SceneEditor::SelectHdri()
+{
+    const std::string popupName = "Load hdri...";
+
+    if (mOpenHdriPopup)
+    {
+        ImGui::OpenPopup(popupName.c_str());
+        mOpenHdriPopup = false;
+    }
+
+    mHdriBrowser.ImGuiLoadPopup(popupName, mHdriStillOpen);
+
+    mHdriStillOpen = true;
 }

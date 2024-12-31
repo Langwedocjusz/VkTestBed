@@ -143,6 +143,7 @@ add_subdirectory(vendor/stb_image)
 add_subdirectory(vendor/fastgltf)
 add_subdirectory(vendor/efsw)
 add_subdirectory(vendor/tracy)
+add_subdirectory(vendor/tinyexr)
 
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
@@ -162,3 +163,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
 target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
 target_link_libraries(${PROJECT_NAME} PRIVATE efsw)
 target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
+target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)

@@ -12,9 +12,7 @@ class ModelLoaderGui {
     void OnImGui(Scene &scene);
 
   private:
-    void FileMenu();
     void ImportMenu(Scene &scene);
-
     void LoadModel(Scene &scene);
 
     // Templated, because it handles several types

@@ -49,3 +49,9 @@ download_git_dir("KhronosGroup/glTF-Sample-Models", "2.0/DamagedHelmet", "./asse
 
 #Sponza GLTF:
 download_git_dir("KhronosGroup/glTF-Sample-Models", "2.0/Sponza", "./assets/gltf/Sponza")
+
+#Cubemap (hdri) textures:
+download_asset(
+    "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/4k/dry_orchard_meadow_4k.exr",
+    "./assets/cubemaps"
+)

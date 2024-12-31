@@ -14,7 +14,7 @@
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                              RenderContext::Queues &queues,
                              std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, queues, camera)
+    : IRenderer(ctx, info, queues, camera), mSceneDeletionQueue(ctx)
 {
     RebuildPipelines();
     CreateSwapchainResources();

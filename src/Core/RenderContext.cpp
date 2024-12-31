@@ -46,14 +46,15 @@ RenderContext::RenderContext(VulkanContext &ctx)
     // To-do: Move this to some factory function:
     mRenderer = std::make_unique<MinimalPbrRenderer>(mCtx, mFrameInfo, mQueues, mCamera);
 
-    #ifdef ENABLE_TRACY_VULKAN
+#ifdef ENABLE_TRACY_VULKAN
     for (auto &data : mFrameInfo.Data)
     {
-        auto trCtx = TracyVkContext(mCtx.PhysicalDevice, mCtx.Device, mQueues.Graphics, data.CommandBuffer);
+        auto trCtx = TracyVkContext(mCtx.PhysicalDevice, mCtx.Device, mQueues.Graphics,
+                                    data.CommandBuffer);
 
         mProfilerContexts.push_back(trCtx);
     }
-    #endif
+#endif
 }
 
 void RenderContext::InitImGuiVulkanBackend()
@@ -67,10 +68,10 @@ void RenderContext::InitImGuiVulkanBackend()
 
 RenderContext::~RenderContext()
 {
-    #ifdef ENABLE_TRACY_VULKAN
-    for (auto& ctx : mProfilerContexts)
+#ifdef ENABLE_TRACY_VULKAN
+    for (auto &ctx : mProfilerContexts)
         TracyVkDestroy(ctx);
-    #endif
+#endif
 
     mMainDeletionQueue.flush();
 }
@@ -91,16 +92,17 @@ void RenderContext::OnRender()
 {
     auto &frame = mFrameInfo.CurrentData();
 
-    #ifdef ENABLE_TRACY_VULKAN
+#ifdef ENABLE_TRACY_VULKAN
     // 0. Periodically upload data to tracy:
     constexpr size_t frequency = 10;
-    auto frameMod = mFrameInfo.FrameNumber - (mFrameInfo.FrameNumber % mFrameInfo.MaxInFlight);
+    auto frameMod =
+        mFrameInfo.FrameNumber - (mFrameInfo.FrameNumber % mFrameInfo.MaxInFlight);
     if (frameMod % frequency == 0)
     {
         utils::ScopedCommand cmd(mCtx, mQueues.Graphics, frame.CommandPool);
         TracyVkCollect(mProfilerContexts[mFrameInfo.Index], cmd.Buffer);
     }
-    #endif
+#endif
 
     // 1. Wait for the in-Flight fence:
     vkWaitForFences(mCtx.Device, 1, &frame.InFlightFence, VK_TRUE, UINT64_MAX);
@@ -139,10 +141,10 @@ void RenderContext::DrawFrame()
     // II. Record the command buffer
     utils::BeginRecording(cmd);
     {
-        #ifdef ENABLE_TRACY_VULKAN
+#ifdef ENABLE_TRACY_VULKAN
         auto &ctx = mProfilerContexts[mFrameInfo.Index];
         TracyVkZone(ctx, cmd, "DrawFrame");
-        #endif
+#endif
 
         // 1. Transition render target to rendering:
         barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTarget());

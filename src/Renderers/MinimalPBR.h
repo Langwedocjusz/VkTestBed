@@ -32,6 +32,7 @@ class MinimalPbrRenderer : public IRenderer {
     void LoadTextures(Scene &scene);
     void LoadMeshMaterials(Scene &scene);
     void LoadInstances(Scene &scene);
+    void LoadEnvironment(Scene &scene);
 
     void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source);
     void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source,
@@ -45,7 +46,23 @@ class MinimalPbrRenderer : public IRenderer {
     Image mDepthBuffer;
     VkImageView mDepthBufferView;
 
-    Pipeline mPipeline;
+    Pipeline mMainPipeline;
+    Pipeline mBackgroundPipeline;
+
+    struct MaterialPCData {
+        // Vec4 because of std430 alignment rules:
+        glm::vec4 AlphaCutoff;
+        glm::mat4 Transform;
+    };
+
+    struct BackgroundPCData{
+        glm::vec4 TopLeft;
+        glm::vec4 TopRight;
+        glm::vec4 BottomLeft;
+        glm::vec4 BottomRight;
+    };
+
+    VkSampler mSampler;
 
     using enum Vertex::AttributeType;
 
@@ -73,8 +90,8 @@ class MinimalPbrRenderer : public IRenderer {
 
     std::map<size_t, size_t> mIdMap;
 
-    VkDescriptorSetLayout mTextureDescriptorSetLayout;
-    DescriptorAllocator mTextureDescriptorAllocator;
+    VkDescriptorSetLayout mMaterialDescriptorSetLayout;
+    DescriptorAllocator mMaterialDescriptorAllocator;
 
     struct Material {
         VkDescriptorSet DescriptorSet;
@@ -93,16 +110,15 @@ class MinimalPbrRenderer : public IRenderer {
 
     std::vector<Material> mMaterials;
 
-    // For textured pipeline to also upload alpha cutoff:
-    struct PushConstantData {
-        // Vec4 because of std430 alignment rules:
-        glm::vec4 AlphaCutoff;
-        glm::mat4 Transform;
-    };
+    bool mEnvironment = false;
+    Image mEnvironmentMap;
+    VkImageView mEnvironmentView;
+    VkDescriptorSetLayout mEnvironmentDescriptorSetLayout;
+    VkDescriptorSet mEnvironmentDescriptorSet;
 
-    VkSampler mAlbedoSampler;
-    VkSampler mRoughnessSampler;
-    VkSampler mNormalSampler;
+    DescriptorAllocator mMainDescriptorAllocator;
 
+    DeletionQueue mSceneDeletionQueue;
     DeletionQueue mMaterialDeletionQueue;
+    DeletionQueue mEnvironmentDeletionQueue;
 };

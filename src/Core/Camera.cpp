@@ -69,16 +69,16 @@ void Camera::OnUpdate(float deltatime)
     // Vectors are not updated here, since they only change on mouse input
     // which is handled on event.
 
-    auto view = glm::lookAt(mPos, mPos + mFront, mUp);
+    mView = glm::lookAt(mPos, mPos + mFront, mUp);
 
-    auto proj = ProjPerspective();
+    mProj = ProjPerspective();
 
     // To compensate for change of orientation between
     // OpenGL and Vulkan:
-    proj[1][1] *= -1;
+    mProj[1][1] *= -1;
 
     // Upload data to uniform buffer:
-    mUBOData.ViewProjection = proj * view;
+    mUBOData.ViewProjection = mProj * mView;
 
     auto &uniformBuffer = mUniformBuffers[mFrame.Index];
     Buffer::UploadToMappedBuffer(uniformBuffer, &mUBOData, sizeof(mUBOData));

@@ -31,6 +31,9 @@ class Camera {
     void OnKeyReleased(int keycode);
     void OnMouseMoved(float x, float y);
 
+    [[nodiscard]] glm::mat4 GetProj() const {return mProj;}
+    [[nodiscard]] glm::mat4 GetView() const {return mView;}
+
     enum class Movement : uint8_t
     {
         Forward,
@@ -62,6 +65,9 @@ class Camera {
 
     bool mMouseInit = true;
     float mMouseLastX = 0.0f, mMouseLastY = 0.0f;
+
+    glm::mat4 mProj;
+    glm::mat4 mView;
 
   private:
     VulkanContext &mCtx;

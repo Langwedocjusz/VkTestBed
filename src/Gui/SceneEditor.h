@@ -1,5 +1,6 @@
 #pragma once
 
+#include "FilesystemBrowser.h"
 #include "ModelLoaderGui.h"
 #include "Scene.h"
 
@@ -18,14 +19,11 @@ class SceneEditor {
                       int64_t childId = 0);
     void AddInstancePopup(Scene &scene);
 
-    struct DragPayload {
-        SceneGraphNode *Parent;
-        int64_t ChildId;
-    };
-
     void HandleSceneDropPayload(SceneGraphNode &node);
 
     void ObjectPropertiesMenu(Scene &scene);
+
+    void SelectHdri();
 
     void HandleNodeOp(Scene &scene);
     void HandleNodeMove();
@@ -33,7 +31,10 @@ class SceneEditor {
     void HandleNodeCopy(Scene &scene);
 
   private:
-    SceneGraphNode *mSelectedNode = nullptr;
+    struct DragPayload {
+        SceneGraphNode *Parent;
+        int64_t ChildId;
+    };
 
     enum class OpType
     {
@@ -52,7 +53,13 @@ class SceneEditor {
         SceneGraphNode &GetSourceNode();
         auto GetSourceNodeIterator();
     };
-    OpInfo mOpInfo;
 
+    OpInfo mOpInfo;
     ModelLoaderGui mModelLoader;
+
+    bool mOpenHdriPopup = false;
+    bool mHdriStillOpen = true;
+    FilesystemBrowser mHdriBrowser;
+
+    SceneGraphNode *mSelectedNode = nullptr;
 };

@@ -92,11 +92,11 @@ PipelineBuilder &PipelineBuilder::SetCullMode(VkCullModeFlags cullMode,
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::EnableDepthTest()
+PipelineBuilder &PipelineBuilder::EnableDepthTest(VkCompareOp compareOp)
 {
     mDepthStencil.depthTestEnable = VK_TRUE;
     mDepthStencil.depthWriteEnable = VK_TRUE;
-    mDepthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    mDepthStencil.depthCompareOp = compareOp;
     mDepthStencil.depthBoundsTestEnable = VK_FALSE;
     mDepthStencil.minDepthBounds = 0.0f; // Optional
     mDepthStencil.maxDepthBounds = 1.0f; // Optional

@@ -429,7 +429,7 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
     for (const auto &texture : mTextures)
     {
         DescriptorUpdater(texture.DescriptorSet)
-            .WriteImage(0, texture.View, mSampler)
+            .WriteImageSampler(0, texture.View, mSampler)
             .Update(mCtx);
     }
 

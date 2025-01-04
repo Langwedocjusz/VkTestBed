@@ -72,9 +72,13 @@ class ComputePipelineBuilder {
     ComputePipelineBuilder() = default;
 
     ComputePipelineBuilder &SetShaderStage(VkPipelineShaderStageCreateInfo stage);
+    ComputePipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
+    ComputePipelineBuilder &SetPushConstantSize(uint32_t size);
 
-    Pipeline Build(VulkanContext &ctx, VkDescriptorSetLayout &descriptor);
+    Pipeline Build(VulkanContext &ctx);
 
   private:
     VkPipelineShaderStageCreateInfo mShaderStage;
+    std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
+    uint32_t mPushConstantSize = 0;
 };

@@ -153,28 +153,58 @@ void RenderContext::DrawFrame()
         mRenderer->OnRender();
 
         // 3. Transition render target and swapchain image for copy
-        barrier::ImageLayoutBarrierCoarse(cmd, mRenderer->GetTarget(),
-                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        barrier::ImageLayoutBarrierCoarse(cmd, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED,
-                                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        {
+            auto info = barrier::ImageLayoutBarrierInfo{
+                .Image = mRenderer->GetTarget(),
+                .OldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+            };
+
+            barrier::ImageLayoutBarrierCoarse(cmd, info);
+        }
+
+        {
+            auto info = barrier::ImageLayoutBarrierInfo{
+                .Image = swapchainImage,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+            };
+
+            barrier::ImageLayoutBarrierCoarse(cmd, info);
+        }
 
         // 4. Copy render target to swapchain image
         utils::BlitImage(cmd, mRenderer->GetTarget(), swapchainImage,
                          mRenderer->GetTargetSize(), swapchainSize);
 
         // 5. Transition swapchain image to render
-        barrier::ImageLayoutBarrierCoarse(cmd, swapchainImage,
-                                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        {
+            auto info = barrier::ImageLayoutBarrierInfo{
+                .Image = swapchainImage,
+                .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .NewLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+            };
+
+            barrier::ImageLayoutBarrierCoarse(cmd, info);
+        }
 
         // 6. Draw the ui on top (in native res)
         DrawUI(cmd);
 
         // 7. Transition swapchain image to presentation:
-        barrier::ImageLayoutBarrierCoarse(cmd, swapchainImage,
-                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        {
+            auto info = barrier::ImageLayoutBarrierInfo{
+                .Image = swapchainImage,
+                .OldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                .NewLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+            };
+
+            barrier::ImageLayoutBarrierCoarse(cmd, info);
+        }
     }
     utils::EndRecording(cmd);
 

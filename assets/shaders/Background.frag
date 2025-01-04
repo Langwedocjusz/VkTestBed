@@ -4,7 +4,7 @@ layout(location = 0) in vec2 uv;
 
 layout(location = 0) out vec4 outColor;
 
-layout(set = 0, binding = 0) uniform sampler2D environment;
+layout(set = 0, binding = 0) uniform samplerCube environment;
 
 layout(push_constant) uniform constants {
     vec4 TopLeft;
@@ -23,15 +23,8 @@ void main()
 
     dir = normalize(dir);
 
-    //Recover equirectangular tex coords:
-    vec2 texCoord;
-    const float pi = 3.1415926535;
-
-    texCoord.x = atan(dir.x, dir.z) / (2.0 * pi);
-    texCoord.y = (asin(dir.y) / pi) + 0.5;
-
     //Sample environment:
-    vec3 col = texture(environment, texCoord).rgb;
+    vec3 col = texture(environment, dir).rgb;
 
     //Output:
     outColor = vec4(col, 1.0);

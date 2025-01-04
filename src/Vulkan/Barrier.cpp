@@ -88,15 +88,15 @@ void barrier::ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthIma
     vkCmdPipelineBarrier2(buffer, &depInfo);
 }
 
-void barrier::ImageLayoutBarrierCoarse(VkCommandBuffer buffer, VkImage image,
-                                       VkImageLayout oldLayout, VkImageLayout newLayout)
+void barrier::ImageLayoutBarrierCoarse(VkCommandBuffer buffer, ImageLayoutBarrierInfo info)
 {
     VkImageMemoryBarrier2 imageBarrier{};
     imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    imageBarrier.oldLayout = oldLayout;
-    imageBarrier.newLayout = newLayout;
-    imageBarrier.image = image;
+    imageBarrier.oldLayout = info.OldLayout;
+    imageBarrier.newLayout = info.NewLayout;
+    imageBarrier.image = info.Image;
+    imageBarrier.subresourceRange = info.SubresourceRange;
 
     // Suboptimal barrier usage - block everything:
     imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
@@ -104,13 +104,6 @@ void barrier::ImageLayoutBarrierCoarse(VkCommandBuffer buffer, VkImage image,
         VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
     imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
     imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-
-    // Guessing subresource range:
-    bool depth = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-    auto aspect = depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-
-    imageBarrier.subresourceRange =
-        VkImageSubresourceRange{static_cast<uint32_t>(aspect), 0, 1, 0, 1};
 
     VkDependencyInfo depInfo{};
     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;

@@ -1,5 +1,23 @@
 #include "Sampler.h"
 
+SamplerBuilder &SamplerBuilder::SetMagFilter(VkFilter filter)
+{
+    mMagFiler = filter;
+    return *this;
+}
+
+SamplerBuilder &SamplerBuilder::SetMinFilter(VkFilter filter)
+{
+    mMinFiler = filter;
+    return *this;
+}
+
+SamplerBuilder &SamplerBuilder::SetAddressMode(VkSamplerAddressMode adressMode)
+{
+    mAddressMode = adressMode;
+    return *this;
+}
+
 VkSampler SamplerBuilder::Build(VulkanContext &ctx)
 {
     VkSampler sampler;
@@ -34,22 +52,4 @@ VkSampler SamplerBuilder::Build(VulkanContext &ctx)
         throw std::runtime_error("Failed to create texture sampler!");
 
     return sampler;
-}
-
-SamplerBuilder &SamplerBuilder::SetMagFilter(VkFilter filter)
-{
-    mMagFiler = filter;
-    return *this;
-}
-
-SamplerBuilder &SamplerBuilder::SetMinFilter(VkFilter filter)
-{
-    mMinFiler = filter;
-    return *this;
-}
-
-SamplerBuilder &SamplerBuilder::SetAddressMode(VkSamplerAddressMode adressMode)
-{
-    mAddressMode = adressMode;
-    return *this;
 }

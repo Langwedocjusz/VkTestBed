@@ -1,6 +1,7 @@
 #include "Descriptor.h"
 
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t binding,
                                                                    VkDescriptorType type,
@@ -110,7 +111,7 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t binding,
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteImage(uint32_t binding, VkImageView imageView,
+DescriptorUpdater &DescriptorUpdater::WriteImageSampler(uint32_t binding, VkImageView imageView,
                                                  VkSampler sampler)
 {
     auto &imageInfo = mImageInfos.emplace_back();
@@ -127,6 +128,22 @@ DescriptorUpdater &DescriptorUpdater::WriteImage(uint32_t binding, VkImageView i
     return *this;
 }
 
+DescriptorUpdater &DescriptorUpdater::WriteImageStorage(uint32_t binding, VkImageView imageView)
+{
+    auto &imageInfo = mImageInfos.emplace_back();
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageInfo.imageView = imageView;
+
+    mWriteInfos.push_back(WriteInfo{
+        .Binding = binding,
+        .Type = WriteType::StorageImage,
+        .InfoId = mImageInfos.size() - 1,
+    });
+
+    return *this;
+}
+
+
 void DescriptorUpdater::Update(VulkanContext &ctx)
 {
     std::vector<VkWriteDescriptorSet> writes;
@@ -135,27 +152,29 @@ void DescriptorUpdater::Update(VulkanContext &ctx)
     {
         auto &write = writes.emplace_back();
 
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = mDescriptorSet;
+        write.dstBinding = writeInfo.Binding;
+        write.dstArrayElement = 0;
+        write.descriptorCount = 1;
+
         switch (writeInfo.Type)
         {
-        case WriteType::UniformBuffer: {
-            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstSet = mDescriptorSet;
-            write.dstBinding = writeInfo.Binding;
-            ;
-            write.dstArrayElement = 0;
+        case WriteType::UniformBuffer:
+        {
             write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            write.descriptorCount = 1;
             write.pBufferInfo = &mBufferInfos[writeInfo.InfoId];
-
             break;
         }
-        case WriteType::CombinedImageSampler: {
-            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstSet = mDescriptorSet;
-            write.dstBinding = writeInfo.Binding;
-            write.dstArrayElement = 0;
+        case WriteType::CombinedImageSampler:
+        {
             write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write.descriptorCount = 1;
+            write.pImageInfo = &mImageInfos[writeInfo.InfoId];
+            break;
+        }
+        case WriteType::StorageImage:
+        {
+            write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             write.pImageInfo = &mImageInfos[writeInfo.InfoId];
             break;
         }

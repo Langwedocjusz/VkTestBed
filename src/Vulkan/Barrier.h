@@ -9,6 +9,12 @@ void ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage image);
 
 void ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthImage);
 
-void ImageLayoutBarrierCoarse(VkCommandBuffer buffer, VkImage image,
-                              VkImageLayout oldLayout, VkImageLayout newLayout);
+struct ImageLayoutBarrierInfo{
+    VkImage Image;
+    VkImageLayout OldLayout;
+    VkImageLayout NewLayout;
+    VkImageSubresourceRange SubresourceRange;
+};
+
+void ImageLayoutBarrierCoarse(VkCommandBuffer buffer, ImageLayoutBarrierInfo info);
 } // namespace barrier

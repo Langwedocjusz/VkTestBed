@@ -41,8 +41,10 @@ class DescriptorUpdater {
                                           VkDeviceSize size);
 
     /// Uses combined sampler, with read only optimal layout
-    DescriptorUpdater &WriteImage(uint32_t binding, VkImageView imageView,
+    DescriptorUpdater &WriteImageSampler(uint32_t binding, VkImageView imageView,
                                   VkSampler sampler);
+
+    DescriptorUpdater &WriteImageStorage(uint32_t binding, VkImageView imageView);
 
     void Update(VulkanContext &ctx);
 
@@ -50,7 +52,8 @@ class DescriptorUpdater {
     enum class WriteType
     {
         UniformBuffer,
-        CombinedImageSampler
+        CombinedImageSampler,
+        StorageImage,
     };
 
     struct WriteInfo {

@@ -14,6 +14,8 @@ void EndRecording(VkCommandBuffer buffer);
 class ScopedCommand {
   public:
     ScopedCommand(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool);
+    ScopedCommand(const ScopedCommand&) = delete;
+
     ~ScopedCommand();
 
   public:

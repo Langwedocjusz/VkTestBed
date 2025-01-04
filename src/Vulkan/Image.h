@@ -19,9 +19,13 @@ struct ImageUploadInfo {
 
 struct Image {
     static Image CreateImage2D(VulkanContext &ctx, ImageInfo info);
+    static Image CreateCubemap(VulkanContext &ctx, ImageInfo info);
+
     static void DestroyImage(VulkanContext &ctx, Image &img);
 
     static VkImageView CreateView2D(VulkanContext &ctx, Image &img, VkFormat format,
+                                    VkImageAspectFlags aspectFlags);
+    static VkImageView CreateViewCube(VulkanContext &ctx, Image &img, VkFormat format,
                                     VkImageAspectFlags aspectFlags);
 
     static void UploadToImage(VulkanContext &ctx, Image img, ImageUploadInfo info);

@@ -10,6 +10,11 @@ layout(set = 1, binding = 0) uniform sampler2D albedo_map;
 layout(set = 1, binding = 1) uniform sampler2D rougness_map;
 layout(set = 1, binding = 2) uniform sampler2D normal_map;
 
+layout(set = 2, binding = 1) uniform UniformBufferObject {
+    vec4 LightDir;
+    int HdriEnabled;
+} EnvUBO;
+
 layout(push_constant) uniform constants {
     vec4 AlphaCutoff;
     mat4 Transform;
@@ -34,8 +39,10 @@ void main() {
     mat3 TBN = mat3(T,B,N);
 
     normal = normalize(TBN * normal);
+    //normal = N;
 
-    const vec3 ldir = normalize(vec3(1,-1,1));
+    vec3 ldir = EnvUBO.LightDir.xyz;
+
     float dif = dot(ldir, normal);
     dif = clamp(dif, 0.0, 1.0);
 

@@ -14,7 +14,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
 } Ubo;
 
 layout(push_constant) uniform constants {
-    vec4 AlphaCutoff;
+    vec4 OtherThings;
     mat4 Transform;
 } PushConstants;
 

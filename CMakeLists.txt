@@ -67,6 +67,8 @@ target_sources(${PROJECT_NAME}
         src/Gui/ModelLoaderGui.cpp
         src/Gui/SceneEditor.h
         src/Gui/SceneEditor.cpp
+        src/RendererComponents/EnvironmentHandler.h
+        src/RendererComponents/EnvironmentHandler.cpp
         src/Renderers/Renderer.h
         src/Renderers/HelloRenderer.h
         src/Renderers/HelloRenderer.cpp
@@ -111,6 +113,7 @@ target_include_directories(${PROJECT_NAME}
         src
         src/Core
         src/Gui
+        src/RendererComponents
         src/Renderers
         src/Vulkan
 )
@@ -119,6 +122,7 @@ target_include_directories(${PROJECT_NAME}
 source_group(src REGULAR_EXPRESSION "src/*")
 source_group(src/Core REGULAR_EXPRESSION "src/Core/*")
 source_group(src/Gui REGULAR_EXPRESSION "src/Gui/*")
+source_group(src/RendererComponents REGULAR_EXPRESSION "src/RendererComponents/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
 source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 source_group(imgui_impl FILES ${imgui_impl})

@@ -22,7 +22,7 @@ void SceneEditor::OnInit(Scene &scene)
     mHdriBrowser.AddExtensionToFilter(".exr");
 
     mHdriBrowser.SetCallbackFn([&]() {
-        scene.HdriPath = mHdriBrowser.ChosenFile;
+        scene.Env.HdriPath = mHdriBrowser.ChosenFile;
         scene.RequestEnvironmentUpdate();
     });
 
@@ -515,16 +515,46 @@ void SceneEditor::DataMenu(Scene &scene)
 
     if (ImGui::BeginTabItem("Environment"))
     {
+        if (ImGui::Checkbox("Directional light", &scene.Env.DirLightOn))
+        {
+            scene.RequestEnvironmentUpdate();
+        }
+
+        static float phi = 0.125f * 3.14f;
+        static float theta = (1.0f - 0.125f) * 3.14f;
+
+        ImGui::SliderFloat("Azimuth", &phi, 0.0f, 6.28f);
+        ImGui::SliderFloat("Altitude", &theta, 0.0f, 3.14f);
+
+        const float cT = cos(theta), sT = sin(theta);
+        const float cP = cos(phi), sP = sin(phi);
+
+        glm::vec3 newDir(cP * sT, cT, sP * sT);
+
+        if (newDir != scene.Env.LightDir)
+        {
+            scene.Env.LightDir = newDir;
+            scene.RequestEnvironmentUpdate();
+        }
+
         ImGui::Text("Hdri path:");
 
         ImGui::SameLine();
 
-        std::string selText = scene.HdriPath ? (*scene.HdriPath).string() : "";
+        std::string selText = scene.Env.HdriPath ? (*scene.Env.HdriPath).string() : "";
         selText += "##HDRI";
 
         if (ImGui::Selectable(selText.c_str()))
         {
             mOpenHdriPopup = true;
+        }
+
+        auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
+
+        if (ImGui::Button("Clear hdri", size))
+        {
+            scene.Env.HdriPath = std::nullopt;
+            scene.RequestEnvironmentUpdate();
         }
 
         ImGui::EndTabItem();

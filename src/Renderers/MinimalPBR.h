@@ -7,6 +7,7 @@
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "VertexLayout.h"
+#include "EnvironmentHandler.h"
 
 #include <vulkan/vulkan.h>
 
@@ -32,7 +33,6 @@ class MinimalPbrRenderer : public IRenderer {
     void LoadTextures(Scene &scene);
     void LoadMeshMaterials(Scene &scene);
     void LoadInstances(Scene &scene);
-    void LoadEnvironment(Scene &scene);
 
     void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source);
     void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source,
@@ -49,7 +49,6 @@ class MinimalPbrRenderer : public IRenderer {
 
     // Common resources:
     VkSampler mSampler2D;
-    DescriptorAllocator mMainDescriptorAllocator;
 
     // Main material pass:
     Pipeline mMainPipeline;
@@ -62,8 +61,8 @@ class MinimalPbrRenderer : public IRenderer {
     };
 
     struct MaterialPCData {
-        // Vec4 because of std430 alignment rules:
-        glm::vec4 AlphaCutoff;
+        float AlphaCutoff;
+        glm::vec3 Padding;
         glm::mat4 Transform;
     };
 
@@ -107,21 +106,9 @@ class MinimalPbrRenderer : public IRenderer {
     std::map<size_t, size_t> mIdMap;
 
     // Cubemap generation and background drawing:
-    bool mEnvironment = false;
-
-    Pipeline mEquiRectToCubePipeline;
-
-    VkDescriptorSetLayout mCubeGenDescriptorSetLayout;
-    VkDescriptorSet mCubeGenDescriptorSet;
-
-    struct CubeGenPCData {
-        int32_t SideId;
-    };
+    EnvironmentHandler mEnvHandler;
 
     Pipeline mBackgroundPipeline;
-
-    VkDescriptorSetLayout mEnvironmentDescriptorSetLayout;
-    VkDescriptorSet mEnvironmentDescriptorSet;
 
     struct BackgroundPCData {
         glm::vec4 TopLeft;
@@ -130,11 +117,7 @@ class MinimalPbrRenderer : public IRenderer {
         glm::vec4 BottomRight;
     };
 
-    Image mCubemap;
-    VkImageView mCubemapView;
-
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;
     DeletionQueue mMaterialDeletionQueue;
-    DeletionQueue mEnvironmentDeletionQueue;
 };

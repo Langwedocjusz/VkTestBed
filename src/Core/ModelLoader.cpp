@@ -240,10 +240,10 @@ static void RetrieveIndices(fastgltf::Asset &gltf, fastgltf::Primitive &primitiv
     });
 }
 
-static void GenerateTangents(GeometryData& geo, VertexLayout layout)
+static void GenerateTangents(GeometryData &geo, VertexLayout layout)
 {
-    struct TgtData{
-        GeometryData* Geo;
+    struct TgtData {
+        GeometryData *Geo;
         VertexLayout Layout;
     };
 
@@ -258,31 +258,30 @@ static void GenerateTangents(GeometryData& geo, VertexLayout layout)
     ctx.m_pInterface = &interface;
     ctx.m_pUserData = &data;
 
-    interface.m_getNumFaces = [](const SMikkTSpaceContext* ctx)
-    {
-        auto data = static_cast<TgtData*>(ctx->m_pUserData);
+    interface.m_getNumFaces = [](const SMikkTSpaceContext *ctx) {
+        auto data = static_cast<TgtData *>(ctx->m_pUserData);
         auto geo = data->Geo;
 
         return static_cast<int>(geo->IndexData.Count / 3);
     };
 
-    interface.m_getNumVerticesOfFace = [](const SMikkTSpaceContext* ctx, const int face)
-    {
-        (void)ctx; (void)face;
+    interface.m_getNumVerticesOfFace = [](const SMikkTSpaceContext *ctx, const int face) {
+        (void)ctx;
+        (void)face;
 
         return 3;
     };
 
-    interface.m_getPosition = [](const SMikkTSpaceContext * pContext, float fvPosOut[], const int iFace, const int iVert)
-    {
-        auto data = static_cast<TgtData*>(pContext->m_pUserData);
+    interface.m_getPosition = [](const SMikkTSpaceContext *pContext, float fvPosOut[],
+                                 const int iFace, const int iVert) {
+        auto data = static_cast<TgtData *>(pContext->m_pUserData);
         auto geo = data->Geo;
         auto layout = data->Layout;
 
-        //This is evil, but we know that underlying OpaqueBuffers
-        //have appropriate alignment
-        auto vertFloats = (float*)(geo->VertexData.Data.get());
-        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+        // This is evil, but we know that underlying OpaqueBuffers
+        // have appropriate alignment
+        auto vertFloats = (float *)(geo->VertexData.Data.get());
+        auto indices = (uint32_t *)(geo->IndexData.Data.get());
 
         auto indexId = 3 * iFace + iVert;
         auto index = indices[indexId];
@@ -293,16 +292,16 @@ static void GenerateTangents(GeometryData& geo, VertexLayout layout)
         fvPosOut[2] = vertFloats[floatIndex + 2];
     };
 
-    interface.m_getNormal = [](const SMikkTSpaceContext * pContext, float fvNormOut[], const int iFace, const int iVert)
-    {
-        auto data = static_cast<TgtData*>(pContext->m_pUserData);
+    interface.m_getNormal = [](const SMikkTSpaceContext *pContext, float fvNormOut[],
+                               const int iFace, const int iVert) {
+        auto data = static_cast<TgtData *>(pContext->m_pUserData);
         auto geo = data->Geo;
         auto layout = data->Layout;
 
-        //This is evil, but we know that underlying OpaqueBuffers
-        //have appropriate alignment
-        auto vertFloats = (float*)(geo->VertexData.Data.get());
-        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+        // This is evil, but we know that underlying OpaqueBuffers
+        // have appropriate alignment
+        auto vertFloats = (float *)(geo->VertexData.Data.get());
+        auto indices = (uint32_t *)(geo->IndexData.Data.get());
 
         auto indexId = 3 * iFace + iVert;
         auto index = indices[indexId];
@@ -313,16 +312,16 @@ static void GenerateTangents(GeometryData& geo, VertexLayout layout)
         fvNormOut[2] = vertFloats[floatIndex + 2];
     };
 
-    interface.m_getTexCoord = [](const SMikkTSpaceContext * pContext, float fvTexcOut[], const int iFace, const int iVert)
-    {
-        auto data = static_cast<TgtData*>(pContext->m_pUserData);
+    interface.m_getTexCoord = [](const SMikkTSpaceContext *pContext, float fvTexcOut[],
+                                 const int iFace, const int iVert) {
+        auto data = static_cast<TgtData *>(pContext->m_pUserData);
         auto geo = data->Geo;
         auto layout = data->Layout;
 
-        //This is evil, but we know that underlying OpaqueBuffers
-        //have appropriate alignment
-        auto vertFloats = (float*)(geo->VertexData.Data.get());
-        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+        // This is evil, but we know that underlying OpaqueBuffers
+        // have appropriate alignment
+        auto vertFloats = (float *)(geo->VertexData.Data.get());
+        auto indices = (uint32_t *)(geo->IndexData.Data.get());
 
         auto indexId = 3 * iFace + iVert;
         auto index = indices[indexId];
@@ -332,16 +331,17 @@ static void GenerateTangents(GeometryData& geo, VertexLayout layout)
         fvTexcOut[1] = vertFloats[floatIndex + 1];
     };
 
-    interface.m_setTSpaceBasic = [](const SMikkTSpaceContext * pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert)
-    {
-        auto data = static_cast<TgtData*>(pContext->m_pUserData);
+    interface.m_setTSpaceBasic = [](const SMikkTSpaceContext *pContext,
+                                    const float fvTangent[], const float fSign,
+                                    const int iFace, const int iVert) {
+        auto data = static_cast<TgtData *>(pContext->m_pUserData);
         auto geo = data->Geo;
         auto layout = data->Layout;
 
-        //This is evil, but we know that underlying OpaqueBuffers
-        //have appropriate alignment
-        auto vertFloats = (float*)(geo->VertexData.Data.get());
-        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+        // This is evil, but we know that underlying OpaqueBuffers
+        // have appropriate alignment
+        auto vertFloats = (float *)(geo->VertexData.Data.get());
+        auto indices = (uint32_t *)(geo->IndexData.Data.get());
 
         auto indexId = 3 * iFace + iVert;
         auto index = indices[indexId];
@@ -353,31 +353,59 @@ static void GenerateTangents(GeometryData& geo, VertexLayout layout)
         vertFloats[floatIndex + 3] = fSign;
     };
 
-    interface.m_setTSpace = [](const SMikkTSpaceContext * pContext, const float fvTangent[], const float fvBiTangent[], const float fMagS, const float fMagT,
-						const tbool bIsOrientationPreserving, const int iFace, const int iVert)
-    {
-        (void)fvBiTangent; (void)fMagS; (void)fMagT;
+    interface.m_setTSpace =
+        [](const SMikkTSpaceContext *pContext, const float fvTangent[],
+           const float fvBiTangent[], const float fMagS, const float fMagT,
+           const tbool bIsOrientationPreserving, const int iFace, const int iVert) {
+            (void)fvBiTangent;
+            (void)fMagS;
+            (void)fMagT;
 
-        auto data = static_cast<TgtData*>(pContext->m_pUserData);
-        auto geo = data->Geo;
-        auto layout = data->Layout;
+            auto data = static_cast<TgtData *>(pContext->m_pUserData);
+            auto geo = data->Geo;
+            auto layout = data->Layout;
 
-        //This is evil, but we know that underlying OpaqueBuffers
-        //have appropriate alignment
-        auto vertFloats = (float*)(geo->VertexData.Data.get());
-        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+            // This is evil, but we know that underlying OpaqueBuffers
+            // have appropriate alignment
+            auto vertFloats = (float *)(geo->VertexData.Data.get());
+            auto indices = (uint32_t *)(geo->IndexData.Data.get());
 
-        auto indexId = 3 * iFace + iVert;
-        auto index = indices[indexId];
-        auto floatIndex = index * layout.Stride + layout.OffsetTangent;
+            auto indexId = 3 * iFace + iVert;
+            auto index = indices[indexId];
+            auto floatIndex = index * layout.Stride + layout.OffsetTangent;
 
-        vertFloats[floatIndex + 0] = fvTangent[0];
-        vertFloats[floatIndex + 1] = fvTangent[1];
-        vertFloats[floatIndex + 2] = fvTangent[2];
-        vertFloats[floatIndex + 3] = bIsOrientationPreserving ? 1.0f : (-1.0f);
-    };
+            vertFloats[floatIndex + 0] = fvTangent[0];
+            vertFloats[floatIndex + 1] = fvTangent[1];
+            vertFloats[floatIndex + 2] = fvTangent[2];
+            vertFloats[floatIndex + 3] = bIsOrientationPreserving ? 1.0f : (-1.0f);
+        };
 
     genTangSpaceDefault(&ctx);
+}
+
+static void LoadPrimitive(std::vector<GeometryData> &output, fastgltf::Asset &gltf,
+                          fastgltf::Primitive &primitive,
+                          const ModelLoader::ModelConfig &config)
+{
+    // Retrieve essential info about the mesh primitive:
+    const size_t vertCount = GetVertexCount(gltf, primitive);
+    const size_t idxCount = GetIndexCount(gltf, primitive);
+
+    // Allocate memory for vertex and index data:
+    auto layout = GetLayout(config);
+    auto vertSize = layout.Stride * sizeof(float);
+
+    const auto spec = GeometrySpec::BuildS<uint32_t>(vertSize, vertCount, idxCount);
+
+    auto &geo = output.emplace_back(spec);
+
+    // Retrieve the data:
+    auto vertRes = RetrieveVertices(gltf, primitive, config, geo);
+    RetrieveIndices(gltf, primitive, geo);
+
+    // Generate tangents if necessary:
+    if (vertRes.GenerateTangents)
+        GenerateTangents(geo, layout);
 }
 
 GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
@@ -393,26 +421,7 @@ GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
         {
             for (auto &primitive : mesh.primitives)
             {
-                // Retrieve essential info about the mesh:
-                const size_t vertCount = GetVertexCount(gltf, primitive);
-                const size_t idxCount = GetIndexCount(gltf, primitive);
-
-                // Allocate memory for vertex and index data:
-                auto layout = GetLayout(config);
-                auto vertSize = layout.Stride * sizeof(float);
-
-                const auto spec =
-                    GeometrySpec::BuildS<uint32_t>(vertSize, vertCount, idxCount);
-
-                auto &geo = res.emplace_back(spec);
-
-                // Retrieve the data:
-                auto vertRes = RetrieveVertices(gltf, primitive, config, geo);
-                RetrieveIndices(gltf, primitive, geo);
-
-                // Generate tangents if necessary:
-                if (vertRes.GenerateTangents)
-                    GenerateTangents(geo, layout);
+                LoadPrimitive(res, gltf, primitive, config);
             }
         }
 
@@ -420,7 +429,6 @@ GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
     };
 
     return GeometryProvider{
-        // config.Filepath.stem().string(),
         layout,
         geoProvider,
     };
@@ -441,25 +449,7 @@ GeometryProvider ModelLoader::LoadPrimitive(const ModelConfig &config, int64_t m
         auto &mesh = gltf.meshes[meshId];
         auto &primitive = mesh.primitives[primitiveId];
 
-        // Retrieve essential info about the mesh:
-        const size_t vertCount = GetVertexCount(gltf, primitive);
-        const size_t idxCount = GetIndexCount(gltf, primitive);
-
-        // Allocate memory for vertex and index data
-        auto layout = GetLayout(config);
-        auto vertSize = layout.Stride * sizeof(float);
-
-        const auto spec = GeometrySpec::BuildS<uint32_t>(vertSize, vertCount, idxCount);
-
-        auto &geo = res.emplace_back(spec);
-
-        // Retrieve the data:
-        auto vertRes = RetrieveVertices(gltf, primitive, config, geo);
-        RetrieveIndices(gltf, primitive, geo);
-
-        // Generate tangents if necessary:
-        if (vertRes.GenerateTangents)
-            GenerateTangents(geo, layout);
+        LoadPrimitive(res, gltf, primitive, config);
 
         return res;
     };

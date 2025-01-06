@@ -83,14 +83,19 @@ class Scene {
     std::vector<SceneMesh> Meshes;
     std::vector<Material> Materials;
 
-    // Environment texture (hdri) path:
-    std::optional<std::filesystem::path> HdriPath;
-
     // Object instances to be rendered::
     std::vector<std::optional<SceneObject>> Objects;
 
     // Root of the scene-graph used by UI to control objects:
     SceneGraphNode GraphRoot;
+
+    // Environment configuration:
+    struct Environment {
+        bool DirLightOn;
+        glm::vec3 LightDir;
+
+        std::optional<std::filesystem::path> HdriPath;
+    } Env;
 
   private:
     enum class Update

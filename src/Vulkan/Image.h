@@ -26,7 +26,7 @@ struct Image {
     static VkImageView CreateView2D(VulkanContext &ctx, Image &img, VkFormat format,
                                     VkImageAspectFlags aspectFlags);
     static VkImageView CreateViewCube(VulkanContext &ctx, Image &img, VkFormat format,
-                                    VkImageAspectFlags aspectFlags);
+                                      VkImageAspectFlags aspectFlags);
 
     static void UploadToImage(VulkanContext &ctx, Image img, ImageUploadInfo info);
 

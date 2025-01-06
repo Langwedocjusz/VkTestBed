@@ -111,8 +111,9 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t binding,
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteImageSampler(uint32_t binding, VkImageView imageView,
-                                                 VkSampler sampler)
+DescriptorUpdater &DescriptorUpdater::WriteImageSampler(uint32_t binding,
+                                                        VkImageView imageView,
+                                                        VkSampler sampler)
 {
     auto &imageInfo = mImageInfos.emplace_back();
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -128,7 +129,8 @@ DescriptorUpdater &DescriptorUpdater::WriteImageSampler(uint32_t binding, VkImag
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteImageStorage(uint32_t binding, VkImageView imageView)
+DescriptorUpdater &DescriptorUpdater::WriteImageStorage(uint32_t binding,
+                                                        VkImageView imageView)
 {
     auto &imageInfo = mImageInfos.emplace_back();
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -142,7 +144,6 @@ DescriptorUpdater &DescriptorUpdater::WriteImageStorage(uint32_t binding, VkImag
 
     return *this;
 }
-
 
 void DescriptorUpdater::Update(VulkanContext &ctx)
 {
@@ -160,20 +161,17 @@ void DescriptorUpdater::Update(VulkanContext &ctx)
 
         switch (writeInfo.Type)
         {
-        case WriteType::UniformBuffer:
-        {
+        case WriteType::UniformBuffer: {
             write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             write.pBufferInfo = &mBufferInfos[writeInfo.InfoId];
             break;
         }
-        case WriteType::CombinedImageSampler:
-        {
+        case WriteType::CombinedImageSampler: {
             write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             write.pImageInfo = &mImageInfos[writeInfo.InfoId];
             break;
         }
-        case WriteType::StorageImage:
-        {
+        case WriteType::StorageImage: {
             write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             write.pImageInfo = &mImageInfos[writeInfo.InfoId];
             break;

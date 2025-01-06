@@ -39,7 +39,7 @@ class MinimalPbrRenderer : public IRenderer {
                          ::ImageLoaders::Image2DData &defaultData, bool unorm = false);
 
   private:
-    //Framebuffer related things:
+    // Framebuffer related things:
     const float mInternalResolutionScale = 1.0f;
     const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
 
@@ -47,11 +47,11 @@ class MinimalPbrRenderer : public IRenderer {
     Image mDepthBuffer;
     VkImageView mDepthBufferView;
 
-    //Common resources:
+    // Common resources:
     VkSampler mSampler2D;
     DescriptorAllocator mMainDescriptorAllocator;
 
-    //Main material pass:
+    // Main material pass:
     Pipeline mMainPipeline;
 
     using enum Vertex::AttributeType;
@@ -106,8 +106,7 @@ class MinimalPbrRenderer : public IRenderer {
 
     std::map<size_t, size_t> mIdMap;
 
-
-    //Cubemap generation and background drawing:
+    // Cubemap generation and background drawing:
     bool mEnvironment = false;
 
     Pipeline mEquiRectToCubePipeline;
@@ -115,7 +114,7 @@ class MinimalPbrRenderer : public IRenderer {
     VkDescriptorSetLayout mCubeGenDescriptorSetLayout;
     VkDescriptorSet mCubeGenDescriptorSet;
 
-    struct CubeGenPCData{
+    struct CubeGenPCData {
         int32_t SideId;
     };
 
@@ -134,7 +133,7 @@ class MinimalPbrRenderer : public IRenderer {
     Image mCubemap;
     VkImageView mCubemapView;
 
-    //Deletion queues:
+    // Deletion queues:
     DeletionQueue mSceneDeletionQueue;
     DeletionQueue mMaterialDeletionQueue;
     DeletionQueue mEnvironmentDeletionQueue;

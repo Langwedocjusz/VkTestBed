@@ -9,7 +9,7 @@ void ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage image);
 
 void ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthImage);
 
-struct ImageLayoutBarrierInfo{
+struct ImageLayoutBarrierInfo {
     VkImage Image;
     VkImageLayout OldLayout;
     VkImageLayout NewLayout;

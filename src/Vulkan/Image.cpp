@@ -111,7 +111,7 @@ VkImageView Image::CreateView2D(VulkanContext &ctx, Image &img, VkFormat format,
 }
 
 VkImageView Image::CreateViewCube(VulkanContext &ctx, Image &img, VkFormat format,
-                                VkImageAspectFlags aspectFlags)
+                                  VkImageAspectFlags aspectFlags)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;

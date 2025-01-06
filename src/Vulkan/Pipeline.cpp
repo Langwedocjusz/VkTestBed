@@ -268,7 +268,8 @@ ComputePipelineBuilder &ComputePipelineBuilder::SetShaderStage(
     return *this;
 }
 
-ComputePipelineBuilder &ComputePipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
+ComputePipelineBuilder &ComputePipelineBuilder::AddDescriptorSetLayout(
+    VkDescriptorSetLayout descriptor)
 {
     mDescriptorLayouts.push_back(descriptor);
 

@@ -7,6 +7,8 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 
+#include "mikktspace.h"
+
 #include <iostream>
 
 static fastgltf::Asset GetAsset(const std::filesystem::path &path,
@@ -55,19 +57,79 @@ static size_t GetVertexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primiti
     return posAccessor.count;
 }
 
-static void RetrieveVertices(fastgltf::Asset &gltf, fastgltf::Primitive &primitive,
-                             const ModelLoader::VertexConfig &config, GeometryData &geo)
+struct VertexLayout {
+    uint32_t Stride;
+    uint32_t OffsetTexCoord;
+    uint32_t OffsetNormal;
+    uint32_t OffsetTangent;
+};
+
+static VertexLayout GetLayout(const ModelLoader::ModelConfig &config)
 {
-    uint32_t vertexStride = 3;
+    VertexLayout res{
+        .Stride = 3,
+        .OffsetTexCoord = 3,
+        .OffsetNormal = 3,
+        .OffsetTangent = 3,
+    };
+
     if (config.LoadTexCoord)
-        vertexStride += 2;
+    {
+        res.Stride += 2;
+        res.OffsetNormal += 2;
+        res.OffsetTangent += 2;
+    }
+
     if (config.LoadNormals)
-        vertexStride += 3;
+    {
+        res.Stride += 3;
+        res.OffsetTangent += 3;
+    }
+
     if (config.LoadTangents)
-        vertexStride += 4;
+    {
+        res.Stride += 4;
+    }
+
+    return res;
+}
+
+static GeometryLayout GetGeoLayout(const ModelLoader::ModelConfig &config)
+{
+    using enum Vertex::AttributeType;
+
+    GeometryLayout layout{};
+    layout.IndexType = VK_INDEX_TYPE_UINT32;
+
+    layout.VertexLayout.push_back(Vec3);
+
+    if (config.LoadTexCoord)
+        layout.VertexLayout.push_back(Vec2);
+
+    if (config.LoadNormals)
+        layout.VertexLayout.push_back(Vec3);
+
+    if (config.LoadTangents)
+        layout.VertexLayout.push_back(Vec4);
+
+    return layout;
+}
+
+struct VertParsingResult {
+    bool GenerateTangents = false;
+};
+
+static VertParsingResult RetrieveVertices(fastgltf::Asset &gltf,
+                                          fastgltf::Primitive &primitive,
+                                          const ModelLoader::ModelConfig &config,
+                                          GeometryData &geo)
+{
+    VertParsingResult res{};
+
+    auto layout = GetLayout(config);
 
     auto vertCount = GetVertexCount(gltf, primitive);
-    auto compCount = vertCount * vertexStride;
+    auto compCount = vertCount * layout.Stride;
 
     auto data = new (geo.VertexData.Data.get()) float[compCount];
 
@@ -76,7 +138,7 @@ static void RetrieveVertices(fastgltf::Asset &gltf, fastgltf::Primitive &primiti
 
     fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, posAccessor,
                                                   [&](glm::vec3 v, size_t index) {
-                                                      auto idx = vertexStride * index;
+                                                      auto idx = layout.Stride * index;
 
                                                       data[idx + 0] = v.x;
                                                       data[idx + 1] = v.y;
@@ -84,67 +146,84 @@ static void RetrieveVertices(fastgltf::Asset &gltf, fastgltf::Primitive &primiti
                                                   });
 
     // Retrieve texture coords
-    auto texcoordIt = primitive.findAttribute("TEXCOORD_0");
-
-    if (config.LoadTexCoord && texcoordIt != primitive.attributes.end())
+    if (config.LoadTexCoord)
     {
-        uint32_t texOffset = 3;
+        auto texcoordIt = primitive.findAttribute("TEXCOORD_0");
 
-        fastgltf::Accessor &texcoordAccessor = gltf.accessors[texcoordIt->accessorIndex];
+        if (texcoordIt != primitive.attributes.end())
+        {
+            fastgltf::Accessor &texcoordAccessor =
+                gltf.accessors[texcoordIt->accessorIndex];
 
-        fastgltf::iterateAccessorWithIndex<glm::vec2>(
-            gltf, texcoordAccessor, [&](glm::vec2 v, size_t index) {
-                auto idx = vertexStride * index + texOffset;
+            fastgltf::iterateAccessorWithIndex<glm::vec2>(
+                gltf, texcoordAccessor, [&](glm::vec2 v, size_t index) {
+                    auto idx = layout.Stride * index + layout.OffsetTexCoord;
 
-                data[idx + 0] = v.x;
-                data[idx + 1] = v.y;
-            });
+                    data[idx + 0] = v.x;
+                    data[idx + 1] = v.y;
+                });
+        }
+
+        else
+        {
+            std::cerr << "Gltf file: " << config.Filepath.string()
+                      << "primitive doesn't contain texture coordinates.\n";
+        }
     }
 
     // Retrieve normals
-    auto normalIt = primitive.findAttribute("NORMAL");
-
-    if (config.LoadNormals && normalIt != primitive.attributes.end())
+    if (config.LoadNormals)
     {
-        uint32_t normOffset = 3;
-        if (config.LoadTexCoord)
-            normOffset += 2;
+        auto normalIt = primitive.findAttribute("NORMAL");
 
-        fastgltf::Accessor &normalAccessor = gltf.accessors[normalIt->accessorIndex];
+        if (normalIt != primitive.attributes.end())
+        {
+            fastgltf::Accessor &normalAccessor = gltf.accessors[normalIt->accessorIndex];
 
-        fastgltf::iterateAccessorWithIndex<glm::vec3>(
-            gltf, normalAccessor, [&](glm::vec3 v, size_t index) {
-                auto idx = vertexStride * index + normOffset;
+            fastgltf::iterateAccessorWithIndex<glm::vec3>(
+                gltf, normalAccessor, [&](glm::vec3 v, size_t index) {
+                    auto idx = layout.Stride * index + layout.OffsetNormal;
 
-                data[idx + 0] = v.x;
-                data[idx + 1] = v.y;
-                data[idx + 2] = v.z;
-            });
+                    data[idx + 0] = v.x;
+                    data[idx + 1] = v.y;
+                    data[idx + 2] = v.z;
+                });
+        }
+
+        else
+        {
+            std::cerr << "Gltf file: " << config.Filepath.string()
+                      << "primitive doesn't contain normals.\n";
+        }
     }
 
-    // Retrieve tangents
-    auto tangentIt = primitive.findAttribute("TANGENT");
-
-    if (config.LoadTangents && tangentIt != primitive.attributes.end())
+    // Retrieve tangents if present, schedule usage of mikktspace otherwise
+    if (config.LoadTangents)
     {
-        uint32_t tangentOffset = 3;
-        if (config.LoadTexCoord)
-            tangentOffset += 2;
-        if (config.LoadNormals)
-            tangentOffset += 3;
+        auto tangentIt = primitive.findAttribute("TANGENT");
 
-        fastgltf::Accessor &tangentAccessor = gltf.accessors[tangentIt->accessorIndex];
+        if (tangentIt != primitive.attributes.end())
+        {
+            fastgltf::Accessor &tangentAccessor =
+                gltf.accessors[tangentIt->accessorIndex];
 
-        fastgltf::iterateAccessorWithIndex<glm::vec4>(
-            gltf, tangentAccessor, [&](glm::vec4 v, size_t index) {
-                auto idx = vertexStride * index + tangentOffset;
+            fastgltf::iterateAccessorWithIndex<glm::vec4>(
+                gltf, tangentAccessor, [&](glm::vec4 v, size_t index) {
+                    auto idx = layout.Stride * index + layout.OffsetTangent;
 
-                data[idx + 0] = v.x;
-                data[idx + 1] = v.y;
-                data[idx + 2] = v.z;
-                data[idx + 3] = v.w;
-            });
+                    data[idx + 0] = v.x;
+                    data[idx + 1] = v.y;
+                    data[idx + 2] = v.z;
+                    data[idx + 3] = v.w;
+                });
+        }
+        else
+        {
+            res.GenerateTangents = true;
+        }
     }
+
+    return res;
 }
 
 static void RetrieveIndices(fastgltf::Asset &gltf, fastgltf::Primitive &primitive,
@@ -161,23 +240,149 @@ static void RetrieveIndices(fastgltf::Asset &gltf, fastgltf::Primitive &primitiv
     });
 }
 
+static void GenerateTangents(GeometryData& geo, VertexLayout layout)
+{
+    struct TgtData{
+        GeometryData* Geo;
+        VertexLayout Layout;
+    };
+
+    TgtData data{
+        .Geo = &geo,
+        .Layout = layout,
+    };
+
+    SMikkTSpaceInterface interface;
+
+    SMikkTSpaceContext ctx;
+    ctx.m_pInterface = &interface;
+    ctx.m_pUserData = &data;
+
+    interface.m_getNumFaces = [](const SMikkTSpaceContext* ctx)
+    {
+        auto data = static_cast<TgtData*>(ctx->m_pUserData);
+        auto geo = data->Geo;
+
+        return static_cast<int>(geo->IndexData.Count / 3);
+    };
+
+    interface.m_getNumVerticesOfFace = [](const SMikkTSpaceContext* ctx, const int face)
+    {
+        (void)ctx; (void)face;
+
+        return 3;
+    };
+
+    interface.m_getPosition = [](const SMikkTSpaceContext * pContext, float fvPosOut[], const int iFace, const int iVert)
+    {
+        auto data = static_cast<TgtData*>(pContext->m_pUserData);
+        auto geo = data->Geo;
+        auto layout = data->Layout;
+
+        //This is evil, but we know that underlying OpaqueBuffers
+        //have appropriate alignment
+        auto vertFloats = (float*)(geo->VertexData.Data.get());
+        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+
+        auto indexId = 3 * iFace + iVert;
+        auto index = indices[indexId];
+        auto floatIndex = index * layout.Stride;
+
+        fvPosOut[0] = vertFloats[floatIndex + 0];
+        fvPosOut[1] = vertFloats[floatIndex + 1];
+        fvPosOut[2] = vertFloats[floatIndex + 2];
+    };
+
+    interface.m_getNormal = [](const SMikkTSpaceContext * pContext, float fvNormOut[], const int iFace, const int iVert)
+    {
+        auto data = static_cast<TgtData*>(pContext->m_pUserData);
+        auto geo = data->Geo;
+        auto layout = data->Layout;
+
+        //This is evil, but we know that underlying OpaqueBuffers
+        //have appropriate alignment
+        auto vertFloats = (float*)(geo->VertexData.Data.get());
+        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+
+        auto indexId = 3 * iFace + iVert;
+        auto index = indices[indexId];
+        auto floatIndex = index * layout.Stride + layout.OffsetNormal;
+
+        fvNormOut[0] = vertFloats[floatIndex + 0];
+        fvNormOut[1] = vertFloats[floatIndex + 1];
+        fvNormOut[2] = vertFloats[floatIndex + 2];
+    };
+
+    interface.m_getTexCoord = [](const SMikkTSpaceContext * pContext, float fvTexcOut[], const int iFace, const int iVert)
+    {
+        auto data = static_cast<TgtData*>(pContext->m_pUserData);
+        auto geo = data->Geo;
+        auto layout = data->Layout;
+
+        //This is evil, but we know that underlying OpaqueBuffers
+        //have appropriate alignment
+        auto vertFloats = (float*)(geo->VertexData.Data.get());
+        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+
+        auto indexId = 3 * iFace + iVert;
+        auto index = indices[indexId];
+        auto floatIndex = index * layout.Stride + layout.OffsetTexCoord;
+
+        fvTexcOut[0] = vertFloats[floatIndex + 0];
+        fvTexcOut[1] = vertFloats[floatIndex + 1];
+    };
+
+    interface.m_setTSpaceBasic = [](const SMikkTSpaceContext * pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert)
+    {
+        auto data = static_cast<TgtData*>(pContext->m_pUserData);
+        auto geo = data->Geo;
+        auto layout = data->Layout;
+
+        //This is evil, but we know that underlying OpaqueBuffers
+        //have appropriate alignment
+        auto vertFloats = (float*)(geo->VertexData.Data.get());
+        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+
+        auto indexId = 3 * iFace + iVert;
+        auto index = indices[indexId];
+        auto floatIndex = index * layout.Stride + layout.OffsetTangent;
+
+        vertFloats[floatIndex + 0] = fvTangent[0];
+        vertFloats[floatIndex + 1] = fvTangent[1];
+        vertFloats[floatIndex + 2] = fvTangent[2];
+        vertFloats[floatIndex + 3] = fSign;
+    };
+
+    interface.m_setTSpace = [](const SMikkTSpaceContext * pContext, const float fvTangent[], const float fvBiTangent[], const float fMagS, const float fMagT,
+						const tbool bIsOrientationPreserving, const int iFace, const int iVert)
+    {
+        (void)fvBiTangent; (void)fMagS; (void)fMagT;
+
+        auto data = static_cast<TgtData*>(pContext->m_pUserData);
+        auto geo = data->Geo;
+        auto layout = data->Layout;
+
+        //This is evil, but we know that underlying OpaqueBuffers
+        //have appropriate alignment
+        auto vertFloats = (float*)(geo->VertexData.Data.get());
+        auto indices = (uint32_t*)(geo->IndexData.Data.get());
+
+        auto indexId = 3 * iFace + iVert;
+        auto index = indices[indexId];
+        auto floatIndex = index * layout.Stride + layout.OffsetTangent;
+
+        vertFloats[floatIndex + 0] = fvTangent[0];
+        vertFloats[floatIndex + 1] = fvTangent[1];
+        vertFloats[floatIndex + 2] = fvTangent[2];
+        vertFloats[floatIndex + 3] = bIsOrientationPreserving ? 1.0f : (-1.0f);
+    };
+
+    genTangSpaceDefault(&ctx);
+}
+
 GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
 {
-    using enum Vertex::AttributeType;
-
-    GeometryLayout layout{};
-    layout.IndexType = VK_INDEX_TYPE_UINT32;
-
-    layout.VertexLayout.push_back(Vec3);
-
-    if (config.Vertex.LoadTexCoord)
-        layout.VertexLayout.push_back(Vec2);
-
-    if (config.Vertex.LoadNormals)
-        layout.VertexLayout.push_back(Vec3);
-
-    if (config.Vertex.LoadTangents)
-        layout.VertexLayout.push_back(Vec4);
+    auto layout = GetGeoLayout(config);
 
     auto geoProvider = [config]() {
         std::vector<GeometryData> res;
@@ -193,13 +398,21 @@ GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
                 const size_t idxCount = GetIndexCount(gltf, primitive);
 
                 // Allocate memory for vertex and index data:
-                const auto spec = GeometrySpec::BuildS<48, uint32_t>(vertCount, idxCount);
+                auto layout = GetLayout(config);
+                auto vertSize = layout.Stride * sizeof(float);
+
+                const auto spec =
+                    GeometrySpec::BuildS<uint32_t>(vertSize, vertCount, idxCount);
 
                 auto &geo = res.emplace_back(spec);
 
                 // Retrieve the data:
-                RetrieveVertices(gltf, primitive, config.Vertex, geo);
+                auto vertRes = RetrieveVertices(gltf, primitive, config, geo);
                 RetrieveIndices(gltf, primitive, geo);
+
+                // Generate tangents if necessary:
+                if (vertRes.GenerateTangents)
+                    GenerateTangents(geo, layout);
             }
         }
 
@@ -216,10 +429,7 @@ GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
 GeometryProvider ModelLoader::LoadPrimitive(const ModelConfig &config, int64_t meshId,
                                             int64_t primitiveId)
 {
-    using enum Vertex::AttributeType;
-
-    GeometryLayout layout{.VertexLayout = {Vec3, Vec2, Vec3},
-                          .IndexType = VK_INDEX_TYPE_UINT32};
+    auto layout = GetGeoLayout(config);
 
     auto geoProvider = [config, meshId, primitiveId]() {
         std::vector<GeometryData> res;
@@ -236,13 +446,20 @@ GeometryProvider ModelLoader::LoadPrimitive(const ModelConfig &config, int64_t m
         const size_t idxCount = GetIndexCount(gltf, primitive);
 
         // Allocate memory for vertex and index data
-        const auto spec = GeometrySpec::BuildS<40, uint32_t>(vertCount, idxCount);
+        auto layout = GetLayout(config);
+        auto vertSize = layout.Stride * sizeof(float);
+
+        const auto spec = GeometrySpec::BuildS<uint32_t>(vertSize, vertCount, idxCount);
 
         auto &geo = res.emplace_back(spec);
 
         // Retrieve the data:
-        RetrieveVertices(gltf, primitive, config.Vertex, geo);
+        auto vertRes = RetrieveVertices(gltf, primitive, config, geo);
         RetrieveIndices(gltf, primitive, geo);
+
+        // Generate tangents if necessary:
+        if (vertRes.GenerateTangents)
+            GenerateTangents(geo, layout);
 
         return res;
     };

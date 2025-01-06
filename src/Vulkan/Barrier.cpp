@@ -88,7 +88,8 @@ void barrier::ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthIma
     vkCmdPipelineBarrier2(buffer, &depInfo);
 }
 
-void barrier::ImageLayoutBarrierCoarse(VkCommandBuffer buffer, ImageLayoutBarrierInfo info)
+void barrier::ImageLayoutBarrierCoarse(VkCommandBuffer buffer,
+                                       ImageLayoutBarrierInfo info)
 {
     VkImageMemoryBarrier2 imageBarrier{};
     imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;

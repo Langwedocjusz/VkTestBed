@@ -31,10 +31,10 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 {
     // Create the texture sampler:
     mSampler2D = SamplerBuilder()
-                   .SetMagFilter(VK_FILTER_LINEAR)
-                   .SetMinFilter(VK_FILTER_LINEAR)
-                   .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                   .Build(mCtx);
+                     .SetMagFilter(VK_FILTER_LINEAR)
+                     .SetMinFilter(VK_FILTER_LINEAR)
+                     .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                     .Build(mCtx);
 
     // Create descriptor set layout for sampling textures
     mMaterialDescriptorSetLayout =
@@ -58,7 +58,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         mMaterialDescriptorAllocator.OnInit(poolCounts);
     }
 
-    //Descriptor layout for generating the cubemap:
+    // Descriptor layout for generating the cubemap:
     mCubeGenDescriptorSetLayout =
         DescriptorSetLayoutBuilder()
             .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
@@ -93,7 +93,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     mCubeGenDescriptorSet =
         mMainDescriptorAllocator.Allocate(mCubeGenDescriptorSetLayout);
 
-    //Create cubemap image and view, update the descriptor:
+    // Create cubemap image and view, update the descriptor:
     constexpr uint32_t cubeSize = 1024;
 
     auto cubemapInfo = ImageInfo{
@@ -106,8 +106,8 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     mCubemap = Image::CreateCubemap(mCtx, cubemapInfo);
     mMainDeletionQueue.push_back(mCubemap);
 
-    mCubemapView =
-           Image::CreateViewCube(mCtx, mCubemap, cubemapInfo.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    mCubemapView = Image::CreateViewCube(mCtx, mCubemap, cubemapInfo.Format,
+                                         VK_IMAGE_ASPECT_COLOR_BIT);
     mMainDeletionQueue.push_back(mCubemapView);
 
     DescriptorUpdater(mEnvironmentDescriptorSet)
@@ -179,7 +179,6 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(BackgroundPCData))
-            //.AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
             .AddDescriptorSetLayout(mEnvironmentDescriptorSetLayout)
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
             .SetDepthFormat(mDepthFormat)
@@ -188,16 +187,14 @@ void MinimalPbrRenderer::RebuildPipelines()
     mPipelineDeletionQueue.push_back(mBackgroundPipeline.Handle);
     mPipelineDeletionQueue.push_back(mBackgroundPipeline.Layout);
 
-    auto equiToCubeShaderStages = ShaderBuilder()
-        .SetComputePath("assets/spirv/EquiToCubeComp.spv")
-        .Build(mCtx);
+    auto equiToCubeShaderStages =
+        ShaderBuilder().SetComputePath("assets/spirv/EquiToCubeComp.spv").Build(mCtx);
 
-    mEquiRectToCubePipeline =
-        ComputePipelineBuilder()
-            .SetShaderStage(equiToCubeShaderStages[0])
-            .AddDescriptorSetLayout(mCubeGenDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(CubeGenPCData))
-            .Build(mCtx);
+    mEquiRectToCubePipeline = ComputePipelineBuilder()
+                                  .SetShaderStage(equiToCubeShaderStages[0])
+                                  .AddDescriptorSetLayout(mCubeGenDescriptorSetLayout)
+                                  .SetPushConstantSize(sizeof(CubeGenPCData))
+                                  .Build(mCtx);
 
     mPipelineDeletionQueue.push_back(mEquiRectToCubePipeline.Handle);
     mPipelineDeletionQueue.push_back(mEquiRectToCubePipeline.Layout);
@@ -629,8 +626,8 @@ void MinimalPbrRenderer::LoadEnvironment(Scene &scene)
         // Load equirectangular environment map:
         auto envMap = ImageLoaders::LoadHDRI(mCtx, mQueues.Graphics, pool, *path);
 
-        auto envView =
-           Image::CreateView2D(mCtx, envMap, envMap.Info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+        auto envView = Image::CreateView2D(mCtx, envMap, envMap.Info.Format,
+                                           VK_IMAGE_ASPECT_COLOR_BIT);
 
         DescriptorUpdater(mCubeGenDescriptorSet)
             .WriteImageStorage(0, mCubemapView)
@@ -651,20 +648,20 @@ void MinimalPbrRenderer::LoadEnvironment(Scene &scene)
             barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
 
             vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                      mEquiRectToCubePipeline.Handle);
+                              mEquiRectToCubePipeline.Handle);
 
             vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                            mEquiRectToCubePipeline.Layout, 0, 1,
-                            &mCubeGenDescriptorSet, 0, nullptr);
+                                    mEquiRectToCubePipeline.Layout, 0, 1,
+                                    &mCubeGenDescriptorSet, 0, nullptr);
 
-            for (int32_t side=0; side<6; side++)
+            for (int32_t side = 0; side < 6; side++)
             {
                 auto pcData = CubeGenPCData{};
                 pcData.SideId = side;
 
                 vkCmdPushConstants(cmd.Buffer, mEquiRectToCubePipeline.Layout,
-                                       VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pcData),
-                                       &pcData);
+                                   VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pcData),
+                                   &pcData);
 
                 uint32_t localSizeX = 32, localSizeY = 32;
 

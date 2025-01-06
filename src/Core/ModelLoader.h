@@ -11,16 +11,13 @@ namespace ModelLoader
 // To-do: maybe use custom return type instead:
 fastgltf::Asset GetGltf(const std::filesystem::path &filepath);
 
-struct VertexConfig {
+struct ModelConfig {
+    std::filesystem::path Filepath;
+
     bool LoadTexCoord = true;
     bool LoadNormals = true;
     bool LoadTangents = true;
     bool LoadColor = false;
-};
-
-struct ModelConfig {
-    std::filesystem::path Filepath;
-    VertexConfig Vertex;
 };
 
 GeometryProvider LoadModel(const ModelConfig &config);

@@ -58,10 +58,10 @@ void ModelLoaderGui::ImportMenu(Scene &scene)
         bool v = true;
         ImGui::Checkbox("Position", &v);
 
-        ImGui::Checkbox("TexCoord", &mVertexConfig.LoadTexCoord);
-        ImGui::Checkbox("Normal", &mVertexConfig.LoadNormals);
-        ImGui::Checkbox("Tangent", &mVertexConfig.LoadTangents);
-        ImGui::Checkbox("Color", &mVertexConfig.LoadColor);
+        ImGui::Checkbox("TexCoord", &mModelConfig.LoadTexCoord);
+        ImGui::Checkbox("Normal", &mModelConfig.LoadNormals);
+        ImGui::Checkbox("Tangent", &mModelConfig.LoadTangents);
+        ImGui::Checkbox("Color", &mModelConfig.LoadColor);
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
@@ -92,19 +92,16 @@ void ModelLoaderGui::LoadModel(Scene &scene)
 {
     using namespace std::views;
 
-    // Get gltf object:
-    auto gltf = ModelLoader::GetGltf(mBrowser.ChosenFile);
+    mModelConfig.Filepath = mBrowser.ChosenFile;
 
     // Load Geo Providers:
     auto &newMesh = scene.Meshes.emplace_back();
     newMesh.Name = mBrowser.ChosenFile.stem().string();
 
-    auto config = ModelLoader::ModelConfig{
-        .Filepath = mBrowser.ChosenFile,
-        .Vertex = mVertexConfig,
-    };
+    newMesh.GeoProvider = ModelLoader::LoadModel(mModelConfig);
 
-    newMesh.GeoProvider = ModelLoader::LoadModel(config);
+    // Get gltf object:
+    auto gltf = ModelLoader::GetGltf(mBrowser.ChosenFile);
 
     // Load Materials:
     size_t matIdOffset = scene.Materials.size();

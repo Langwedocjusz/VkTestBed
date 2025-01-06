@@ -27,5 +27,8 @@ void main() {
     normal = normalize(NORMAL * aNormal);
     tangent = aTangent;
 
+    if (tangent.xyz != vec3(0))
+        tangent.xyz = normalize(NORMAL * tangent.xyz);
+
     gl_Position = MVP * vec4(aPosition, 1.0);
 }

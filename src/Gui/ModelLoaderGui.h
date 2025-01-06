@@ -53,7 +53,7 @@ class ModelLoaderGui {
     bool mFileMenuOpen = true;
     bool mImportMenuOpen = true;
 
-    ModelLoader::VertexConfig mVertexConfig;
+    ModelLoader::ModelConfig mModelConfig;
 
     struct MaterialConfig {
         bool FetchNormal = true;

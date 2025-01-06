@@ -395,11 +395,30 @@ void SceneEditor::DataMenu(Scene &scene)
     {
         using namespace std::views;
 
+        std::optional<int64_t> idToDelete;
+
         for (const auto [meshId, mesh] : enumerate(scene.Meshes))
         {
             std::string nodeName = mesh.Name + "##" + std::to_string(meshId);
 
-            if (ImGui::TreeNodeEx(nodeName.c_str()))
+            ImGuiContext &g = *GImGui;
+
+            ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
+            closeButtonPos.x +=
+                ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
+
+            bool nodeOpen = ImGui::TreeNodeEx(nodeName.c_str());
+
+            ImGuiWindow *window = ImGui::GetCurrentWindow();
+            ImGuiID id = window->GetID(nodeName.c_str());
+            ImGuiID closeButtonId = ImGui::GetIDWithSeed("#CLOSE", nullptr, id);
+
+            if (ImGui::CloseButton(closeButtonId, closeButtonPos))
+            {
+                idToDelete = meshId;
+            }
+
+            if (nodeOpen)
             {
                 // Display vertex layout:
                 std::string vertLayout = "Vertex Layout: ";
@@ -452,6 +471,13 @@ void SceneEditor::DataMenu(Scene &scene)
 
         AddProviderPopup(scene);
         ImGui::EndTabItem();
+
+        if (idToDelete)
+        {
+            auto it = scene.Meshes.begin() + (*idToDelete);
+            scene.Meshes.erase(it);
+            scene.RequestGeometryUpdate();
+        }
     }
 
     if (ImGui::BeginTabItem("Materials"))

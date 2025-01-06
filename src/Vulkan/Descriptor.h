@@ -42,7 +42,7 @@ class DescriptorUpdater {
 
     /// Uses combined sampler, with read only optimal layout
     DescriptorUpdater &WriteImageSampler(uint32_t binding, VkImageView imageView,
-                                  VkSampler sampler);
+                                         VkSampler sampler);
 
     DescriptorUpdater &WriteImageStorage(uint32_t binding, VkImageView imageView);
 

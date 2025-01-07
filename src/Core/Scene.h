@@ -91,8 +91,8 @@ class Scene {
 
     // Environment configuration:
     struct Environment {
-        bool DirLightOn;
-        glm::vec3 LightDir;
+        bool DirLightOn = true;
+        glm::vec3 LightDir = glm::vec3(-0.71f, -0.08f, 0.7f);
 
         std::optional<std::filesystem::path> HdriPath;
     } Env;

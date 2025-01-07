@@ -9,6 +9,8 @@ layout(location = 0) out vec2 texCoord;
 layout(location = 1) out vec3 normal;
 layout(location = 2) out vec4 tangent;
 
+layout(location = 3) out vec3 fragPos;
+
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 ViewProjection;
 } Ubo;
@@ -29,6 +31,8 @@ void main() {
 
     if (tangent.xyz != vec3(0))
         tangent.xyz = normalize(NORMAL * tangent.xyz);
+
+    fragPos = vec3(PushConstants.Transform * vec4(aPosition, 1.0));
 
     gl_Position = MVP * vec4(aPosition, 1.0);
 }

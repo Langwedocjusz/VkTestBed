@@ -31,6 +31,11 @@ class Camera {
     void OnKeyReleased(int keycode);
     void OnMouseMoved(float x, float y);
 
+    [[nodiscard]] glm::vec3 GetPos() const
+    {
+        return mPos;
+    }
+
     [[nodiscard]] glm::mat4 GetProj() const
     {
         return mProj;

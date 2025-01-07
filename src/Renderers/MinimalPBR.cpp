@@ -201,8 +201,11 @@ void MinimalPbrRenderer::OnRender()
                                             mMainPipeline.Layout, 1, 1,
                                             &material.DescriptorSet, 0, nullptr);
 
-                    MaterialPCData pcData{material.AlphaCutoff, glm::vec3(0.0f),
-                                          transform};
+                    MaterialPCData pcData{
+                        .AlphaCutoff = material.AlphaCutoff,
+                        .ViewPos = mCamera->GetPos(),
+                        .Transform = transform,
+                    };
 
                     vkCmdPushConstants(cmd, mMainPipeline.Layout,
                                        VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
@@ -456,7 +459,7 @@ void MinimalPbrRenderer::LoadTextures(Scene &scene)
         };
 
         TextureFromPath(material.RoughnessImage, material.RoughnessView, roughness,
-                        roughnessDefault);
+                        roughnessDefault, true);
         TextureFromPath(material.NormalImage, material.NormalView, normal, normalDefault,
                         true);
 

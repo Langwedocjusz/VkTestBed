@@ -520,8 +520,8 @@ void SceneEditor::DataMenu(Scene &scene)
             scene.RequestEnvironmentUpdate();
         }
 
-        static float phi = 0.125f * 3.14f;
-        static float theta = (1.0f - 0.125f) * 3.14f;
+        static float phi = 2.359f;
+        static float theta = 1.650f;
 
         ImGui::SliderFloat("Azimuth", &phi, 0.0f, 6.28f);
         ImGui::SliderFloat("Altitude", &theta, 0.0f, 3.14f);

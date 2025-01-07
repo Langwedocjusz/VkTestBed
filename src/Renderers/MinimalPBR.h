@@ -62,7 +62,7 @@ class MinimalPbrRenderer : public IRenderer {
 
     struct MaterialPCData {
         float AlphaCutoff;
-        glm::vec3 Padding;
+        glm::vec3 ViewPos;
         glm::mat4 Transform;
     };
 

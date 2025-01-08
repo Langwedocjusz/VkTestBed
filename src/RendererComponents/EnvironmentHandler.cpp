@@ -1,21 +1,22 @@
 #include "EnvironmentHandler.h"
 
+#include "Barrier.h"
+#include "ImageLoaders.h"
 #include "Sampler.h"
 #include "Shader.h"
-#include "Barrier.h"
 #include "Utils.h"
-#include "ImageLoaders.h"
 
-EnvironmentHandler::EnvironmentHandler(VulkanContext& ctx, FrameInfo &info, RenderContext::Queues &queues)
-    : mCtx(ctx), mFrame(info), mQueues(queues),
-    mDescriptorAllocator(ctx), mDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
+EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
+                                       RenderContext::Queues &queues)
+    : mCtx(ctx), mFrame(info), mQueues(queues), mDescriptorAllocator(ctx),
+      mDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
 {
     // Create the texture sampler:
     mSampler = SamplerBuilder()
-                     .SetMagFilter(VK_FILTER_LINEAR)
-                     .SetMinFilter(VK_FILTER_LINEAR)
-                     .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                     .Build(mCtx);
+                   .SetMagFilter(VK_FILTER_LINEAR)
+                   .SetMinFilter(VK_FILTER_LINEAR)
+                   .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                   .Build(mCtx);
     mDeletionQueue.push_back(mSampler);
 
     // Descriptor layout for generating the cubemap:
@@ -53,8 +54,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext& ctx, FrameInfo &info, Rend
     mEnvironmentDescriptorSet =
         mDescriptorAllocator.Allocate(mEnvironmentDescriptorSetLayout);
 
-    mCubeGenDescriptorSet =
-        mDescriptorAllocator.Allocate(mCubeGenDescriptorSetLayout);
+    mCubeGenDescriptorSet = mDescriptorAllocator.Allocate(mCubeGenDescriptorSetLayout);
 
     // Create cubemap image and view:
     constexpr uint32_t cubeSize = 1024;
@@ -64,6 +64,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext& ctx, FrameInfo &info, Rend
         .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .MipLevels = 1,
     };
 
     mCubemap = Image::CreateCubemap(mCtx, cubemapInfo);
@@ -113,7 +114,7 @@ void EnvironmentHandler::RebuildPipelines()
     mPipelineDeletionQueue.push_back(mEquiRectToCubePipeline.Layout);
 }
 
-void EnvironmentHandler::LoadEnvironment(Scene& scene)
+void EnvironmentHandler::LoadEnvironment(Scene &scene)
 {
     auto &path = scene.Env.HdriPath;
 

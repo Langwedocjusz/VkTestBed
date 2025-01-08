@@ -20,12 +20,12 @@ Image Image::CreateImage2D(VulkanContext &ctx, ImageInfo info)
     imageInfo.extent = info.Extent;
     imageInfo.format = info.Format;
     imageInfo.usage = info.Usage;
+    imageInfo.mipLevels = info.MipLevels;
     // This is actual order of pixels in memory, not sampler tiling:
     imageInfo.tiling = info.Tiling;
 
     // Hardcoded part:
     imageInfo.flags = 0;
-    imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     // Only other option is PREINITIALIZED:
@@ -98,7 +98,7 @@ VkImageView Image::CreateView2D(VulkanContext &ctx, Image &img, VkFormat format,
 
     // Hardcoded for now:
     viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.levelCount = img.Info.MipLevels;
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
@@ -135,7 +135,7 @@ VkImageView Image::CreateViewCube(VulkanContext &ctx, Image &img, VkFormat forma
     return imageView;
 }
 
-void Image::UploadToImage(VulkanContext &ctx, Image img, ImageUploadInfo info)
+void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
 {
     // Create buffer and upload image data
     Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
@@ -146,11 +146,12 @@ void Image::UploadToImage(VulkanContext &ctx, Image img, ImageUploadInfo info)
         utils::ScopedCommand cmd(ctx, info.Queue, info.Pool);
 
         // Change image layout to transfer destination:
+        // Transitions all mip levels to dst layout
         auto barrierInfo = barrier::ImageLayoutBarrierInfo{
             .Image = img.Handle,
             .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.MipLevels, 0, 1},
         };
 
         barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
@@ -182,4 +183,84 @@ void Image::UploadToImage(VulkanContext &ctx, Image img, ImageUploadInfo info)
     }
 
     Buffer::DestroyBuffer(ctx, stagingBuffer);
+}
+
+void Image::GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+                         Image &img)
+{
+    utils::ScopedCommand cmd(ctx, queue, pool);
+
+    VkExtent3D srcSize = img.Info.Extent;
+    VkExtent3D dstSize = img.Info.Extent;
+
+    dstSize.width /= 2;
+    dstSize.height /= 2;
+
+    for (uint32_t mip = 1; mip < img.Info.MipLevels; mip++)
+    {
+        auto srcInfo = barrier::ImageLayoutBarrierInfo{
+            .Image = img.Handle,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 1, 0, 1},
+        };
+
+        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, srcInfo);
+
+        auto dstInfo = barrier::ImageLayoutBarrierInfo{
+            .Image = img.Handle,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, 0, 1},
+        };
+
+        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, dstInfo);
+
+        VkImageBlit2 blitRegion{};
+        blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+
+        blitRegion.srcOffsets[1].x = srcSize.width;
+        blitRegion.srcOffsets[1].y = srcSize.height;
+        blitRegion.srcOffsets[1].z = 1;
+
+        blitRegion.dstOffsets[1].x = dstSize.width;
+        blitRegion.dstOffsets[1].y = dstSize.height;
+        blitRegion.dstOffsets[1].z = 1;
+
+        blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blitRegion.srcSubresource.baseArrayLayer = 0;
+        blitRegion.srcSubresource.layerCount = 1;
+        blitRegion.srcSubresource.mipLevel = mip - 1;
+
+        blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blitRegion.dstSubresource.baseArrayLayer = 0;
+        blitRegion.dstSubresource.layerCount = 1;
+        blitRegion.dstSubresource.mipLevel = mip;
+
+        VkBlitImageInfo2 blitInfo{};
+        blitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+        blitInfo.dstImage = img.Handle;
+        blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        blitInfo.srcImage = img.Handle;
+        blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        blitInfo.filter = VK_FILTER_LINEAR;
+        blitInfo.regionCount = 1;
+        blitInfo.pRegions = &blitRegion;
+
+        vkCmdBlitImage2(cmd.Buffer, &blitInfo);
+
+        srcSize.width /= 2;
+        srcSize.height /= 2;
+        dstSize.width /= 2;
+        dstSize.height /= 2;
+    }
+
+    auto finalInfo = barrier::ImageLayoutBarrierInfo{
+        .Image = img.Handle,
+        .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.MipLevels, 0, 1},
+    };
+
+    barrier::ImageLayoutBarrierCoarse(cmd.Buffer, finalInfo);
 }

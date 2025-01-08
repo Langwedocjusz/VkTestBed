@@ -253,6 +253,7 @@ void Minimal3DRenderer::CreateSwapchainResources()
         .Format = mRenderTargetFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = drawUsage,
+        .MipLevels = 1,
     };
 
     mRenderTarget = Image::CreateImage2D(mCtx, renderTargetInfo);
@@ -264,10 +265,13 @@ void Minimal3DRenderer::CreateSwapchainResources()
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 
     // Create depth buffer:
-    ImageInfo depthBufferInfo{.Extent = drawExtent,
-                              .Format = mDepthFormat,
-                              .Tiling = VK_IMAGE_TILING_OPTIMAL,
-                              .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT};
+    ImageInfo depthBufferInfo{
+        .Extent = drawExtent,
+        .Format = mDepthFormat,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .MipLevels = 1,
+    };
 
     mDepthBuffer = Image::CreateImage2D(mCtx, depthBufferInfo);
     mDepthBufferView =

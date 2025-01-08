@@ -3,27 +3,37 @@
 #include "DeletionQueue.h"
 #include "Descriptor.h"
 #include "Pipeline.h"
+#include "RenderContext.h"
 #include "Scene.h"
 #include "VulkanContext.h"
-#include "RenderContext.h"
 
 #include <filesystem>
 #include <glm/glm.hpp>
 
-class EnvironmentHandler{
+class EnvironmentHandler {
   public:
-    EnvironmentHandler(VulkanContext& ctx, FrameInfo &info, RenderContext::Queues &queues);
+    EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
+                       RenderContext::Queues &queues);
     ~EnvironmentHandler();
 
     void RebuildPipelines();
     void LoadEnvironment(Scene &scene);
 
-    [[nodiscard]] bool HdriEnabled() const {return mEnvUBOData.HdriEnabled;}
-    [[nodiscard]] VkDescriptorSet* GetDescriptorSetPtr() {return &mEnvironmentDescriptorSet;}
-    [[nodiscard]] VkDescriptorSetLayout GetDescriptorLayout() const {return mEnvironmentDescriptorSetLayout;}
+    [[nodiscard]] bool HdriEnabled() const
+    {
+        return mEnvUBOData.HdriEnabled;
+    }
+    [[nodiscard]] VkDescriptorSet *GetDescriptorSetPtr()
+    {
+        return &mEnvironmentDescriptorSet;
+    }
+    [[nodiscard]] VkDescriptorSetLayout GetDescriptorLayout() const
+    {
+        return mEnvironmentDescriptorSetLayout;
+    }
 
   private:
-    VulkanContext& mCtx;
+    VulkanContext &mCtx;
     FrameInfo &mFrame;
     RenderContext::Queues &mQueues;
 

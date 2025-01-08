@@ -25,10 +25,8 @@
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        RenderContext::Queues &queues,
                                        std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, queues, camera),
-      mMaterialDescriptorAllocator(ctx),
-      mEnvHandler(ctx, info, queues),
-      mSceneDeletionQueue(ctx),
+    : IRenderer(ctx, info, queues, camera), mMaterialDescriptorAllocator(ctx),
+      mEnvHandler(ctx, info, queues), mSceneDeletionQueue(ctx),
       mMaterialDeletionQueue(ctx)
 {
     // Create the texture sampler:
@@ -36,6 +34,8 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                      .SetMagFilter(VK_FILTER_LINEAR)
                      .SetMinFilter(VK_FILTER_LINEAR)
                      .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                     .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
+                     .SetMaxLod(12.0f)
                      .Build(mCtx);
     mMainDeletionQueue.push_back(mSampler2D);
 
@@ -131,7 +131,7 @@ void MinimalPbrRenderer::RebuildPipelines()
     mPipelineDeletionQueue.push_back(mBackgroundPipeline.Handle);
     mPipelineDeletionQueue.push_back(mBackgroundPipeline.Layout);
 
-    //Rebuild env handler pipelines as well:
+    // Rebuild env handler pipelines as well:
     mEnvHandler.RebuildPipelines();
 }
 
@@ -174,8 +174,8 @@ void MinimalPbrRenderer::OnRender()
                                 nullptr);
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mMainPipeline.Layout, 2, 1, mEnvHandler.GetDescriptorSetPtr(), 0,
-                                nullptr);
+                                mMainPipeline.Layout, 2, 1,
+                                mEnvHandler.GetDescriptorSetPtr(), 0, nullptr);
 
         for (auto &mesh : mMeshes)
         {
@@ -271,6 +271,7 @@ void MinimalPbrRenderer::CreateSwapchainResources()
         .Format = mRenderTargetFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = drawUsage,
+        .MipLevels = 1,
     };
 
     mRenderTarget = Image::CreateImage2D(mCtx, renderTargetInfo);
@@ -282,10 +283,13 @@ void MinimalPbrRenderer::CreateSwapchainResources()
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 
     // Create depth buffer:
-    ImageInfo depthBufferInfo{.Extent = drawExtent,
-                              .Format = mDepthFormat,
-                              .Tiling = VK_IMAGE_TILING_OPTIMAL,
-                              .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT};
+    ImageInfo depthBufferInfo{
+        .Extent = drawExtent,
+        .Format = mDepthFormat,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .MipLevels = 1,
+    };
 
     mDepthBuffer = Image::CreateImage2D(mCtx, depthBufferInfo);
     mDepthBufferView =
@@ -403,7 +407,8 @@ void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
 {
     auto &pool = mFrame.CurrentPool();
 
-    img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, source->Path.string());
+    img =
+        ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, source->Path.string());
 
     auto format = img.Info.Format;
     view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -419,8 +424,8 @@ void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
     auto format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 
     if (source)
-        img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool,
-                                        source->Path.string(), format);
+        img = ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool,
+                                           source->Path.string(), format);
     else
         img = ImageLoaders::Image2DFromData(mCtx, mQueues.Graphics, pool, defaultData,
                                             format);

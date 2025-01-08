@@ -21,8 +21,13 @@ static std::tuple<VkDeviceSize, VkExtent3D> RepackImgData(int width, int height,
     return {size, extent};
 }
 
-Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
-                                const std::string &path, VkFormat format)
+static uint32_t CalcNumMips(int width, int height)
+{
+    return static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+}
+
+static Image LoadImage2DImpl(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+                             const std::string &path, VkFormat format, bool allocMips)
 {
     int texWidth, texHeight, texChannels;
     stbi_uc *pixels =
@@ -38,11 +43,19 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool
 
     auto [imageSize, extent] = RepackImgData(texWidth, texHeight, 4);
 
+    uint32_t mipLevels = allocMips ? CalcNumMips(texWidth, texHeight) : 1;
+
+    uint32_t usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    if (allocMips)
+        usage = usage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
     ImageInfo img_info{
         .Extent = extent,
         .Format = format,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .Usage = usage,
+        .MipLevels = mipLevels,
     };
 
     Image img = Image::CreateImage2D(ctx, img_info);
@@ -56,10 +69,23 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool
     };
 
     Image::UploadToImage(ctx, img, data_info);
+    Image::GenerateMips(ctx, queue, pool, img);
 
     stbi_image_free(pixels);
 
     return img;
+}
+
+Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+                                const std::string &path, VkFormat format)
+{
+    return LoadImage2DImpl(ctx, queue, pool, path, format, false);
+}
+
+Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+                                   const std::string &path, VkFormat format)
+{
+    return LoadImage2DImpl(ctx, queue, pool, path, format, true);
 }
 
 static float *LoadImageEXR(int &width, int &height, const std::string &path)
@@ -94,13 +120,12 @@ Image ImageLoaders::LoadHDRI(VulkanContext &ctx, VkQueue queue, VkCommandPool po
     // Create vulkan image and upload data:
     auto [imageSize, extent] = RepackImgData(width, height, 4, 4);
 
-    VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
-
     ImageInfo img_info{
         .Extent = extent,
-        .Format = format,
+        .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .MipLevels = 1,
     };
 
     Image img = Image::CreateImage2D(ctx, img_info);
@@ -133,6 +158,7 @@ Image ImageLoaders::Image2DFromData(VulkanContext &ctx, VkQueue queue, VkCommand
         .Format = format,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .MipLevels = 1,
     };
 
     Image img = Image::CreateImage2D(ctx, img_info);

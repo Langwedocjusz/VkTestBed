@@ -18,6 +18,18 @@ SamplerBuilder &SamplerBuilder::SetAddressMode(VkSamplerAddressMode adressMode)
     return *this;
 }
 
+SamplerBuilder &SamplerBuilder::SetMipmapMode(VkSamplerMipmapMode mipmapMode)
+{
+    mMipmapMode = mipmapMode;
+    return *this;
+}
+
+SamplerBuilder &SamplerBuilder::SetMaxLod(float maxLod)
+{
+    mMaxLod = maxLod;
+    return *this;
+}
+
 VkSampler SamplerBuilder::Build(VulkanContext &ctx)
 {
     VkSampler sampler;
@@ -43,10 +55,10 @@ VkSampler SamplerBuilder::Build(VulkanContext &ctx)
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
 
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipmapMode = mMipmapMode;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
+    samplerInfo.maxLod = mMaxLod;
 
     if (vkCreateSampler(ctx.Device, &samplerInfo, nullptr, &sampler) != VK_SUCCESS)
         throw std::runtime_error("Failed to create texture sampler!");

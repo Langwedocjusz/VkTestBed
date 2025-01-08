@@ -2,12 +2,12 @@
 
 #include "DeletionQueue.h"
 #include "Descriptor.h"
+#include "EnvironmentHandler.h"
 #include "GeometryProvider.h"
 #include "ImageLoaders.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "VertexLayout.h"
-#include "EnvironmentHandler.h"
 
 #include <vulkan/vulkan.h>
 

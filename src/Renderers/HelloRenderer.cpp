@@ -135,6 +135,7 @@ void HelloRenderer::CreateSwapchainResources()
         .Format = mRenderTargetFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = drawUsage,
+        .MipLevels = 1,
     };
 
     mRenderTarget = Image::CreateImage2D(mCtx, renderTargetInfo);

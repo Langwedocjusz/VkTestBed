@@ -7,6 +7,7 @@ struct ImageInfo {
     VkFormat Format;
     VkImageTiling Tiling;
     VkImageUsageFlags Usage;
+    uint32_t MipLevels;
 };
 
 struct ImageUploadInfo {
@@ -28,7 +29,9 @@ struct Image {
     static VkImageView CreateViewCube(VulkanContext &ctx, Image &img, VkFormat format,
                                       VkImageAspectFlags aspectFlags);
 
-    static void UploadToImage(VulkanContext &ctx, Image img, ImageUploadInfo info);
+    static void UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info);
+    static void GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+                             Image &img);
 
     VkImage Handle;
     VmaAllocation Allocation;

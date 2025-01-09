@@ -1,5 +1,5 @@
 #include "Buffer.h"
-#include "DeletionQueue.h"
+#include "Utils.h"
 
 #include <vulkan/vulkan.h>
 
@@ -59,24 +59,26 @@ Buffer Buffer::CreateMappedUniformBuffer(VulkanContext &ctx, VkDeviceSize size)
     return CreateBuffer(ctx, size, usage, flags);
 }
 
-Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, VkCommandBuffer cmd,
-                               GPUBufferInfo info)
+Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info)
 {
     const auto usage = info.Usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    Buffer buff;
-    buff = CreateBuffer(ctx, info.Size, usage, info.Properties);
+    Buffer buff = CreateBuffer(ctx, info.Size, usage, info.Properties);
 
     Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
     UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);
 
-    CopyBufferInfo cp_info{
-        .Src = stagingBuffer.Handle,
-        .Dst = buff.Handle,
-        .Size = info.Size,
-    };
+    {
+        utils::ScopedCommand cmd(info.Ctx, info.Queue, info.Pool);
 
-    CopyBuffer(cmd, cp_info);
+        CopyBufferInfo cp_info{
+            .Src = stagingBuffer.Handle,
+            .Dst = buff.Handle,
+            .Size = info.Size,
+        };
+
+        CopyBuffer(cmd.Buffer, cp_info);
+    }
 
     DestroyBuffer(ctx, stagingBuffer);
 

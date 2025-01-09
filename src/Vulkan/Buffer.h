@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanContext.h"
+#include <vulkan/vulkan_core.h>
 
 struct CopyBufferInfo {
     VkBuffer Src;
@@ -9,6 +10,9 @@ struct CopyBufferInfo {
 };
 
 struct GPUBufferInfo {
+    VulkanContext &Ctx;
+    VkQueue Queue;
+    VkCommandPool Pool;
     VkBufferUsageFlags Usage;
     VkMemoryPropertyFlags Properties;
     VkDeviceSize Size;
@@ -27,8 +31,7 @@ struct Buffer {
 
     static Buffer CreateStagingBuffer(VulkanContext &ctx, VkDeviceSize size);
     static Buffer CreateMappedUniformBuffer(VulkanContext &ctx, VkDeviceSize size);
-    static Buffer CreateGPUBuffer(VulkanContext &ctx, VkCommandBuffer cmd,
-                                  GPUBufferInfo info);
+    static Buffer CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info);
 
     static void CopyBuffer(VkCommandBuffer cmd, CopyBufferInfo info);
 

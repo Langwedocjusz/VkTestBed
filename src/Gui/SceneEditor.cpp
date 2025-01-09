@@ -381,9 +381,9 @@ void SceneEditor::DataMenu(Scene &scene)
 {
     ImGui::Begin("Scene data", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);
 
-    auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
+    auto buttonSize = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
 
-    if (ImGui::Button("Full reload", size))
+    if (ImGui::Button("Full reload", buttonSize))
     {
         scene.RequestMaterialUpdate();
         scene.RequestGeometryUpdate();
@@ -410,8 +410,8 @@ void SceneEditor::DataMenu(Scene &scene)
             bool nodeOpen = ImGui::TreeNodeEx(nodeName.c_str());
 
             ImGuiWindow *window = ImGui::GetCurrentWindow();
-            ImGuiID id = window->GetID(nodeName.c_str());
-            ImGuiID closeButtonId = ImGui::GetIDWithSeed("#CLOSE", nullptr, id);
+            ImGuiID windowId = window->GetID(nodeName.c_str());
+            ImGuiID closeButtonId = ImGui::GetIDWithSeed("#CLOSE", nullptr, windowId);
 
             if (ImGui::CloseButton(closeButtonId, closeButtonPos))
             {

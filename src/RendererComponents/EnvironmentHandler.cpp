@@ -132,7 +132,8 @@ void EnvironmentHandler::LoadEnvironment(Scene &scene)
         auto &pool = mFrame.CurrentPool();
 
         // Load equirectangular environment map:
-        auto envMap = ImageLoaders::LoadHDRI(mCtx, mQueues.Graphics, pool, *path);
+        auto pathStr = (*path).string();
+        auto envMap = ImageLoaders::LoadHDRI(mCtx, mQueues.Graphics, pool, pathStr);
 
         auto envView = Image::CreateView2D(mCtx, envMap, envMap.Info.Format,
                                            VK_IMAGE_ASPECT_COLOR_BIT);

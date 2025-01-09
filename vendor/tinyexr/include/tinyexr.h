@@ -4861,7 +4861,9 @@ static int LevelIndex(int lx, int ly, int tile_level_mode, int num_x_levels) {
   default:
     return -1;
   }
-  return 0;
+  //Triggers MSVC Unreachable Code Error
+  //Even when declaring header as SYSTEM in Cmake
+  //return 0;
 }
 
 static int LevelSize(int toplevel_size, int level, int tile_rounding_mode) {

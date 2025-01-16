@@ -4,7 +4,7 @@
 #include "ImageLoaders.h"
 #include "Sampler.h"
 #include "Shader.h"
-#include "Utils.h"
+#include "VkUtils.h"
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
                                        RenderContext::Queues &queues)
@@ -146,7 +146,7 @@ void EnvironmentHandler::LoadEnvironment(Scene &scene)
         // Sample equirectangular map to cubemap
         // using a compute pipeline:
         {
-            utils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+            vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
 
             auto barrierInfo = barrier::ImageLayoutBarrierInfo{
                 .Image = mCubemap.Handle,

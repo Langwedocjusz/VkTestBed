@@ -2,7 +2,7 @@
 
 #include "Buffer.h"
 #include "GeometryProvider.h"
-#include "Utils.h"
+#include "VkUtils.h"
 #include "VulkanContext.h"
 
 namespace VertexBuffer

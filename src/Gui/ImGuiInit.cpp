@@ -80,7 +80,7 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPo
         &ctx.Swapchain.image_format;
 
     // init_info.PipelineRenderingCreateInfo.depthAttachmentFormat =
-    //     utils::FindDepthFormat(ctx);
+    //     vkutils::FindDepthFormat(ctx);
 
     ImGui_ImplVulkan_Init(&init_info);
 }

@@ -2,21 +2,30 @@
 
 #include "Barrier.h"
 #include "Common.h"
+#include "Frame.h"
 #include "HelloRenderer.h"
 #include "ImGuiInit.h"
+#include "Keycodes.h"
 #include "Minimal3D.h"
 #include "MinimalPBR.h"
 #include "Renderer.h"
-#include "Utils.h"
 #include "VkInit.h"
+#include "VkUtils.h"
 
+#include <iostream>
 #include <memory>
+#include <vulkan/vulkan_core.h>
+
+#include "ImGuiUtils.h"
 
 RenderContext::RenderContext(VulkanContext &ctx)
     : mCtx(ctx), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
 {
     // Create queues:
-    mQueues.Graphics = vkinit::CreateQueue(ctx, vkb::QueueType::graphics);
+    VkQueueFamilyProperties graphicsProperties;
+
+    mQueues.Graphics =
+        vkinit::CreateQueue(ctx, vkb::QueueType::graphics, graphicsProperties);
     mQueues.Present = vkinit::CreateQueue(ctx, vkb::QueueType::present);
 
     // Create per frame command pools/buffers and sync-objects:
@@ -40,21 +49,58 @@ RenderContext::RenderContext(VulkanContext &ctx)
         mMainDeletionQueue.push_back(data.RenderCompletedSemaphore);
     }
 
+    // Timing setup based on:
+    // https://docs.vulkan.org/samples/latest/samples/api/timestamp_queries/README.html
+    // Check for timestamp support:
+    auto &limits = mCtx.PhysicalDevice.properties.limits;
+
+    mTimestampPeriod = limits.timestampPeriod;
+    mTimestampSupported = (mTimestampPeriod != 0.0);
+
+    if (!limits.timestampComputeAndGraphics)
+    {
+        if (graphicsProperties.timestampValidBits == 0)
+        {
+            mTimestampSupported = false;
+        }
+    }
+
+    if (mTimestampSupported)
+    {
+        // Create the query pool:
+        VkQueryPoolCreateInfo queryPoolInfo{};
+        queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+        queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+        queryPoolInfo.queryCount = static_cast<uint32_t>(mNumTimestamps);
+
+        auto queryRes =
+            vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr, &mQueryPool);
+
+        if (queryRes == VK_SUCCESS)
+        {
+            // Reset all timestamps preemptively
+            {
+                auto &pool = mFrameInfo.CurrentPool();
+                auto cmd = vkutils::ScopedCommand(mCtx, mQueues.Graphics, pool);
+
+                vkCmdResetQueryPool(cmd.Buffer, mQueryPool, 0, mNumTimestamps);
+            }
+
+            mMainDeletionQueue.push_back(mQueryPool);
+        }
+
+        else
+            mTimestampSupported = false;
+    }
+
+    if (!mTimestampSupported)
+        std::cout << "Timestamp queries not supported!\n";
+
     // Create the camera
     mCamera = std::make_unique<Camera>(mCtx, mFrameInfo);
 
     // To-do: Move this to some factory function:
     mRenderer = std::make_unique<MinimalPbrRenderer>(mCtx, mFrameInfo, mQueues, mCamera);
-
-#ifdef ENABLE_TRACY_VULKAN
-    for (auto &data : mFrameInfo.Data)
-    {
-        auto trCtx = TracyVkContext(mCtx.PhysicalDevice, mCtx.Device, mQueues.Graphics,
-                                    data.CommandBuffer);
-
-        mProfilerContexts.push_back(trCtx);
-    }
-#endif
 }
 
 void RenderContext::InitImGuiVulkanBackend()
@@ -68,11 +114,6 @@ void RenderContext::InitImGuiVulkanBackend()
 
 RenderContext::~RenderContext()
 {
-#ifdef ENABLE_TRACY_VULKAN
-    for (auto &ctx : mProfilerContexts)
-        TracyVkDestroy(ctx);
-#endif
-
     mMainDeletionQueue.flush();
 }
 
@@ -80,29 +121,22 @@ void RenderContext::OnUpdate(float deltaTime)
 {
     mCamera->OnUpdate(deltaTime);
     mRenderer->OnUpdate(deltaTime);
+
+    mFrameInfo.Stats.CPUTime = 1000.0f * deltaTime;
 }
 
 void RenderContext::OnImGui()
 {
     mRenderer->OnImGui();
     mCamera->OnImGui();
+
+    if (mShowStats)
+        imutils::DisplayStats(mFrameInfo.Stats);
 }
 
 void RenderContext::OnRender()
 {
     auto &frame = mFrameInfo.CurrentData();
-
-#ifdef ENABLE_TRACY_VULKAN
-    // 0. Periodically upload data to tracy:
-    constexpr size_t frequency = 10;
-    auto frameMod =
-        mFrameInfo.FrameNumber - (mFrameInfo.FrameNumber % mFrameInfo.MaxInFlight);
-    if (frameMod % frequency == 0)
-    {
-        utils::ScopedCommand cmd(mCtx, mQueues.Graphics, frame.CommandPool);
-        TracyVkCollect(mProfilerContexts[mFrameInfo.Index], cmd.Buffer);
-    }
-#endif
 
     // 1. Wait for the in-Flight fence:
     vkWaitForFences(mCtx.Device, 1, &frame.InFlightFence, VK_TRUE, UINT64_MAX);
@@ -139,12 +173,11 @@ void RenderContext::DrawFrame()
     vkResetCommandBuffer(cmd, 0);
 
     // II. Record the command buffer
-    utils::BeginRecording(cmd);
+    vkutils::BeginRecording(cmd);
     {
-#ifdef ENABLE_TRACY_VULKAN
-        auto &ctx = mProfilerContexts[mFrameInfo.Index];
-        TracyVkZone(ctx, cmd, "DrawFrame");
-#endif
+        vkCmdResetQueryPool(cmd, mQueryPool, 2 * mFrameInfo.Index, 2);
+        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, mQueryPool,
+                            2 * mFrameInfo.Index);
 
         // 1. Transition render target to rendering:
         barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTarget());
@@ -176,8 +209,8 @@ void RenderContext::DrawFrame()
         }
 
         // 4. Copy render target to swapchain image
-        utils::BlitImage(cmd, mRenderer->GetTarget(), swapchainImage,
-                         mRenderer->GetTargetSize(), swapchainSize);
+        vkutils::BlitImage(cmd, mRenderer->GetTarget(), swapchainImage,
+                           mRenderer->GetTargetSize(), swapchainSize);
 
         // 5. Transition swapchain image to render
         {
@@ -205,11 +238,34 @@ void RenderContext::DrawFrame()
 
             barrier::ImageLayoutBarrierCoarse(cmd, info);
         }
+
+        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, mQueryPool,
+                            2 * mFrameInfo.Index + 1);
     }
-    utils::EndRecording(cmd);
+    vkutils::EndRecording(cmd);
 
     // III. Submit the command buffer
     common::SubmitGraphicsQueue(mQueues, cmd, frame);
+
+    // IV. Query for timestamp results (previous frame):
+    auto ModDecrement = [](uint32_t x, uint32_t n) { return (x != 0) ? x - 1 : n - 1; };
+
+    auto prevFrameIdx = ModDecrement(mFrameInfo.Index, FrameInfo::MaxInFlight);
+    auto queryIdx = 2 * prevFrameIdx;
+
+    auto queryRes = vkGetQueryPoolResults(mCtx.Device, mQueryPool,
+                                          queryIdx,               // first query
+                                          2,                      // query count
+                                          2 * sizeof(uint64_t),   // data size
+                                          &mTimestamps[queryIdx], // data
+                                          sizeof(uint64_t),       // stride
+                                          VK_QUERY_RESULT_64_BIT);
+
+    if (queryRes == VK_SUCCESS)
+    {
+        auto diff = static_cast<float>(mTimestamps[queryIdx + 1] - mTimestamps[queryIdx]);
+        mFrameInfo.Stats.GPUTime = diff * mTimestampPeriod / 1000000.0f;
+    }
 }
 
 void RenderContext::DrawUI(VkCommandBuffer cmd)
@@ -256,6 +312,9 @@ void RenderContext::RebuildPipelines()
 
 void RenderContext::OnKeyPressed(int keycode, bool repeat)
 {
+    if (keycode == VKTB_KEY_KP_MULTIPLY)
+        mShowStats = !mShowStats;
+
     mCamera->OnKeyPressed(keycode, repeat);
 }
 

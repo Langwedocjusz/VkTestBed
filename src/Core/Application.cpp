@@ -4,6 +4,7 @@
 #include "Event.h"
 #include "ImGuiInit.h"
 #include "Keycodes.h"
+#include "imgui.h"
 
 #include <tracy/Tracy.hpp>
 

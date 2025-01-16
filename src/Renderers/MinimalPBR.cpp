@@ -10,8 +10,8 @@
 #include "Renderer.h"
 #include "Sampler.h"
 #include "Shader.h"
-#include "Utils.h"
 #include "VkInit.h"
+#include "VkUtils.h"
 #include "glm/matrix.hpp"
 
 #include <cstdint>
@@ -177,6 +177,8 @@ void MinimalPbrRenderer::OnRender()
                                 mMainPipeline.Layout, 2, 1,
                                 mEnvHandler.GetDescriptorSetPtr(), 0, nullptr);
 
+        uint32_t numDraws = 0, numIdx = 0;
+
         for (auto &mesh : mMeshes)
         {
             for (auto &transform : mesh.Transforms)
@@ -211,9 +213,15 @@ void MinimalPbrRenderer::OnRender()
                                        VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
                                        &pcData);
                     vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+
+                    numIdx += drawable.IndexCount;
+                    numDraws++;
                 }
             }
         }
+
+        mFrame.Stats.NumDraws = numDraws;
+        mFrame.Stats.NumTriangles = numIdx / 3;
 
         // Draw the background:
         if (mEnvHandler.HdriEnabled())

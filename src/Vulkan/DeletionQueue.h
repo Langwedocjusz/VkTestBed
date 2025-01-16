@@ -31,6 +31,7 @@ using DeletionObject = std::variant<
     VkDescriptorPool,
     VkDescriptorSetLayout,
     VkSampler,
+    VkQueryPool,
     VkAllocatedImage,
     VkAllocatedBuffer
 >;

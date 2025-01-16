@@ -8,10 +8,6 @@
 
 #include <memory>
 
-#ifdef ENABLE_TRACY_VULKAN
-#include <tracy/TracyVulkan.hpp>
-#endif
-
 class IRenderer;
 
 class RenderContext {
@@ -55,10 +51,16 @@ class RenderContext {
 
     VkDescriptorPool mImGuiDescriptorPool;
 
+    bool mShowStats = false;
+
+    bool mTimestampSupported = true;
+    float mTimestampPeriod;
+
+    static const size_t mNumTimestamps = 2 * FrameInfo::MaxInFlight;
+    std::array<uint64_t, mNumTimestamps> mTimestamps;
+
+    VkQueryPool mQueryPool;
+
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;
-
-#ifdef ENABLE_TRACY_VULKAN
-    std::vector<TracyVkCtx> mProfilerContexts;
-#endif
 };

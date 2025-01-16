@@ -12,6 +12,14 @@ struct FrameData {
     VkCommandBuffer CommandBuffer;
 };
 
+struct FrameStats {
+    float CPUTime = 0.0f;
+    float GPUTime = 0.0f;
+    uint32_t NumDraws = 0;
+    uint32_t NumTriangles = 0;
+    uint32_t NumDispatches = 0;
+};
+
 struct FrameInfo {
     static constexpr size_t MaxInFlight = 2;
 
@@ -20,6 +28,8 @@ struct FrameInfo {
     size_t FrameNumber = 0;
     size_t Index = 0;
     uint32_t ImageIndex = 0;
+
+    FrameStats Stats;
 
     auto &CurrentData()
     {

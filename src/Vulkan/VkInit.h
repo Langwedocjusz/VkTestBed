@@ -10,6 +10,9 @@ namespace vkinit
 {
 VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type);
 
+VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
+                    VkQueueFamilyProperties &properties);
+
 void CreateSignalledFence(VulkanContext &ctx, VkFence &fence);
 void CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore);
 

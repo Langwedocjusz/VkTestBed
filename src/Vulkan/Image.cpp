@@ -3,7 +3,7 @@
 #include "Barrier.h"
 #include "Buffer.h"
 #include "DeletionQueue.h"
-#include "Utils.h"
+#include "VkUtils.h"
 #include <vulkan/vulkan_core.h>
 
 Image Image::CreateImage2D(VulkanContext &ctx, ImageInfo info)
@@ -143,7 +143,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
 
     // Submit single-time command to queue
     {
-        utils::ScopedCommand cmd(ctx, info.Queue, info.Pool);
+        vkutils::ScopedCommand cmd(ctx, info.Queue, info.Pool);
 
         // Change image layout to transfer destination:
         // Transitions all mip levels to dst layout
@@ -188,7 +188,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
 void Image::GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
                          Image &img)
 {
-    utils::ScopedCommand cmd(ctx, queue, pool);
+    vkutils::ScopedCommand cmd(ctx, queue, pool);
 
     VkExtent3D srcSize = img.Info.Extent;
     VkExtent3D dstSize = img.Info.Extent;

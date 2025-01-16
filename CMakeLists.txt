@@ -4,8 +4,6 @@ project(VkTestBed)
 
 include(cmake/utils.cmake)
 
-option(VKTB_TRACY_VULKAN "Enables vulkan data collection for tracy profiler" ON)
-
 if(MSVC)
     msvc_enable_multiprocess_global()
 endif()
@@ -38,8 +36,6 @@ target_sources(${PROJECT_NAME}
         src/Core/Frame.h
         src/Core/Frame.h
         src/Core/GeometryProvider.h
-        src/Core/ImGuiInit.h
-        src/Core/ImGuiInit.cpp
         src/Core/Keycodes.h
         src/Core/Material.h
         src/Core/Material.cpp
@@ -63,6 +59,10 @@ target_sources(${PROJECT_NAME}
         src/EntryPoint.cpp
         src/Gui/FilesystemBrowser.h
         src/Gui/FilesystemBrowser.cpp
+        src/Gui/ImGuiInit.h
+        src/Gui/ImGuiInit.cpp
+        src/Gui/ImGuiUtils.h
+        src/Gui/ImGuiUtils.cpp
         src/Gui/ModelLoaderGui.h
         src/Gui/ModelLoaderGui.cpp
         src/Gui/SceneEditor.h
@@ -97,10 +97,10 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Sampler.cpp
         src/Vulkan/Shader.h
         src/Vulkan/Shader.cpp
-        src/Vulkan/Utils.h
-        src/Vulkan/Utils.cpp
         src/Vulkan/VkInit.h
         src/Vulkan/VkInit.cpp
+        src/Vulkan/VkUtils.h
+        src/Vulkan/VkUtils.cpp
 )
 
 #Implementation files for imgui
@@ -128,9 +128,6 @@ source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 source_group(imgui_impl FILES ${imgui_impl})
 
 #Compile definitions:
-if(VKTB_TRACY_VULKAN)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_TRACY_VULKAN)
-endif()
 
 #Subdirectory options:
 option(TRACY_ENABLE "" ON )

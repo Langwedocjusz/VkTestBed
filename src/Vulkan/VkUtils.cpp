@@ -1,8 +1,8 @@
-#include "Utils.h"
+#include "VkUtils.h"
 
 #include <stdexcept>
 
-void utils::BeginRecording(VkCommandBuffer buffer)
+void vkutils::BeginRecording(VkCommandBuffer buffer)
 {
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -11,14 +11,14 @@ void utils::BeginRecording(VkCommandBuffer buffer)
         throw std::runtime_error("Failed to begin recording command buffer!");
 }
 
-void utils::EndRecording(VkCommandBuffer buffer)
+void vkutils::EndRecording(VkCommandBuffer buffer)
 {
     if (vkEndCommandBuffer(buffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");
 }
 
-void utils::BlitImage(VkCommandBuffer cmd, VkImage source, VkImage destination,
-                      VkExtent2D srcSize, VkExtent2D dstSize)
+void vkutils::BlitImage(VkCommandBuffer cmd, VkImage source, VkImage destination,
+                        VkExtent2D srcSize, VkExtent2D dstSize)
 {
     VkImageBlit2 blitRegion = {};
     blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
@@ -55,8 +55,8 @@ void utils::BlitImage(VkCommandBuffer cmd, VkImage source, VkImage destination,
     vkCmdBlitImage2(cmd, &blitInfo);
 }
 
-utils::ScopedCommand::ScopedCommand(VulkanContext &ctx, VkQueue queue,
-                                    VkCommandPool commandPool)
+vkutils::ScopedCommand::ScopedCommand(VulkanContext &ctx, VkQueue queue,
+                                      VkCommandPool commandPool)
     : ctx(ctx), mQueue(queue), mCommandPool(commandPool)
 {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -74,7 +74,7 @@ utils::ScopedCommand::ScopedCommand(VulkanContext &ctx, VkQueue queue,
     vkBeginCommandBuffer(Buffer, &beginInfo);
 }
 
-utils::ScopedCommand::~ScopedCommand()
+vkutils::ScopedCommand::~ScopedCommand()
 {
     vkEndCommandBuffer(Buffer);
 

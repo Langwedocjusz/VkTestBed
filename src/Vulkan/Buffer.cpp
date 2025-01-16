@@ -1,5 +1,5 @@
 #include "Buffer.h"
-#include "Utils.h"
+#include "VkUtils.h"
 
 #include <vulkan/vulkan.h>
 
@@ -69,7 +69,7 @@ Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info)
     UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);
 
     {
-        utils::ScopedCommand cmd(info.Ctx, info.Queue, info.Pool);
+        vkutils::ScopedCommand cmd(info.Ctx, info.Queue, info.Pool);
 
         CopyBufferInfo cp_info{
             .Src = stagingBuffer.Handle,

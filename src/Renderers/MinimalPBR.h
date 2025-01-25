@@ -84,7 +84,7 @@ class MinimalPbrRenderer : public IRenderer {
         float AlphaCutoff = 0.5f;
     };
 
-    std::vector<Material> mMaterials;
+    std::map<SceneKey, Material> mMaterials;
 
     struct Drawable {
         Buffer VertexBuffer;
@@ -93,7 +93,7 @@ class MinimalPbrRenderer : public IRenderer {
         Buffer IndexBuffer;
         uint32_t IndexCount;
 
-        size_t MaterialId = 0;
+        SceneKey MaterialKey = 0;
     };
 
     struct Mesh {
@@ -101,9 +101,7 @@ class MinimalPbrRenderer : public IRenderer {
         std::vector<glm::mat4> Transforms;
     };
 
-    std::vector<Mesh> mMeshes;
-
-    std::map<size_t, size_t> mIdMap;
+    std::map<SceneKey, Mesh> mMeshes;
 
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;

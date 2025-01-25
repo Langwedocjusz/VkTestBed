@@ -6,18 +6,33 @@
 
 #include <glm/glm.hpp>
 
+#include <map>
 #include <optional>
 #include <string>
 #include <variant>
 
+// To-do: replace with a more legit unqiue ID setup:
+using SceneKey = uint32_t;
+
+class SceneKeyGenerator {
+  public:
+    SceneKey Get()
+    {
+        return mCurrent++;
+    }
+
+  private:
+    SceneKey mCurrent = 0;
+};
+
 struct SceneMesh {
     std::string Name;
     GeometryProvider GeoProvider;
-    std::vector<size_t> MaterialIds;
+    std::vector<SceneKey> MaterialIds;
 };
 
 struct SceneObject {
-    std::optional<size_t> MeshId;
+    std::optional<SceneKey> MeshId;
 
     glm::mat4 Transform;
 };
@@ -79,9 +94,16 @@ class Scene {
     bool UpdateEnvironment();
 
   public:
-    // Data sources for renderers:
-    std::vector<SceneMesh> Meshes;
-    std::vector<Material> Materials;
+    std::map<SceneKey, SceneMesh> &Meshes();
+    std::map<SceneKey, Material> &Materials();
+
+    void EraseMesh(SceneKey key);
+    void EraseMaterial(SceneKey key);
+
+    SceneMesh &EmplaceMesh();
+    Material &EmplaceMaterial();
+
+    std::pair<SceneKey, Material &> EmplaceMaterial2();
 
     // Object instances to be rendered::
     std::vector<std::optional<SceneObject>> Objects;
@@ -108,4 +130,11 @@ class Scene {
     };
 
     Bitflags<Update> mUpdateFlags;
+
+    // Data sources for renderers:
+    std::map<SceneKey, SceneMesh> mMeshes;
+    std::map<SceneKey, Material> mMaterials;
+
+    SceneKeyGenerator mMeshKeyGenerator;
+    SceneKeyGenerator mMaterialKeyGenerator;
 };

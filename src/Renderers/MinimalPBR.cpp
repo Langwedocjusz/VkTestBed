@@ -179,7 +179,7 @@ void MinimalPbrRenderer::OnRender()
 
         uint32_t numDraws = 0, numIdx = 0;
 
-        for (auto &mesh : mMeshes)
+        for (auto &[_, mesh] : mMeshes)
         {
             for (auto &transform : mesh.Transforms)
             {
@@ -197,7 +197,7 @@ void MinimalPbrRenderer::OnRender()
                     // In reality draws should be sorted according to the material
                     // and corresponding descriptors only re-bound when change
                     // is necessary.
-                    auto &material = mMaterials.at(drawable.MaterialId);
+                    auto &material = mMaterials.at(drawable.MaterialKey);
 
                     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                             mMainPipeline.Layout, 1, 1,
@@ -311,18 +311,17 @@ void MinimalPbrRenderer::LoadScene(Scene &scene)
 {
     if (scene.UpdateGeometry())
     {
-        mSceneDeletionQueue.flush();
-        mMeshes.clear();
-        mIdMap.clear();
+        // mSceneDeletionQueue.flush();
+        // mMeshes.clear();
 
         LoadProviders(scene);
     }
 
     if (scene.UpdateMaterials())
     {
-        mMaterialDeletionQueue.flush();
-        mMaterials.clear();
-        mMaterialDescriptorAllocator.ResetPools();
+        // mMaterialDeletionQueue.flush();
+        // mMaterials.clear();
+        // mMaterialDescriptorAllocator.ResetPools();
 
         LoadTextures(scene);
     }
@@ -355,31 +354,26 @@ void MinimalPbrRenderer::LoadProviders(Scene &scene)
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
     };
 
-    for (const auto [id, mesh] : enumerate(scene.Meshes))
+    for (auto &[key, mesh] : scene.Meshes())
     {
         if (mGeometryLayout.IsCompatible(mesh.GeoProvider.Layout))
         {
-            auto &newMesh = mMeshes.emplace_back();
-            mIdMap[id] = mMeshes.size() - 1;
-
-            auto geometries = mesh.GeoProvider.GetGeometry();
-
-            for (auto &geo : geometries)
+            if (mMeshes.count(key) == 0)
             {
-                auto &drawable = newMesh.Drawables.emplace_back();
-                CreateBuffers(drawable, geo);
+                auto &newMesh = mMeshes[key];
+
+                auto geometries = mesh.GeoProvider.GetGeometry();
+
+                for (auto &geo : geometries)
+                {
+                    auto &drawable = newMesh.Drawables.emplace_back();
+
+                    CreateBuffers(drawable, geo);
+
+                    mSceneDeletionQueue.push_back(drawable.VertexBuffer);
+                    mSceneDeletionQueue.push_back(drawable.IndexBuffer);
+                }
             }
-
-            continue;
-        }
-    }
-
-    for (auto &mesh : mMeshes)
-    {
-        for (auto &drawable : mesh.Drawables)
-        {
-            mSceneDeletionQueue.push_back(drawable.VertexBuffer);
-            mSceneDeletionQueue.push_back(drawable.IndexBuffer);
         }
     }
 }
@@ -445,14 +439,17 @@ void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
 void MinimalPbrRenderer::LoadTextures(Scene &scene)
 {
     // Create images and views, allocate descriptor sets:
-    for (auto &mat : scene.Materials)
+    for (auto &[key, mat] : scene.Materials())
     {
+        if (mMaterials.count(key) != 0)
+            continue;
+
         auto albedo = GetTextureSource(mat, ::Material::Albedo);
 
         if (albedo == nullptr)
             continue;
 
-        auto &material = mMaterials.emplace_back();
+        auto &material = mMaterials[key];
 
         TextureFromPath(material.AlbedoImage, material.AlbedoView, albedo);
 
@@ -486,20 +483,15 @@ void MinimalPbrRenderer::LoadTextures(Scene &scene)
         // Allocate descriptor set for the texture:
         material.DescriptorSet =
             mMaterialDescriptorAllocator.Allocate(mMaterialDescriptorSetLayout);
-    }
 
-    // Update descriptor sets:
-    for (const auto &material : mMaterials)
-    {
+        // Update the descriptor set:
         DescriptorUpdater(material.DescriptorSet)
             .WriteImageSampler(0, material.AlbedoView, mSampler2D)
             .WriteImageSampler(1, material.RoughnessView, mSampler2D)
             .WriteImageSampler(2, material.NormalView, mSampler2D)
             .Update(mCtx);
-    }
 
-    for (auto &material : mMaterials)
-    {
+        // Append resources to deletion queue:
         mMaterialDeletionQueue.push_back(material.AlbedoImage);
         mMaterialDeletionQueue.push_back(material.AlbedoView);
 
@@ -515,27 +507,23 @@ void MinimalPbrRenderer::LoadMeshMaterials(Scene &scene)
 {
     using namespace std::views;
 
-    size_t meshId = 0;
-
-    for (const auto &mesh : scene.Meshes)
+    for (const auto &[key, mesh] : scene.Meshes())
     {
-        if (mGeometryLayout.IsCompatible(mesh.GeoProvider.Layout))
+        if (mMeshes.count(key) != 0)
         {
-            auto &ourMesh = mMeshes[meshId];
+            auto &ourMesh = mMeshes[key];
 
             for (const auto [idx, drawable] : enumerate(ourMesh.Drawables))
             {
-                drawable.MaterialId = mesh.MaterialIds[idx];
+                drawable.MaterialKey = mesh.MaterialIds[idx];
             }
-
-            meshId++;
         }
     }
 }
 
 void MinimalPbrRenderer::LoadInstances(Scene &scene)
 {
-    for (auto &mesh : mMeshes)
+    for (auto &[_, mesh] : mMeshes)
         mesh.Transforms.clear();
 
     for (auto &obj : scene.Objects)
@@ -546,14 +534,11 @@ void MinimalPbrRenderer::LoadInstances(Scene &scene)
         if (!obj->MeshId.has_value())
             continue;
 
-        size_t meshId = obj->MeshId.value();
+        SceneKey meshKey = obj->MeshId.value();
 
-        auto &sceneMesh = scene.Meshes[meshId];
-
-        if (mGeometryLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
+        if (mMeshes.count(meshKey) != 0)
         {
-            size_t id = mIdMap[meshId];
-            auto &mesh = mMeshes[id];
+            auto &mesh = mMeshes[meshKey];
 
             mesh.Transforms.push_back(obj->Transform);
 

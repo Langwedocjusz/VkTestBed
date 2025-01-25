@@ -95,7 +95,7 @@ void ModelLoaderGui::LoadModel(Scene &scene)
     mModelConfig.Filepath = mBrowser.ChosenFile;
 
     // Load Geo Providers:
-    auto &newMesh = scene.Meshes.emplace_back();
+    auto &newMesh = scene.EmplaceMesh();
     newMesh.Name = mBrowser.ChosenFile.stem().string();
 
     newMesh.GeoProvider = ModelLoader::LoadModel(mModelConfig);
@@ -104,7 +104,8 @@ void ModelLoaderGui::LoadModel(Scene &scene)
     auto gltf = ModelLoader::GetGltf(mBrowser.ChosenFile);
 
     // Load Materials:
-    size_t matIdOffset = scene.Materials.size();
+    // size_t matIdOffset = scene.Materials().size();
+    std::map<size_t, SceneKey> keyMap;
 
     for (auto [id, material] : enumerate(gltf.materials))
     {
@@ -117,8 +118,11 @@ void ModelLoaderGui::LoadModel(Scene &scene)
             continue;
 
         // Create new scene material
-        auto &mat = scene.Materials.emplace_back();
+        auto [key, mat] = scene.EmplaceMaterial2();
         mat.Name = newMesh.Name + std::to_string(id);
+
+        // Save key to map:
+        keyMap[id] = key;
 
         // Supply albedo texture info
         mat[Material::Albedo] = Material::ImageSource{
@@ -149,7 +153,7 @@ void ModelLoaderGui::LoadModel(Scene &scene)
         }
 
         // Load roughness map if requested:
-        if (mMatrialConfig.FetchNormal)
+        if (mMatrialConfig.FetchRoughness)
         {
             auto &roughnessInfo = material.pbrData.metallicRoughnessTexture;
 
@@ -171,7 +175,7 @@ void ModelLoaderGui::LoadModel(Scene &scene)
         {
             if (auto id = primitive.materialIndex)
             {
-                auto matId = matIdOffset + (*id);
+                auto matId = keyMap[*id];
 
                 newMesh.MaterialIds.push_back(matId);
             }

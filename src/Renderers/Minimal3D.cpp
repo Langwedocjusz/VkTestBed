@@ -158,7 +158,7 @@ void Minimal3DRenderer::OnRender()
                                 mColoredPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &mesh : mColoredMeshes)
+        for (auto &[_, mesh] : mColoredMeshes)
         {
             for (auto &transform : mesh.Transforms)
             {
@@ -190,7 +190,7 @@ void Minimal3DRenderer::OnRender()
                                 mTexturedPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &mesh : mTexturedMeshes)
+        for (auto &[_, mesh] : mTexturedMeshes)
         {
             for (auto &transform : mesh.Transforms)
             {
@@ -285,19 +285,17 @@ void Minimal3DRenderer::LoadScene(Scene &scene)
 {
     if (scene.UpdateGeometry())
     {
-        mSceneDeletionQueue.flush();
-        mColoredMeshes.clear();
-        mTexturedMeshes.clear();
-        mColoredIdMap.clear();
-        mTexturedIdMap.clear();
+        // mSceneDeletionQueue.flush();
+        // mColoredMeshes.clear();
+        // mTexturedMeshes.clear();
 
         LoadProviders(scene);
     }
 
     if (scene.UpdateMaterials())
     {
-        mTextures.clear();
-        mTextureDescriptorAllocator.ResetPools();
+        // mTextures.clear();
+        // mTextureDescriptorAllocator.ResetPools();
 
         LoadTextures(scene);
     }
@@ -327,12 +325,17 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
     };
 
-    for (const auto [id, mesh] : enumerate(scene.Meshes))
+    for (const auto &[key, mesh] : scene.Meshes())
     {
+        if (mColoredMeshes.count(key) != 0)
+            continue;
+
+        if (mTexturedMeshes.count(key) != 0)
+            continue;
+
         if (mColoredLayout.IsCompatible(mesh.GeoProvider.Layout))
         {
-            auto &newMesh = mColoredMeshes.emplace_back();
-            mColoredIdMap[id] = mColoredMeshes.size() - 1;
+            auto &newMesh = mColoredMeshes[key];
 
             auto geometries = mesh.GeoProvider.GetGeometry();
 
@@ -347,8 +350,7 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
 
         if (mTexturedLayout.IsCompatible(mesh.GeoProvider.Layout))
         {
-            auto &newMesh = mTexturedMeshes.emplace_back();
-            mTexturedIdMap[id] = mTexturedMeshes.size() - 1;
+            auto &newMesh = mTexturedMeshes[key];
 
             auto geometries = mesh.GeoProvider.GetGeometry();
 
@@ -362,7 +364,7 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
         }
     }
 
-    for (auto &mesh : mColoredMeshes)
+    for (auto &[_, mesh] : mColoredMeshes)
     {
         for (auto &drawable : mesh.Drawables)
         {
@@ -371,7 +373,7 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
         }
     }
 
-    for (auto &mesh : mTexturedMeshes)
+    for (auto &[_, mesh] : mTexturedMeshes)
     {
         for (auto &drawable : mesh.Drawables)
         {
@@ -386,7 +388,7 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
     auto &pool = mFrame.CurrentPool();
 
     // Create images and views, allocate descriptor sets:
-    for (auto &mat : scene.Materials)
+    for (auto &[_, mat] : scene.Materials())
     {
         // Check if material has albedo
         if (mat.count(Material::Albedo) == 0)
@@ -448,30 +450,26 @@ void Minimal3DRenderer::LoadMeshMaterials(Scene &scene)
 {
     using namespace std::views;
 
-    size_t meshId = 0;
-
-    for (const auto &mesh : scene.Meshes)
+    for (const auto &[key, mesh] : scene.Meshes())
     {
-        if (mTexturedLayout.IsCompatible(mesh.GeoProvider.Layout))
+        if (mTexturedMeshes.count(key) != 0)
         {
-            auto &ourMesh = mTexturedMeshes[meshId];
+            auto &ourMesh = mTexturedMeshes[key];
 
             for (const auto [idx, drawable] : enumerate(ourMesh.Drawables))
             {
                 drawable.TextureId = mesh.MaterialIds[idx];
             }
-
-            meshId++;
         }
     }
 }
 
 void Minimal3DRenderer::LoadInstances(Scene &scene)
 {
-    for (auto &mesh : mColoredMeshes)
+    for (auto &[_, mesh] : mColoredMeshes)
         mesh.Transforms.clear();
 
-    for (auto &mesh : mTexturedMeshes)
+    for (auto &[_, mesh] : mTexturedMeshes)
         mesh.Transforms.clear();
 
     for (auto &obj : scene.Objects)
@@ -482,24 +480,20 @@ void Minimal3DRenderer::LoadInstances(Scene &scene)
         if (!obj->MeshId.has_value())
             continue;
 
-        size_t meshId = obj->MeshId.value();
+        SceneKey meshKey = obj->MeshId.value();
 
-        auto &sceneMesh = scene.Meshes[meshId];
-
-        if (mColoredLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
+        if (mColoredMeshes.count(meshKey) != 0)
         {
-            size_t id = mColoredIdMap[meshId];
-            auto &mesh = mColoredMeshes[id];
+            auto &mesh = mColoredMeshes[meshKey];
 
             mesh.Transforms.push_back(obj->Transform);
 
             continue;
         }
 
-        if (mTexturedLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
+        if (mTexturedMeshes.count(meshKey) != 0)
         {
-            size_t id = mTexturedIdMap[meshId];
-            auto &mesh = mTexturedMeshes[id];
+            auto &mesh = mTexturedMeshes[meshKey];
 
             mesh.Transforms.push_back(obj->Transform);
 

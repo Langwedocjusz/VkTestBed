@@ -166,7 +166,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
 {
     auto &pool = mFrame.CurrentPool();
 
-    for (auto &sceneMesh : scene.Meshes)
+    for (auto &[_, sceneMesh] : scene.Meshes())
     {
         if (!mGeometryLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
         {
@@ -222,7 +222,7 @@ void HelloRenderer::LoadInstances(Scene &scene)
         auto meshId = obj->MeshId.value();
 
         // Geometry layout compatible?
-        auto &sceneMesh = scene.Meshes[meshId];
+        auto &sceneMesh = scene.Meshes()[meshId];
 
         if (!mGeometryLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
         {

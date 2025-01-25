@@ -31,7 +31,7 @@ void SceneEditor::OnInit(Scene &scene)
     });
 
     {
-        auto &mat = scene.Materials.emplace_back();
+        auto &mat = scene.EmplaceMaterial();
 
         mat.Name = "Test Material";
 
@@ -42,13 +42,13 @@ void SceneEditor::OnInit(Scene &scene)
     }
 
     {
-        auto &mesh = scene.Meshes.emplace_back();
+        auto &mesh = scene.EmplaceMesh();
         mesh.Name = "Colored Cube";
         mesh.GeoProvider = primitive::ColoredCube(glm::vec3(0.5f));
     }
 
     {
-        auto &mesh = scene.Meshes.emplace_back();
+        auto &mesh = scene.EmplaceMesh();
         mesh.Name = "Textured Cube";
         mesh.GeoProvider = primitive::TexturedCube();
         mesh.MaterialIds.push_back(0);
@@ -345,16 +345,14 @@ void SceneEditor::AddInstancePopup(Scene &scene)
         ImGui::Text("Instance:");
         ImGui::Separator();
 
-        using namespace std::views;
-
-        for (const auto [id, mesh] : enumerate(scene.Meshes))
+        for (auto &[key, mesh] : scene.Meshes())
         {
-            std::string name = mesh.Name + "##" + std::to_string(id);
+            std::string name = mesh.Name + "##" + std::to_string(key);
 
             if (ImGui::Selectable(name.c_str()))
             {
                 size_t idx = scene.EmplaceObject(SceneObject{
-                    .MeshId = id,
+                    .MeshId = key,
                     .Transform = glm::mat4(1.0f),
                 });
 
@@ -395,11 +393,11 @@ void SceneEditor::DataMenu(Scene &scene)
     {
         using namespace std::views;
 
-        std::optional<int64_t> idToDelete;
+        std::optional<SceneKey> keyToDelete;
 
-        for (const auto [meshId, mesh] : enumerate(scene.Meshes))
+        for (auto &[meshKey, mesh] : scene.Meshes())
         {
-            std::string nodeName = mesh.Name + "##" + std::to_string(meshId);
+            std::string nodeName = mesh.Name + "##" + std::to_string(meshKey);
 
             ImGuiContext &g = *GImGui;
 
@@ -415,7 +413,7 @@ void SceneEditor::DataMenu(Scene &scene)
 
             if (ImGui::CloseButton(closeButtonId, closeButtonPos))
             {
-                idToDelete = meshId;
+                keyToDelete = meshKey;
             }
 
             if (nodeOpen)
@@ -434,12 +432,14 @@ void SceneEditor::DataMenu(Scene &scene)
                 ImGui::Text("Materials:");
 
                 // To-do: this is kind of ugly:
-                static size_t *idToChange = nullptr;
+                // static used here because this value is accessed across
+                // two different calls of this function.
+                static SceneKey *idToChange = nullptr;
 
                 for (const auto [num, id] : enumerate(mesh.MaterialIds))
                 {
                     const std::string suffix = "##mat" + mesh.Name + std::to_string(num);
-                    std::string matName = scene.Materials[id].Name + suffix;
+                    std::string matName = scene.Materials().at(id).Name + suffix;
 
                     ImGui::Text("Material %lu: ", num);
                     ImGui::SameLine();
@@ -449,19 +449,23 @@ void SceneEditor::DataMenu(Scene &scene)
                         idToChange = &id;
                         ImGui::OpenPopup("Select material:");
                     }
-                    // To-do: adding new maerials
+                    // To-do: adding new materials
                 }
 
-                if (ImGui::BeginPopup("Select material:") && idToChange != nullptr)
+                if (ImGui::BeginPopup("Select material:"))
                 {
-                    for (const auto [id, mat] : enumerate(scene.Materials))
+                    if (idToChange != nullptr)
                     {
-                        if (ImGui::Selectable(mat.Name.c_str()))
+                        for (auto &[id, mat] : scene.Materials())
                         {
-                            *idToChange = id;
-                            scene.RequestMeshMaterialUpdate();
+                            if (ImGui::Selectable(mat.Name.c_str()))
+                            {
+                                *idToChange = id;
+                                scene.RequestMeshMaterialUpdate();
+                            }
                         }
                     }
+
                     ImGui::EndPopup();
                 }
 
@@ -472,17 +476,16 @@ void SceneEditor::DataMenu(Scene &scene)
         AddProviderPopup(scene);
         ImGui::EndTabItem();
 
-        if (idToDelete)
+        if (keyToDelete)
         {
-            auto it = scene.Meshes.begin() + (*idToDelete);
-            scene.Meshes.erase(it);
+            scene.EraseMesh(*keyToDelete);
             scene.RequestGeometryUpdate();
         }
     }
 
     if (ImGui::BeginTabItem("Materials"))
     {
-        for (auto &mat : scene.Materials)
+        for (auto &[_, mat] : scene.Materials())
         {
             if (ImGui::TreeNodeEx(mat.Name.c_str()))
             {

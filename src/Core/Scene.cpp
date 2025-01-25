@@ -101,6 +101,60 @@ size_t Scene::EmplaceObject(SceneObject obj)
     return Objects.size() - 1;
 }
 
+std::map<SceneKey, SceneMesh> &Scene::Meshes()
+{
+    return mMeshes;
+}
+
+std::map<SceneKey, Material> &Scene::Materials()
+{
+    return mMaterials;
+}
+
+void Scene::EraseMesh(SceneKey key)
+{
+    mMeshes.erase(key);
+}
+
+void Scene::EraseMaterial(SceneKey key)
+{
+    mMaterials.erase(key);
+}
+
+SceneMesh &Scene::EmplaceMesh()
+{
+    auto key = mMeshKeyGenerator.Get();
+
+    if (mMeshes.count(key) != 0)
+        throw std::runtime_error("Cannot emplace mesh, id already in use!");
+
+    mMeshes[key] = SceneMesh{};
+    return mMeshes[key];
+}
+
+Material &Scene::EmplaceMaterial()
+{
+    auto key = mMaterialKeyGenerator.Get();
+
+    if (mMaterials.count(key) != 0)
+        throw std::runtime_error("Cannot emplace mesh, id already in use!");
+
+    mMaterials[key] = Material{};
+    return mMaterials[key];
+}
+
+std::pair<SceneKey, Material &> Scene::EmplaceMaterial2()
+{
+    auto key = mMaterialKeyGenerator.Get();
+
+    if (mMaterials.count(key) != 0)
+        throw std::runtime_error("Cannot emplace mesh, id already in use!");
+
+    mMaterials[key] = Material{};
+
+    return {key, mMaterials[key]};
+}
+
 bool Scene::UpdateRequested()
 {
     return mUpdateFlags.Any();

@@ -68,11 +68,8 @@ class Minimal3DRenderer : public IRenderer {
         std::vector<glm::mat4> Transforms;
     };
 
-    std::vector<Mesh> mColoredMeshes;
-    std::vector<Mesh> mTexturedMeshes;
-
-    std::map<size_t, size_t> mColoredIdMap;
-    std::map<size_t, size_t> mTexturedIdMap;
+    std::map<SceneKey, Mesh> mColoredMeshes;
+    std::map<SceneKey, Mesh> mTexturedMeshes;
 
     VkDescriptorSetLayout mTextureDescriptorSetLayout;
     DescriptorAllocator mTextureDescriptorAllocator;

@@ -452,40 +452,6 @@ static Material::ImageSource *GetTextureSource(Material &mat, const MaterialKey 
     return src;
 }
 
-void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
-                                         ::Material::ImageSource *source)
-{
-    auto &pool = mFrame.CurrentPool();
-
-    auto data = ImageData::ImportSTB(source->Path.string());
-
-    img = ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, data.get());
-
-    auto format = img.Info.Format;
-    view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
-}
-
-void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
-                                         ::Material::ImageSource *source, Pixel def,
-                                         bool unorm)
-{
-    auto &pool = mFrame.CurrentPool();
-
-    auto format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
-
-    std::unique_ptr<ImageData> data;
-
-    if (source)
-        data = ImageData::ImportSTB(source->Path.string());
-    else
-        data = ImageData::SinglePixel(def);
-
-    img = ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, data.get(), format);
-
-    // auto format = img.Info.Format;
-    view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
-}
-
 void MinimalPbrRenderer::LoadTextures(Scene &scene)
 {
     // Iterate over all materials in scene

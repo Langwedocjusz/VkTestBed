@@ -37,10 +37,6 @@ class MinimalPbrRenderer : public IRenderer {
     void LoadMeshMaterials(Scene &scene);
     void LoadInstances(Scene &scene);
 
-    void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source);
-    void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source,
-                         Pixel def, bool unorm = false);
-
   private:
     // Framebuffer related things:
     const float mInternalResolutionScale = 1.0f;

@@ -1,6 +1,7 @@
 #include "EnvironmentHandler.h"
 
 #include "Barrier.h"
+#include "ImageData.h"
 #include "ImageLoaders.h"
 #include "Sampler.h"
 #include "Shader.h"
@@ -132,8 +133,10 @@ void EnvironmentHandler::LoadEnvironment(Scene &scene)
         auto &pool = mFrame.CurrentPool();
 
         // Load equirectangular environment map:
-        auto pathStr = (*path).string();
-        auto envMap = ImageLoaders::LoadHDRI(mCtx, mQueues.Graphics, pool, pathStr);
+        auto data = ImageData::ImportEXR((*path).string());
+        auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
+
+        auto envMap = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, data.get(), format);
 
         auto envView = Image::CreateView2D(mCtx, envMap, envMap.Info.Format,
                                            VK_IMAGE_ASPECT_COLOR_BIT);

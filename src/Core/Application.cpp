@@ -4,12 +4,10 @@
 #include "Event.h"
 #include "ImGuiInit.h"
 #include "Keycodes.h"
-#include "imgui.h"
 
 #include <tracy/Tracy.hpp>
 
 #include <iostream>
-#include <memory>
 #include <variant>
 
 Application::Application()
@@ -23,12 +21,11 @@ Application::Application()
 
     // mShaderManager.CompileToBytecode();
 
-    mScene = std::make_unique<Scene>();
-    mSceneEditor.OnInit(*mScene);
+    mSceneEditor.OnInit(mScene);
 
     // First-time scene loading
-    mRender.LoadScene(*mScene);
-    mScene->ClearUpdateFlags();
+    mRender.LoadScene(mScene);
+    mScene.ClearUpdateFlags();
 }
 
 Application::~Application()
@@ -59,12 +56,12 @@ void Application::Run()
         }
 
         // Reload the scene if necessary:
-        if (mScene->UpdateRequested())
+        if (mScene.UpdateRequested())
         {
             vkDeviceWaitIdle(mCtx.Device);
 
-            mRender.LoadScene(*mScene);
-            mScene->ClearUpdateFlags();
+            mRender.LoadScene(mScene);
+            mScene.ClearUpdateFlags();
         }
 
         // Reload shaders if necessary:
@@ -84,7 +81,7 @@ void Application::Run()
 
         // Collect imgui calls
         iminit::BeginGuiFrame();
-        mSceneEditor.OnImGui(*mScene);
+        mSceneEditor.OnImGui(mScene);
         mRender.OnImGui();
         iminit::FinalizeGuiFrame();
 

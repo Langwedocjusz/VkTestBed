@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ThreadPool.h"
 #include "DeletionQueue.h"
 #include "Descriptor.h"
 #include "EnvironmentHandler.h"
@@ -7,6 +8,8 @@
 #include "ImageLoaders.h"
 #include "Pipeline.h"
 #include "Renderer.h"
+#include "Scene.h"
+#include "ThreadPool.h"
 #include "VertexLayout.h"
 
 #include <vulkan/vulkan.h>
@@ -36,7 +39,7 @@ class MinimalPbrRenderer : public IRenderer {
 
     void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source);
     void TextureFromPath(Image &img, VkImageView &view, ::Material::ImageSource *source,
-                         ::ImageLoaders::Image2DData &defaultData, bool unorm = false);
+                         Pixel def, bool unorm = false);
 
   private:
     // Framebuffer related things:
@@ -48,6 +51,17 @@ class MinimalPbrRenderer : public IRenderer {
     VkImageView mDepthBufferView;
 
     // Common resources:
+    ThreadPool mThreadPool;
+
+    struct MaterialData{
+        SceneKey Key;
+        std::unique_ptr<ImageData> Albedo;
+        std::unique_ptr<ImageData> Roughness;
+        std::unique_ptr<ImageData> Normal;
+    };
+
+    SyncQueue<MaterialData> mMaterialData;
+
     VkSampler mSampler2D;
 
     // Main material pass:

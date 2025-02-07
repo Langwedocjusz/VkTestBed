@@ -407,8 +407,11 @@ void Minimal3DRenderer::LoadTextures(Scene &scene)
             std::cerr << "Unsupported channel layout!\n";
 
         auto &texture = mTextures.emplace_back();
+
+        auto data = ImageData::ImportSTB(imgSrc.Path.string());
+
         texture.TexImage =
-            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgSrc.Path.string());
+            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, data.get());
 
         auto format = texture.TexImage.Info.Format;
         texture.View = Image::CreateView2D(mCtx, texture.TexImage, format,

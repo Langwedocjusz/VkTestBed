@@ -3,12 +3,14 @@
 #include "Common.h"
 #include "Descriptor.h"
 #include "GeometryProvider.h"
+#include "ImageData.h"
 #include "ImageLoaders.h"
 #include "Material.h"
 #include "MeshBuffers.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Sampler.h"
+#include "Scene.h"
 #include "Shader.h"
 #include "VkInit.h"
 #include "VkUtils.h"
@@ -137,6 +139,51 @@ void MinimalPbrRenderer::RebuildPipelines()
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
+    //If queue empty, to nothing
+    if (mMaterialData.Empty())
+        return;
+
+    //Otherwise wait till gpu is idle
+    vkDeviceWaitIdle(mCtx.Device);
+
+    //And attempt to create all queued materials
+    auto &pool = mFrame.CurrentPool();
+
+    auto LoadTexture = [&](Image& img, VkImageView& view, ImageData* data, bool unorm)
+    {
+        auto format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+
+        img = ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, data, format);
+        view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
+    };
+
+    while(auto opt = mMaterialData.TryPop())
+    {
+        auto& data = *opt;
+
+        auto& mat = mMaterials[data.Key];
+
+        LoadTexture(mat.AlbedoImage, mat.AlbedoView, data.Albedo.get(), false);
+        LoadTexture(mat.RoughnessImage, mat.RoughnessView, data.Roughness.get(), true);
+        LoadTexture(mat.NormalImage, mat.NormalView, data.Normal.get(), true);
+
+        // Update the descriptor set:
+        DescriptorUpdater(mat.DescriptorSet)
+            .WriteImageSampler(0, mat.AlbedoView, mSampler2D)
+            .WriteImageSampler(1, mat.RoughnessView, mSampler2D)
+            .WriteImageSampler(2, mat.NormalView, mSampler2D)
+            .Update(mCtx);
+
+        // Append resources to deletion queue:
+        mMaterialDeletionQueue.push_back(mat.AlbedoImage);
+        mMaterialDeletionQueue.push_back(mat.AlbedoView);
+
+        mMaterialDeletionQueue.push_back(mat.RoughnessImage);
+        mMaterialDeletionQueue.push_back(mat.RoughnessView);
+
+        mMaterialDeletionQueue.push_back(mat.NormalImage);
+        mMaterialDeletionQueue.push_back(mat.NormalView);
+    }
 }
 
 void MinimalPbrRenderer::OnImGui()
@@ -392,6 +439,7 @@ static Material::ImageSource *GetTextureSource(Material &mat, const MaterialKey 
 
     auto *src = &std::get<Material::ImageSource>(val);
 
+    // Check if path to the texture is valid
     bool validPath = std::filesystem::is_regular_file(src->Path);
 
     if (!validPath)
@@ -409,28 +457,30 @@ void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
 {
     auto &pool = mFrame.CurrentPool();
 
-    img =
-        ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, source->Path.string());
+    auto data = ImageData::ImportSTB(source->Path.string());
+
+    img = ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, data.get());
 
     auto format = img.Info.Format;
     view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
-                                         ::Material::ImageSource *source,
-                                         ::ImageLoaders::Image2DData &defaultData,
+                                         ::Material::ImageSource *source, Pixel def,
                                          bool unorm)
 {
     auto &pool = mFrame.CurrentPool();
 
     auto format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 
+    std::unique_ptr<ImageData> data;
+
     if (source)
-        img = ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool,
-                                           source->Path.string(), format);
+        data = ImageData::ImportSTB(source->Path.string());
     else
-        img = ImageLoaders::Image2DFromData(mCtx, mQueues.Graphics, pool, defaultData,
-                                            format);
+        data = ImageData::SinglePixel(def);
+
+    img = ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, data.get(), format);
 
     // auto format = img.Info.Format;
     view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -438,40 +488,49 @@ void MinimalPbrRenderer::TextureFromPath(Image &img, VkImageView &view,
 
 void MinimalPbrRenderer::LoadTextures(Scene &scene)
 {
-    // Create images and views, allocate descriptor sets:
+    // Iterate over all materials in scene
     for (auto &[key, mat] : scene.Materials())
     {
+        // If material already imported, skip it
         if (mMaterials.count(key) != 0)
             continue;
 
-        auto albedo = GetTextureSource(mat, ::Material::Albedo);
+        // Retrieve the sources
+        auto albedoSrc = GetTextureSource(mat, ::Material::Albedo);
 
-        if (albedo == nullptr)
+        //  Skip material if it has no albedo
+        if (albedoSrc == nullptr)
             continue;
 
+        auto roughnessSrc = GetTextureSource(mat, ::Material::Roughness);
+        auto normalSrc = GetTextureSource(mat, ::Material::Normal);
+
+        //Create new rendered-side material:
         auto &material = mMaterials[key];
 
-        TextureFromPath(material.AlbedoImage, material.AlbedoView, albedo);
+        //Push the task to load images from disk to the thread pool
+        //(they will be uploaded to vulkan in OnUpdate):
+        auto RetrieveMaterialData = [this, key, albedoSrc, roughnessSrc, normalSrc]()
+        {
+            MaterialData data{};
+            data.Key = key;
 
-        auto roughness = GetTextureSource(mat, ::Material::Roughness);
-        auto normal = GetTextureSource(mat, ::Material::Normal);
+            data.Albedo = ImageData::ImportSTB(albedoSrc->Path.string());
 
-        ImageLoaders::Image2DData roughnessDefault{
-            .Width = 1,
-            .Height = 1,
-            .Data = {ImageLoaders::Pixel{0, 255, 255, 0}},
+            if (roughnessSrc)
+                data.Roughness = ImageData::ImportSTB(roughnessSrc->Path.string());
+            else
+                data.Roughness = ImageData::SinglePixel(Pixel{0, 255, 255, 0});
+
+            if (normalSrc)
+                data.Normal = ImageData::ImportSTB(normalSrc->Path.string());
+            else
+                data.Normal = ImageData::SinglePixel(Pixel{0, 0, 255, 0});
+
+            mMaterialData.Push(std::move(data));
         };
 
-        ImageLoaders::Image2DData normalDefault{
-            .Width = 1,
-            .Height = 1,
-            .Data = {ImageLoaders::Pixel{0, 255, 0, 0}},
-        };
-
-        TextureFromPath(material.RoughnessImage, material.RoughnessView, roughness,
-                        roughnessDefault, true);
-        TextureFromPath(material.NormalImage, material.NormalView, normal, normalDefault,
-                        true);
+        mThreadPool.Push(RetrieveMaterialData);
 
         // Unpack alpha-cutoff if present:
         if (mat.count(::Material::AlphaCutoff))
@@ -480,26 +539,9 @@ void MinimalPbrRenderer::LoadTextures(Scene &scene)
             material.AlphaCutoff = std::get<float>(var);
         }
 
-        // Allocate descriptor set for the texture:
+        // Allocate the descriptor set:
         material.DescriptorSet =
             mMaterialDescriptorAllocator.Allocate(mMaterialDescriptorSetLayout);
-
-        // Update the descriptor set:
-        DescriptorUpdater(material.DescriptorSet)
-            .WriteImageSampler(0, material.AlbedoView, mSampler2D)
-            .WriteImageSampler(1, material.RoughnessView, mSampler2D)
-            .WriteImageSampler(2, material.NormalView, mSampler2D)
-            .Update(mCtx);
-
-        // Append resources to deletion queue:
-        mMaterialDeletionQueue.push_back(material.AlbedoImage);
-        mMaterialDeletionQueue.push_back(material.AlbedoView);
-
-        mMaterialDeletionQueue.push_back(material.RoughnessImage);
-        mMaterialDeletionQueue.push_back(material.RoughnessView);
-
-        mMaterialDeletionQueue.push_back(material.NormalImage);
-        mMaterialDeletionQueue.push_back(material.NormalView);
     }
 }
 

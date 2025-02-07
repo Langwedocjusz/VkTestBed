@@ -1,8 +1,6 @@
 # VkTestBed
 A thin framework for impementing, testing and timing different graphical techniques with Vulkan API.
 
-![alt text](https://github.com/Langwedocjusz/VkTestBed/blob/main/img/1.png?raw=true)
-
 ## Goals
 The end goal is devloping an architecture that allows to efficiently specify a scene, and completely seprately a renderer.
 It will then be possible to easily compare efficiency of different rendering techniques, even when they require completely different setup
@@ -20,6 +18,7 @@ It will then be possible to easily compare efficiency of different rendering tec
 * Mipmap generation
 * Loading gltf files (loading done with fastgltf, missing tangents re-generated with mikktspace)
 * Converting equirectangular maps to cubemaps using compute pipeline
+* Async Asset Loading
 
 ## Building
 This repository contains submodules, so it should be cloned recursively:

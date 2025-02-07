@@ -28,14 +28,14 @@ target_sources(${PROJECT_NAME}
         #Also listing headers to make them visible in IDEs
         src/Core/Application.h
         src/Core/Application.cpp
-        src/Core/Bitflags.h
         src/Core/Camera.h
         src/Core/Camera.cpp
-	    src/Core/CppUtils.h
         src/Core/Event.h
         src/Core/Frame.h
         src/Core/Frame.h
         src/Core/GeometryProvider.h
+        src/Core/ImageData.h
+        src/Core/ImageData.cpp
         src/Core/Keycodes.h
         src/Core/Material.h
         src/Core/Material.cpp
@@ -56,6 +56,10 @@ target_sources(${PROJECT_NAME}
         src/Core/VmaImpl.cpp
         src/Core/VulkanContext.h
         src/Core/VulkanContext.cpp
+        src/Cpp/Bitflags.h
+        src/Cpp/CppUtils.h
+        src/Cpp/SyncQueue.h
+        src/Cpp/ThreadPool.h
         src/EntryPoint.cpp
         src/Gui/FilesystemBrowser.h
         src/Gui/FilesystemBrowser.cpp
@@ -112,6 +116,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
         src
         src/Core
+        src/Cpp
         src/Gui
         src/RendererComponents
         src/Renderers
@@ -121,6 +126,7 @@ target_include_directories(${PROJECT_NAME}
 #For filters in IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")
 source_group(src/Core REGULAR_EXPRESSION "src/Core/*")
+source_group(src/Cpp REGULAR_EXPRESSION "src/Cpp/*")
 source_group(src/Gui REGULAR_EXPRESSION "src/Gui/*")
 source_group(src/RendererComponents REGULAR_EXPRESSION "src/RendererComponents/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")

@@ -8,7 +8,6 @@
 #include "VulkanContext.h"
 
 #include <chrono>
-#include <memory>
 
 class Application {
   public:
@@ -23,9 +22,10 @@ class Application {
   private:
     SystemWindow mWindow;
     VulkanContext mCtx;
+
     ShaderManager mShaderManager;
 
-    std::unique_ptr<Scene> mScene;
+    Scene mScene;
     SceneEditor mSceneEditor;
 
     RenderContext mRender;

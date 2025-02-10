@@ -84,7 +84,7 @@ void HelloRenderer::OnRender()
                                 mGraphicsPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &mesh : mMeshes)
+        for (auto &[_,mesh] : mMeshes)
         {
             for (auto &transform : mesh.Transforms)
             {
@@ -166,7 +166,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
 {
     auto &pool = mFrame.CurrentPool();
 
-    for (auto &[_, sceneMesh] : scene.Meshes())
+    for (auto &[key, sceneMesh] : scene.Meshes())
     {
         if (!mGeometryLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
         {
@@ -174,7 +174,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
             continue;
         }
 
-        auto &mesh = mMeshes.emplace_back();
+        auto &mesh = mMeshes[key];
 
         auto geometries = sceneMesh.GeoProvider.GetGeometry();
 
@@ -194,7 +194,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
         }
     }
 
-    for (auto &mesh : mMeshes)
+    for (auto &[_,mesh] : mMeshes)
     {
         for (auto &drawable : mesh.Drawables)
         {
@@ -206,7 +206,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
 
 void HelloRenderer::LoadInstances(Scene &scene)
 {
-    for (auto &mesh : mMeshes)
+    for (auto &[_,mesh] : mMeshes)
         mesh.Transforms.clear();
 
     for (auto &obj : scene.Objects)
@@ -219,20 +219,13 @@ void HelloRenderer::LoadInstances(Scene &scene)
         if (!obj->MeshId.has_value())
             continue;
 
-        auto meshId = obj->MeshId.value();
+        auto key = obj->MeshId.value();
 
-        // Geometry layout compatible?
-        auto &sceneMesh = scene.Meshes()[meshId];
-
-        if (!mGeometryLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
-        {
-            std::cerr << "Unsupported geometry layout.\n";
+        // We have this mesh imported?
+        if (mMeshes.count(key) == 0)
             continue;
-        }
 
-        // Load transform:
-        meshId = mMeshIdMap[meshId];
-        auto &mesh = mMeshes[meshId];
+        auto &mesh = mMeshes[key];
 
         mesh.Transforms.push_back(obj->Transform);
     }

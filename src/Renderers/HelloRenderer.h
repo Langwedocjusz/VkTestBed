@@ -51,9 +51,7 @@ class HelloRenderer : public IRenderer {
         std::vector<glm::mat4> Transforms;
     };
 
-    std::map<size_t, size_t> mMeshIdMap;
-
-    std::vector<Mesh> mMeshes;
+    std::map<SceneKey, Mesh> mMeshes;
 
     DeletionQueue mSceneDeletionQueue;
 };

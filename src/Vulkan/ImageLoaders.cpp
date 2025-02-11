@@ -24,7 +24,7 @@ static uint32_t CalcNumMips(int width, int height)
 }
 
 Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
-                                    ImageData *data, VkFormat format)
+                                ImageData *data, VkFormat format)
 {
     auto [imageSize, extent] = RepackImgData(*data);
 
@@ -50,7 +50,7 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool
 }
 
 Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
-                                    ImageData *data, VkFormat format)
+                                   ImageData *data, VkFormat format)
 {
     auto [imageSize, extent] = RepackImgData(*data);
 
@@ -58,7 +58,8 @@ Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, VkQueue queue, VkCommandP
         .Extent = extent,
         .Format = format,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                 VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = CalcNumMips(data->Width, data->Height),
     };
 

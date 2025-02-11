@@ -24,8 +24,8 @@ class HelloRenderer : public IRenderer {
     void LoadScene(Scene &scene) override;
 
   private:
-    void LoadProviders(Scene &scene);
-    void LoadInstances(Scene &scene);
+    void LoadMeshes(Scene &scene);
+    void LoadObjects(Scene &scene);
 
   private:
     const float mInternalResolutionScale = 1.0f;

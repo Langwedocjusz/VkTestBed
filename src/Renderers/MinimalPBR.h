@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ThreadPool.h"
 #include "DeletionQueue.h"
 #include "Descriptor.h"
 #include "EnvironmentHandler.h"
@@ -32,10 +31,10 @@ class MinimalPbrRenderer : public IRenderer {
     void LoadScene(Scene &scene) override;
 
   private:
-    void LoadProviders(Scene &scene);
-    void LoadTextures(Scene &scene);
+    void LoadMeshes(Scene &scene);
+    void LoadMaterials(Scene &scene);
     void LoadMeshMaterials(Scene &scene);
-    void LoadInstances(Scene &scene);
+    void LoadObjects(Scene &scene);
 
   private:
     // Framebuffer related things:
@@ -49,7 +48,7 @@ class MinimalPbrRenderer : public IRenderer {
     // Common resources:
     ThreadPool mThreadPool;
 
-    struct MaterialData{
+    struct MaterialData {
         SceneKey Key;
         std::unique_ptr<ImageData> Albedo;
         std::unique_ptr<ImageData> Roughness;

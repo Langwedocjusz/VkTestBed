@@ -8,6 +8,7 @@
 
 #include <map>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <variant>
 
@@ -37,26 +38,28 @@ struct SceneObject {
     glm::mat4 Transform;
 };
 
+class Scene;
+
 class SceneGraphNode {
   public:
-    using ObjectId = size_t;
     using ChildrenArray = std::vector<std::unique_ptr<SceneGraphNode>>;
-    using ObjectArray = std::vector<std::optional<SceneObject>>;
 
+  public:
     SceneGraphNode();
-    SceneGraphNode(size_t instanceId);
+    SceneGraphNode(SceneKey key);
 
     bool IsLeaf();
-    size_t GetIndex();
+
+    SceneKey GetObjectKey();
     ChildrenArray &GetChildren();
 
     /// Emplaces a non-leaf node as child
     SceneGraphNode &EmplaceChild();
     /// Emplaces a leaf node as child
-    SceneGraphNode &EmplaceChild(size_t idx);
+    SceneGraphNode &EmplaceChild(SceneKey key);
 
     glm::mat4 GetTransform();
-    void UpdateTransforms(ObjectArray &objs, glm::mat4 current = 1.0f);
+    void UpdateTransforms(Scene &scene, glm::mat4 current = 1.0f);
 
   public:
     SceneGraphNode *Parent = nullptr;
@@ -68,46 +71,65 @@ class SceneGraphNode {
     std::string Name;
 
   private:
-    std::variant<ChildrenArray, ObjectId> Payload;
+    std::variant<ChildrenArray, SceneKey> Payload;
 };
 
 class Scene {
   public:
-    // Emplaces an object in first empty slot:
-    size_t EmplaceObject(SceneObject obj);
+    /// Emplace new things, return reference to them:
+    SceneMesh &EmplaceMesh();
+    Material &EmplaceMaterial();
+    SceneObject &EmplaceObject();
 
-    // Api to manage update flags, to communicate with renderers:
+    /// Emplace new things, return their key and reference to them:
+    std::pair<SceneKey, Material &> EmplaceMaterial2();
+    std::pair<SceneKey, SceneObject &> EmplaceObject2();
+
+    /// Emplace existing things, return their key:
+    SceneKey EmplaceObject(const SceneObject &obj);
+
+    /// Erase things:
+    void EraseMesh(SceneKey key);
+    void EraseMaterial(SceneKey key);
+    void EraseObject(SceneKey key);
+
+    /// Retrieve singular things:
+    SceneMesh &GetMesh(SceneKey key);
+    Material &GetMaterial(SceneKey key);
+    SceneObject &GetObject(SceneKey key);
+
+    /// Get iterable ranges to things:
+    auto Meshes()
+    {
+        return std::views::all(mMeshes);
+    }
+    auto Materials()
+    {
+        return std::views::all(mMaterials);
+    }
+    auto Objects()
+    {
+        return std::views::all(mObjects);
+    }
+
+    // Api to manage update flags, to keep in sync with renderers:
     bool UpdateRequested();
     void ClearUpdateFlags();
 
     void RequestFullUpdate();
+    void RequestMeshUpdate();
     void RequestMaterialUpdate();
-    void RequestGeometryUpdate();
     void RequestMeshMaterialUpdate();
-    void RequestInstanceUpdate();
+    void RequestObjectUpdate();
     void RequestEnvironmentUpdate();
 
+    bool UpdateMeshes();
     bool UpdateMaterials();
-    bool UpdateGeometry();
     bool UpdateMeshMaterials();
-    bool UpdateInstances();
+    bool UpdateObjects();
     bool UpdateEnvironment();
 
   public:
-    std::map<SceneKey, SceneMesh> &Meshes();
-    std::map<SceneKey, Material> &Materials();
-
-    void EraseMesh(SceneKey key);
-    void EraseMaterial(SceneKey key);
-
-    SceneMesh &EmplaceMesh();
-    Material &EmplaceMaterial();
-
-    std::pair<SceneKey, Material &> EmplaceMaterial2();
-
-    // Object instances to be rendered::
-    std::vector<std::optional<SceneObject>> Objects;
-
     // Root of the scene-graph used by UI to control objects:
     SceneGraphNode GraphRoot;
 
@@ -120,6 +142,16 @@ class Scene {
     } Env;
 
   private:
+    // Data sources for renderers:
+    std::map<SceneKey, SceneMesh> mMeshes;
+    std::map<SceneKey, Material> mMaterials;
+    std::map<SceneKey, SceneObject> mObjects;
+
+    SceneKeyGenerator mMeshKeyGenerator;
+    SceneKeyGenerator mMaterialKeyGenerator;
+    SceneKeyGenerator mObjectKeyGenerator;
+
+    // Update data:
     enum class Update
     {
         Materials,
@@ -130,11 +162,4 @@ class Scene {
     };
 
     Bitflags<Update> mUpdateFlags;
-
-    // Data sources for renderers:
-    std::map<SceneKey, SceneMesh> mMeshes;
-    std::map<SceneKey, Material> mMaterials;
-
-    SceneKeyGenerator mMeshKeyGenerator;
-    SceneKeyGenerator mMaterialKeyGenerator;
 };

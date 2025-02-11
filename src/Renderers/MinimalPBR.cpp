@@ -139,29 +139,28 @@ void MinimalPbrRenderer::RebuildPipelines()
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    //If queue empty, to nothing
+    // If queue empty, do nothing
     if (mMaterialData.Empty())
         return;
 
-    //Otherwise wait till gpu is idle
+    // Otherwise wait till gpu is idle
     vkDeviceWaitIdle(mCtx.Device);
 
-    //And attempt to create all queued materials
+    // And attempt to create all queued materials
     auto &pool = mFrame.CurrentPool();
 
-    auto LoadTexture = [&](Image& img, VkImageView& view, ImageData* data, bool unorm)
-    {
+    auto LoadTexture = [&](Image &img, VkImageView &view, ImageData *data, bool unorm) {
         auto format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 
         img = ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, data, format);
         view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
     };
 
-    while(auto opt = mMaterialData.TryPop())
+    while (auto opt = mMaterialData.TryPop())
     {
-        auto& data = *opt;
+        auto &data = *opt;
 
-        auto& mat = mMaterials[data.Key];
+        auto &mat = mMaterials[data.Key];
 
         LoadTexture(mat.AlbedoImage, mat.AlbedoView, data.Albedo.get(), false);
         LoadTexture(mat.RoughnessImage, mat.RoughnessView, data.Roughness.get(), true);
@@ -356,34 +355,23 @@ void MinimalPbrRenderer::CreateSwapchainResources()
 
 void MinimalPbrRenderer::LoadScene(Scene &scene)
 {
-    if (scene.UpdateGeometry())
-    {
-        // mSceneDeletionQueue.flush();
-        // mMeshes.clear();
-
-        LoadProviders(scene);
-    }
+    if (scene.UpdateMeshes())
+        LoadMeshes(scene);
 
     if (scene.UpdateMaterials())
-    {
-        // mMaterialDeletionQueue.flush();
-        // mMaterials.clear();
-        // mMaterialDescriptorAllocator.ResetPools();
-
-        LoadTextures(scene);
-    }
+        LoadMaterials(scene);
 
     if (scene.UpdateMeshMaterials())
         LoadMeshMaterials(scene);
 
-    if (scene.UpdateInstances())
-        LoadInstances(scene);
+    if (scene.UpdateObjects())
+        LoadObjects(scene);
 
     if (scene.UpdateEnvironment())
         mEnvHandler.LoadEnvironment(scene);
 }
 
-void MinimalPbrRenderer::LoadProviders(Scene &scene)
+void MinimalPbrRenderer::LoadMeshes(Scene &scene)
 {
     using namespace std::views;
 
@@ -452,7 +440,7 @@ static Material::ImageSource *GetTextureSource(Material &mat, const MaterialKey 
     return src;
 }
 
-void MinimalPbrRenderer::LoadTextures(Scene &scene)
+void MinimalPbrRenderer::LoadMaterials(Scene &scene)
 {
     // Iterate over all materials in scene
     for (auto &[key, mat] : scene.Materials())
@@ -471,13 +459,12 @@ void MinimalPbrRenderer::LoadTextures(Scene &scene)
         auto roughnessSrc = GetTextureSource(mat, ::Material::Roughness);
         auto normalSrc = GetTextureSource(mat, ::Material::Normal);
 
-        //Create new rendered-side material:
+        // Create new rendered-side material:
         auto &material = mMaterials[key];
 
-        //Push the task to load images from disk to the thread pool
+        // Push the task to load images from disk to the thread pool
         //(they will be uploaded to vulkan in OnUpdate):
-        auto RetrieveMaterialData = [this, key, albedoSrc, roughnessSrc, normalSrc]()
-        {
+        auto RetrieveMaterialData = [this, key, albedoSrc, roughnessSrc, normalSrc]() {
             MaterialData data{};
             data.Key = key;
 
@@ -529,26 +516,23 @@ void MinimalPbrRenderer::LoadMeshMaterials(Scene &scene)
     }
 }
 
-void MinimalPbrRenderer::LoadInstances(Scene &scene)
+void MinimalPbrRenderer::LoadObjects(Scene &scene)
 {
     for (auto &[_, mesh] : mMeshes)
         mesh.Transforms.clear();
 
-    for (auto &obj : scene.Objects)
+    for (auto &[_, obj] : scene.Objects())
     {
-        if (!obj.has_value())
+        if (!obj.MeshId.has_value())
             continue;
 
-        if (!obj->MeshId.has_value())
-            continue;
-
-        SceneKey meshKey = obj->MeshId.value();
+        SceneKey meshKey = obj.MeshId.value();
 
         if (mMeshes.count(meshKey) != 0)
         {
             auto &mesh = mMeshes[meshKey];
 
-            mesh.Transforms.push_back(obj->Transform);
+            mesh.Transforms.push_back(obj.Transform);
 
             continue;
         }

@@ -12,23 +12,24 @@ class SceneEditor {
   private:
     void SceneHierarchyMenu(Scene &scene);
 
-    void DataMenu(Scene &scene);
-    void AddProviderPopup([[maybe_unused]] Scene &scene);
-
-    void InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent = nullptr,
-                      int64_t childId = 0);
+    void InstanceGui(SceneGraphNode &node, SceneGraphNode *parent = nullptr,
+                     int64_t childId = 0);
     void AddInstancePopup(Scene &scene);
-
     void HandleSceneDropPayload(SceneGraphNode &node);
-
-    void ObjectPropertiesMenu(Scene &scene);
-
-    void SelectHdri();
-
     void HandleNodeOp(Scene &scene);
     void HandleNodeMove();
     void HandleNodeDelete(Scene &scene);
     void HandleNodeCopy(Scene &scene);
+
+    void DataMenu(Scene &scene);
+
+    void MeshesTab(Scene &scene);
+    void MaterialsTab(Scene &scene);
+    void EnvironmentTab(Scene &scene);
+    void AddProviderPopup([[maybe_unused]] Scene &scene);
+    void SelectHdriPopup();
+
+    void ObjectPropertiesMenu(Scene &scene);
 
   private:
     struct DragPayload {

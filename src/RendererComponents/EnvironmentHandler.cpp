@@ -136,7 +136,8 @@ void EnvironmentHandler::LoadEnvironment(Scene &scene)
         auto data = ImageData::ImportEXR((*path).string());
         auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
 
-        auto envMap = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, data.get(), format);
+        auto envMap =
+            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, data.get(), format);
 
         auto envView = Image::CreateView2D(mCtx, envMap, envMap.Info.Format,
                                            VK_IMAGE_ASPECT_COLOR_BIT);

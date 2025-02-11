@@ -46,7 +46,7 @@ std::unique_ptr<ImageData> ImageData::ImportSTB(const std::string &path)
 
     res->Width = width;
     res->Height = height;
-    res->Channels = 4; //hence value of 4 here
+    res->Channels = 4; // hence value of 4 here
     res->BytesPerChannel = 1;
 
     res->Data = static_cast<void *>(pixels);

@@ -1,6 +1,7 @@
 #include "SceneEditor.h"
 
 #include "CppUtils.h"
+#include "ImGuiUtils.h"
 #include "Primitives.h"
 #include "Scene.h"
 #include "VertexLayout.h"
@@ -17,6 +18,21 @@
 #include <string>
 #include <variant>
 
+static const char *PAYLOAD_STRING = "SCENE_INSTANCE_PAYLOAD";
+
+SceneGraphNode &SceneEditor::OpInfo::GetSourceNode()
+{
+    auto &children = Parent->GetChildren();
+    auto &ptr = children[ChildId];
+    return *ptr;
+}
+
+auto SceneEditor::OpInfo::GetSourceNodeIterator()
+{
+    auto &children = Parent->GetChildren();
+    return children.begin() + ChildId;
+}
+
 void SceneEditor::OnInit(Scene &scene)
 {
     mHdriBrowser.AddExtensionToFilter(".exr");
@@ -31,7 +47,13 @@ void SceneEditor::OnInit(Scene &scene)
     });
 
     {
-        auto &mat = scene.EmplaceMaterial();
+        auto &mesh = scene.EmplaceMesh();
+        mesh.Name = "Colored Cube";
+        mesh.GeoProvider = primitive::ColoredCube(glm::vec3(0.5f));
+    }
+
+    {
+        auto [key, mat] = scene.EmplaceMaterial2();
 
         mat.Name = "Test Material";
 
@@ -39,19 +61,11 @@ void SceneEditor::OnInit(Scene &scene)
             .Path = "./assets/textures/texture.jpg",
             .Channel = Material::ImageChannel::RGBA,
         };
-    }
 
-    {
-        auto &mesh = scene.EmplaceMesh();
-        mesh.Name = "Colored Cube";
-        mesh.GeoProvider = primitive::ColoredCube(glm::vec3(0.5f));
-    }
-
-    {
         auto &mesh = scene.EmplaceMesh();
         mesh.Name = "Textured Cube";
         mesh.GeoProvider = primitive::TexturedCube();
-        mesh.MaterialIds.push_back(0);
+        mesh.MaterialIds.push_back(key);
     }
 
     scene.RequestFullUpdate();
@@ -62,10 +76,6 @@ void SceneEditor::OnImGui(Scene &scene)
     DataMenu(scene);
     SceneHierarchyMenu(scene);
     ObjectPropertiesMenu(scene);
-    HandleNodeOp(scene);
-    SelectHdri();
-
-    mModelLoader.OnImGui(scene);
 }
 
 void SceneEditor::SceneHierarchyMenu(Scene &scene)
@@ -76,7 +86,7 @@ void SceneEditor::SceneHierarchyMenu(Scene &scene)
     using namespace std::views;
 
     for (const auto [id, child] : enumerate(scene.GraphRoot.GetChildren()))
-        InstanceMenu(*child, &scene.GraphRoot, id);
+        InstanceGui(*child, &scene.GraphRoot, id);
 
     // Setup right-click context menu for adding things:
     AddInstancePopup(scene);
@@ -91,15 +101,25 @@ void SceneEditor::SceneHierarchyMenu(Scene &scene)
     }
 
     ImGui::End();
+
+    // Handle node operations if any were scheduled:
+    HandleNodeOp(scene);
+
+    // Handle model loading if it was scheduled:
+    mModelLoader.OnImGui(scene);
 }
 
-void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
-                               int64_t childId)
+void SceneEditor::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent,
+                              int64_t childId)
 {
+    // Sanity check:
     if (parent != nullptr)
         assert(!parent->IsLeaf());
     else
         assert(!node.IsLeaf());
+
+    // ImGui context for later:
+    ImGuiContext &g = *GImGui;
 
     // Assemble node name and flags:
     std::string nodeName = node.Name + "##" + std::to_string(childId);
@@ -115,16 +135,14 @@ void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
         flags |= ImGuiTreeNodeFlags_Selected;
 
     // Calculate position for the delete button (must happen before node is drawn):
-    ImGuiContext &g = *GImGui;
-
     ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
     closeButtonPos.x +=
         ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
 
-    // Drawing tree node:
+    // Draw the tree node:
     const bool nodeOpen = ImGui::TreeNodeEx(nodeName.c_str(), flags);
 
-    // Handling associated drag/drop/clicked events:
+    // Handle associated drag/drop/clicked events:
     if (ImGui::IsItemClicked())
     {
         mSelectedNode = &node;
@@ -137,7 +155,7 @@ void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
             .ChildId = childId,
         };
 
-        ImGui::SetDragDropPayload("SCENE_INSTANCE_PAYLOAD", &payload, sizeof(payload));
+        ImGui::SetDragDropPayload(PAYLOAD_STRING, &payload, sizeof(payload));
         ImGui::EndDragDropSource();
     }
 
@@ -147,18 +165,14 @@ void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
         ImGui::EndDragDropTarget();
     }
 
-    // Drawing additional copy/delete ui on top:
+    // Draw additional copy/delete ui on top:
     // To-do: also handle non-leaf nodes:
     if (node.IsLeaf())
     {
         ImGui::SameLine();
 
         // Delete button:
-        ImGuiWindow *window = ImGui::GetCurrentWindow();
-        ImGuiID id = window->GetID(nodeName.c_str());
-        ImGuiID closeButtonId = ImGui::GetIDWithSeed("#CLOSE", nullptr, id);
-
-        if (ImGui::CloseButton(closeButtonId, closeButtonPos))
+        if (imutils::CloseButton(nodeName, closeButtonPos))
         {
             mOpInfo = OpInfo{
                 .RequestedOp = OpType::Delete,
@@ -201,7 +215,7 @@ void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
 
             for (const auto [idx, child] : enumerate(node.GetChildren()))
             {
-                InstanceMenu(*child, &node, idx);
+                InstanceGui(*child, &node, idx);
             }
         }
 
@@ -211,14 +225,13 @@ void SceneEditor::InstanceMenu(SceneGraphNode &node, SceneGraphNode *parent,
 
 void SceneEditor::HandleSceneDropPayload(SceneGraphNode &node)
 {
-    if (const auto imPayload = ImGui::AcceptDragDropPayload("SCENE_INSTANCE_PAYLOAD"))
+    if (const auto imPayload = ImGui::AcceptDragDropPayload(PAYLOAD_STRING))
     {
         auto payload = static_cast<DragPayload *>(imPayload->Data);
 
-        bool isLeaf = node.IsLeaf();
         bool sameNode = &node == payload->Parent;
 
-        bool validTarget = !isLeaf && !sameNode;
+        bool validTarget = !node.IsLeaf() && !sameNode;
 
         if (validTarget)
         {
@@ -240,18 +253,18 @@ void SceneEditor::HandleNodeOp(Scene &scene)
         HandleNodeMove();
         // To-do: this can be optimized to only update
         // affected nodes:
-        scene.GraphRoot.UpdateTransforms(scene.Objects);
-        scene.RequestInstanceUpdate();
+        scene.GraphRoot.UpdateTransforms(scene);
+        scene.RequestObjectUpdate();
         break;
     }
     case OpType::Delete: {
         HandleNodeDelete(scene);
-        scene.RequestInstanceUpdate();
+        scene.RequestObjectUpdate();
         break;
     }
     case OpType::Copy: {
         HandleNodeCopy(scene);
-        scene.RequestInstanceUpdate();
+        scene.RequestObjectUpdate();
         break;
     }
     case OpType::None: {
@@ -260,19 +273,6 @@ void SceneEditor::HandleNodeOp(Scene &scene)
     }
 
     mOpInfo.RequestedOp = OpType::None;
-}
-
-SceneGraphNode &SceneEditor::OpInfo::GetSourceNode()
-{
-    auto &children = Parent->GetChildren();
-    auto &ptr = children[ChildId];
-    return *ptr;
-}
-
-auto SceneEditor::OpInfo::GetSourceNodeIterator()
-{
-    auto &children = Parent->GetChildren();
-    return children.begin() + ChildId;
 }
 
 void SceneEditor::HandleNodeMove()
@@ -298,7 +298,7 @@ void SceneEditor::HandleNodeDelete(Scene &scene)
         mSelectedNode = nullptr;
 
     // Remove object, the node pointed to:
-    scene.Objects[node.GetIndex()] = std::nullopt;
+    scene.EraseObject(node.GetObjectKey());
 
     // Erase the node:
     auto &children = mOpInfo.Parent->GetChildren();
@@ -313,11 +313,10 @@ void SceneEditor::HandleNodeCopy(Scene &scene)
     auto &oldNode = mOpInfo.GetSourceNode();
 
     // Duplicate object:
-    auto &obj = scene.Objects[oldNode.GetIndex()];
-    scene.Objects.emplace_back(obj);
+    auto &obj = scene.GetObject(oldNode.GetObjectKey());
+    auto id = scene.EmplaceObject(obj);
 
     // Duplicate node:
-    auto id = scene.Objects.size() - 1;
     auto &newNode = mOpInfo.Parent->EmplaceChild(id);
 
     newNode.Translation = oldNode.Translation;
@@ -338,7 +337,7 @@ void SceneEditor::AddInstancePopup(Scene &scene)
             auto &groupNode = scene.GraphRoot.EmplaceChild();
             groupNode.Name = "Group";
 
-            scene.RequestInstanceUpdate();
+            scene.RequestObjectUpdate();
         }
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
@@ -351,15 +350,14 @@ void SceneEditor::AddInstancePopup(Scene &scene)
 
             if (ImGui::Selectable(name.c_str()))
             {
-                size_t idx = scene.EmplaceObject(SceneObject{
-                    .MeshId = key,
-                    .Transform = glm::mat4(1.0f),
-                });
+                auto [idx, obj] = scene.EmplaceObject2();
+                obj.MeshId = key;
+                obj.Transform = glm::mat4(1.0f);
 
                 auto &newNode = scene.GraphRoot.EmplaceChild(idx);
                 newNode.Name = mesh.Name;
 
-                scene.RequestInstanceUpdate();
+                scene.RequestObjectUpdate();
             }
         }
 
@@ -383,119 +381,136 @@ void SceneEditor::DataMenu(Scene &scene)
 
     if (ImGui::Button("Full reload", buttonSize))
     {
-        scene.RequestMaterialUpdate();
-        scene.RequestGeometryUpdate();
+        scene.RequestFullUpdate();
     }
 
     ImGui::BeginTabBar("We");
 
     if (ImGui::BeginTabItem("Meshes"))
     {
-        using namespace std::views;
-
-        std::optional<SceneKey> keyToDelete;
-
-        for (auto &[meshKey, mesh] : scene.Meshes())
-        {
-            std::string nodeName = mesh.Name + "##" + std::to_string(meshKey);
-
-            ImGuiContext &g = *GImGui;
-
-            ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
-            closeButtonPos.x +=
-                ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
-
-            bool nodeOpen = ImGui::TreeNodeEx(nodeName.c_str());
-
-            ImGuiWindow *window = ImGui::GetCurrentWindow();
-            ImGuiID windowId = window->GetID(nodeName.c_str());
-            ImGuiID closeButtonId = ImGui::GetIDWithSeed("#CLOSE", nullptr, windowId);
-
-            if (ImGui::CloseButton(closeButtonId, closeButtonPos))
-            {
-                keyToDelete = meshKey;
-            }
-
-            if (nodeOpen)
-            {
-                // Display vertex layout:
-                std::string vertLayout = "Vertex Layout: ";
-
-                for (auto type : mesh.GeoProvider.Layout.VertexLayout)
-                    vertLayout += Vertex::ToString(type) + ", ";
-
-                ImGui::Text("%s", vertLayout.c_str());
-
-                ImGui::Separator();
-
-                // Material editing gui:
-                ImGui::Text("Materials:");
-
-                // To-do: this is kind of ugly:
-                // static used here because this value is accessed across
-                // two different calls of this function.
-                static SceneKey *idToChange = nullptr;
-
-                for (const auto [num, id] : enumerate(mesh.MaterialIds))
-                {
-                    const std::string suffix = "##mat" + mesh.Name + std::to_string(num);
-                    std::string matName = scene.Materials().at(id).Name + suffix;
-
-                    ImGui::Text("Material %lu: ", num);
-                    ImGui::SameLine();
-
-                    if (ImGui::Selectable(matName.c_str()))
-                    {
-                        idToChange = &id;
-                        ImGui::OpenPopup("Select material:");
-                    }
-                    // To-do: adding new materials
-                }
-
-                if (ImGui::BeginPopup("Select material:"))
-                {
-                    if (idToChange != nullptr)
-                    {
-                        for (auto &[id, mat] : scene.Materials())
-                        {
-                            if (ImGui::Selectable(mat.Name.c_str()))
-                            {
-                                *idToChange = id;
-                                scene.RequestMeshMaterialUpdate();
-                            }
-                        }
-                    }
-
-                    ImGui::EndPopup();
-                }
-
-                ImGui::TreePop();
-            }
-        }
-
-        AddProviderPopup(scene);
+        MeshesTab(scene);
         ImGui::EndTabItem();
-
-        if (keyToDelete)
-        {
-            scene.EraseMesh(*keyToDelete);
-            scene.RequestGeometryUpdate();
-        }
     }
 
     if (ImGui::BeginTabItem("Materials"))
     {
-        for (auto &[_, mat] : scene.Materials())
-        {
-            if (ImGui::TreeNodeEx(mat.Name.c_str()))
-            {
-                for (const auto &[key, value] : mat)
-                {
-                    std::string entry;
-                    entry += key.Name;
-                    entry += ": ";
+        MaterialsTab(scene);
+        ImGui::EndTabItem();
+    }
 
-                    // clang-format off
+    if (ImGui::BeginTabItem("Environment"))
+    {
+        EnvironmentTab(scene);
+        ImGui::EndTabItem();
+    }
+
+    ImGui::EndTabBar();
+
+    ImGui::End();
+}
+
+void SceneEditor::MeshesTab(Scene &scene)
+{
+    using namespace std::views;
+
+    std::optional<SceneKey> keyToDelete;
+
+    for (auto &[meshKey, mesh] : scene.Meshes())
+    {
+        std::string nodeName = mesh.Name + "##" + std::to_string(meshKey);
+
+        ImGuiContext &g = *GImGui;
+
+        ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
+        closeButtonPos.x +=
+            ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
+
+        bool nodeOpen = ImGui::TreeNodeEx(nodeName.c_str());
+
+        if (imutils::CloseButton(nodeName, closeButtonPos))
+        {
+            keyToDelete = meshKey;
+        }
+
+        if (nodeOpen)
+        {
+            // Display vertex layout:
+            std::string vertLayout = "Vertex Layout: ";
+
+            for (auto type : mesh.GeoProvider.Layout.VertexLayout)
+                vertLayout += Vertex::ToString(type) + ", ";
+
+            ImGui::Text("%s", vertLayout.c_str());
+
+            ImGui::Separator();
+
+            // Material editing gui:
+            ImGui::Text("Materials:");
+
+            // To-do: this is kind of ugly:
+            // static used here because this value is accessed across
+            // two different calls of this function.
+            static SceneKey *idToChange = nullptr;
+
+            for (const auto [num, id] : enumerate(mesh.MaterialIds))
+            {
+                const std::string suffix = "##mat" + mesh.Name + std::to_string(num);
+                std::string matName = scene.GetMaterial(id).Name + suffix;
+
+                ImGui::Text("Material %lu: ", num);
+                ImGui::SameLine();
+
+                if (ImGui::Selectable(matName.c_str()))
+                {
+                    idToChange = &id;
+                    ImGui::OpenPopup("Select material:");
+                }
+                // To-do: adding new materials
+            }
+
+            if (ImGui::BeginPopup("Select material:"))
+            {
+                if (idToChange != nullptr)
+                {
+                    for (auto &[id, mat] : scene.Materials())
+                    {
+                        if (ImGui::Selectable(mat.Name.c_str()))
+                        {
+                            *idToChange = id;
+                            scene.RequestMeshMaterialUpdate();
+                        }
+                    }
+                }
+
+                ImGui::EndPopup();
+            }
+
+            ImGui::TreePop();
+        }
+    }
+
+    AddProviderPopup(scene);
+
+    if (keyToDelete)
+    {
+        scene.EraseMesh(*keyToDelete);
+        scene.RequestMeshUpdate();
+    }
+}
+
+void SceneEditor::MaterialsTab(Scene &scene)
+{
+    for (auto &[_, mat] : scene.Materials())
+    {
+        if (ImGui::TreeNodeEx(mat.Name.c_str()))
+        {
+            for (const auto &[key, value] : mat)
+            {
+                std::string entry;
+                entry += key.Name;
+                entry += ": ";
+
+                // clang-format off
                     std::visit(
                         overloaded{
                             [&entry](Material::ImageSource img) {entry += img.Path.string();},
@@ -504,68 +519,77 @@ void SceneEditor::DataMenu(Scene &scene)
                             [&entry](glm::vec3 v) {entry += std::format("[{}, {}, {}]", v.x, v.y, v.z);},
                             [&entry](glm::vec4 v) {entry += std::format("[{}, {}, {}, {}]", v.x, v.y, v.z, v.w);},
                     }, value);
-                    // clang-format on
+                // clang-format on
 
-                    ImGui::Text("%s", entry.c_str());
-                }
-
-                ImGui::TreePop();
+                ImGui::Text("%s", entry.c_str());
             }
+
+            ImGui::TreePop();
         }
-
-        ImGui::EndTabItem();
     }
+}
 
-    if (ImGui::BeginTabItem("Environment"))
+void SceneEditor::EnvironmentTab(Scene &scene)
+{
+    if (ImGui::Checkbox("Directional light", &scene.Env.DirLightOn))
     {
-        if (ImGui::Checkbox("Directional light", &scene.Env.DirLightOn))
-        {
-            scene.RequestEnvironmentUpdate();
-        }
-
-        static float phi = 2.359f;
-        static float theta = 1.650f;
-
-        ImGui::SliderFloat("Azimuth", &phi, 0.0f, 6.28f);
-        ImGui::SliderFloat("Altitude", &theta, 0.0f, 3.14f);
-
-        const float cT = cos(theta), sT = sin(theta);
-        const float cP = cos(phi), sP = sin(phi);
-
-        glm::vec3 newDir(cP * sT, cT, sP * sT);
-
-        if (newDir != scene.Env.LightDir)
-        {
-            scene.Env.LightDir = newDir;
-            scene.RequestEnvironmentUpdate();
-        }
-
-        ImGui::Text("Hdri path:");
-
-        ImGui::SameLine();
-
-        std::string selText = scene.Env.HdriPath ? (*scene.Env.HdriPath).string() : "";
-        selText += "##HDRI";
-
-        if (ImGui::Selectable(selText.c_str()))
-        {
-            mOpenHdriPopup = true;
-        }
-
-        auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
-
-        if (ImGui::Button("Clear hdri", size))
-        {
-            scene.Env.HdriPath = std::nullopt;
-            scene.RequestEnvironmentUpdate();
-        }
-
-        ImGui::EndTabItem();
+        scene.RequestEnvironmentUpdate();
     }
 
-    ImGui::EndTabBar();
+    static float phi = 2.359f;
+    static float theta = 1.650f;
 
-    ImGui::End();
+    ImGui::SliderFloat("Azimuth", &phi, 0.0f, 6.28f);
+    ImGui::SliderFloat("Altitude", &theta, 0.0f, 3.14f);
+
+    const float cT = cos(theta), sT = sin(theta);
+    const float cP = cos(phi), sP = sin(phi);
+
+    glm::vec3 newDir(cP * sT, cT, sP * sT);
+
+    if (newDir != scene.Env.LightDir)
+    {
+        scene.Env.LightDir = newDir;
+        scene.RequestEnvironmentUpdate();
+    }
+
+    ImGui::Text("Hdri path:");
+
+    ImGui::SameLine();
+
+    std::string selText = scene.Env.HdriPath ? (*scene.Env.HdriPath).string() : "";
+    selText += "##HDRI";
+
+    if (ImGui::Selectable(selText.c_str()))
+    {
+        mOpenHdriPopup = true;
+    }
+
+    auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
+
+    if (ImGui::Button("Clear hdri", size))
+    {
+        scene.Env.HdriPath = std::nullopt;
+        scene.RequestEnvironmentUpdate();
+    }
+
+    // Implementation of the popup for hdri selection:
+    SelectHdriPopup();
+}
+
+void SceneEditor::SelectHdriPopup()
+{
+    const std::string popupName = "Load hdri...";
+
+    if (mOpenHdriPopup)
+    {
+        ImGui::OpenPopup(popupName.c_str());
+        mOpenHdriPopup = false;
+    }
+
+    mHdriBrowser.ImGuiLoadPopup(popupName, mHdriStillOpen);
+
+    mHdriStillOpen = true;
 }
 
 void SceneEditor::AddProviderPopup([[maybe_unused]] Scene &scene)
@@ -624,8 +648,8 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
                 // objects associated with subtree rooted at mSelectedNode
                 // This will require going along the path from root to
                 // mSelectedNode and then propagating as usual.
-                scene.GraphRoot.UpdateTransforms(scene.Objects);
-                scene.RequestInstanceUpdate();
+                scene.GraphRoot.UpdateTransforms(scene);
+                scene.RequestObjectUpdate();
             }
 
             ImGui::TreePop();
@@ -633,19 +657,4 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
     }
 
     ImGui::End();
-}
-
-void SceneEditor::SelectHdri()
-{
-    const std::string popupName = "Load hdri...";
-
-    if (mOpenHdriPopup)
-    {
-        ImGui::OpenPopup(popupName.c_str());
-        mOpenHdriPopup = false;
-    }
-
-    mHdriBrowser.ImGuiLoadPopup(popupName, mHdriStillOpen);
-
-    mHdriStillOpen = true;
 }

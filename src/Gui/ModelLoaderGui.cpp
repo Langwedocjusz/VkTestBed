@@ -182,6 +182,6 @@ void ModelLoaderGui::LoadModel(Scene &scene)
         }
     }
 
+    scene.RequestMeshUpdate();
     scene.RequestMaterialUpdate();
-    scene.RequestGeometryUpdate();
 }

@@ -283,31 +283,20 @@ void Minimal3DRenderer::CreateSwapchainResources()
 
 void Minimal3DRenderer::LoadScene(Scene &scene)
 {
-    if (scene.UpdateGeometry())
-    {
-        // mSceneDeletionQueue.flush();
-        // mColoredMeshes.clear();
-        // mTexturedMeshes.clear();
-
-        LoadProviders(scene);
-    }
+    if (scene.UpdateMeshes())
+        LoadMeshes(scene);
 
     if (scene.UpdateMaterials())
-    {
-        // mTextures.clear();
-        // mTextureDescriptorAllocator.ResetPools();
-
-        LoadTextures(scene);
-    }
+        LoadMaterials(scene);
 
     if (scene.UpdateMeshMaterials())
         LoadMeshMaterials(scene);
 
-    if (scene.UpdateInstances())
-        LoadInstances(scene);
+    if (scene.UpdateObjects())
+        LoadObjects(scene);
 }
 
-void Minimal3DRenderer::LoadProviders(Scene &scene)
+void Minimal3DRenderer::LoadMeshes(Scene &scene)
 {
     using namespace std::views;
 
@@ -383,7 +372,7 @@ void Minimal3DRenderer::LoadProviders(Scene &scene)
     }
 }
 
-void Minimal3DRenderer::LoadTextures(Scene &scene)
+void Minimal3DRenderer::LoadMaterials(Scene &scene)
 {
     auto &pool = mFrame.CurrentPool();
 
@@ -467,7 +456,7 @@ void Minimal3DRenderer::LoadMeshMaterials(Scene &scene)
     }
 }
 
-void Minimal3DRenderer::LoadInstances(Scene &scene)
+void Minimal3DRenderer::LoadObjects(Scene &scene)
 {
     for (auto &[_, mesh] : mColoredMeshes)
         mesh.Transforms.clear();
@@ -475,21 +464,18 @@ void Minimal3DRenderer::LoadInstances(Scene &scene)
     for (auto &[_, mesh] : mTexturedMeshes)
         mesh.Transforms.clear();
 
-    for (auto &obj : scene.Objects)
+    for (auto &[_, obj] : scene.Objects())
     {
-        if (!obj.has_value())
+        if (!obj.MeshId.has_value())
             continue;
 
-        if (!obj->MeshId.has_value())
-            continue;
-
-        SceneKey meshKey = obj->MeshId.value();
+        SceneKey meshKey = obj.MeshId.value();
 
         if (mColoredMeshes.count(meshKey) != 0)
         {
             auto &mesh = mColoredMeshes[meshKey];
 
-            mesh.Transforms.push_back(obj->Transform);
+            mesh.Transforms.push_back(obj.Transform);
 
             continue;
         }
@@ -498,7 +484,7 @@ void Minimal3DRenderer::LoadInstances(Scene &scene)
         {
             auto &mesh = mTexturedMeshes[meshKey];
 
-            mesh.Transforms.push_back(obj->Transform);
+            mesh.Transforms.push_back(obj.Transform);
 
             continue;
         }

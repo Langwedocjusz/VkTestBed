@@ -84,7 +84,7 @@ void HelloRenderer::OnRender()
                                 mGraphicsPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &[_,mesh] : mMeshes)
+        for (auto &[_, mesh] : mMeshes)
         {
             for (auto &transform : mesh.Transforms)
             {
@@ -149,20 +149,20 @@ void HelloRenderer::CreateSwapchainResources()
 
 void HelloRenderer::LoadScene(Scene &scene)
 {
-    if (scene.UpdateGeometry())
+    if (scene.UpdateMeshes())
     {
         // This will only take efect on non-first runs:
         mSceneDeletionQueue.flush();
         mMeshes.clear();
 
-        LoadProviders(scene);
+        LoadMeshes(scene);
     }
 
-    if (scene.UpdateInstances())
-        LoadInstances(scene);
+    if (scene.UpdateObjects())
+        LoadObjects(scene);
 }
 
-void HelloRenderer::LoadProviders(Scene &scene)
+void HelloRenderer::LoadMeshes(Scene &scene)
 {
     auto &pool = mFrame.CurrentPool();
 
@@ -194,7 +194,7 @@ void HelloRenderer::LoadProviders(Scene &scene)
         }
     }
 
-    for (auto &[_,mesh] : mMeshes)
+    for (auto &[_, mesh] : mMeshes)
     {
         for (auto &drawable : mesh.Drawables)
         {
@@ -204,22 +204,18 @@ void HelloRenderer::LoadProviders(Scene &scene)
     }
 }
 
-void HelloRenderer::LoadInstances(Scene &scene)
+void HelloRenderer::LoadObjects(Scene &scene)
 {
-    for (auto &[_,mesh] : mMeshes)
+    for (auto &[_, mesh] : mMeshes)
         mesh.Transforms.clear();
 
-    for (auto &obj : scene.Objects)
+    for (auto &[_, obj] : scene.Objects())
     {
-        // Is valid object?
-        if (!obj.has_value())
-            continue;
-
         // Has mesh component?
-        if (!obj->MeshId.has_value())
+        if (!obj.MeshId.has_value())
             continue;
 
-        auto key = obj->MeshId.value();
+        auto key = obj.MeshId.value();
 
         // We have this mesh imported?
         if (mMeshes.count(key) == 0)
@@ -227,6 +223,6 @@ void HelloRenderer::LoadInstances(Scene &scene)
 
         auto &mesh = mMeshes[key];
 
-        mesh.Transforms.push_back(obj->Transform);
+        mesh.Transforms.push_back(obj.Transform);
     }
 }

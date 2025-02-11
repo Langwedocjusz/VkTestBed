@@ -25,10 +25,10 @@ class Minimal3DRenderer : public IRenderer {
     void LoadScene(Scene &scene) override;
 
   private:
-    void LoadProviders(Scene &scene);
-    void LoadTextures(Scene &scene);
+    void LoadMeshes(Scene &scene);
+    void LoadMaterials(Scene &scene);
     void LoadMeshMaterials(Scene &scene);
-    void LoadInstances(Scene &scene);
+    void LoadObjects(Scene &scene);
 
   private:
     const float mInternalResolutionScale = 1.0f;

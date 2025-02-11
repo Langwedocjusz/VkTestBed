@@ -1,6 +1,16 @@
 #include "ImGuiUtils.h"
 
-#include "imgui.h"
+#include "imgui_internal.h"
+
+bool imutils::CloseButton(const std::string &name, ImVec2 pos)
+{
+    ImGuiWindow *window = ImGui::GetCurrentWindow();
+    ImGuiID windowId = window->GetID(name.c_str());
+
+    ImGuiID id = ImGui::GetIDWithSeed("#CLOSE", nullptr, windowId);
+
+    return ImGui::CloseButton(id, pos);
+}
 
 void imutils::DisplayStats(FrameStats &stats)
 {

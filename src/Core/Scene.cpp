@@ -6,27 +6,29 @@
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+// SceneGraphNode Implementation:
+
 SceneGraphNode::SceneGraphNode()
 {
     Payload = ChildrenArray{};
 }
 
-SceneGraphNode::SceneGraphNode(size_t instanceId)
+SceneGraphNode::SceneGraphNode(SceneKey key)
 {
-    Payload = instanceId;
+    Payload = key;
 }
 
 bool SceneGraphNode::IsLeaf()
 {
-    return std::holds_alternative<ObjectId>(Payload);
+    return std::holds_alternative<SceneKey>(Payload);
 }
 
-size_t SceneGraphNode::GetIndex()
+SceneKey SceneGraphNode::GetObjectKey()
 {
     if (!IsLeaf())
-        throw std::logic_error("Only leaf nodes hold indices!");
+        throw std::logic_error("Only leaf nodes hold object keys!");
 
-    return std::get<ObjectId>(Payload);
+    return std::get<SceneKey>(Payload);
 }
 
 SceneGraphNode::ChildrenArray &SceneGraphNode::GetChildren()
@@ -47,9 +49,9 @@ SceneGraphNode &SceneGraphNode::EmplaceChild()
     return child;
 }
 
-SceneGraphNode &SceneGraphNode::EmplaceChild(size_t idx)
+SceneGraphNode &SceneGraphNode::EmplaceChild(SceneKey key)
 {
-    GetChildren().push_back(std::make_unique<SceneGraphNode>(idx));
+    GetChildren().push_back(std::make_unique<SceneGraphNode>(key));
 
     auto &child = *GetChildren().back();
     child.Parent = this;
@@ -63,52 +65,93 @@ glm::mat4 SceneGraphNode::GetTransform()
            glm::toMat4(glm::quat(Rotation)) * glm::scale(glm::mat4(1.0f), Scale);
 }
 
-void SceneGraphNode::UpdateTransforms(ObjectArray &objs, glm::mat4 current)
+void SceneGraphNode::UpdateTransforms(Scene &scene, glm::mat4 current)
 {
     if (IsLeaf())
     {
-        auto &obj = objs[GetIndex()];
+        auto &obj = scene.GetObject(GetObjectKey());
 
-        if (!obj.has_value())
-            throw std::logic_error("Scene graph holds invalid object id.");
-
-        obj.value().Transform = current * GetTransform();
+        obj.Transform = current * GetTransform();
     }
 
     else
     {
         for (auto &child : GetChildren())
         {
-            child->UpdateTransforms(objs, current * GetTransform());
+            child->UpdateTransforms(scene, current * GetTransform());
         }
     }
 }
 
-size_t Scene::EmplaceObject(SceneObject obj)
-{
-    // To-do: maybe keep a separate list of nullopts
-    // to do this in less than O(N)
-    for (size_t i = 0; i < Objects.size(); i++)
-    {
-        if (Objects[i] == std::nullopt)
-        {
-            Objects[i] = obj;
-            return i;
-        }
-    }
+// Scene Implementation:
 
-    Objects.emplace_back(obj);
-    return Objects.size() - 1;
+SceneMesh &Scene::EmplaceMesh()
+{
+    auto key = mMeshKeyGenerator.Get();
+
+    if (mMeshes.count(key) != 0)
+        throw std::runtime_error("Cannot emplace mesh, key already in use!");
+
+    mMeshes[key] = SceneMesh{};
+    return mMeshes[key];
 }
 
-std::map<SceneKey, SceneMesh> &Scene::Meshes()
+Material &Scene::EmplaceMaterial()
 {
-    return mMeshes;
+    auto key = mMaterialKeyGenerator.Get();
+
+    if (mMaterials.count(key) != 0)
+        throw std::runtime_error("Cannot emplace material, key already in use!");
+
+    mMaterials[key] = Material{};
+    return mMaterials[key];
 }
 
-std::map<SceneKey, Material> &Scene::Materials()
+SceneObject &Scene::EmplaceObject()
 {
-    return mMaterials;
+    auto key = mObjectKeyGenerator.Get();
+
+    if (mObjects.count(key) != 0)
+        throw std::runtime_error("Cannot emplace object, key already in use!");
+
+    mObjects[key] = SceneObject{};
+    return mObjects[key];
+}
+
+std::pair<SceneKey, Material &> Scene::EmplaceMaterial2()
+{
+    auto key = mMaterialKeyGenerator.Get();
+
+    if (mMaterials.count(key) != 0)
+        throw std::runtime_error("Cannot emplace material, key already in use!");
+
+    mMaterials[key] = Material{};
+
+    return {key, mMaterials[key]};
+}
+
+std::pair<SceneKey, SceneObject &> Scene::EmplaceObject2()
+{
+    auto key = mObjectKeyGenerator.Get();
+
+    if (mObjects.count(key) != 0)
+        throw std::runtime_error("Cannot emplace object, key already in use!");
+
+    mObjects[key] = SceneObject{};
+
+    return {key, mObjects[key]};
+}
+
+SceneKey Scene::EmplaceObject(const SceneObject &obj)
+{
+    auto key = mObjectKeyGenerator.Get();
+
+    if (mObjects.count(key) != 0)
+        throw std::runtime_error("Cannot emplace object, key already in use!");
+
+    mObjects[key] = obj;
+
+    return key;
 }
 
 void Scene::EraseMesh(SceneKey key)
@@ -121,38 +164,24 @@ void Scene::EraseMaterial(SceneKey key)
     mMaterials.erase(key);
 }
 
-SceneMesh &Scene::EmplaceMesh()
+void Scene::EraseObject(SceneKey key)
 {
-    auto key = mMeshKeyGenerator.Get();
+    mObjects.erase(key);
+}
 
-    if (mMeshes.count(key) != 0)
-        throw std::runtime_error("Cannot emplace mesh, id already in use!");
-
-    mMeshes[key] = SceneMesh{};
+SceneMesh &Scene::GetMesh(SceneKey key)
+{
     return mMeshes[key];
 }
 
-Material &Scene::EmplaceMaterial()
+Material &Scene::GetMaterial(SceneKey key)
 {
-    auto key = mMaterialKeyGenerator.Get();
-
-    if (mMaterials.count(key) != 0)
-        throw std::runtime_error("Cannot emplace mesh, id already in use!");
-
-    mMaterials[key] = Material{};
     return mMaterials[key];
 }
 
-std::pair<SceneKey, Material &> Scene::EmplaceMaterial2()
+SceneObject &Scene::GetObject(SceneKey key)
 {
-    auto key = mMaterialKeyGenerator.Get();
-
-    if (mMaterials.count(key) != 0)
-        throw std::runtime_error("Cannot emplace mesh, id already in use!");
-
-    mMaterials[key] = Material{};
-
-    return {key, mMaterials[key]};
+    return mObjects[key];
 }
 
 bool Scene::UpdateRequested()
@@ -170,17 +199,17 @@ void Scene::RequestFullUpdate()
     mUpdateFlags.SetAll();
 }
 
-void Scene::RequestMaterialUpdate()
-{
-    mUpdateFlags.Set(Update::Materials);
-    mUpdateFlags.Set(Update::MeshMaterials);
-}
-
-void Scene::RequestGeometryUpdate()
+void Scene::RequestMeshUpdate()
 {
     mUpdateFlags.Set(Update::MeshGeo);
     mUpdateFlags.Set(Update::MeshMaterials);
     mUpdateFlags.Set(Update::Instances);
+}
+
+void Scene::RequestMaterialUpdate()
+{
+    mUpdateFlags.Set(Update::Materials);
+    mUpdateFlags.Set(Update::MeshMaterials);
 }
 
 void Scene::RequestMeshMaterialUpdate()
@@ -188,7 +217,7 @@ void Scene::RequestMeshMaterialUpdate()
     mUpdateFlags.Set(Update::MeshMaterials);
 }
 
-void Scene::RequestInstanceUpdate()
+void Scene::RequestObjectUpdate()
 {
     mUpdateFlags.Set(Update::Instances);
 }
@@ -198,14 +227,14 @@ void Scene::RequestEnvironmentUpdate()
     mUpdateFlags.Set(Update::Environment);
 }
 
+bool Scene::UpdateMeshes()
+{
+    return mUpdateFlags[Update::MeshGeo];
+}
+
 bool Scene::UpdateMaterials()
 {
     return mUpdateFlags[Update::Materials];
-}
-
-bool Scene::UpdateGeometry()
-{
-    return mUpdateFlags[Update::MeshGeo];
 }
 
 bool Scene::UpdateMeshMaterials()
@@ -213,7 +242,7 @@ bool Scene::UpdateMeshMaterials()
     return mUpdateFlags[Update::MeshMaterials];
 }
 
-bool Scene::UpdateInstances()
+bool Scene::UpdateObjects()
 {
     return mUpdateFlags[Update::Instances];
 }

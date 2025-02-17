@@ -2,7 +2,6 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Descriptor.h"
-#include "GeometryProvider.h"
 #include "ImageLoaders.h"
 #include "MeshBuffers.h"
 #include "Renderer.h"
@@ -314,7 +313,7 @@ void Minimal3DRenderer::LoadMeshes(Scene &scene)
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
     };
 
-    for (const auto &[key, mesh] : scene.Meshes())
+    for (const auto &[key, sceneMesh] : scene.Meshes())
     {
         if (mColoredMeshes.count(key) != 0)
             continue;
@@ -322,34 +321,66 @@ void Minimal3DRenderer::LoadMeshes(Scene &scene)
         if (mTexturedMeshes.count(key) != 0)
             continue;
 
-        if (mColoredLayout.IsCompatible(mesh.GeoProvider.Layout))
+        if (sceneMesh.IsModel())
         {
-            auto &newMesh = mColoredMeshes[key];
+            auto config = sceneMesh.GetModelConfig();
 
-            auto geometries = mesh.GeoProvider.GetGeometry();
-
-            for (auto &geo : geometries)
+            if (mColoredLayout.IsCompatible(config.GeoLayout()))
             {
-                auto &drawable = newMesh.Drawables.emplace_back();
-                CreateBuffers(drawable, geo);
+                auto &mesh = mColoredMeshes[key];
+
+                auto gltf = ModelLoader::GetGltfWithBuffers(config.Filepath);
+
+                for (auto &submesh : gltf.meshes)
+                {
+                    for (auto &primitive : submesh.primitives)
+                    {
+                        auto geo = ModelLoader::LoadPrimitive(gltf, config, primitive);
+                        auto &drawable = mesh.Drawables.emplace_back();
+
+                        CreateBuffers(drawable, geo);
+                    }
+                }
             }
 
-            continue;
+            if (mTexturedLayout.IsCompatible(config.GeoLayout()))
+            {
+                auto &mesh = mTexturedMeshes[key];
+
+                auto gltf = ModelLoader::GetGltfWithBuffers(config.Filepath);
+
+                for (auto &submesh : gltf.meshes)
+                {
+                    for (auto &primitive : submesh.primitives)
+                    {
+                        auto geo = ModelLoader::LoadPrimitive(gltf, config, primitive);
+                        auto &drawable = mesh.Drawables.emplace_back();
+
+                        CreateBuffers(drawable, geo);
+                    }
+                }
+            }
         }
 
-        if (mTexturedLayout.IsCompatible(mesh.GeoProvider.Layout))
+        else
         {
-            auto &newMesh = mTexturedMeshes[key];
+            auto geo = sceneMesh.GetGeometry();
 
-            auto geometries = mesh.GeoProvider.GetGeometry();
-
-            for (auto [geoId, geo] : enumerate(geometries))
+            if (mColoredLayout.IsCompatible(geo.Layout))
             {
-                auto &drawable = newMesh.Drawables.emplace_back();
+                auto &mesh = mColoredMeshes[key];
+                auto &drawable = mesh.Drawables.emplace_back();
+
                 CreateBuffers(drawable, geo);
             }
 
-            continue;
+            if (mTexturedLayout.IsCompatible(geo.Layout))
+            {
+                auto &mesh = mTexturedMeshes[key];
+                auto &drawable = mesh.Drawables.emplace_back();
+
+                CreateBuffers(drawable, geo);
+            }
         }
     }
 
@@ -450,7 +481,7 @@ void Minimal3DRenderer::LoadMeshMaterials(Scene &scene)
 
             for (const auto [idx, drawable] : enumerate(ourMesh.Drawables))
             {
-                drawable.TextureId = mesh.MaterialIds[idx];
+                drawable.TextureId = mesh.Materials[idx];
             }
         }
     }

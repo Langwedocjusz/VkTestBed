@@ -1,16 +1,17 @@
 #pragma once
 
 #include "Bitflags.h"
-#include "GeometryProvider.h"
+#include "GeometryData.h"
 #include "Material.h"
+#include "ModelLoader.h"
 
 #include <glm/glm.hpp>
 
+#include <functional>
 #include <map>
 #include <optional>
 #include <ranges>
 #include <string>
-#include <variant>
 
 // To-do: replace with a more legit unqiue ID setup:
 using SceneKey = uint32_t;
@@ -28,8 +29,12 @@ class SceneKeyGenerator {
 
 struct SceneMesh {
     std::string Name;
-    GeometryProvider GeoProvider;
-    std::vector<SceneKey> MaterialIds;
+    std::variant<ModelLoader::Config, std::function<GeometryData()>> Geometry;
+    std::vector<SceneKey> Materials;
+
+    [[nodiscard]] bool IsModel() const;
+    [[nodiscard]] const ModelLoader::Config &GetModelConfig() const;
+    [[nodiscard]] GeometryData GetGeometry() const;
 };
 
 struct SceneObject {

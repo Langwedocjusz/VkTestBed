@@ -1,27 +1,29 @@
 #pragma once
 
-#include "GeometryProvider.h"
+#include "GeometryData.h"
 
 #include <fastgltf/core.hpp>
+#include <fastgltf/types.hpp>
 
 #include <filesystem>
 
 namespace ModelLoader
 {
-// To-do: maybe use custom return type instead:
-fastgltf::Asset GetGltf(const std::filesystem::path &filepath);
-
-struct ModelConfig {
+struct Config {
     std::filesystem::path Filepath;
 
     bool LoadTexCoord = true;
     bool LoadNormals = true;
     bool LoadTangents = true;
     bool LoadColor = false;
+
+    [[nodiscard]] GeometryLayout GeoLayout() const;
 };
 
-GeometryProvider LoadModel(const ModelConfig &config);
+// To-do: maybe use custom return type instead:
+fastgltf::Asset GetGltf(const std::filesystem::path &filepath);
+fastgltf::Asset GetGltfWithBuffers(const std::filesystem::path &filepath);
 
-GeometryProvider LoadPrimitive(const ModelConfig &config, int64_t meshId,
-                               int64_t primitiveId);
+GeometryData LoadPrimitive(fastgltf::Asset &gltf, const Config &config,
+                           fastgltf::Primitive &primitive);
 } // namespace ModelLoader

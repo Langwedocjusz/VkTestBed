@@ -4,7 +4,6 @@
 #include "ImGuiUtils.h"
 #include "Primitives.h"
 #include "Scene.h"
-#include "VertexLayout.h"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -49,7 +48,7 @@ void SceneEditor::OnInit(Scene &scene)
     {
         auto &mesh = scene.EmplaceMesh();
         mesh.Name = "Colored Cube";
-        mesh.GeoProvider = primitive::ColoredCube(glm::vec3(0.5f));
+        mesh.Geometry = primitive::ColoredCube;
     }
 
     {
@@ -64,8 +63,8 @@ void SceneEditor::OnInit(Scene &scene)
 
         auto &mesh = scene.EmplaceMesh();
         mesh.Name = "Textured Cube";
-        mesh.GeoProvider = primitive::TexturedCube();
-        mesh.MaterialIds.push_back(key);
+        mesh.Geometry = primitive::TexturedCube;
+        mesh.Materials.push_back(key);
     }
 
     scene.RequestFullUpdate();
@@ -434,15 +433,15 @@ void SceneEditor::MeshesTab(Scene &scene)
 
         if (nodeOpen)
         {
-            // Display vertex layout:
-            std::string vertLayout = "Vertex Layout: ";
-
-            for (auto type : mesh.GeoProvider.Layout.VertexLayout)
-                vertLayout += Vertex::ToString(type) + ", ";
-
-            ImGui::Text("%s", vertLayout.c_str());
-
-            ImGui::Separator();
+            //// Display vertex layout:
+            // std::string vertLayout = "Vertex Layout: ";
+            //
+            // for (auto type : mesh.GeoProvider.Layout.VertexLayout)
+            //     vertLayout += Vertex::ToString(type) + ", ";
+            //
+            // ImGui::Text("%s", vertLayout.c_str());
+            //
+            // ImGui::Separator();
 
             // Material editing gui:
             ImGui::Text("Materials:");
@@ -452,7 +451,7 @@ void SceneEditor::MeshesTab(Scene &scene)
             // two different calls of this function.
             static SceneKey *idToChange = nullptr;
 
-            for (const auto [num, id] : enumerate(mesh.MaterialIds))
+            for (const auto [num, id] : enumerate(mesh.Materials))
             {
                 const std::string suffix = "##mat" + mesh.Name + std::to_string(num);
                 std::string matName = scene.GetMaterial(id).Name + suffix;

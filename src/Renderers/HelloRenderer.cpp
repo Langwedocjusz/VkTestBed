@@ -1,6 +1,6 @@
 #include "HelloRenderer.h"
-#include "GeometryProvider.h"
 #include "MeshBuffers.h"
+#include "ModelLoader.h"
 #include "Renderer.h"
 #include "Shader.h"
 #include "VkInit.h"
@@ -166,31 +166,60 @@ void HelloRenderer::LoadMeshes(Scene &scene)
 {
     auto &pool = mFrame.CurrentPool();
 
+    auto CreateBuffers = [&](Drawable &drawable, GeometryData &geo) {
+        // Create Vertex buffer:
+        drawable.VertexBuffer =
+            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
+        drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
+
+        // Create Index buffer:
+        drawable.IndexBuffer =
+            IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+        drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
+    };
+
     for (auto &[key, sceneMesh] : scene.Meshes())
     {
-        if (!mGeometryLayout.IsCompatible(sceneMesh.GeoProvider.Layout))
+        if (sceneMesh.IsModel())
         {
-            std::cerr << "Unsupported geometry layout.\n";
-            continue;
+            auto config = sceneMesh.GetModelConfig();
+
+            if (!mGeometryLayout.IsCompatible(config.GeoLayout()))
+            {
+                std::cerr << "Unsupported geometry layout.\n";
+                continue;
+            }
+
+            auto &mesh = mMeshes[key];
+
+            auto gltf = ModelLoader::GetGltfWithBuffers(config.Filepath);
+
+            for (auto &submesh : gltf.meshes)
+            {
+                for (auto &primitive : submesh.primitives)
+                {
+                    auto geo = ModelLoader::LoadPrimitive(gltf, config, primitive);
+                    auto &drawable = mesh.Drawables.emplace_back();
+
+                    CreateBuffers(drawable, geo);
+                }
+            }
         }
 
-        auto &mesh = mMeshes[key];
-
-        auto geometries = sceneMesh.GeoProvider.GetGeometry();
-
-        for (auto &geo : geometries)
+        else
         {
+            auto geo = sceneMesh.GetGeometry();
+
+            if (!mGeometryLayout.IsCompatible(geo.Layout))
+            {
+                std::cerr << "Unsupported geometry layout.\n";
+                continue;
+            }
+
+            auto &mesh = mMeshes[key];
             auto &drawable = mesh.Drawables.emplace_back();
 
-            // Create Vertex buffer:
-            drawable.VertexBuffer =
-                VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
-            drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
-
-            // Create Index buffer:
-            drawable.IndexBuffer =
-                IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
-            drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
+            CreateBuffers(drawable, geo);
         }
     }
 

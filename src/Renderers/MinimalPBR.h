@@ -3,18 +3,15 @@
 #include "DeletionQueue.h"
 #include "Descriptor.h"
 #include "EnvironmentHandler.h"
-#include "GeometryProvider.h"
-#include "ImageLoaders.h"
+#include "GeometryData.h"
+#include "ImageData.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "ThreadPool.h"
-#include "VertexLayout.h"
-
-#include <vulkan/vulkan.h>
 
 #include <map>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 class MinimalPbrRenderer : public IRenderer {
   public:
@@ -36,6 +33,9 @@ class MinimalPbrRenderer : public IRenderer {
     void LoadMeshMaterials(Scene &scene);
     void LoadObjects(Scene &scene);
 
+    struct Drawable;
+    void CreateBuffers(VkCommandPool pool, Drawable &drawable, GeometryData &geo);
+
   private:
     // Framebuffer related things:
     const float mInternalResolutionScale = 1.0f;
@@ -45,8 +45,17 @@ class MinimalPbrRenderer : public IRenderer {
     Image mDepthBuffer;
     VkImageView mDepthBufferView;
 
-    // Common resources:
+    // Asset-loading related things:
     ThreadPool mThreadPool;
+
+    struct DrawableData {
+        SceneKey Mesh;
+        size_t DrawableId;
+        GeometryData Geometry;
+    };
+
+    fastgltf::Asset mCurrentGltf;
+    SyncQueue<DrawableData> mDrawableData;
 
     struct MaterialData {
         SceneKey Key;
@@ -57,6 +66,7 @@ class MinimalPbrRenderer : public IRenderer {
 
     SyncQueue<MaterialData> mMaterialData;
 
+    // Common resources:
     VkSampler mSampler2D;
 
     // Main material pass:

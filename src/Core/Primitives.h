@@ -1,16 +1,16 @@
 #pragma once
 
-#include "GeometryProvider.h"
+#include "GeometryData.h"
 
 #include <glm/glm.hpp>
 
 namespace primitive
 {
-GeometryProvider HelloTriangle();
-GeometryProvider HelloQuad();
+GeometryData HelloTriangle();
+GeometryData HelloQuad();
 
-GeometryProvider ColoredCube(glm::vec3 color);
+GeometryData TexturedQuad();
 
-GeometryProvider TexturedQuad();
-GeometryProvider TexturedCube();
+GeometryData ColoredCube();
+GeometryData TexturedCube();
 } // namespace primitive

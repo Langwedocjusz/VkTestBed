@@ -1,8 +1,5 @@
 #include "ModelLoader.h"
 
-#include "GeometryProvider.h"
-#include "VertexLayout.h"
-
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
@@ -10,6 +7,28 @@
 #include "mikktspace.h"
 
 #include <iostream>
+
+GeometryLayout ModelLoader::Config::GeoLayout() const
+{
+    using enum Vertex::AttributeType;
+
+    GeometryLayout layout{};
+
+    layout.VertexLayout.push_back(Vec3);
+
+    if (LoadTexCoord)
+        layout.VertexLayout.push_back(Vec2);
+
+    if (LoadNormals)
+        layout.VertexLayout.push_back(Vec3);
+
+    if (LoadTangents)
+        layout.VertexLayout.push_back(Vec4);
+
+    layout.IndexType = VK_INDEX_TYPE_UINT32;
+
+    return layout;
+}
 
 static fastgltf::Asset GetAsset(const std::filesystem::path &path,
                                 bool loadBuffers = false)
@@ -38,6 +57,11 @@ fastgltf::Asset ModelLoader::GetGltf(const std::filesystem::path &filepath)
     return GetAsset(filepath, false);
 }
 
+fastgltf::Asset ModelLoader::GetGltfWithBuffers(const std::filesystem::path &filepath)
+{
+    return GetAsset(filepath, true);
+}
+
 static fastgltf::Accessor &GetAttributeAccessor(fastgltf::Asset &gltf,
                                                 fastgltf::Primitive &primitive,
                                                 std::string_view name)
@@ -64,7 +88,7 @@ struct VertexLayout {
     uint32_t OffsetTangent;
 };
 
-static VertexLayout GetLayout(const ModelLoader::ModelConfig &config)
+static VertexLayout GetLayout(const ModelLoader::Config &config)
 {
     VertexLayout res{
         .Stride = 3,
@@ -94,34 +118,13 @@ static VertexLayout GetLayout(const ModelLoader::ModelConfig &config)
     return res;
 }
 
-static GeometryLayout GetGeoLayout(const ModelLoader::ModelConfig &config)
-{
-    using enum Vertex::AttributeType;
-
-    GeometryLayout layout{};
-    layout.IndexType = VK_INDEX_TYPE_UINT32;
-
-    layout.VertexLayout.push_back(Vec3);
-
-    if (config.LoadTexCoord)
-        layout.VertexLayout.push_back(Vec2);
-
-    if (config.LoadNormals)
-        layout.VertexLayout.push_back(Vec3);
-
-    if (config.LoadTangents)
-        layout.VertexLayout.push_back(Vec4);
-
-    return layout;
-}
-
 struct VertParsingResult {
     bool GenerateTangents = false;
 };
 
 static VertParsingResult RetrieveVertices(fastgltf::Asset &gltf,
                                           fastgltf::Primitive &primitive,
-                                          const ModelLoader::ModelConfig &config,
+                                          const ModelLoader::Config &config,
                                           GeometryData &geo)
 {
     VertParsingResult res{};
@@ -383,21 +386,20 @@ static void GenerateTangents(GeometryData &geo, VertexLayout layout)
     genTangSpaceDefault(&ctx);
 }
 
-static void LoadPrimitive(std::vector<GeometryData> &output, fastgltf::Asset &gltf,
-                          fastgltf::Primitive &primitive,
-                          const ModelLoader::ModelConfig &config)
+GeometryData ModelLoader::LoadPrimitive(fastgltf::Asset &gltf, const Config &config,
+                                        fastgltf::Primitive &primitive)
 {
     // Retrieve essential info about the mesh primitive:
+    auto layout = GetLayout(config);
+    auto vertSize = layout.Stride * sizeof(float);
+
     const size_t vertCount = GetVertexCount(gltf, primitive);
     const size_t idxCount = GetIndexCount(gltf, primitive);
 
     // Allocate memory for vertex and index data:
-    auto layout = GetLayout(config);
-    auto vertSize = layout.Stride * sizeof(float);
-
     const auto spec = GeometrySpec::BuildS<uint32_t>(vertSize, vertCount, idxCount);
 
-    auto &geo = output.emplace_back(spec);
+    auto geo = GeometryData(spec);
 
     // Retrieve the data:
     auto vertRes = RetrieveVertices(gltf, primitive, config, geo);
@@ -406,57 +408,6 @@ static void LoadPrimitive(std::vector<GeometryData> &output, fastgltf::Asset &gl
     // Generate tangents if necessary:
     if (vertRes.GenerateTangents)
         GenerateTangents(geo, layout);
-}
 
-GeometryProvider ModelLoader::LoadModel(const ModelConfig &config)
-{
-    auto layout = GetGeoLayout(config);
-
-    auto geoProvider = [config]() {
-        std::vector<GeometryData> res;
-
-        auto gltf = GetAsset(config.Filepath, true);
-
-        for (auto &mesh : gltf.meshes)
-        {
-            for (auto &primitive : mesh.primitives)
-            {
-                LoadPrimitive(res, gltf, primitive, config);
-            }
-        }
-
-        return res;
-    };
-
-    return GeometryProvider{
-        layout,
-        geoProvider,
-    };
-}
-
-GeometryProvider ModelLoader::LoadPrimitive(const ModelConfig &config, int64_t meshId,
-                                            int64_t primitiveId)
-{
-    auto layout = GetGeoLayout(config);
-
-    auto geoProvider = [config, meshId, primitiveId]() {
-        std::vector<GeometryData> res;
-
-        // Parse the gltf:
-        auto gltf = GetAsset(config.Filepath, true);
-
-        // Select the specified primitive:
-        auto &mesh = gltf.meshes[meshId];
-        auto &primitive = mesh.primitives[primitiveId];
-
-        LoadPrimitive(res, gltf, primitive, config);
-
-        return res;
-    };
-
-    return GeometryProvider{
-        // config.Filepath.stem().string(),
-        layout,
-        geoProvider,
-    };
+    return geo;
 }

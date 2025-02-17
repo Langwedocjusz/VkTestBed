@@ -98,7 +98,7 @@ void ModelLoaderGui::LoadModel(Scene &scene)
     auto &newMesh = scene.EmplaceMesh();
     newMesh.Name = mBrowser.ChosenFile.stem().string();
 
-    newMesh.GeoProvider = ModelLoader::LoadModel(mModelConfig);
+    newMesh.Geometry = mModelConfig;
 
     // Get gltf object:
     auto gltf = ModelLoader::GetGltf(mBrowser.ChosenFile);
@@ -177,7 +177,7 @@ void ModelLoaderGui::LoadModel(Scene &scene)
             {
                 auto matId = keyMap[*id];
 
-                newMesh.MaterialIds.push_back(matId);
+                newMesh.Materials.push_back(matId);
             }
         }
     }

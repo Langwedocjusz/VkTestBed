@@ -2,7 +2,6 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Descriptor.h"
-#include "GeometryProvider.h"
 #include "ImageData.h"
 #include "ImageLoaders.h"
 #include "Material.h"
@@ -13,7 +12,6 @@
 #include "Scene.h"
 #include "Shader.h"
 #include "VkInit.h"
-#include "VkUtils.h"
 #include "glm/matrix.hpp"
 
 #include <cstdint>
@@ -137,18 +135,47 @@ void MinimalPbrRenderer::RebuildPipelines()
     mEnvHandler.RebuildPipelines();
 }
 
+void MinimalPbrRenderer::CreateBuffers(VkCommandPool pool, Drawable &drawable,
+                                       GeometryData &geo)
+{
+    // Create Vertex buffer:
+    drawable.VertexBuffer =
+        VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
+    drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
+
+    // Create Index buffer:
+    drawable.IndexBuffer =
+        IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+    drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
+
+    // Update deletion queue:
+    mSceneDeletionQueue.push_back(drawable.VertexBuffer);
+    mSceneDeletionQueue.push_back(drawable.IndexBuffer);
+}
+
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    // If queue empty, do nothing
-    if (mMaterialData.Empty())
+    // If queues empty, do nothing
+    if (mDrawableData.Empty() && mMaterialData.Empty())
         return;
 
     // Otherwise wait till gpu is idle
     vkDeviceWaitIdle(mCtx.Device);
 
-    // And attempt to create all queued materials
     auto &pool = mFrame.CurrentPool();
 
+    // Attempt to create all queued drawables
+    while (auto opt = mDrawableData.TryPop())
+    {
+        auto &data = *opt;
+
+        auto& mesh = mMeshes[data.Mesh];
+        auto& drawable = mesh.Drawables[data.DrawableId];
+
+        CreateBuffers(pool, drawable, data.Geometry);
+    }
+
+    // Attempt to create all queued materials
     auto LoadTexture = [&](Image &img, VkImageView &view, ImageData *data, bool unorm) {
         auto format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 
@@ -377,38 +404,59 @@ void MinimalPbrRenderer::LoadMeshes(Scene &scene)
 
     auto &pool = mFrame.CurrentPool();
 
-    auto CreateBuffers = [&](Drawable &drawable, GeometryData &geo) {
-        // Create Vertex buffer:
-        drawable.VertexBuffer =
-            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
-        drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
-
-        // Create Index buffer:
-        drawable.IndexBuffer =
-            IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
-        drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
-    };
-
-    for (auto &[key, mesh] : scene.Meshes())
+    for (auto &[key, sceneMesh] : scene.Meshes())
     {
-        if (mGeometryLayout.IsCompatible(mesh.GeoProvider.Layout))
+        if (mMeshes.count(key) != 0)
+            continue;
+
+        if (sceneMesh.IsModel())
         {
-            if (mMeshes.count(key) == 0)
+            auto config = sceneMesh.GetModelConfig();
+
+            if (!mGeometryLayout.IsCompatible(config.GeoLayout()))
+                continue;
+
+            auto &mesh = mMeshes[key];
+
+            mCurrentGltf = ModelLoader::GetGltfWithBuffers(config.Filepath);
+
+            for (const auto &[submeshId, submesh] : enumerate(mCurrentGltf.meshes))
             {
-                auto &newMesh = mMeshes[key];
-
-                auto geometries = mesh.GeoProvider.GetGeometry();
-
-                for (auto &geo : geometries)
+                for (const auto &[primitiveId, primitive] : enumerate(submesh.primitives))
                 {
-                    auto &drawable = newMesh.Drawables.emplace_back();
+                    mesh.Drawables.emplace_back();
+                    auto drawableId = mesh.Drawables.size() - 1;
 
-                    CreateBuffers(drawable, geo);
+                    auto RetrieveMeshData = [this, key, drawableId, submeshId, primitiveId, config]()
+                    {
+                        auto& submesh = mCurrentGltf.meshes[submeshId];
+                        auto& primitive = submesh.primitives[primitiveId];
 
-                    mSceneDeletionQueue.push_back(drawable.VertexBuffer);
-                    mSceneDeletionQueue.push_back(drawable.IndexBuffer);
+                        auto data = DrawableData{
+                            .Mesh = key,
+                            .DrawableId = drawableId,
+                            .Geometry = ModelLoader::LoadPrimitive(mCurrentGltf, config, primitive),
+                        };
+
+                        mDrawableData.Push(std::move(data));
+                    };
+
+                    mThreadPool.Push(RetrieveMeshData);
                 }
             }
+        }
+
+        else
+        {
+            auto geo = sceneMesh.GetGeometry();
+
+            if (!mGeometryLayout.IsCompatible(geo.Layout))
+                continue;
+
+            auto &mesh = mMeshes[key];
+            auto &drawable = mesh.Drawables.emplace_back();
+
+            CreateBuffers(pool, drawable, geo);
         }
     }
 }
@@ -510,7 +558,7 @@ void MinimalPbrRenderer::LoadMeshMaterials(Scene &scene)
 
             for (const auto [idx, drawable] : enumerate(ourMesh.Drawables))
             {
-                drawable.MaterialKey = mesh.MaterialIds[idx];
+                drawable.MaterialKey = mesh.Materials[idx];
             }
         }
     }

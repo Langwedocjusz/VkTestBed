@@ -1,8 +1,7 @@
 #pragma once
 
 #include "Buffer.h"
-#include "GeometryProvider.h"
-#include "VkUtils.h"
+#include "OpaqueBuffer.h"
 #include "VulkanContext.h"
 
 namespace VertexBuffer

@@ -1,10 +1,8 @@
 #pragma once
 
 #include "Descriptor.h"
-#include "GeometryProvider.h"
 #include "Pipeline.h"
 #include "Renderer.h"
-#include "VertexLayout.h"
 
 #include <vulkan/vulkan.h>
 

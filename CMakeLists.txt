@@ -33,7 +33,7 @@ target_sources(${PROJECT_NAME}
         src/Core/Event.h
         src/Core/Frame.h
         src/Core/Frame.h
-        src/Core/GeometryProvider.h
+        src/Core/GeometryData.h
         src/Core/ImageData.h
         src/Core/ImageData.cpp
         src/Core/Keycodes.h
@@ -58,6 +58,7 @@ target_sources(${PROJECT_NAME}
         src/Core/VulkanContext.cpp
         src/Cpp/Bitflags.h
         src/Cpp/CppUtils.h
+        src/Cpp/OpaqueBuffer.h
         src/Cpp/SyncQueue.h
         src/Cpp/ThreadPool.h
         src/EntryPoint.cpp

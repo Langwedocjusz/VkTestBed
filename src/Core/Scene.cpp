@@ -1,10 +1,32 @@
 #include "Scene.h"
-#include <stdexcept>
-#include <variant>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/quaternion.hpp>
+
+#include <stdexcept>
+
+// SceneMesh Implementation:
+
+[[nodiscard]] bool SceneMesh::IsModel() const
+{
+    return std::holds_alternative<ModelLoader::Config>(Geometry);
+}
+
+const ModelLoader::Config &SceneMesh::GetModelConfig() const
+{
+    assert(IsModel());
+
+    return std::get<ModelLoader::Config>(Geometry);
+}
+
+GeometryData SceneMesh::GetGeometry() const
+{
+    assert(!IsModel());
+
+    auto &fn = std::get<std::function<GeometryData()>>(Geometry);
+    return fn();
+}
 
 // SceneGraphNode Implementation:
 

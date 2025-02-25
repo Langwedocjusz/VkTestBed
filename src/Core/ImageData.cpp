@@ -1,5 +1,4 @@
 #include "ImageData.h"
-#include <cstdint>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -7,27 +6,25 @@
 #define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
-#include <iostream>
-
-std::unique_ptr<ImageData> ImageData::SinglePixel(Pixel p)
+ImageData ImageData::SinglePixel(Pixel p)
 {
-    auto res = std::make_unique<ImageData>();
-
     auto data = new Pixel(p);
 
-    res->Width = 1;
-    res->Height = 1;
-    res->Channels = 4;
-    res->BytesPerChannel = 1;
+    auto res = ImageData();
 
-    res->Data = static_cast<void *>(data);
+    res.Width = 1;
+    res.Height = 1;
+    res.Channels = 4;
+    res.BytesPerChannel = 1;
 
-    res->mType = Type::Pixel;
+    res.Data = static_cast<void *>(data);
+
+    res.mType = Type::Pixel;
 
     return res;
 }
 
-std::unique_ptr<ImageData> ImageData::ImportSTB(const std::string &path)
+ImageData ImageData::ImportSTB(const std::string &path, bool unorm)
 {
     int width, height, channels;
 
@@ -42,21 +39,22 @@ std::unique_ptr<ImageData> ImageData::ImportSTB(const std::string &path)
         throw std::runtime_error(err_msg);
     }
 
-    auto res = std::make_unique<ImageData>();
+    auto res = ImageData();
 
-    res->Width = width;
-    res->Height = height;
-    res->Channels = 4; // hence value of 4 here
-    res->BytesPerChannel = 1;
+    res.Width = width;
+    res.Height = height;
+    res.Channels = 4; // hence value of 4 here
+    res.BytesPerChannel = 1;
+    res.Unorm = unorm;
 
-    res->Data = static_cast<void *>(pixels);
+    res.Data = static_cast<void *>(pixels);
 
-    res->mType = Type::Stb;
+    res.mType = Type::Stb;
 
     return res;
 }
 
-std::unique_ptr<ImageData> ImageData::ImportEXR(const std::string &path)
+ImageData ImageData::ImportEXR(const std::string &path)
 {
     int width, height;
     float *data;
@@ -76,18 +74,42 @@ std::unique_ptr<ImageData> ImageData::ImportEXR(const std::string &path)
         throw std::runtime_error(msg);
     }
 
-    auto res = std::make_unique<ImageData>();
+    auto res = ImageData();
 
-    res->Width = width;
-    res->Height = height;
-    res->Channels = 4;
-    res->BytesPerChannel = 4;
+    res.Width = width;
+    res.Height = height;
+    res.Channels = 4;
+    res.BytesPerChannel = 4;
 
-    res->Data = static_cast<void *>(data);
+    res.Data = static_cast<void *>(data);
 
-    res->mType = Type::Exr;
+    res.mType = Type::Exr;
 
     return res;
+}
+
+ImageData::ImageData(ImageData &&other) noexcept
+    : Width(other.Width), Height(other.Height), Channels(other.Channels),
+      BytesPerChannel(other.BytesPerChannel), Unorm(other.Unorm), Data(other.Data), mType(other.mType)
+{
+    other.Data = nullptr;
+    other.mType = Type::None;
+}
+
+ImageData &ImageData::operator=(ImageData &&other) noexcept
+{
+    Width = other.Width;
+    Height = other.Height;
+    Channels = other.Channels;
+    BytesPerChannel = other.BytesPerChannel;
+    Unorm = other.Unorm;
+    Data = other.Data;
+    mType = other.mType;
+
+    other.Data = nullptr;
+    other.mType = Type::None;
+
+    return *this;
 }
 
 ImageData::~ImageData()

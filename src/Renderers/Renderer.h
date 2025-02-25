@@ -23,7 +23,7 @@ class IRenderer {
 
     virtual void CreateSwapchainResources() = 0;
     virtual void RebuildPipelines() = 0;
-    virtual void LoadScene(Scene &scene) = 0;
+    virtual void LoadScene(const Scene &scene) = 0;
 
   public:
     void DestroySwapchainResources()

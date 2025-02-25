@@ -1,7 +1,6 @@
 #include "EnvironmentHandler.h"
 
 #include "Barrier.h"
-#include "ImageData.h"
 #include "ImageLoaders.h"
 #include "Sampler.h"
 #include "Shader.h"
@@ -115,29 +114,29 @@ void EnvironmentHandler::RebuildPipelines()
     mPipelineDeletionQueue.push_back(mEquiRectToCubePipeline.Layout);
 }
 
-void EnvironmentHandler::LoadEnvironment(Scene &scene)
+void EnvironmentHandler::LoadEnvironment(const Scene &scene)
 {
-    auto &path = scene.Env.HdriPath;
+    auto key = scene.Env.HdriImage;
 
-    mEnvUBOData.HdriEnabled = path.has_value();
+    mEnvUBOData.HdriEnabled = key.has_value();
     mEnvUBOData.LightDir = glm::vec4(scene.Env.LightDir, float(scene.Env.DirLightOn));
 
     Buffer::UploadToMappedBuffer(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
 
-    bool updateCubemap = path.has_value() && (path != mLastHdri);
+    bool updateCubemap = key.has_value() && (key != mLastHdri);
 
     if (updateCubemap)
     {
-        mLastHdri = *path;
+        mLastHdri = key;
 
         auto &pool = mFrame.CurrentPool();
 
         // Load equirectangular environment map:
-        auto data = ImageData::ImportEXR((*path).string());
-        auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        auto& data = scene.Images.at(*key);
+        const auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
 
         auto envMap =
-            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, data.get(), format);
+            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, data, format);
 
         auto envView = Image::CreateView2D(mCtx, envMap, envMap.Info.Format,
                                            VK_IMAGE_ASPECT_COLOR_BIT);

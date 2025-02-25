@@ -3,6 +3,7 @@
 #include "Descriptor.h"
 #include "Pipeline.h"
 #include "Renderer.h"
+#include "Scene.h"
 
 #include <vulkan/vulkan.h>
 
@@ -20,13 +21,14 @@ class Minimal3DRenderer : public IRenderer {
 
     void CreateSwapchainResources() override;
     void RebuildPipelines() override;
-    void LoadScene(Scene &scene) override;
+    void LoadScene(const Scene &scene) override;
 
   private:
-    void LoadMeshes(Scene &scene);
-    void LoadMaterials(Scene &scene);
-    void LoadMeshMaterials(Scene &scene);
-    void LoadObjects(Scene &scene);
+    void LoadMeshes(const Scene &scene);
+    void LoadImages(const Scene &scene);
+    void LoadMaterials(const Scene &scene);
+    void LoadMeshMaterials(const Scene &scene);
+    void LoadObjects(const Scene &scene);
 
   private:
     const float mInternalResolutionScale = 1.0f;
@@ -58,7 +60,7 @@ class Minimal3DRenderer : public IRenderer {
         Buffer IndexBuffer;
         uint32_t IndexCount;
 
-        size_t TextureId = 0;
+        SceneKey Material;
     };
 
     struct Mesh {
@@ -69,16 +71,23 @@ class Minimal3DRenderer : public IRenderer {
     std::map<SceneKey, Mesh> mColoredMeshes;
     std::map<SceneKey, Mesh> mTexturedMeshes;
 
-    VkDescriptorSetLayout mTextureDescriptorSetLayout;
-    DescriptorAllocator mTextureDescriptorAllocator;
-
     struct Texture {
         Image TexImage;
         VkImageView View;
-        VkDescriptorSet DescriptorSet;
-
-        float AlphaCutoff = 0.5f;
     };
+
+    Texture mDefaultImage;
+    std::map<SceneKey, Texture> mImages;
+
+    VkDescriptorSetLayout mTextureDescriptorSetLayout;
+    DescriptorAllocator mTextureDescriptorAllocator;
+
+    struct Material {
+        float AlphaCutoff = 0.5f;
+        VkDescriptorSet DescriptorSet;
+    };
+
+    std::map<SceneKey, Material> mMaterials;
 
     // For textured pipeline to also upload alpha cutoff:
     struct PushConstantData {
@@ -87,7 +96,6 @@ class Minimal3DRenderer : public IRenderer {
         glm::mat4 Transform;
     };
 
-    std::vector<Texture> mTextures;
     VkSampler mSampler;
 
     DeletionQueue mSceneDeletionQueue;

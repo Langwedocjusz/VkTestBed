@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <string>
 
 struct Pixel {
@@ -14,22 +13,31 @@ struct Pixel {
 /// An owning handle to cpu side image data
 class ImageData {
   public:
-    static std::unique_ptr<ImageData> SinglePixel(Pixel p);
-    static std::unique_ptr<ImageData> ImportSTB(const std::string &path);
-    static std::unique_ptr<ImageData> ImportEXR(const std::string &path);
+    static ImageData SinglePixel(Pixel p);
+    static ImageData ImportSTB(const std::string &path, bool unorm = false);
+    static ImageData ImportEXR(const std::string &path);
 
     ImageData() = default;
     ~ImageData();
+
+    ImageData(const ImageData &) = delete;
+    ImageData &operator=(const ImageData &) = delete;
+
+    ImageData(ImageData &&) noexcept;
+    ImageData &operator=(ImageData &&) noexcept;
 
   public:
     int Width = 0;
     int Height = 0;
     int Channels = 0;
     int BytesPerChannel = 0;
+    bool Unorm = false;
 
     void *Data = nullptr;
 
   private:
+    // Strategy of freeing memory depends on what library was used
+    // to import the image, hence this enum.
     enum class Type
     {
         None,

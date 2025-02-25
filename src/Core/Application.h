@@ -2,7 +2,7 @@
 
 #include "Event.h"
 #include "RenderContext.h"
-#include "SceneEditor.h"
+#include "SceneGui.h"
 #include "ShaderManager.h"
 #include "SystemWindow.h"
 #include "VulkanContext.h"
@@ -24,11 +24,11 @@ class Application {
     VulkanContext mCtx;
 
     ShaderManager mShaderManager;
+    RenderContext mRender;
 
     Scene mScene;
     SceneEditor mSceneEditor;
-
-    RenderContext mRender;
+    SceneGui mSceneGui;
 
     float mDeltaTime = 0.0f;
     std::chrono::time_point<std::chrono::high_resolution_clock> mOldTime;

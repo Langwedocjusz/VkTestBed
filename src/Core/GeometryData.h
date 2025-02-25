@@ -61,6 +61,8 @@ struct GeometrySpec {
 };
 
 struct GeometryData {
+    GeometryData() = default;
+
     GeometryData(const GeometrySpec &spec)
         : VertexData(spec.VertCount, spec.VertBuffSize, spec.VertAlignment),
           IndexData(spec.IdxCount, spec.IdxBuffSize, spec.IdxAlignment)

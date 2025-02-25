@@ -7,7 +7,7 @@
 namespace VertexBuffer
 {
 inline Buffer Create(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
-                     OpaqueBuffer &buf)
+                     const OpaqueBuffer &buf)
 {
     Buffer res;
 
@@ -30,7 +30,7 @@ inline Buffer Create(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
 namespace IndexBuffer
 {
 inline Buffer Create(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
-                     OpaqueBuffer &buf)
+                     const OpaqueBuffer &buf)
 {
     Buffer res;
 

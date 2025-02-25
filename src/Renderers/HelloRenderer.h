@@ -19,11 +19,11 @@ class HelloRenderer : public IRenderer {
 
     void CreateSwapchainResources() override;
     void RebuildPipelines() override;
-    void LoadScene(Scene &scene) override;
+    void LoadScene(const Scene &scene) override;
 
   private:
-    void LoadMeshes(Scene &scene);
-    void LoadObjects(Scene &scene);
+    void LoadMeshes(const Scene &scene);
+    void LoadObjects(const Scene &scene);
 
   private:
     const float mInternalResolutionScale = 1.0f;

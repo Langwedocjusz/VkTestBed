@@ -8,7 +8,7 @@
 #include <iostream>
 #include <ranges>
 
-ModelLoaderGui::ModelLoaderGui()
+ModelLoaderGui::ModelLoaderGui(SceneEditor &editor) : mEditor(editor)
 {
     mBrowser.AddExtensionToFilter(".gltf");
 
@@ -24,7 +24,7 @@ void ModelLoaderGui::TriggerLoad()
     mFilePopup = true;
 }
 
-void ModelLoaderGui::ModelLoaderGui::OnImGui(Scene &scene)
+void ModelLoaderGui::ModelLoaderGui::OnImGui()
 {
     // File popup:
     if (mFilePopup)
@@ -42,13 +42,13 @@ void ModelLoaderGui::ModelLoaderGui::OnImGui(Scene &scene)
         mImportPopup = false;
     }
 
-    ImportMenu(scene);
+    ImportMenu();
 
     mFileMenuOpen = true;
     mImportMenuOpen = true;
 }
 
-void ModelLoaderGui::ImportMenu(Scene &scene)
+void ModelLoaderGui::ImportMenu()
 {
     if (ImGui::BeginPopupModal("Import options", &mImportMenuOpen))
     {
@@ -69,8 +69,8 @@ void ModelLoaderGui::ImportMenu(Scene &scene)
         ImGui::Separator();
 
         ImGui::Checkbox("Fetch Albedo", &v);
-        ImGui::Checkbox("Fetch Normal", &mMatrialConfig.FetchNormal);
-        ImGui::Checkbox("Fetch Roughness", &mMatrialConfig.FetchRoughness);
+        ImGui::Checkbox("Fetch Normal", &mModelConfig.FetchNormal);
+        ImGui::Checkbox("Fetch Roughness", &mModelConfig.FetchRoughness);
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
@@ -81,107 +81,16 @@ void ModelLoaderGui::ImportMenu(Scene &scene)
         {
             ImGui::CloseCurrentPopup();
 
-            LoadModel(scene);
+            LoadModel();
         }
 
         ImGui::EndPopup();
     }
 }
 
-void ModelLoaderGui::LoadModel(Scene &scene)
+void ModelLoaderGui::LoadModel()
 {
-    using namespace std::views;
-
     mModelConfig.Filepath = mBrowser.ChosenFile;
 
-    // Load Geo Providers:
-    auto &newMesh = scene.EmplaceMesh();
-    newMesh.Name = mBrowser.ChosenFile.stem().string();
-
-    newMesh.Geometry = mModelConfig;
-
-    // Get gltf object:
-    auto gltf = ModelLoader::GetGltf(mBrowser.ChosenFile);
-
-    // Load Materials:
-    // size_t matIdOffset = scene.Materials().size();
-    std::map<size_t, SceneKey> keyMap;
-
-    for (auto [id, material] : enumerate(gltf.materials))
-    {
-        // Check if there is an albedo texture, skip otherwise
-        auto &albedoInfo = material.pbrData.baseColorTexture;
-
-        auto albedoPath = GetTexturePath(gltf, albedoInfo);
-
-        if (!albedoPath.has_value())
-            continue;
-
-        // Create new scene material
-        auto [key, mat] = scene.EmplaceMaterial2();
-        mat.Name = newMesh.Name + std::to_string(id);
-
-        // Save key to map:
-        keyMap[id] = key;
-
-        // Supply albedo texture info
-        mat[Material::Albedo] = Material::ImageSource{
-            .Path = albedoPath.value(),
-            .Channel = Material::ImageChannel::RGBA,
-        };
-
-        // Load alpha cutoff where applicable
-        if (material.alphaMode == fastgltf::AlphaMode::Mask)
-        {
-            mat[Material::AlphaCutoff] = material.alphaCutoff;
-        }
-
-        // Load Normalmap if requested:
-        if (mMatrialConfig.FetchNormal)
-        {
-            auto &normalInfo = material.normalTexture;
-
-            auto normalPath = GetTexturePath(gltf, normalInfo);
-
-            if (normalPath.has_value())
-            {
-                mat[Material::Normal] = Material::ImageSource{
-                    .Path = normalPath.value(),
-                    .Channel = Material::ImageChannel::RGB,
-                };
-            }
-        }
-
-        // Load roughness map if requested:
-        if (mMatrialConfig.FetchRoughness)
-        {
-            auto &roughnessInfo = material.pbrData.metallicRoughnessTexture;
-
-            auto roughnessPath = GetTexturePath(gltf, roughnessInfo);
-
-            if (roughnessPath.has_value())
-            {
-                mat[Material::Roughness] = Material::ImageSource{
-                    .Path = roughnessPath.value(),
-                    .Channel = Material::ImageChannel::GB,
-                };
-            }
-        }
-    }
-
-    for (auto &mesh : gltf.meshes)
-    {
-        for (auto &primitive : mesh.primitives)
-        {
-            if (auto id = primitive.materialIndex)
-            {
-                auto matId = keyMap[*id];
-
-                newMesh.Materials.push_back(matId);
-            }
-        }
-    }
-
-    scene.RequestMeshUpdate();
-    scene.RequestMaterialUpdate();
+    mEditor.LoadModel(mModelConfig);
 }

@@ -1,6 +1,5 @@
 #include "HelloRenderer.h"
 #include "MeshBuffers.h"
-#include "ModelLoader.h"
 #include "Renderer.h"
 #include "Shader.h"
 #include "VkInit.h"
@@ -147,7 +146,7 @@ void HelloRenderer::CreateSwapchainResources()
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 }
 
-void HelloRenderer::LoadScene(Scene &scene)
+void HelloRenderer::LoadScene(const Scene &scene)
 {
     if (scene.UpdateMeshes())
     {
@@ -162,11 +161,11 @@ void HelloRenderer::LoadScene(Scene &scene)
         LoadObjects(scene);
 }
 
-void HelloRenderer::LoadMeshes(Scene &scene)
+void HelloRenderer::LoadMeshes(const Scene &scene)
 {
     auto &pool = mFrame.CurrentPool();
 
-    auto CreateBuffers = [&](Drawable &drawable, GeometryData &geo) {
+    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
         drawable.VertexBuffer =
             VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
@@ -178,45 +177,21 @@ void HelloRenderer::LoadMeshes(Scene &scene)
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
     };
 
-    for (auto &[key, sceneMesh] : scene.Meshes())
+    for (auto &[key, sceneMesh] : scene.Meshes)
     {
-        if (sceneMesh.IsModel())
+        if (mMeshes.count(key) != 0)
+            continue;
+
+        if (!mGeometryLayout.IsCompatible(sceneMesh.Layout))
         {
-            auto config = sceneMesh.GetModelConfig();
-
-            if (!mGeometryLayout.IsCompatible(config.GeoLayout()))
-            {
-                std::cerr << "Unsupported geometry layout.\n";
-                continue;
-            }
-
-            auto &mesh = mMeshes[key];
-
-            auto gltf = ModelLoader::GetGltfWithBuffers(config.Filepath);
-
-            for (auto &submesh : gltf.meshes)
-            {
-                for (auto &primitive : submesh.primitives)
-                {
-                    auto geo = ModelLoader::LoadPrimitive(gltf, config, primitive);
-                    auto &drawable = mesh.Drawables.emplace_back();
-
-                    CreateBuffers(drawable, geo);
-                }
-            }
+            std::cerr << "Unsupported geometry layout.\n";
+            continue;
         }
 
-        else
+        auto &mesh = mMeshes[key];
+
+        for (auto &geo : sceneMesh.Geometry)
         {
-            auto geo = sceneMesh.GetGeometry();
-
-            if (!mGeometryLayout.IsCompatible(geo.Layout))
-            {
-                std::cerr << "Unsupported geometry layout.\n";
-                continue;
-            }
-
-            auto &mesh = mMeshes[key];
             auto &drawable = mesh.Drawables.emplace_back();
 
             CreateBuffers(drawable, geo);
@@ -233,25 +208,22 @@ void HelloRenderer::LoadMeshes(Scene &scene)
     }
 }
 
-void HelloRenderer::LoadObjects(Scene &scene)
+void HelloRenderer::LoadObjects(const Scene &scene)
 {
     for (auto &[_, mesh] : mMeshes)
         mesh.Transforms.clear();
 
-    for (auto &[_, obj] : scene.Objects())
+    for (auto &[_, obj] : scene.Objects)
     {
         // Has mesh component?
-        if (!obj.MeshId.has_value())
-            continue;
+        if (auto meshKey = obj.Mesh)
+        {
+            // Do we have this mesh?
+            if (mMeshes.count(*meshKey) == 0)
+                continue;
 
-        auto key = obj.MeshId.value();
-
-        // We have this mesh imported?
-        if (mMeshes.count(key) == 0)
-            continue;
-
-        auto &mesh = mMeshes[key];
-
-        mesh.Transforms.push_back(obj.Transform);
+            auto &mesh = mMeshes[*meshKey];
+            mesh.Transforms.push_back(obj.Transform);
+        }
     }
 }

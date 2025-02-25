@@ -17,14 +17,16 @@ struct MSVCAlignedDeleter {
 #endif
 
 struct OpaqueBuffer {
-    size_t Count;
-    size_t Size;
+    size_t Count = 0;
+    size_t Size = 0;
 
 #ifdef _MSC_VER
     std::unique_ptr<uint8_t, MSVCAlignedDeleter<uint8_t>> Data;
 #else
     std::unique_ptr<uint8_t> Data;
 #endif
+
+    OpaqueBuffer() = default;
 
     OpaqueBuffer(size_t count, size_t size, size_t alignment) : Count(count), Size(size)
     {

@@ -8,30 +8,8 @@
 
 #include <iostream>
 
-GeometryLayout ModelLoader::Config::GeoLayout() const
-{
-    using enum Vertex::AttributeType;
-
-    GeometryLayout layout{};
-
-    layout.VertexLayout.push_back(Vec3);
-
-    if (LoadTexCoord)
-        layout.VertexLayout.push_back(Vec2);
-
-    if (LoadNormals)
-        layout.VertexLayout.push_back(Vec3);
-
-    if (LoadTangents)
-        layout.VertexLayout.push_back(Vec4);
-
-    layout.IndexType = VK_INDEX_TYPE_UINT32;
-
-    return layout;
-}
-
-static fastgltf::Asset GetAsset(const std::filesystem::path &path,
-                                bool loadBuffers = false)
+static std::unique_ptr<fastgltf::Asset> GetAsset(const std::filesystem::path &path,
+                                                 bool loadBuffers = false)
 {
     fastgltf::Parser parser;
     auto data = fastgltf::GltfDataBuffer::FromPath(path);
@@ -49,15 +27,20 @@ static fastgltf::Asset GetAsset(const std::filesystem::path &path,
     if (load.error() != fastgltf::Error::None)
         throw std::runtime_error("Failed to load a gltf file: " + path.string());
 
-    return std::move(load.get());
+    auto res = std::make_unique<fastgltf::Asset>();
+    *res.get() = std::move(load.get());
+
+    return res;
 }
 
-fastgltf::Asset ModelLoader::GetGltf(const std::filesystem::path &filepath)
+std::unique_ptr<fastgltf::Asset> ModelLoader::GetGltf(
+    const std::filesystem::path &filepath)
 {
     return GetAsset(filepath, false);
 }
 
-fastgltf::Asset ModelLoader::GetGltfWithBuffers(const std::filesystem::path &filepath)
+std::unique_ptr<fastgltf::Asset> ModelLoader::GetGltfWithBuffers(
+    const std::filesystem::path &filepath)
 {
     return GetAsset(filepath, true);
 }
@@ -88,7 +71,7 @@ struct VertexLayout {
     uint32_t OffsetTangent;
 };
 
-static VertexLayout GetLayout(const ModelLoader::Config &config)
+static VertexLayout GetLayout(const ModelConfig &config)
 {
     VertexLayout res{
         .Stride = 3,
@@ -124,8 +107,7 @@ struct VertParsingResult {
 
 static VertParsingResult RetrieveVertices(fastgltf::Asset &gltf,
                                           fastgltf::Primitive &primitive,
-                                          const ModelLoader::Config &config,
-                                          GeometryData &geo)
+                                          const ModelConfig &config, GeometryData &geo)
 {
     VertParsingResult res{};
 
@@ -386,7 +368,7 @@ static void GenerateTangents(GeometryData &geo, VertexLayout layout)
     genTangSpaceDefault(&ctx);
 }
 
-GeometryData ModelLoader::LoadPrimitive(fastgltf::Asset &gltf, const Config &config,
+GeometryData ModelLoader::LoadPrimitive(fastgltf::Asset &gltf, const ModelConfig &config,
                                         fastgltf::Primitive &primitive)
 {
     // Retrieve essential info about the mesh primitive:

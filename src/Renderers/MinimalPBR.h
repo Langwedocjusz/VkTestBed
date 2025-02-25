@@ -4,11 +4,9 @@
 #include "Descriptor.h"
 #include "EnvironmentHandler.h"
 #include "GeometryData.h"
-#include "ImageData.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Scene.h"
-#include "ThreadPool.h"
 
 #include <map>
 #include <vulkan/vulkan.h>
@@ -25,13 +23,14 @@ class MinimalPbrRenderer : public IRenderer {
 
     void CreateSwapchainResources() override;
     void RebuildPipelines() override;
-    void LoadScene(Scene &scene) override;
+    void LoadScene(const Scene &scene) override;
 
   private:
-    void LoadMeshes(Scene &scene);
-    void LoadMaterials(Scene &scene);
-    void LoadMeshMaterials(Scene &scene);
-    void LoadObjects(Scene &scene);
+    void LoadMeshes(const Scene &scene);
+    void LoadImages(const Scene &scene);
+    void LoadMaterials(const Scene &scene);
+    void LoadMeshMaterials(const Scene &scene);
+    void LoadObjects(const Scene &scene);
 
     struct Drawable;
     void CreateBuffers(VkCommandPool pool, Drawable &drawable, GeometryData &geo);
@@ -44,27 +43,6 @@ class MinimalPbrRenderer : public IRenderer {
     const VkFormat mDepthFormat = VK_FORMAT_D32_SFLOAT;
     Image mDepthBuffer;
     VkImageView mDepthBufferView;
-
-    // Asset-loading related things:
-    ThreadPool mThreadPool;
-
-    struct DrawableData {
-        SceneKey Mesh;
-        size_t DrawableId;
-        GeometryData Geometry;
-    };
-
-    fastgltf::Asset mCurrentGltf;
-    SyncQueue<DrawableData> mDrawableData;
-
-    struct MaterialData {
-        SceneKey Key;
-        std::unique_ptr<ImageData> Albedo;
-        std::unique_ptr<ImageData> Roughness;
-        std::unique_ptr<ImageData> Normal;
-    };
-
-    SyncQueue<MaterialData> mMaterialData;
 
     // Common resources:
     VkSampler mSampler2D;
@@ -85,21 +63,22 @@ class MinimalPbrRenderer : public IRenderer {
         glm::mat4 Transform;
     };
 
+    struct Texture {
+        Image Img;
+        VkImageView View;
+    };
+
+    Texture mDefaultAlbedo;
+    Texture mDefaultRoughness;
+    Texture mDefaultNormal;
+
+    std::map<SceneKey, Texture> mImages;
+
     VkDescriptorSetLayout mMaterialDescriptorSetLayout;
     DescriptorAllocator mMaterialDescriptorAllocator;
 
     struct Material {
         VkDescriptorSet DescriptorSet;
-
-        Image AlbedoImage;
-        VkImageView AlbedoView = VK_NULL_HANDLE;
-
-        Image RoughnessImage;
-        VkImageView RoughnessView = VK_NULL_HANDLE;
-
-        Image NormalImage;
-        VkImageView NormalView = VK_NULL_HANDLE;
-
         float AlphaCutoff = 0.5f;
     };
 

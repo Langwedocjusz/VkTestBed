@@ -29,27 +29,27 @@ class Bitflags {
         mBitset.reset();
     }
 
-    bool operator[](T t)
+    bool operator[](T t) const
     {
         return mBitset[static_cast<utype>(t)];
     }
 
-    bool All()
+    [[nodiscard]] bool All() const
     {
         return mBitset.all();
     }
 
-    bool None()
+    [[nodiscard]] bool None() const
     {
         return mBitset.none();
     }
 
-    bool Any()
+    [[nodiscard]] bool Any() const
     {
         return mBitset.any();
     }
 
-    std::string to_string()
+    [[nodiscard]] std::string to_string() const
     {
         return mBitset.to_string();
     }

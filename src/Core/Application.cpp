@@ -13,7 +13,8 @@
 Application::Application()
     : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
       mCtx(800, 600, "VkTestBed", mWindow),
-      mShaderManager("assets/shaders", "assets/spirv"), mRender(mCtx)
+      mShaderManager("assets/shaders", "assets/spirv"), mRender(mCtx),
+      mSceneEditor(mScene), mSceneGui(mSceneEditor)
 {
     iminit::InitImGui();
     iminit::InitGlfwBackend(mWindow.Get());
@@ -21,7 +22,7 @@ Application::Application()
 
     // mShaderManager.CompileToBytecode();
 
-    mSceneEditor.OnInit(mScene);
+    // mSceneGui.OnInit(mScene);
 
     // First-time scene loading
     mRender.LoadScene(mScene);
@@ -76,12 +77,13 @@ void Application::Run()
         // Poll system events:
         mWindow.PollEvents();
 
-        // Update Renderer
+        // Update Renderer and Scene Editor
         mRender.OnUpdate(mDeltaTime / 1000.0f);
+        mSceneEditor.OnUpdate();
 
         // Collect imgui calls
         iminit::BeginGuiFrame();
-        mSceneEditor.OnImGui(mScene);
+        mSceneGui.OnImGui();
         mRender.OnImGui();
         iminit::FinalizeGuiFrame();
 

@@ -7,7 +7,6 @@
 #include "Scene.h"
 #include "VulkanContext.h"
 
-#include <filesystem>
 #include <glm/glm.hpp>
 
 class EnvironmentHandler {
@@ -17,7 +16,7 @@ class EnvironmentHandler {
     ~EnvironmentHandler();
 
     void RebuildPipelines();
-    void LoadEnvironment(Scene &scene);
+    void LoadEnvironment(const Scene &scene);
 
     [[nodiscard]] bool HdriEnabled() const
     {
@@ -42,7 +41,7 @@ class EnvironmentHandler {
     VkDescriptorSetLayout mEnvironmentDescriptorSetLayout;
     VkDescriptorSet mEnvironmentDescriptorSet;
 
-    std::filesystem::path mLastHdri;
+    std::optional<SceneKey> mLastHdri;
 
     VkDescriptorSetLayout mCubeGenDescriptorSetLayout;
     VkDescriptorSet mCubeGenDescriptorSet;

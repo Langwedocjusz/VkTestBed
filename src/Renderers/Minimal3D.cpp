@@ -10,9 +10,7 @@
 #include "VkInit.h"
 
 #include <cstdint>
-#include <iostream>
 #include <ranges>
-#include <variant>
 #include <vulkan/vulkan.h>
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
@@ -39,8 +37,19 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
 
     mTextureDescriptorAllocator.OnInit(poolCounts);
 
-    // Build the graphics pipelines:
-    RebuildPipelines();
+    // Create the default texture:
+    auto &pool = mFrame.CurrentPool();
+    auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255});
+
+    mDefaultImage.TexImage =
+        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgData);
+
+    auto format = mDefaultImage.TexImage.Info.Format;
+    mDefaultImage.View = Image::CreateView2D(mCtx, mDefaultImage.TexImage, format,
+                                             VK_IMAGE_ASPECT_COLOR_BIT);
+
+    mMainDeletionQueue.push_back(mDefaultImage.TexImage);
+    mMainDeletionQueue.push_back(mDefaultImage.View);
 
     // Create the texture sampler:
     mSampler = SamplerBuilder()
@@ -50,6 +59,9 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                    .Build(mCtx);
 
     mMainDeletionQueue.push_back(mSampler);
+
+    // Build the graphics pipelines:
+    RebuildPipelines();
 
     // Create swapchain resources:
     CreateSwapchainResources();
@@ -203,18 +215,18 @@ void Minimal3DRenderer::OnRender()
                     vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
                                          mTexturedLayout.IndexType);
 
-                    // To-do: currently descriptor for the texture is bound each draw
+                    // To-do: currently descriptor for the material is bound each draw
                     // In reality draws should be sorted according to the material
                     // and corresponding descriptors only re-bound when change
                     // is necessary.
                     // auto &texture = mTextures[drawable.TextureId];
-                    auto &texture = mTextures.at(drawable.TextureId);
+                    auto &material = mMaterials.at(drawable.Material);
 
                     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                             mTexturedPipeline.Layout, 1, 1,
-                                            &texture.DescriptorSet, 0, nullptr);
+                                            &material.DescriptorSet, 0, nullptr);
 
-                    PushConstantData pcData{glm::vec4(texture.AlphaCutoff), transform};
+                    PushConstantData pcData{glm::vec4(material.AlphaCutoff), transform};
 
                     vkCmdPushConstants(cmd, mTexturedPipeline.Layout,
                                        VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
@@ -280,10 +292,13 @@ void Minimal3DRenderer::CreateSwapchainResources()
     mSwapchainDeletionQueue.push_back(mDepthBufferView);
 }
 
-void Minimal3DRenderer::LoadScene(Scene &scene)
+void Minimal3DRenderer::LoadScene(const Scene &scene)
 {
     if (scene.UpdateMeshes())
         LoadMeshes(scene);
+
+    if (scene.UpdateImages())
+        LoadImages(scene);
 
     if (scene.UpdateMaterials())
         LoadMaterials(scene);
@@ -295,13 +310,13 @@ void Minimal3DRenderer::LoadScene(Scene &scene)
         LoadObjects(scene);
 }
 
-void Minimal3DRenderer::LoadMeshes(Scene &scene)
+void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
 
     auto &pool = mFrame.CurrentPool();
 
-    auto CreateBuffers = [&](Drawable &drawable, GeometryData &geo) {
+    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
         drawable.VertexBuffer =
             VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
@@ -311,9 +326,12 @@ void Minimal3DRenderer::LoadMeshes(Scene &scene)
         drawable.IndexBuffer =
             IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
+
+        mSceneDeletionQueue.push_back(drawable.VertexBuffer);
+        mSceneDeletionQueue.push_back(drawable.IndexBuffer);
     };
 
-    for (const auto &[key, sceneMesh] : scene.Meshes())
+    for (const auto &[key, sceneMesh] : scene.Meshes)
     {
         if (mColoredMeshes.count(key) != 0)
             continue;
@@ -321,173 +339,104 @@ void Minimal3DRenderer::LoadMeshes(Scene &scene)
         if (mTexturedMeshes.count(key) != 0)
             continue;
 
-        if (sceneMesh.IsModel())
+        if (mColoredLayout.IsCompatible(sceneMesh.Layout))
         {
-            auto config = sceneMesh.GetModelConfig();
+            auto &mesh = mColoredMeshes[key];
 
-            if (mColoredLayout.IsCompatible(config.GeoLayout()))
+            for (auto &geo : sceneMesh.Geometry)
             {
-                auto &mesh = mColoredMeshes[key];
-
-                auto gltf = ModelLoader::GetGltfWithBuffers(config.Filepath);
-
-                for (auto &submesh : gltf.meshes)
-                {
-                    for (auto &primitive : submesh.primitives)
-                    {
-                        auto geo = ModelLoader::LoadPrimitive(gltf, config, primitive);
-                        auto &drawable = mesh.Drawables.emplace_back();
-
-                        CreateBuffers(drawable, geo);
-                    }
-                }
-            }
-
-            if (mTexturedLayout.IsCompatible(config.GeoLayout()))
-            {
-                auto &mesh = mTexturedMeshes[key];
-
-                auto gltf = ModelLoader::GetGltfWithBuffers(config.Filepath);
-
-                for (auto &submesh : gltf.meshes)
-                {
-                    for (auto &primitive : submesh.primitives)
-                    {
-                        auto geo = ModelLoader::LoadPrimitive(gltf, config, primitive);
-                        auto &drawable = mesh.Drawables.emplace_back();
-
-                        CreateBuffers(drawable, geo);
-                    }
-                }
-            }
-        }
-
-        else
-        {
-            auto geo = sceneMesh.GetGeometry();
-
-            if (mColoredLayout.IsCompatible(geo.Layout))
-            {
-                auto &mesh = mColoredMeshes[key];
                 auto &drawable = mesh.Drawables.emplace_back();
-
-                CreateBuffers(drawable, geo);
-            }
-
-            if (mTexturedLayout.IsCompatible(geo.Layout))
-            {
-                auto &mesh = mTexturedMeshes[key];
-                auto &drawable = mesh.Drawables.emplace_back();
-
                 CreateBuffers(drawable, geo);
             }
         }
-    }
 
-    for (auto &[_, mesh] : mColoredMeshes)
-    {
-        for (auto &drawable : mesh.Drawables)
+        if (mTexturedLayout.IsCompatible(sceneMesh.Layout))
         {
-            mSceneDeletionQueue.push_back(drawable.VertexBuffer);
-            mSceneDeletionQueue.push_back(drawable.IndexBuffer);
-        }
-    }
+            auto &mesh = mTexturedMeshes[key];
 
-    for (auto &[_, mesh] : mTexturedMeshes)
-    {
-        for (auto &drawable : mesh.Drawables)
-        {
-            mSceneDeletionQueue.push_back(drawable.VertexBuffer);
-            mSceneDeletionQueue.push_back(drawable.IndexBuffer);
+            for (auto &geo : sceneMesh.Geometry)
+            {
+                auto &drawable = mesh.Drawables.emplace_back();
+                CreateBuffers(drawable, geo);
+            }
         }
     }
 }
 
-void Minimal3DRenderer::LoadMaterials(Scene &scene)
+void Minimal3DRenderer::LoadImages(const Scene &scene)
 {
     auto &pool = mFrame.CurrentPool();
 
-    // Create images and views, allocate descriptor sets:
-    for (auto &[_, mat] : scene.Materials())
+    for (auto &[key, imgData] : scene.Images)
     {
-        // Check if material has albedo
-        if (mat.count(Material::Albedo) == 0)
+        if (mImages.count(key) != 0)
             continue;
 
-        // Check if albedo is represented by an image texture
-        auto &val = mat[Material::Albedo];
-
-        if (!std::holds_alternative<Material::ImageSource>(val))
-            continue;
-
-        // Load said texture
-        auto &imgSrc = std::get<Material::ImageSource>(val);
-
-        if (imgSrc.Channel != Material::ImageChannel::RGBA)
-            std::cerr << "Unsupported channel layout!\n";
-
-        auto &texture = mTextures.emplace_back();
-
-        auto data = ImageData::ImportSTB(imgSrc.Path.string());
+        auto &texture = mImages[key];
 
         texture.TexImage =
-            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, data.get());
+            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgData);
 
         auto format = texture.TexImage.Info.Format;
         texture.View = Image::CreateView2D(mCtx, texture.TexImage, format,
                                            VK_IMAGE_ASPECT_COLOR_BIT);
 
-        // Unpack alpha-cutoff if present:
-        if (mat.count(Material::AlphaCutoff))
-        {
-            auto &var = mat[Material::AlphaCutoff];
-            texture.AlphaCutoff = std::get<float>(var);
-        }
-
-        // To-do: If deletion queue is updated directly here, image handle of the
-        // first texture gets corrupted, investigate why:
-        // mSceneDeletionQueue.push_back(&texture.TexImage);
-        // mSceneDeletionQueue.push_back(texture.View);
-
-        // Allocate descriptor set for the texture:
-        texture.DescriptorSet =
-            mTextureDescriptorAllocator.Allocate(mTextureDescriptorSetLayout);
-    }
-
-    // Update descriptor sets:
-    for (const auto &texture : mTextures)
-    {
-        DescriptorUpdater(texture.DescriptorSet)
-            .WriteImageSampler(0, texture.View, mSampler)
-            .Update(mCtx);
-    }
-
-    for (auto &texture : mTextures)
-    {
         mSceneDeletionQueue.push_back(texture.TexImage);
         mSceneDeletionQueue.push_back(texture.View);
     }
 }
 
-void Minimal3DRenderer::LoadMeshMaterials(Scene &scene)
+void Minimal3DRenderer::LoadMaterials(const Scene &scene)
+{
+    for (auto &[key, sceneMat] : scene.Materials)
+    {
+        auto &mat = mMaterials[key];
+
+        // Allocate descripor set only on first load:
+        if (mMaterials.count(key) == 0)
+        {
+            mat.DescriptorSet =
+                mTextureDescriptorAllocator.Allocate(mTextureDescriptorSetLayout);
+        }
+
+        // Update the alpha cutoff:
+        mat.AlphaCutoff = sceneMat.AlphaCutoff;
+
+        // Retrieve albedo texture if possible
+        auto &texture = mDefaultImage;
+
+        if (auto albedo = sceneMat.Albedo)
+        {
+            if (mImages.count(*albedo) != 0)
+                texture = mImages[*albedo];
+        }
+
+        // Update the descriptor set:
+        DescriptorUpdater(mat.DescriptorSet)
+            .WriteImageSampler(0, texture.View, mSampler)
+            .Update(mCtx);
+    }
+}
+
+void Minimal3DRenderer::LoadMeshMaterials(const Scene &scene)
 {
     using namespace std::views;
 
-    for (const auto &[key, mesh] : scene.Meshes())
+    for (const auto &[key, sceneMesh] : scene.Meshes)
     {
         if (mTexturedMeshes.count(key) != 0)
         {
-            auto &ourMesh = mTexturedMeshes[key];
+            auto &mesh = mTexturedMeshes[key];
 
-            for (const auto [idx, drawable] : enumerate(ourMesh.Drawables))
+            for (const auto [idx, drawable] : enumerate(mesh.Drawables))
             {
-                drawable.TextureId = mesh.Materials[idx];
+                drawable.Material = sceneMesh.Materials[idx];
             }
         }
     }
 }
 
-void Minimal3DRenderer::LoadObjects(Scene &scene)
+void Minimal3DRenderer::LoadObjects(const Scene &scene)
 {
     for (auto &[_, mesh] : mColoredMeshes)
         mesh.Transforms.clear();
@@ -495,12 +444,12 @@ void Minimal3DRenderer::LoadObjects(Scene &scene)
     for (auto &[_, mesh] : mTexturedMeshes)
         mesh.Transforms.clear();
 
-    for (auto &[_, obj] : scene.Objects())
+    for (auto &[_, obj] : scene.Objects)
     {
-        if (!obj.MeshId.has_value())
+        if (!obj.Mesh.has_value())
             continue;
 
-        SceneKey meshKey = obj.MeshId.value();
+        SceneKey meshKey = obj.Mesh.value();
 
         if (mColoredMeshes.count(meshKey) != 0)
         {

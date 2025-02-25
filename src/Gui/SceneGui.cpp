@@ -1,8 +1,7 @@
-#include "SceneEditor.h"
+#include "SceneGui.h"
 
 #include "CppUtils.h"
 #include "ImGuiUtils.h"
-#include "Primitives.h"
 #include "Scene.h"
 
 #include "imgui.h"
@@ -10,29 +9,40 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-#include <format>
-#include <iostream>
 #include <optional>
 #include <ranges>
 #include <string>
-#include <variant>
 
 static const char *PAYLOAD_STRING = "SCENE_INSTANCE_PAYLOAD";
 
-SceneGraphNode &SceneEditor::OpInfo::GetSourceNode()
+SceneGraphNode &SceneGui::OpInfo::GetSourceNode()
 {
     auto &children = Parent->GetChildren();
     auto &ptr = children[ChildId];
     return *ptr;
 }
 
-auto SceneEditor::OpInfo::GetSourceNodeIterator()
+auto SceneGui::OpInfo::GetSourceNodeIterator()
 {
     auto &children = Parent->GetChildren();
     return children.begin() + ChildId;
 }
 
-void SceneEditor::OnInit(Scene &scene)
+SceneGui::SceneGui(SceneEditor &editor) : mEditor(editor), mModelLoader(editor)
+{
+    mHdriBrowser.AddExtensionToFilter(".exr");
+
+    mHdriBrowser.SetCallbackFn([&]() {
+        mEditor.SetHdri(mHdriBrowser.ChosenFile);
+        // mEditor.RequestEnvironmentUpdate();
+    });
+
+    mHdriBrowser.SetCheckFn([](const std::filesystem::path &path) {
+        return std::filesystem::is_regular_file(path);
+    });
+}
+
+/*void SceneGui::OnInit(Scene &scene)
 {
     mHdriBrowser.AddExtensionToFilter(".exr");
 
@@ -68,48 +78,47 @@ void SceneEditor::OnInit(Scene &scene)
     }
 
     scene.RequestFullUpdate();
-}
+}*/
 
-void SceneEditor::OnImGui(Scene &scene)
+void SceneGui::OnImGui()
 {
-    DataMenu(scene);
-    SceneHierarchyMenu(scene);
-    ObjectPropertiesMenu(scene);
+    DataMenu();
+    SceneHierarchyMenu();
+    ObjectPropertiesMenu();
 }
 
-void SceneEditor::SceneHierarchyMenu(Scene &scene)
+void SceneGui::SceneHierarchyMenu()
 {
     ImGui::Begin("Scene hierarchy", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);
 
     // Draw nodes for all children of the scene root:
     using namespace std::views;
 
-    for (const auto [id, child] : enumerate(scene.GraphRoot.GetChildren()))
-        InstanceGui(*child, &scene.GraphRoot, id);
+    for (const auto [id, child] : enumerate(mEditor.GraphRoot.GetChildren()))
+        InstanceGui(*child, &mEditor.GraphRoot, id);
 
     // Setup right-click context menu for adding things:
-    AddInstancePopup(scene);
+    AddInstancePopup();
 
     // Add drop target spanning whole window
     ImGuiWindow *window = ImGui::GetCurrentWindow();
 
     if (ImGui::BeginDragDropTargetCustom(window->Rect(), window->ID))
     {
-        HandleSceneDropPayload(scene.GraphRoot);
+        HandleSceneDropPayload(mEditor.GraphRoot);
         ImGui::EndDragDropTarget();
     }
 
     ImGui::End();
 
     // Handle node operations if any were scheduled:
-    HandleNodeOp(scene);
+    HandleNodeOp();
 
     // Handle model loading if it was scheduled:
-    mModelLoader.OnImGui(scene);
+    mModelLoader.OnImGui();
 }
 
-void SceneEditor::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent,
-                              int64_t childId)
+void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t childId)
 {
     // Sanity check:
     if (parent != nullptr)
@@ -222,7 +231,7 @@ void SceneEditor::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent,
     }
 }
 
-void SceneEditor::HandleSceneDropPayload(SceneGraphNode &node)
+void SceneGui::HandleSceneDropPayload(SceneGraphNode &node)
 {
     if (const auto imPayload = ImGui::AcceptDragDropPayload(PAYLOAD_STRING))
     {
@@ -244,7 +253,7 @@ void SceneEditor::HandleSceneDropPayload(SceneGraphNode &node)
     }
 }
 
-void SceneEditor::HandleNodeOp(Scene &scene)
+void SceneGui::HandleNodeOp()
 {
     switch (mOpInfo.RequestedOp)
     {
@@ -252,18 +261,18 @@ void SceneEditor::HandleNodeOp(Scene &scene)
         HandleNodeMove();
         // To-do: this can be optimized to only update
         // affected nodes:
-        scene.GraphRoot.UpdateTransforms(scene);
-        scene.RequestObjectUpdate();
+        mEditor.UpdateTransforms(&mEditor.GraphRoot);
+        // mEditor.RequestObjectUpdate();
         break;
     }
     case OpType::Delete: {
-        HandleNodeDelete(scene);
-        scene.RequestObjectUpdate();
+        HandleNodeDelete();
+        // scene.RequestObjectUpdate();
         break;
     }
     case OpType::Copy: {
-        HandleNodeCopy(scene);
-        scene.RequestObjectUpdate();
+        HandleNodeCopy();
+        // scene.RequestObjectUpdate();
         break;
     }
     case OpType::None: {
@@ -274,7 +283,7 @@ void SceneEditor::HandleNodeOp(Scene &scene)
     mOpInfo.RequestedOp = OpType::None;
 }
 
-void SceneEditor::HandleNodeMove()
+void SceneGui::HandleNodeMove()
 {
     // We can assume src and dst are different, since
     // move operation wouldn't be scheduled otherwise.
@@ -288,7 +297,7 @@ void SceneEditor::HandleNodeMove()
     srcChildren.erase(iter);
 }
 
-void SceneEditor::HandleNodeDelete(Scene &scene)
+void SceneGui::HandleNodeDelete()
 {
     auto &node = mOpInfo.GetSourceNode();
 
@@ -297,7 +306,7 @@ void SceneEditor::HandleNodeDelete(Scene &scene)
         mSelectedNode = nullptr;
 
     // Remove object, the node pointed to:
-    scene.EraseObject(node.GetObjectKey());
+    mEditor.EraseObject(node.GetObjectKey());
 
     // Erase the node:
     auto &children = mOpInfo.Parent->GetChildren();
@@ -306,17 +315,16 @@ void SceneEditor::HandleNodeDelete(Scene &scene)
     children.erase(it);
 }
 
-void SceneEditor::HandleNodeCopy(Scene &scene)
+void SceneGui::HandleNodeCopy()
 {
     // Retrieve old node:
     auto &oldNode = mOpInfo.GetSourceNode();
 
     // Duplicate object:
-    auto &obj = scene.GetObject(oldNode.GetObjectKey());
-    auto id = scene.EmplaceObject(obj);
+    auto key = mEditor.DuplicateObject(oldNode.GetObjectKey());
 
     // Duplicate node:
-    auto &newNode = mOpInfo.Parent->EmplaceChild(id);
+    auto &newNode = mOpInfo.Parent->EmplaceChild(key);
 
     newNode.Translation = oldNode.Translation;
     newNode.Rotation = oldNode.Rotation;
@@ -324,7 +332,7 @@ void SceneEditor::HandleNodeCopy(Scene &scene)
     newNode.Name = oldNode.Name;
 }
 
-void SceneEditor::AddInstancePopup(Scene &scene)
+void SceneGui::AddInstancePopup()
 {
     if (ImGui::BeginPopupContextWindow())
     {
@@ -333,30 +341,30 @@ void SceneEditor::AddInstancePopup(Scene &scene)
 
         if (ImGui::Selectable("Empty Group"))
         {
-            auto &groupNode = scene.GraphRoot.EmplaceChild();
+            auto &groupNode = mEditor.GraphRoot.EmplaceChild();
             groupNode.Name = "Group";
-
-            scene.RequestObjectUpdate();
         }
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
         ImGui::Text("Instance:");
         ImGui::Separator();
 
-        for (auto &[key, mesh] : scene.Meshes())
+        for (auto &[meshKey, mesh] : mEditor.Meshes())
         {
-            std::string name = mesh.Name + "##" + std::to_string(key);
+            std::string name = mesh.Name + "##" + std::to_string(meshKey);
 
             if (ImGui::Selectable(name.c_str()))
             {
-                auto [idx, obj] = scene.EmplaceObject2();
-                obj.MeshId = key;
-                obj.Transform = glm::mat4(1.0f);
+                // auto [idx, obj] = scene.EmplaceObject2();
+                // obj.MeshId = key;
+                // obj.Transform = glm::mat4(1.0f);
+                auto objKey = mEditor.EmplaceObject(meshKey);
 
-                auto &newNode = scene.GraphRoot.EmplaceChild(idx);
+                auto &newNode = mEditor.GraphRoot.EmplaceChild(objKey);
                 newNode.Name = mesh.Name;
 
-                scene.RequestObjectUpdate();
+                mEditor.RequestUpdate(Scene::UpdateFlag::Objects);
+                // scene.RequestObjectUpdate();
             }
         }
 
@@ -372,7 +380,7 @@ void SceneEditor::AddInstancePopup(Scene &scene)
     }
 }
 
-void SceneEditor::DataMenu(Scene &scene)
+void SceneGui::DataMenu()
 {
     ImGui::Begin("Scene data", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);
 
@@ -380,26 +388,27 @@ void SceneEditor::DataMenu(Scene &scene)
 
     if (ImGui::Button("Full reload", buttonSize))
     {
-        scene.RequestFullUpdate();
+        // To-do: handle this
+        // scene.RequestFullUpdate();
     }
 
     ImGui::BeginTabBar("We");
 
     if (ImGui::BeginTabItem("Meshes"))
     {
-        MeshesTab(scene);
+        MeshesTab();
         ImGui::EndTabItem();
     }
 
     if (ImGui::BeginTabItem("Materials"))
     {
-        MaterialsTab(scene);
+        MaterialsTab();
         ImGui::EndTabItem();
     }
 
     if (ImGui::BeginTabItem("Environment"))
     {
-        EnvironmentTab(scene);
+        EnvironmentTab();
         ImGui::EndTabItem();
     }
 
@@ -408,13 +417,13 @@ void SceneEditor::DataMenu(Scene &scene)
     ImGui::End();
 }
 
-void SceneEditor::MeshesTab(Scene &scene)
+void SceneGui::MeshesTab()
 {
     using namespace std::views;
 
-    std::optional<SceneKey> keyToDelete;
+    std::optional<SceneKey> keyToDelete = std::nullopt;
 
-    for (auto &[meshKey, mesh] : scene.Meshes())
+    for (auto &[meshKey, mesh] : mEditor.Meshes())
     {
         std::string nodeName = mesh.Name + "##" + std::to_string(meshKey);
 
@@ -454,7 +463,7 @@ void SceneEditor::MeshesTab(Scene &scene)
             for (const auto [num, id] : enumerate(mesh.Materials))
             {
                 const std::string suffix = "##mat" + mesh.Name + std::to_string(num);
-                std::string matName = scene.GetMaterial(id).Name + suffix;
+                std::string matName = mEditor.GetMaterial(id).Name + suffix;
 
                 ImGui::Text("Material %lu: ", num);
                 ImGui::SameLine();
@@ -469,14 +478,14 @@ void SceneEditor::MeshesTab(Scene &scene)
 
             if (ImGui::BeginPopup("Select material:"))
             {
-                if (idToChange != nullptr)
+                if (idToChange)
                 {
-                    for (auto &[id, mat] : scene.Materials())
+                    for (auto &[id, mat] : mEditor.Materials())
                     {
                         if (ImGui::Selectable(mat.Name.c_str()))
                         {
                             *idToChange = id;
-                            scene.RequestMeshMaterialUpdate();
+                            mEditor.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
                         }
                     }
                 }
@@ -488,51 +497,57 @@ void SceneEditor::MeshesTab(Scene &scene)
         }
     }
 
-    AddProviderPopup(scene);
+    AddProviderPopup();
 
     if (keyToDelete)
     {
-        scene.EraseMesh(*keyToDelete);
-        scene.RequestMeshUpdate();
+        mEditor.EraseMesh(*keyToDelete);
+        // scene.RequestMeshUpdate();
     }
 }
 
-void SceneEditor::MaterialsTab(Scene &scene)
+void SceneGui::MaterialsTab()
 {
-    for (auto &[_, mat] : scene.Materials())
+    for (auto &[_, mat] : mEditor.Materials())
     {
         if (ImGui::TreeNodeEx(mat.Name.c_str()))
         {
-            for (const auto &[key, value] : mat)
+            // To-do: actual menu component
+            /*for (const auto &[key, value] : mat)
             {
                 std::string entry;
                 entry += key.Name;
                 entry += ": ";
 
                 // clang-format off
-                    std::visit(
-                        overloaded{
-                            [&entry](Material::ImageSource img) {entry += img.Path.string();},
-                            [&entry](float val) {entry += std::to_string(val);},
-                            [&entry](glm::vec2 v) {entry += std::format("[{}, {}]", v.x, v.y);},
-                            [&entry](glm::vec3 v) {entry += std::format("[{}, {}, {}]", v.x, v.y, v.z);},
-                            [&entry](glm::vec4 v) {entry += std::format("[{}, {}, {}, {}]", v.x, v.y, v.z, v.w);},
-                    }, value);
+                std::visit(
+                    overloaded{
+                        [&entry](Material::ImageSource img) {entry += img.Path.string();},
+                        [&entry](float val) {entry += std::to_string(val);},
+                        [&entry](glm::vec2 v) {entry += std::format("[{}, {}]", v.x,
+            v.y);},
+                        [&entry](glm::vec3 v) {entry += std::format("[{}, {}, {}]", v.x,
+            v.y, v.z);},
+                        [&entry](glm::vec4 v) {entry += std::format("[{}, {}, {}, {}]",
+            v.x, v.y, v.z, v.w);},
+                }, value);
                 // clang-format on
 
                 ImGui::Text("%s", entry.c_str());
-            }
+            }*/
 
             ImGui::TreePop();
         }
     }
 }
 
-void SceneEditor::EnvironmentTab(Scene &scene)
+void SceneGui::EnvironmentTab()
 {
-    if (ImGui::Checkbox("Directional light", &scene.Env.DirLightOn))
+    auto& env = mEditor.GetEnv();
+
+    if (ImGui::Checkbox("Directional light", &env.DirLightOn))
     {
-        scene.RequestEnvironmentUpdate();
+        mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
     }
 
     static float phi = 2.359f;
@@ -546,17 +561,17 @@ void SceneEditor::EnvironmentTab(Scene &scene)
 
     glm::vec3 newDir(cP * sT, cT, sP * sT);
 
-    if (newDir != scene.Env.LightDir)
+    if (newDir != env.LightDir)
     {
-        scene.Env.LightDir = newDir;
-        scene.RequestEnvironmentUpdate();
+        env.LightDir = newDir;
+        mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
     }
 
     ImGui::Text("Hdri path:");
 
     ImGui::SameLine();
 
-    std::string selText = scene.Env.HdriPath ? (*scene.Env.HdriPath).string() : "";
+    std::string selText = env.HdriImage ? std::to_string(*env.HdriImage) : "";
     selText += "##HDRI";
 
     if (ImGui::Selectable(selText.c_str()))
@@ -568,15 +583,15 @@ void SceneEditor::EnvironmentTab(Scene &scene)
 
     if (ImGui::Button("Clear hdri", size))
     {
-        scene.Env.HdriPath = std::nullopt;
-        scene.RequestEnvironmentUpdate();
+        env.HdriImage = std::nullopt;
+        mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
     }
 
     // Implementation of the popup for hdri selection:
     SelectHdriPopup();
 }
 
-void SceneEditor::SelectHdriPopup()
+void SceneGui::SelectHdriPopup()
 {
     const std::string popupName = "Load hdri...";
 
@@ -591,7 +606,7 @@ void SceneEditor::SelectHdriPopup()
     mHdriStillOpen = true;
 }
 
-void SceneEditor::AddProviderPopup([[maybe_unused]] Scene &scene)
+void SceneGui::AddProviderPopup()
 {
     if (ImGui::BeginPopupContextWindow())
     {
@@ -633,7 +648,7 @@ static bool TransformWidget(SceneGraphNode &node)
     return changed;
 }
 
-void SceneEditor::ObjectPropertiesMenu(Scene &scene)
+void SceneGui::ObjectPropertiesMenu()
 {
     ImGui::Begin("Object properties", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);
 
@@ -647,8 +662,7 @@ void SceneEditor::ObjectPropertiesMenu(Scene &scene)
                 // objects associated with subtree rooted at mSelectedNode
                 // This will require going along the path from root to
                 // mSelectedNode and then propagating as usual.
-                scene.GraphRoot.UpdateTransforms(scene);
-                scene.RequestObjectUpdate();
+                mEditor.UpdateTransforms(&mEditor.GraphRoot);
             }
 
             ImGui::TreePop();

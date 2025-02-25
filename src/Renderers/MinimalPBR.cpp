@@ -2,9 +2,7 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Descriptor.h"
-#include "ImageData.h"
 #include "ImageLoaders.h"
-#include "Material.h"
 #include "MeshBuffers.h"
 #include "Pipeline.h"
 #include "Renderer.h"
@@ -12,15 +10,13 @@
 #include "Scene.h"
 #include "Shader.h"
 #include "VkInit.h"
-#include "glm/matrix.hpp"
+
+#include <glm/matrix.hpp>
+#include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <filesystem>
-#include <iostream>
 #include <ranges>
-#include <variant>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include <iostream>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        RenderContext::Queues &queues,
@@ -39,7 +35,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                      .Build(mCtx);
     mMainDeletionQueue.push_back(mSampler2D);
 
-    // Create descriptor set layout for sampling textures
+    // Create descriptor set layout for sampling textures:
     mMaterialDescriptorSetLayout =
         DescriptorSetLayoutBuilder()
             .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -52,7 +48,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
     mMainDeletionQueue.push_back(mMaterialDescriptorSetLayout);
 
-    // Initialize descriptor allocator for materials
+    // Initialize descriptor allocator for materials:
     {
         std::vector<VkDescriptorPoolSize> poolCounts{
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
@@ -60,6 +56,31 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
         mMaterialDescriptorAllocator.OnInit(poolCounts);
     }
+
+    //Create the default textures:
+    auto& pool = mFrame.CurrentPool();
+
+    auto albedoData = ImageData::SinglePixel(Pixel{255, 255, 255, 0});
+    auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0});
+    auto normalData = ImageData::SinglePixel(Pixel{0, 0, 255, 0});
+
+    mDefaultAlbedo.Img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, albedoData);
+    mDefaultRoughness.Img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, roughnessData);
+    mDefaultNormal.Img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, normalData);
+
+    mDefaultAlbedo.View = Image::CreateView2D(mCtx, mDefaultAlbedo.Img, mDefaultAlbedo.Img.Info.Format,
+                                           VK_IMAGE_ASPECT_COLOR_BIT);
+    mDefaultRoughness.View = Image::CreateView2D(mCtx, mDefaultRoughness.Img, mDefaultRoughness.Img.Info.Format,
+                                           VK_IMAGE_ASPECT_COLOR_BIT);
+    mDefaultNormal.View = Image::CreateView2D(mCtx, mDefaultNormal.Img, mDefaultNormal.Img.Info.Format,
+                                           VK_IMAGE_ASPECT_COLOR_BIT);
+
+    mMainDeletionQueue.push_back(mDefaultAlbedo.Img);
+    mMainDeletionQueue.push_back(mDefaultAlbedo.View);
+    mMainDeletionQueue.push_back(mDefaultRoughness.Img);
+    mMainDeletionQueue.push_back(mDefaultRoughness.View);
+    mMainDeletionQueue.push_back(mDefaultNormal.Img);
+    mMainDeletionQueue.push_back(mDefaultNormal.View);
 
     // Build the graphics pipelines:
     RebuildPipelines();
@@ -135,81 +156,9 @@ void MinimalPbrRenderer::RebuildPipelines()
     mEnvHandler.RebuildPipelines();
 }
 
-void MinimalPbrRenderer::CreateBuffers(VkCommandPool pool, Drawable &drawable,
-                                       GeometryData &geo)
-{
-    // Create Vertex buffer:
-    drawable.VertexBuffer =
-        VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
-    drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
-
-    // Create Index buffer:
-    drawable.IndexBuffer =
-        IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
-    drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
-
-    // Update deletion queue:
-    mSceneDeletionQueue.push_back(drawable.VertexBuffer);
-    mSceneDeletionQueue.push_back(drawable.IndexBuffer);
-}
-
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    // If queues empty, do nothing
-    if (mDrawableData.Empty() && mMaterialData.Empty())
-        return;
 
-    // Otherwise wait till gpu is idle
-    vkDeviceWaitIdle(mCtx.Device);
-
-    auto &pool = mFrame.CurrentPool();
-
-    // Attempt to create all queued drawables
-    while (auto opt = mDrawableData.TryPop())
-    {
-        auto &data = *opt;
-
-        auto& mesh = mMeshes[data.Mesh];
-        auto& drawable = mesh.Drawables[data.DrawableId];
-
-        CreateBuffers(pool, drawable, data.Geometry);
-    }
-
-    // Attempt to create all queued materials
-    auto LoadTexture = [&](Image &img, VkImageView &view, ImageData *data, bool unorm) {
-        auto format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
-
-        img = ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, data, format);
-        view = Image::CreateView2D(mCtx, img, format, VK_IMAGE_ASPECT_COLOR_BIT);
-    };
-
-    while (auto opt = mMaterialData.TryPop())
-    {
-        auto &data = *opt;
-
-        auto &mat = mMaterials[data.Key];
-
-        LoadTexture(mat.AlbedoImage, mat.AlbedoView, data.Albedo.get(), false);
-        LoadTexture(mat.RoughnessImage, mat.RoughnessView, data.Roughness.get(), true);
-        LoadTexture(mat.NormalImage, mat.NormalView, data.Normal.get(), true);
-
-        // Update the descriptor set:
-        DescriptorUpdater(mat.DescriptorSet)
-            .WriteImageSampler(0, mat.AlbedoView, mSampler2D)
-            .WriteImageSampler(1, mat.RoughnessView, mSampler2D)
-            .WriteImageSampler(2, mat.NormalView, mSampler2D)
-            .Update(mCtx);
-
-        // Append resources to deletion queue:
-        mMaterialDeletionQueue.push_back(mat.AlbedoImage);
-        mMaterialDeletionQueue.push_back(mat.AlbedoView);
-
-        mMaterialDeletionQueue.push_back(mat.RoughnessImage);
-        mMaterialDeletionQueue.push_back(mat.RoughnessView);
-
-        mMaterialDeletionQueue.push_back(mat.NormalImage);
-        mMaterialDeletionQueue.push_back(mat.NormalView);
-    }
 }
 
 void MinimalPbrRenderer::OnImGui()
@@ -380,10 +329,13 @@ void MinimalPbrRenderer::CreateSwapchainResources()
     mSwapchainDeletionQueue.push_back(mDepthBufferView);
 }
 
-void MinimalPbrRenderer::LoadScene(Scene &scene)
+void MinimalPbrRenderer::LoadScene(const Scene &scene)
 {
     if (scene.UpdateMeshes())
         LoadMeshes(scene);
+
+    if (scene.UpdateImages())
+        LoadImages(scene);
 
     if (scene.UpdateMaterials())
         LoadMaterials(scene);
@@ -398,183 +350,140 @@ void MinimalPbrRenderer::LoadScene(Scene &scene)
         mEnvHandler.LoadEnvironment(scene);
 }
 
-void MinimalPbrRenderer::LoadMeshes(Scene &scene)
+void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
 {
-    using namespace std::views;
-
     auto &pool = mFrame.CurrentPool();
 
-    for (auto &[key, sceneMesh] : scene.Meshes())
+    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
+        // Create Vertex buffer:
+        drawable.VertexBuffer =
+            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
+        drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
+
+        // Create Index buffer:
+        drawable.IndexBuffer =
+            IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+        drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
+
+        // Update deletion queue:
+        mSceneDeletionQueue.push_back(drawable.VertexBuffer);
+        mSceneDeletionQueue.push_back(drawable.IndexBuffer);
+    };
+
+    for (const auto &[key, sceneMesh] : scene.Meshes)
     {
         if (mMeshes.count(key) != 0)
             continue;
 
-        if (sceneMesh.IsModel())
+        if (mGeometryLayout.IsCompatible(sceneMesh.Layout))
         {
-            auto config = sceneMesh.GetModelConfig();
-
-            if (!mGeometryLayout.IsCompatible(config.GeoLayout()))
-                continue;
-
             auto &mesh = mMeshes[key];
 
-            mCurrentGltf = ModelLoader::GetGltfWithBuffers(config.Filepath);
-
-            for (const auto &[submeshId, submesh] : enumerate(mCurrentGltf.meshes))
+            for (auto &geo : sceneMesh.Geometry)
             {
-                for (const auto &[primitiveId, primitive] : enumerate(submesh.primitives))
-                {
-                    mesh.Drawables.emplace_back();
-                    auto drawableId = mesh.Drawables.size() - 1;
+                auto &drawable = mesh.Drawables.emplace_back();
 
-                    auto RetrieveMeshData = [this, key, drawableId, submeshId, primitiveId, config]()
-                    {
-                        auto& submesh = mCurrentGltf.meshes[submeshId];
-                        auto& primitive = submesh.primitives[primitiveId];
-
-                        auto data = DrawableData{
-                            .Mesh = key,
-                            .DrawableId = drawableId,
-                            .Geometry = ModelLoader::LoadPrimitive(mCurrentGltf, config, primitive),
-                        };
-
-                        mDrawableData.Push(std::move(data));
-                    };
-
-                    mThreadPool.Push(RetrieveMeshData);
-                }
+                CreateBuffers(drawable, geo);
             }
         }
+    }
+}
 
-        else
+void MinimalPbrRenderer::LoadImages(const Scene &scene)
+{
+    auto &pool = mFrame.CurrentPool();
+
+    for (auto &[key, imgData] : scene.Images)
+    {
+        if (mImages.count(key) != 0)
+            continue;
+
+        auto &texture = mImages[key];
+
+        auto format = imgData.Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+
+        texture.Img =
+            ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, imgData, format);
+
+        texture.View = Image::CreateView2D(mCtx, texture.Img, format,
+                                           VK_IMAGE_ASPECT_COLOR_BIT);
+
+        mSceneDeletionQueue.push_back(texture.Img);
+        mSceneDeletionQueue.push_back(texture.View);
+    }
+}
+
+void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
+{
+    for (auto &[key, sceneMat] : scene.Materials)
+    {
+        const bool firstLoad = mMaterials.count(key) == 0;
+
+        auto &mat = mMaterials[key];
+
+        if (firstLoad)
         {
-            auto geo = sceneMesh.GetGeometry();
-
-            if (!mGeometryLayout.IsCompatible(geo.Layout))
-                continue;
-
-            auto &mesh = mMeshes[key];
-            auto &drawable = mesh.Drawables.emplace_back();
-
-            CreateBuffers(pool, drawable, geo);
+            mat.DescriptorSet =
+                mMaterialDescriptorAllocator.Allocate(mMaterialDescriptorSetLayout);
         }
-    }
-}
 
-static Material::ImageSource *GetTextureSource(Material &mat, const MaterialKey &key)
-{
-    // Check if material has specified component
-    if (mat.count(key) == 0)
-        return nullptr;
+        // Update the alpha cutoff:
+        mat.AlphaCutoff = sceneMat.AlphaCutoff;
 
-    // Check if it is represented by a texture
-    auto &val = mat[key];
+        // Retrieve the textures if available:
+        auto GetTexture = [&](std::optional<SceneKey> opt, Texture& def) -> Texture&
+        {
+            if (opt.has_value())
+            {
+                if (mImages.count(*opt) != 0)
+                    return mImages[*opt];
+            }
 
-    if (!std::holds_alternative<Material::ImageSource>(val))
-        return nullptr;
-
-    auto *src = &std::get<Material::ImageSource>(val);
-
-    // Check if path to the texture is valid
-    bool validPath = std::filesystem::is_regular_file(src->Path);
-
-    if (!validPath)
-    {
-        std::cerr << "Invalid texture path: " << src->Path.string() << '\n';
-        return nullptr;
-    }
-
-    // Return image source
-    return src;
-}
-
-void MinimalPbrRenderer::LoadMaterials(Scene &scene)
-{
-    // Iterate over all materials in scene
-    for (auto &[key, mat] : scene.Materials())
-    {
-        // If material already imported, skip it
-        if (mMaterials.count(key) != 0)
-            continue;
-
-        // Retrieve the sources
-        auto albedoSrc = GetTextureSource(mat, ::Material::Albedo);
-
-        //  Skip material if it has no albedo
-        if (albedoSrc == nullptr)
-            continue;
-
-        auto roughnessSrc = GetTextureSource(mat, ::Material::Roughness);
-        auto normalSrc = GetTextureSource(mat, ::Material::Normal);
-
-        // Create new rendered-side material:
-        auto &material = mMaterials[key];
-
-        // Push the task to load images from disk to the thread pool
-        //(they will be uploaded to vulkan in OnUpdate):
-        auto RetrieveMaterialData = [this, key, albedoSrc, roughnessSrc, normalSrc]() {
-            MaterialData data{};
-            data.Key = key;
-
-            data.Albedo = ImageData::ImportSTB(albedoSrc->Path.string());
-
-            if (roughnessSrc)
-                data.Roughness = ImageData::ImportSTB(roughnessSrc->Path.string());
-            else
-                data.Roughness = ImageData::SinglePixel(Pixel{0, 255, 255, 0});
-
-            if (normalSrc)
-                data.Normal = ImageData::ImportSTB(normalSrc->Path.string());
-            else
-                data.Normal = ImageData::SinglePixel(Pixel{0, 0, 255, 0});
-
-            mMaterialData.Push(std::move(data));
+            return def;
         };
 
-        mThreadPool.Push(RetrieveMaterialData);
+        auto &albedo = GetTexture(sceneMat.Albedo, mDefaultAlbedo);
+        auto &roughness = GetTexture(sceneMat.Roughness, mDefaultRoughness);
+        auto &normal = GetTexture(sceneMat.Normal, mDefaultNormal);
 
-        // Unpack alpha-cutoff if present:
-        if (mat.count(::Material::AlphaCutoff))
-        {
-            auto &var = mat[::Material::AlphaCutoff];
-            material.AlphaCutoff = std::get<float>(var);
-        }
-
-        // Allocate the descriptor set:
-        material.DescriptorSet =
-            mMaterialDescriptorAllocator.Allocate(mMaterialDescriptorSetLayout);
+        // Update the descriptor set:
+        DescriptorUpdater(mat.DescriptorSet)
+            .WriteImageSampler(0, albedo.View, mSampler2D)
+            .WriteImageSampler(1, roughness.View, mSampler2D)
+            .WriteImageSampler(2, normal.View, mSampler2D)
+            .Update(mCtx);
     }
 }
 
-void MinimalPbrRenderer::LoadMeshMaterials(Scene &scene)
+void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 {
     using namespace std::views;
 
-    for (const auto &[key, mesh] : scene.Meshes())
+    for (const auto &[key, sceneMesh] : scene.Meshes)
     {
         if (mMeshes.count(key) != 0)
         {
-            auto &ourMesh = mMeshes[key];
+            auto &mesh = mMeshes[key];
 
-            for (const auto [idx, drawable] : enumerate(ourMesh.Drawables))
+            for (const auto [idx, drawable] : enumerate(mesh.Drawables))
             {
-                drawable.MaterialKey = mesh.Materials[idx];
+                drawable.MaterialKey = sceneMesh.Materials[idx];
             }
         }
     }
 }
 
-void MinimalPbrRenderer::LoadObjects(Scene &scene)
+void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 {
     for (auto &[_, mesh] : mMeshes)
         mesh.Transforms.clear();
 
-    for (auto &[_, obj] : scene.Objects())
+    for (auto &[_, obj] : scene.Objects)
     {
-        if (!obj.MeshId.has_value())
+        if (!obj.Mesh.has_value())
             continue;
 
-        SceneKey meshKey = obj.MeshId.value();
+        SceneKey meshKey = obj.Mesh.value();
 
         if (mMeshes.count(meshKey) != 0)
         {

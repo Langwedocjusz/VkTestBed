@@ -28,6 +28,8 @@ target_sources(${PROJECT_NAME}
         #Also listing headers to make them visible in IDEs
         src/Core/Application.h
         src/Core/Application.cpp
+        src/Core/AssetManager.h
+        src/Core/AssetManager.cpp
         src/Core/Camera.h
         src/Core/Camera.cpp
         src/Core/Event.h
@@ -39,10 +41,13 @@ target_sources(${PROJECT_NAME}
         src/Core/Keycodes.h
         src/Core/Material.h
         src/Core/Material.cpp
+        src/Core/ModelConfig.h
         src/Core/ModelLoader.h
         src/Core/ModelLoader.cpp
         src/Core/Scene.h
         src/Core/Scene.cpp
+        src/Core/SceneEditor.h
+        src/Core/SceneEditor.cpp
         src/Core/Primitives.h
         src/Core/Primitives.cpp
         src/Core/RenderContext.h
@@ -70,8 +75,8 @@ target_sources(${PROJECT_NAME}
         src/Gui/ImGuiUtils.cpp
         src/Gui/ModelLoaderGui.h
         src/Gui/ModelLoaderGui.cpp
-        src/Gui/SceneEditor.h
-        src/Gui/SceneEditor.cpp
+        src/Gui/SceneGui.h
+        src/Gui/SceneGui.cpp
         src/RendererComponents/EnvironmentHandler.h
         src/RendererComponents/EnvironmentHandler.cpp
         src/Renderers/Renderer.h

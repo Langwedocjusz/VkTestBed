@@ -90,7 +90,8 @@ ImageData ImageData::ImportEXR(const std::string &path)
 
 ImageData::ImageData(ImageData &&other) noexcept
     : Width(other.Width), Height(other.Height), Channels(other.Channels),
-      BytesPerChannel(other.BytesPerChannel), Unorm(other.Unorm), Data(other.Data), mType(other.mType)
+      BytesPerChannel(other.BytesPerChannel), Unorm(other.Unorm), Data(other.Data),
+      mType(other.mType)
 {
     other.Data = nullptr;
     other.mType = Type::None;

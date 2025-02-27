@@ -15,8 +15,8 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <ranges>
 #include <iostream>
+#include <ranges>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        RenderContext::Queues &queues,
@@ -57,23 +57,29 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         mMaterialDescriptorAllocator.OnInit(poolCounts);
     }
 
-    //Create the default textures:
-    auto& pool = mFrame.CurrentPool();
+    // Create the default textures:
+    auto &pool = mFrame.CurrentPool();
 
     auto albedoData = ImageData::SinglePixel(Pixel{255, 255, 255, 0});
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0});
     auto normalData = ImageData::SinglePixel(Pixel{0, 0, 255, 0});
 
-    mDefaultAlbedo.Img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, albedoData);
-    mDefaultRoughness.Img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, roughnessData);
-    mDefaultNormal.Img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, normalData);
+    mDefaultAlbedo.Img =
+        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, albedoData);
+    mDefaultRoughness.Img =
+        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, roughnessData);
+    mDefaultNormal.Img =
+        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, normalData);
 
-    mDefaultAlbedo.View = Image::CreateView2D(mCtx, mDefaultAlbedo.Img, mDefaultAlbedo.Img.Info.Format,
-                                           VK_IMAGE_ASPECT_COLOR_BIT);
-    mDefaultRoughness.View = Image::CreateView2D(mCtx, mDefaultRoughness.Img, mDefaultRoughness.Img.Info.Format,
-                                           VK_IMAGE_ASPECT_COLOR_BIT);
-    mDefaultNormal.View = Image::CreateView2D(mCtx, mDefaultNormal.Img, mDefaultNormal.Img.Info.Format,
-                                           VK_IMAGE_ASPECT_COLOR_BIT);
+    mDefaultAlbedo.View =
+        Image::CreateView2D(mCtx, mDefaultAlbedo.Img, mDefaultAlbedo.Img.Info.Format,
+                            VK_IMAGE_ASPECT_COLOR_BIT);
+    mDefaultRoughness.View =
+        Image::CreateView2D(mCtx, mDefaultRoughness.Img,
+                            mDefaultRoughness.Img.Info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    mDefaultNormal.View =
+        Image::CreateView2D(mCtx, mDefaultNormal.Img, mDefaultNormal.Img.Info.Format,
+                            VK_IMAGE_ASPECT_COLOR_BIT);
 
     mMainDeletionQueue.push_back(mDefaultAlbedo.Img);
     mMainDeletionQueue.push_back(mDefaultAlbedo.View);
@@ -158,7 +164,6 @@ void MinimalPbrRenderer::RebuildPipelines()
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-
 }
 
 void MinimalPbrRenderer::OnImGui()
@@ -405,8 +410,8 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
         texture.Img =
             ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, imgData, format);
 
-        texture.View = Image::CreateView2D(mCtx, texture.Img, format,
-                                           VK_IMAGE_ASPECT_COLOR_BIT);
+        texture.View =
+            Image::CreateView2D(mCtx, texture.Img, format, VK_IMAGE_ASPECT_COLOR_BIT);
 
         mSceneDeletionQueue.push_back(texture.Img);
         mSceneDeletionQueue.push_back(texture.View);
@@ -431,8 +436,7 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         mat.AlphaCutoff = sceneMat.AlphaCutoff;
 
         // Retrieve the textures if available:
-        auto GetTexture = [&](std::optional<SceneKey> opt, Texture& def) -> Texture&
-        {
+        auto GetTexture = [&](std::optional<SceneKey> opt, Texture &def) -> Texture & {
             if (opt.has_value())
             {
                 if (mImages.count(*opt) != 0)

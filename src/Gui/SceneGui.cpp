@@ -543,7 +543,7 @@ void SceneGui::MaterialsTab()
 
 void SceneGui::EnvironmentTab()
 {
-    auto& env = mEditor.GetEnv();
+    auto &env = mEditor.GetEnv();
 
     if (ImGui::Checkbox("Directional light", &env.DirLightOn))
     {

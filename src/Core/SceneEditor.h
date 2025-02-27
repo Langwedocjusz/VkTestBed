@@ -74,7 +74,7 @@ class SceneEditor {
 
     void UpdateTransforms(SceneGraphNode *rootNode);
 
-    Scene::Environment& GetEnv();
+    Scene::Environment &GetEnv();
     void RequestUpdate(Scene::UpdateFlag flag);
 
   public:

@@ -114,7 +114,7 @@ const SceneObject &SceneEditor::GetObject(SceneKey key)
     return mScene.Objects[key];
 }
 
-Scene::Environment& SceneEditor::GetEnv()
+Scene::Environment &SceneEditor::GetEnv()
 {
     return mScene.Env;
 }

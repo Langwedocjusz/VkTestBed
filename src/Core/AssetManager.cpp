@@ -37,11 +37,12 @@ void AssetManager::OnUpdate()
             mScene.RequestUpdate(Scene::UpdateFlag::Materials);
             mScene.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
 
-            //Print message:
+            // Print message:
             using ms = std::chrono::duration<float, std::milli>;
 
             auto currentTime = std::chrono::high_resolution_clock::now();
-            auto time = std::chrono::duration_cast<ms>(currentTime - mModel.mStartTime).count();
+            auto time =
+                std::chrono::duration_cast<ms>(currentTime - mModel.mStartTime).count();
             std::cout << "Finished loading model (took " << time / 1000.0f << " [s])\n";
         }
     }
@@ -69,14 +70,14 @@ void AssetManager::LoadModel(const ModelConfig &config)
     });
 }
 
-void AssetManager::LoadHdri(const std::filesystem::path& path)
+void AssetManager::LoadHdri(const std::filesystem::path &path)
 {
-    auto SyncedEmplaceImage = [this](){
+    auto SyncedEmplaceImage = [this]() {
         std::unique_lock lock(mSceneMutex);
         return mScene.EmplaceImage();
     };
 
-    mThreadPool.Push([this, SyncedEmplaceImage, path](){
+    mThreadPool.Push([this, SyncedEmplaceImage, path]() {
         auto [imgKey, img] = SyncedEmplaceImage();
 
         img = ImageData::ImportEXR(path.string());
@@ -88,7 +89,6 @@ void AssetManager::LoadHdri(const std::filesystem::path& path)
             mScene.RequestUpdate(Scene::UpdateFlag::Images);
             mScene.RequestUpdate(Scene::UpdateFlag::Environment);
         }
-
     });
 }
 
@@ -155,17 +155,17 @@ void AssetManager::EmplaceThings()
 
     const std::filesystem::path workingDir = mModel.Config.Filepath.parent_path();
 
-    auto SyncedEmplaceMesh = [this](){
+    auto SyncedEmplaceMesh = [this]() {
         std::unique_lock lock(mSceneMutex);
         return mScene.EmplaceMesh();
     };
 
-    auto SyncedEmplaceImage = [this](){
+    auto SyncedEmplaceImage = [this]() {
         std::unique_lock lock(mSceneMutex);
         return mScene.EmplaceImage();
     };
 
-    auto SyncedEmplaceMaterial = [this](){
+    auto SyncedEmplaceMaterial = [this]() {
         std::unique_lock lock(mSceneMutex);
         return mScene.EmplaceMaterial();
     };
@@ -194,21 +194,35 @@ void AssetManager::EmplaceThings()
             mat.AlphaCutoff = material.alphaCutoff;
         }
 
-        // Check if there is an albedo texture, if so - emplace its image:
-        auto &albedoInfo = material.pbrData.baseColorTexture;
-        auto albedoPath = GetTexturePath(*mModel.Gltf, albedoInfo, workingDir);
-
-        if (albedoPath.has_value())
+        // Handle albedo:
         {
             auto [imgKey, img] = SyncedEmplaceImage();
-
             mat.Albedo = imgKey;
 
-            mModel.ImgData.push_back(ImageTaskData{
-                .ImageKey = imgKey,
-                .Path = *albedoPath,
-                .Unorm = false,
-            });
+            // Check if there is an albedo texture, if so - emplace its image:
+            auto &albedoInfo = material.pbrData.baseColorTexture;
+            auto albedoPath = GetTexturePath(*mModel.Gltf, albedoInfo, workingDir);
+
+            if (albedoPath.has_value())
+            {
+                mModel.ImgData.push_back(ImageTaskData{
+                    .ImageKey = imgKey,
+                    .Path = *albedoPath,
+                    .Unorm = false,
+                });
+            }
+
+            else
+            {
+                auto &fac = material.pbrData.baseColorFactor;
+
+                const auto r = static_cast<uint8_t>(255.0f * fac.x());
+                const auto g = static_cast<uint8_t>(255.0f * fac.y());
+                const auto b = static_cast<uint8_t>(255.0f * fac.z());
+                const auto a = static_cast<uint8_t>(255.0f * fac.w());
+
+                img = ImageData::SinglePixel(Pixel{r, g, b, a});
+            }
         }
 
         // Do the same for roughness map if requested:
@@ -217,17 +231,28 @@ void AssetManager::EmplaceThings()
             auto &roughnessInfo = material.pbrData.metallicRoughnessTexture;
             auto roughnessPath = GetTexturePath(*mModel.Gltf, roughnessInfo, workingDir);
 
+            auto [imgKey, img] = SyncedEmplaceImage();
+            mat.Roughness = imgKey;
+
             if (roughnessPath.has_value())
             {
-                auto [imgKey, img] = SyncedEmplaceImage();
-
-                mat.Roughness = imgKey;
-
                 mModel.ImgData.push_back(ImageTaskData{
                     .ImageKey = imgKey,
                     .Path = *roughnessPath,
                     .Unorm = true,
                 });
+            }
+
+            else
+            {
+                auto &img = mScene.Images[imgKey];
+
+                const auto m =
+                    static_cast<uint8_t>(255.0f * material.pbrData.metallicFactor);
+                const auto r =
+                    static_cast<uint8_t>(255.0f * material.pbrData.roughnessFactor);
+
+                img = ImageData::SinglePixel(Pixel{0, r, m, 0});
             }
         }
 
@@ -277,7 +302,8 @@ void AssetManager::EmplaceThings()
     }
 
     // Set the number of tasks to do:
-    mModel.TasksLeft = static_cast<int64_t>(mModel.ImgData.size() + mModel.PrimData.size());
+    mModel.TasksLeft =
+        static_cast<int64_t>(mModel.ImgData.size() + mModel.PrimData.size());
 }
 
 void AssetManager::ScheduleLoading()
@@ -285,7 +311,7 @@ void AssetManager::ScheduleLoading()
     mModel.Stage = ModelStage::Loading;
 
     // 3.1. Schedule image loading:
-    //To-do: data should probably not be passed by value into the lambda
+    // To-do: data should probably not be passed by value into the lambda
     for (auto &data : mModel.ImgData)
     {
         mThreadPool.Push([this, &data]() {

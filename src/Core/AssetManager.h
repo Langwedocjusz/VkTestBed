@@ -7,8 +7,8 @@
 // To-do: maybe hermetize this somehow:
 #include <fastgltf/types.hpp>
 
-#include <chrono>
 #include <atomic>
+#include <chrono>
 
 class AssetManager {
   public:
@@ -17,7 +17,7 @@ class AssetManager {
     void OnUpdate();
 
     void LoadModel(const ModelConfig &config);
-    void LoadHdri(const std::filesystem::path& path);
+    void LoadHdri(const std::filesystem::path &path);
 
   private:
     void ParseGltf();

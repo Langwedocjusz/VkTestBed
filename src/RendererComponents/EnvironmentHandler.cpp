@@ -132,7 +132,7 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
         auto &pool = mFrame.CurrentPool();
 
         // Load equirectangular environment map:
-        auto& data = scene.Images.at(*key);
+        auto &data = scene.Images.at(*key);
         const auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
 
         auto envMap =

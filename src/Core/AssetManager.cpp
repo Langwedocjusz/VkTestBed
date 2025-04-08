@@ -3,7 +3,6 @@
 #include "ModelConfig.h"
 #include "ModelLoader.h"
 
-#include <chrono>
 #include <mutex>
 #include <ranges>
 
@@ -13,11 +12,65 @@ AssetManager::AssetManager(Scene &scene) : mScene(scene)
 {
 }
 
+void AssetManager::LoadModel(const ModelConfig &config)
+{
+    // 0. If already loading do nothing
+    // To-do: actually communicate with the ui about this
+    if (mModel.Stage != ModelStage::Idle)
+        return;
+
+    // 1. Update the state
+    mModel.Config = config;
+    mModel.Stage = ModelStage::Parsing;
+    mModel.mStartTime = Timer::Get();
+
+    // 2. Launch an async task to parse gltf and emplace new
+    // elements in the scene
+    mThreadPool.Push([this]() {
+        ParseGltf();
+        EmplaceThings();
+
+        mModel.Stage = ModelStage::Parsed;
+    });
+}
+
 void AssetManager::OnUpdate()
 {
     // 3. Detect if there is work to be scheduled
     if (mModel.Stage == ModelStage::Parsed)
-        ScheduleLoading();
+    {
+        mModel.Stage = ModelStage::Loading;
+
+        // 3.1. Schedule image loading:
+        // To-do: data should probably not be passed by value into the lambda
+        for (auto &data : mModel.ImgData)
+        {
+            mThreadPool.Push([this, &data]() {
+                auto &img = mScene.Images[data.ImageKey];
+
+                img = ImageData::ImportSTB(data.Path, data.Unorm);
+
+                mModel.TasksLeft--;
+            });
+        }
+
+        // 3.2. Schedule mesh parsing:
+        for (auto &data : mModel.PrimData)
+        {
+            mThreadPool.Push([this, &data]() {
+                auto &mesh = mScene.Meshes[data.SceneMesh];
+                auto &prim = mesh.Geometry[data.ScenePrim];
+
+                auto &srcMesh = mModel.Gltf->meshes[data.GltfMesh];
+                auto &srcPrimitive = srcMesh.primitives[data.GltfPrim];
+
+                prim =
+                    ModelLoader::LoadPrimitive(*mModel.Gltf, mModel.Config, srcPrimitive);
+
+                mModel.TasksLeft--;
+            });
+        }
+    }
 
     // 4. Detect if loading done
     if (mModel.Stage == ModelStage::Loading)
@@ -38,36 +91,15 @@ void AssetManager::OnUpdate()
             mScene.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
 
             // Print message:
-            using ms = std::chrono::duration<float, std::milli>;
-
-            auto currentTime = std::chrono::high_resolution_clock::now();
-            auto time =
-                std::chrono::duration_cast<ms>(currentTime - mModel.mStartTime).count();
-            std::cout << "Finished loading model (took " << time / 1000.0f << " [s])\n";
+            auto time = Timer::GetDiffSeconds(mModel.mStartTime);
+            std::cout << "Finished loading model (took " << time << " [s])\n";
         }
     }
 }
 
-void AssetManager::LoadModel(const ModelConfig &config)
+void AssetManager::ParseGltf()
 {
-    // 0. If already loading do nothing
-    // To-do: actually communicate with the ui about this
-    if (mModel.Stage != ModelStage::Idle)
-        return;
-
-    // 1. Update the state
-    mModel.Config = config;
-    mModel.Stage = ModelStage::Parsing;
-    mModel.mStartTime = std::chrono::high_resolution_clock::now();
-
-    // 2. Launch an async task to parse gltf and emplace new
-    // elements in the scene
-    mThreadPool.Push([this]() {
-        ParseGltf();
-        EmplaceThings();
-
-        mModel.Stage = ModelStage::Parsed;
-    });
+    mModel.Gltf = ModelLoader::GetGltfWithBuffers(mModel.Config.Filepath);
 }
 
 void AssetManager::LoadHdri(const std::filesystem::path &path)
@@ -90,11 +122,6 @@ void AssetManager::LoadHdri(const std::filesystem::path &path)
             mScene.RequestUpdate(Scene::UpdateFlag::Environment);
         }
     });
-}
-
-void AssetManager::ParseGltf()
-{
-    mModel.Gltf = ModelLoader::GetGltfWithBuffers(mModel.Config.Filepath);
 }
 
 // Templated, because it handles several types
@@ -127,28 +154,6 @@ static auto GetTexturePath(fastgltf::Asset &gltf, std::optional<T> &texInfo,
     return workingDir / uri.uri.fspath();
 }
 
-static GeometryLayout ToGeoLayout(const ModelConfig &config)
-{
-    using enum Vertex::AttributeType;
-
-    GeometryLayout layout{};
-
-    layout.VertexLayout.push_back(Vec3);
-
-    if (config.LoadTexCoord)
-        layout.VertexLayout.push_back(Vec2);
-
-    if (config.LoadNormals)
-        layout.VertexLayout.push_back(Vec3);
-
-    if (config.LoadTangents)
-        layout.VertexLayout.push_back(Vec4);
-
-    layout.IndexType = VK_INDEX_TYPE_UINT32;
-
-    return layout;
-}
-
 void AssetManager::EmplaceThings()
 {
     using namespace std::views;
@@ -174,7 +179,6 @@ void AssetManager::EmplaceThings()
     auto [meshKey, mesh] = SyncedEmplaceMesh();
 
     mesh.Name = mModel.Config.Filepath.stem().string();
-    mesh.Layout = ToGeoLayout(mModel.Config);
 
     // Gather ids of the mesh materials:
     std::map<size_t, SceneKey> keyMap;
@@ -293,10 +297,10 @@ void AssetManager::EmplaceThings()
             mesh.Geometry.emplace_back();
 
             mModel.PrimData.push_back(PrimitiveTaskData{
-                .TgtMesh = meshKey,
-                .TgtPrimitive = mesh.Geometry.size() - 1,
-                .SrcMesh = submeshId,
-                .SrcPrimitive = primId,
+                .SceneMesh = meshKey,
+                .ScenePrim = mesh.Geometry.size() - 1,
+                .GltfMesh = submeshId,
+                .GltfPrim = primId,
             });
         }
     }
@@ -304,38 +308,4 @@ void AssetManager::EmplaceThings()
     // Set the number of tasks to do:
     mModel.TasksLeft =
         static_cast<int64_t>(mModel.ImgData.size() + mModel.PrimData.size());
-}
-
-void AssetManager::ScheduleLoading()
-{
-    mModel.Stage = ModelStage::Loading;
-
-    // 3.1. Schedule image loading:
-    // To-do: data should probably not be passed by value into the lambda
-    for (auto &data : mModel.ImgData)
-    {
-        mThreadPool.Push([this, &data]() {
-            auto &img = mScene.Images[data.ImageKey];
-
-            img = ImageData::ImportSTB(data.Path, data.Unorm);
-
-            mModel.TasksLeft--;
-        });
-    }
-
-    // 3.2. Schedule mesh parsing:
-    for (auto &data : mModel.PrimData)
-    {
-        mThreadPool.Push([this, &data]() {
-            auto &mesh = mScene.Meshes[data.TgtMesh];
-            auto &prim = mesh.Geometry[data.TgtPrimitive];
-
-            auto &srcMesh = mModel.Gltf->meshes[data.SrcMesh];
-            auto &srcPrimitive = srcMesh.primitives[data.SrcPrimitive];
-
-            prim = ModelLoader::LoadPrimitive(*mModel.Gltf, mModel.Config, srcPrimitive);
-
-            mModel.TasksLeft--;
-        });
-    }
 }

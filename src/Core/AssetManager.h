@@ -3,12 +3,12 @@
 #include "ModelConfig.h"
 #include "Scene.h"
 #include "ThreadPool.h"
+#include "Timer.h"
 
 // To-do: maybe hermetize this somehow:
 #include <fastgltf/types.hpp>
 
 #include <atomic>
-#include <chrono>
 
 class AssetManager {
   public:
@@ -22,7 +22,6 @@ class AssetManager {
   private:
     void ParseGltf();
     void EmplaceThings();
-    void ScheduleLoading();
 
   private:
     Scene &mScene;
@@ -34,10 +33,10 @@ class AssetManager {
     };
 
     struct PrimitiveTaskData {
-        SceneKey TgtMesh;
-        size_t TgtPrimitive;
-        int64_t SrcMesh;
-        int64_t SrcPrimitive;
+        SceneKey SceneMesh;
+        size_t ScenePrim;
+        int64_t GltfMesh;
+        int64_t GltfPrim;
     };
 
     enum class ModelStage
@@ -59,7 +58,7 @@ class AssetManager {
 
         std::atomic_int64_t TasksLeft = 0;
 
-        std::chrono::time_point<std::chrono::high_resolution_clock> mStartTime;
+        Timer::Point mStartTime;
     } mModel;
 
     struct {

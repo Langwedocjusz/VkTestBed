@@ -92,14 +92,17 @@ class MinimalPbrRenderer : public IRenderer {
         uint32_t IndexCount;
 
         SceneKey MaterialKey = 0;
+        SceneKey InstanceKey = 0;
     };
 
-    struct Mesh {
-        std::vector<Drawable> Drawables;
-        std::vector<glm::mat4> Transforms;
+    using DrawableKey = std::pair<SceneKey, size_t>;
+    std::map<DrawableKey, Drawable> mDrawables;
+
+    struct InstanceData {
+        glm::mat4 Transform;
     };
 
-    std::map<SceneKey, Mesh> mMeshes;
+    std::map<SceneKey, std::vector<InstanceData>> mInstanceData;
 
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;

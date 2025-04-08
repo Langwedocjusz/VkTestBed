@@ -206,44 +206,38 @@ void MinimalPbrRenderer::OnRender()
 
         uint32_t numDraws = 0, numIdx = 0;
 
-        for (auto &[_, mesh] : mMeshes)
+        for (auto &[_, drawable] : mDrawables)
         {
-            for (auto &transform : mesh.Transforms)
+            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
+            std::array<VkDeviceSize, 1> offsets{0};
+
+            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
+            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
+                                 mGeometryLayout.IndexType);
+
+            auto &material = mMaterials.at(drawable.MaterialKey);
+
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    mMainPipeline.Layout, 1, 1, &material.DescriptorSet,
+                                    0, nullptr);
+
+            auto &instances = mInstanceData[drawable.InstanceKey];
+
+            for (auto &instance : instances)
             {
-                for (auto &drawable : mesh.Drawables)
-                {
-                    std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-                    std::array<VkDeviceSize, 1> offsets{0};
+                MaterialPCData pcData{
+                    .AlphaCutoff = material.AlphaCutoff,
+                    .ViewPos = mCamera->GetPos(),
+                    .Transform = instance.Transform,
+                };
 
-                    vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(),
-                                           offsets.data());
-                    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                         mGeometryLayout.IndexType);
+                vkCmdPushConstants(cmd, mMainPipeline.Layout,
+                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
+                                   &pcData);
+                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
 
-                    // To-do: currently descriptor for the texture is bound each draw
-                    // In reality draws should be sorted according to the material
-                    // and corresponding descriptors only re-bound when change
-                    // is necessary.
-                    auto &material = mMaterials.at(drawable.MaterialKey);
-
-                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                            mMainPipeline.Layout, 1, 1,
-                                            &material.DescriptorSet, 0, nullptr);
-
-                    MaterialPCData pcData{
-                        .AlphaCutoff = material.AlphaCutoff,
-                        .ViewPos = mCamera->GetPos(),
-                        .Transform = transform,
-                    };
-
-                    vkCmdPushConstants(cmd, mMainPipeline.Layout,
-                                       VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
-                                       &pcData);
-                    vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
-
-                    numIdx += drawable.IndexCount;
-                    numDraws++;
-                }
+                numIdx += drawable.IndexCount;
+                numDraws++;
             }
         }
 
@@ -357,6 +351,7 @@ void MinimalPbrRenderer::LoadScene(const Scene &scene)
 
 void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
 {
+    using namespace std::views;
     auto &pool = mFrame.CurrentPool();
 
     auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
@@ -375,20 +370,22 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
         mSceneDeletionQueue.push_back(drawable.IndexBuffer);
     };
 
-    for (const auto &[key, sceneMesh] : scene.Meshes)
+    for (const auto &[meshKey, mesh] : scene.Meshes)
     {
-        if (mMeshes.count(key) != 0)
-            continue;
-
-        if (mGeometryLayout.IsCompatible(sceneMesh.Layout))
+        for (const auto [geoIdx, geo] : enumerate(mesh.Geometry))
         {
-            auto &mesh = mMeshes[key];
+            auto drawableKey = DrawableKey{meshKey, geoIdx};
 
-            for (auto &geo : sceneMesh.Geometry)
+            // Already imported:
+            if (mDrawables.count(drawableKey) != 0)
+                continue;
+
+            if (mGeometryLayout.IsCompatible(geo.Layout))
             {
-                auto &drawable = mesh.Drawables.emplace_back();
+                auto &drawable = mDrawables[drawableKey];
 
                 CreateBuffers(drawable, geo);
+                drawable.InstanceKey = meshKey;
             }
         }
     }
@@ -463,15 +460,17 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 {
     using namespace std::views;
 
-    for (const auto &[key, sceneMesh] : scene.Meshes)
+    for (const auto &[meshKey, mesh] : scene.Meshes)
     {
-        if (mMeshes.count(key) != 0)
+        for (const auto [geoIdx, geo] : enumerate(mesh.Geometry))
         {
-            auto &mesh = mMeshes[key];
+            auto drawableKey = DrawableKey{meshKey, geoIdx};
 
-            for (const auto [idx, drawable] : enumerate(mesh.Drawables))
+            if (mDrawables.count(drawableKey) != 0)
             {
-                drawable.MaterialKey = sceneMesh.Materials[idx];
+                auto &drawable = mDrawables[drawableKey];
+
+                drawable.MaterialKey = mesh.Materials[geoIdx];
             }
         }
     }
@@ -479,23 +478,17 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 
 void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 {
-    for (auto &[_, mesh] : mMeshes)
-        mesh.Transforms.clear();
+    for (auto &[_, instances] : mInstanceData)
+        instances.clear();
 
-    for (auto &[_, obj] : scene.Objects)
+    for (const auto &[key, obj] : scene.Objects)
     {
         if (!obj.Mesh.has_value())
             continue;
 
-        SceneKey meshKey = obj.Mesh.value();
+        auto meshKey = *obj.Mesh;
 
-        if (mMeshes.count(meshKey) != 0)
-        {
-            auto &mesh = mMeshes[meshKey];
-
-            mesh.Transforms.push_back(obj.Transform);
-
-            continue;
-        }
+        auto &instances = mInstanceData[meshKey];
+        instances.push_back(InstanceData{.Transform = obj.Transform});
     }
 }

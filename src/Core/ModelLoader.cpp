@@ -101,6 +101,28 @@ static VertexLayout GetLayout(const ModelConfig &config)
     return res;
 }
 
+static GeometryLayout ToGeoLayout(const ModelConfig &config)
+{
+    using enum Vertex::AttributeType;
+
+    GeometryLayout layout{};
+
+    layout.VertexLayout.push_back(Vec3);
+
+    if (config.LoadTexCoord)
+        layout.VertexLayout.push_back(Vec2);
+
+    if (config.LoadNormals)
+        layout.VertexLayout.push_back(Vec3);
+
+    if (config.LoadTangents)
+        layout.VertexLayout.push_back(Vec4);
+
+    layout.IndexType = VK_INDEX_TYPE_UINT32;
+
+    return layout;
+}
+
 struct VertParsingResult {
     bool GenerateTangents = false;
 };
@@ -390,6 +412,8 @@ GeometryData ModelLoader::LoadPrimitive(fastgltf::Asset &gltf, const ModelConfig
     // Generate tangents if necessary:
     if (vertRes.GenerateTangents)
         GenerateTangents(geo, layout);
+
+    geo.Layout = ToGeoLayout(config);
 
     return geo;
 }

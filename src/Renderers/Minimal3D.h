@@ -61,15 +61,19 @@ class Minimal3DRenderer : public IRenderer {
         uint32_t IndexCount;
 
         SceneKey Material;
+        SceneKey Instances;
     };
 
-    struct Mesh {
-        std::vector<Drawable> Drawables;
-        std::vector<glm::mat4> Transforms;
+    using DrawableKey = std::pair<SceneKey, size_t>;
+
+    std::map<DrawableKey, Drawable> mColoredDrawables;
+    std::map<DrawableKey, Drawable> mTexturedDrawables;
+
+    struct InstanceData {
+        glm::mat4 Transform;
     };
 
-    std::map<SceneKey, Mesh> mColoredMeshes;
-    std::map<SceneKey, Mesh> mTexturedMeshes;
+    std::map<SceneKey, std::vector<InstanceData>> mInstanceData;
 
     struct Texture {
         Image TexImage;

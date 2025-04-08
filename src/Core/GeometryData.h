@@ -71,6 +71,5 @@ struct GeometryData {
 
     OpaqueBuffer VertexData;
     OpaqueBuffer IndexData;
-
     GeometryLayout Layout;
 };

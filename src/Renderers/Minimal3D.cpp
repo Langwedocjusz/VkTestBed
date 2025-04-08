@@ -169,25 +169,23 @@ void Minimal3DRenderer::OnRender()
                                 mColoredPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &[_, mesh] : mColoredMeshes)
+        for (auto &[_, drawable] : mColoredDrawables)
         {
-            for (auto &transform : mesh.Transforms)
+            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
+            std::array<VkDeviceSize, 1> offsets{0};
+
+            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
+            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
+                                 mColoredLayout.IndexType);
+            auto &instances = mInstanceData[drawable.Instances];
+
+            for (auto &instance : instances)
             {
-                for (auto &drawable : mesh.Drawables)
-                {
-                    std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-                    std::array<VkDeviceSize, 1> offsets{0};
 
-                    vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(),
-                                           offsets.data());
-                    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                         mColoredLayout.IndexType);
-
-                    vkCmdPushConstants(cmd, mColoredPipeline.Layout,
-                                       VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
-                                       &transform);
-                    vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
-                }
+                vkCmdPushConstants(cmd, mColoredPipeline.Layout,
+                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                                   sizeof(instance.Transform), &instance.Transform);
+                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
         }
 
@@ -201,38 +199,35 @@ void Minimal3DRenderer::OnRender()
                                 mTexturedPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
                                 0, nullptr);
 
-        for (auto &[_, mesh] : mTexturedMeshes)
+        for (auto &[_, drawable] : mTexturedDrawables)
         {
-            for (auto &transform : mesh.Transforms)
+            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
+            std::array<VkDeviceSize, 1> offsets{0};
+
+            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
+            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
+                                 mTexturedLayout.IndexType);
+
+            auto &material = mMaterials.at(drawable.Material);
+
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    mTexturedPipeline.Layout, 1, 1,
+                                    &material.DescriptorSet, 0, nullptr);
+
+            auto &instances = mInstanceData[drawable.Instances];
+
+            for (auto &instance : instances)
             {
-                for (auto &drawable : mesh.Drawables)
-                {
-                    std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-                    std::array<VkDeviceSize, 1> offsets{0};
 
-                    vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(),
-                                           offsets.data());
-                    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                         mTexturedLayout.IndexType);
+                PushConstantData pcData{
+                    .AlphaCutoff = glm::vec4(material.AlphaCutoff),
+                    .Transform = instance.Transform,
+                };
 
-                    // To-do: currently descriptor for the material is bound each draw
-                    // In reality draws should be sorted according to the material
-                    // and corresponding descriptors only re-bound when change
-                    // is necessary.
-                    // auto &texture = mTextures[drawable.TextureId];
-                    auto &material = mMaterials.at(drawable.Material);
-
-                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                            mTexturedPipeline.Layout, 1, 1,
-                                            &material.DescriptorSet, 0, nullptr);
-
-                    PushConstantData pcData{glm::vec4(material.AlphaCutoff), transform};
-
-                    vkCmdPushConstants(cmd, mTexturedPipeline.Layout,
-                                       VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
-                                       &pcData);
-                    vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
-                }
+                vkCmdPushConstants(cmd, mTexturedPipeline.Layout,
+                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
+                                   &pcData);
+                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
         }
     }
@@ -331,33 +326,31 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
         mSceneDeletionQueue.push_back(drawable.IndexBuffer);
     };
 
-    for (const auto &[key, sceneMesh] : scene.Meshes)
+    for (const auto &[meshKey, mesh] : scene.Meshes)
     {
-        if (mColoredMeshes.count(key) != 0)
-            continue;
-
-        if (mTexturedMeshes.count(key) != 0)
-            continue;
-
-        if (mColoredLayout.IsCompatible(sceneMesh.Layout))
+        for (const auto [geoIdx, geo] : enumerate(mesh.Geometry))
         {
-            auto &mesh = mColoredMeshes[key];
+            auto drawableKey = DrawableKey{meshKey, geoIdx};
 
-            for (auto &geo : sceneMesh.Geometry)
+            // Already imported:
+            if (mTexturedDrawables.count(drawableKey) != 0 ||
+                mTexturedDrawables.count(drawableKey) != 0)
+                continue;
+
+            if (mColoredLayout.IsCompatible(geo.Layout))
             {
-                auto &drawable = mesh.Drawables.emplace_back();
+                auto &drawable = mColoredDrawables[drawableKey];
+
                 CreateBuffers(drawable, geo);
+                drawable.Instances = meshKey;
             }
-        }
 
-        if (mTexturedLayout.IsCompatible(sceneMesh.Layout))
-        {
-            auto &mesh = mTexturedMeshes[key];
-
-            for (auto &geo : sceneMesh.Geometry)
+            if (mTexturedLayout.IsCompatible(geo.Layout))
             {
-                auto &drawable = mesh.Drawables.emplace_back();
+                auto &drawable = mTexturedDrawables[drawableKey];
+
                 CreateBuffers(drawable, geo);
+                drawable.Instances = meshKey;
             }
         }
     }
@@ -422,15 +415,17 @@ void Minimal3DRenderer::LoadMeshMaterials(const Scene &scene)
 {
     using namespace std::views;
 
-    for (const auto &[key, sceneMesh] : scene.Meshes)
+    for (const auto &[meshKey, mesh] : scene.Meshes)
     {
-        if (mTexturedMeshes.count(key) != 0)
+        for (const auto [geoIdx, geo] : enumerate(mesh.Geometry))
         {
-            auto &mesh = mTexturedMeshes[key];
+            auto drawableKey = DrawableKey{meshKey, geoIdx};
 
-            for (const auto [idx, drawable] : enumerate(mesh.Drawables))
+            if (mTexturedDrawables.count(drawableKey) != 0)
             {
-                drawable.Material = sceneMesh.Materials[idx];
+                auto &drawable = mTexturedDrawables[drawableKey];
+
+                drawable.Material = mesh.Materials[geoIdx];
             }
         }
     }
@@ -438,35 +433,17 @@ void Minimal3DRenderer::LoadMeshMaterials(const Scene &scene)
 
 void Minimal3DRenderer::LoadObjects(const Scene &scene)
 {
-    for (auto &[_, mesh] : mColoredMeshes)
-        mesh.Transforms.clear();
+    for (auto &[_, instances] : mInstanceData)
+        instances.clear();
 
-    for (auto &[_, mesh] : mTexturedMeshes)
-        mesh.Transforms.clear();
-
-    for (auto &[_, obj] : scene.Objects)
+    for (const auto &[key, obj] : scene.Objects)
     {
         if (!obj.Mesh.has_value())
             continue;
 
-        SceneKey meshKey = obj.Mesh.value();
+        auto meshKey = *obj.Mesh;
 
-        if (mColoredMeshes.count(meshKey) != 0)
-        {
-            auto &mesh = mColoredMeshes[meshKey];
-
-            mesh.Transforms.push_back(obj.Transform);
-
-            continue;
-        }
-
-        if (mTexturedMeshes.count(meshKey) != 0)
-        {
-            auto &mesh = mTexturedMeshes[meshKey];
-
-            mesh.Transforms.push_back(obj.Transform);
-
-            continue;
-        }
+        auto &instances = mInstanceData[meshKey];
+        instances.push_back(InstanceData{.Transform = obj.Transform});
     }
 }

@@ -42,14 +42,19 @@ class HelloRenderer : public IRenderer {
 
         Buffer IndexBuffer;
         uint32_t IndexCount;
+
+        SceneKey Instances;
     };
 
-    struct Mesh {
-        std::vector<Drawable> Drawables;
-        std::vector<glm::mat4> Transforms;
+    using DrawableKey = std::pair<SceneKey, size_t>;
+
+    std::map<DrawableKey, Drawable> mDrawables;
+
+    struct InstanceData {
+        glm::mat4 Transform;
     };
 
-    std::map<SceneKey, Mesh> mMeshes;
+    std::map<SceneKey, std::vector<InstanceData>> mInstanceData;
 
     DeletionQueue mSceneDeletionQueue;
 };

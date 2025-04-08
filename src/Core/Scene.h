@@ -25,7 +25,6 @@ class SceneKeyGenerator {
 
 struct SceneMesh {
     std::string Name;
-    GeometryLayout Layout;
     std::vector<GeometryData> Geometry;
     std::vector<SceneKey> Materials;
 };

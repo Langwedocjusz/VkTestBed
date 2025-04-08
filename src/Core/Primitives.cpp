@@ -1,5 +1,4 @@
 #include "Primitives.h"
-#include "GeometryData.h"
 
 #include <cstdint>
 #include <vulkan/vulkan.h>

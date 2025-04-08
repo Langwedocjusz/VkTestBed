@@ -66,6 +66,7 @@ target_sources(${PROJECT_NAME}
         src/Cpp/OpaqueBuffer.h
         src/Cpp/SyncQueue.h
         src/Cpp/ThreadPool.h
+        src/Cpp/Timer.h
         src/EntryPoint.cpp
         src/Gui/FilesystemBrowser.h
         src/Gui/FilesystemBrowser.cpp

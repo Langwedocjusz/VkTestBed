@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 
 #include <filesystem>
+#include <memory>
 #include <ranges>
 #include <variant>
 

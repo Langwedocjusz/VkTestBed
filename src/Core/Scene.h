@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 
 #include <map>
+#include <mutex>
 #include <optional>
 
 // To-do: replace with a more legit unqiue ID setup:
@@ -23,10 +24,14 @@ class SceneKeyGenerator {
     SceneKey mCurrent = 0;
 };
 
+struct ScenePrimitive{
+    GeometryData Data;
+    std::optional<SceneKey> Material;
+};
+
 struct SceneMesh {
     std::string Name;
-    std::vector<GeometryData> Geometry;
-    std::vector<SceneKey> Materials;
+    std::vector<ScenePrimitive> Primitives;
 };
 
 struct SceneMaterial {
@@ -93,4 +98,6 @@ class Scene {
     SceneKeyGenerator mMeshKeyGenerator;
     SceneKeyGenerator mMaterialKeyGenerator;
     SceneKeyGenerator mObjectKeyGenerator;
+
+    std::mutex mMutex;
 };

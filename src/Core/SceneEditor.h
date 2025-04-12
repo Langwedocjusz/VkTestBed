@@ -50,9 +50,9 @@ class SceneEditor {
 
     void OnUpdate();
 
-    const SceneMesh &GetMesh(SceneKey key);
-    const SceneMaterial &GetMaterial(SceneKey key);
-    const SceneObject &GetObject(SceneKey key);
+    SceneMesh &GetMesh(SceneKey key);
+    SceneMaterial &GetMaterial(SceneKey key);
+    SceneObject &GetObject(SceneKey key);
 
     void EraseMesh(SceneKey mesh);
 

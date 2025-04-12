@@ -93,21 +93,21 @@ void SceneEditor::OnUpdate()
     mAssetManager.OnUpdate();
 }
 
-const SceneMesh &SceneEditor::GetMesh(SceneKey key)
+SceneMesh &SceneEditor::GetMesh(SceneKey key)
 {
     assert(mScene.Meshes.count(key) != 0);
 
     return mScene.Meshes[key];
 }
 
-const SceneMaterial &SceneEditor::GetMaterial(SceneKey key)
+SceneMaterial &SceneEditor::GetMaterial(SceneKey key)
 {
     assert(mScene.Materials.count(key) != 0);
 
     return mScene.Materials[key];
 }
 
-const SceneObject &SceneEditor::GetObject(SceneKey key)
+SceneObject &SceneEditor::GetObject(SceneKey key)
 {
     assert(mScene.Objects.count(key) != 0);
 

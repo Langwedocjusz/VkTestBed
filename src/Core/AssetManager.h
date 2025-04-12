@@ -65,7 +65,5 @@ class AssetManager {
         ImageTaskData Data;
     } mHDRI;
 
-    std::mutex mSceneMutex;
-
     ThreadPool mThreadPool;
 };

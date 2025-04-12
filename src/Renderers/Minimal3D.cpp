@@ -328,28 +328,28 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 
     for (const auto &[meshKey, mesh] : scene.Meshes)
     {
-        for (const auto [geoIdx, geo] : enumerate(mesh.Geometry))
+        for (const auto [primIdx, prim] : enumerate(mesh.Primitives))
         {
-            auto drawableKey = DrawableKey{meshKey, geoIdx};
+            auto drawableKey = DrawableKey{meshKey, primIdx};
 
             // Already imported:
             if (mTexturedDrawables.count(drawableKey) != 0 ||
                 mTexturedDrawables.count(drawableKey) != 0)
                 continue;
 
-            if (mColoredLayout.IsCompatible(geo.Layout))
+            if (mColoredLayout.IsCompatible(prim.Data.Layout))
             {
                 auto &drawable = mColoredDrawables[drawableKey];
 
-                CreateBuffers(drawable, geo);
+                CreateBuffers(drawable, prim.Data);
                 drawable.Instances = meshKey;
             }
 
-            if (mTexturedLayout.IsCompatible(geo.Layout))
+            if (mTexturedLayout.IsCompatible(prim.Data.Layout))
             {
                 auto &drawable = mTexturedDrawables[drawableKey];
 
-                CreateBuffers(drawable, geo);
+                CreateBuffers(drawable, prim.Data);
                 drawable.Instances = meshKey;
             }
         }
@@ -417,15 +417,16 @@ void Minimal3DRenderer::LoadMeshMaterials(const Scene &scene)
 
     for (const auto &[meshKey, mesh] : scene.Meshes)
     {
-        for (const auto [geoIdx, geo] : enumerate(mesh.Geometry))
+        for (const auto [primIdx, prim] : enumerate(mesh.Primitives))
         {
-            auto drawableKey = DrawableKey{meshKey, geoIdx};
+            auto drawableKey = DrawableKey{meshKey, primIdx};
 
             if (mTexturedDrawables.count(drawableKey) != 0)
             {
                 auto &drawable = mTexturedDrawables[drawableKey];
 
-                drawable.Material = mesh.Materials[geoIdx];
+                if (prim.Material)
+                    drawable.Material = *prim.Material;
             }
         }
     }

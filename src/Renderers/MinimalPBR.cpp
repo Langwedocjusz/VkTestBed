@@ -372,19 +372,19 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
 
     for (const auto &[meshKey, mesh] : scene.Meshes)
     {
-        for (const auto [geoIdx, geo] : enumerate(mesh.Geometry))
+        for (const auto [primIdx, prim] : enumerate(mesh.Primitives))
         {
-            auto drawableKey = DrawableKey{meshKey, geoIdx};
+            auto drawableKey = DrawableKey{meshKey, primIdx};
 
             // Already imported:
             if (mDrawables.count(drawableKey) != 0)
                 continue;
 
-            if (mGeometryLayout.IsCompatible(geo.Layout))
+            if (mGeometryLayout.IsCompatible(prim.Data.Layout))
             {
                 auto &drawable = mDrawables[drawableKey];
 
-                CreateBuffers(drawable, geo);
+                CreateBuffers(drawable, prim.Data);
                 drawable.InstanceKey = meshKey;
             }
         }
@@ -462,15 +462,16 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 
     for (const auto &[meshKey, mesh] : scene.Meshes)
     {
-        for (const auto [geoIdx, geo] : enumerate(mesh.Geometry))
+        for (const auto [primIdx, prim] : enumerate(mesh.Primitives))
         {
-            auto drawableKey = DrawableKey{meshKey, geoIdx};
+            auto drawableKey = DrawableKey{meshKey, primIdx};
 
             if (mDrawables.count(drawableKey) != 0)
             {
                 auto &drawable = mDrawables[drawableKey];
 
-                drawable.MaterialKey = mesh.Materials[geoIdx];
+                if (prim.Material)
+                    drawable.MaterialKey = *prim.Material;
             }
         }
     }

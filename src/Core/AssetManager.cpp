@@ -3,7 +3,6 @@
 #include "ModelConfig.h"
 #include "ModelLoader.h"
 
-#include <mutex>
 #include <ranges>
 
 #include <iostream>
@@ -42,7 +41,6 @@ void AssetManager::OnUpdate()
         mModel.Stage = ModelStage::Loading;
 
         // 3.1. Schedule image loading:
-        // To-do: data should probably not be passed by value into the lambda
         for (auto &data : mModel.ImgData)
         {
             mThreadPool.Push([this, &data]() {
@@ -59,12 +57,12 @@ void AssetManager::OnUpdate()
         {
             mThreadPool.Push([this, &data]() {
                 auto &mesh = mScene.Meshes[data.SceneMesh];
-                auto &prim = mesh.Geometry[data.ScenePrim];
+                auto &prim = mesh.Primitives[data.ScenePrim];
 
                 auto &srcMesh = mModel.Gltf->meshes[data.GltfMesh];
                 auto &srcPrimitive = srcMesh.primitives[data.GltfPrim];
 
-                prim =
+                prim.Data =
                     ModelLoader::LoadPrimitive(*mModel.Gltf, mModel.Config, srcPrimitive);
 
                 mModel.TasksLeft--;
@@ -104,23 +102,15 @@ void AssetManager::ParseGltf()
 
 void AssetManager::LoadHdri(const std::filesystem::path &path)
 {
-    auto SyncedEmplaceImage = [this]() {
-        std::unique_lock lock(mSceneMutex);
-        return mScene.EmplaceImage();
-    };
-
-    mThreadPool.Push([this, SyncedEmplaceImage, path]() {
-        auto [imgKey, img] = SyncedEmplaceImage();
+    mThreadPool.Push([this, path]() {
+        auto [imgKey, img] = mScene.EmplaceImage();
 
         img = ImageData::ImportEXR(path.string());
 
         mScene.Env.HdriImage = imgKey;
 
-        {
-            std::unique_lock lk(mSceneMutex);
-            mScene.RequestUpdate(Scene::UpdateFlag::Images);
-            mScene.RequestUpdate(Scene::UpdateFlag::Environment);
-        }
+        mScene.RequestUpdate(Scene::UpdateFlag::Images);
+        mScene.RequestUpdate(Scene::UpdateFlag::Environment);
     });
 }
 
@@ -160,23 +150,8 @@ void AssetManager::EmplaceThings()
 
     const std::filesystem::path workingDir = mModel.Config.Filepath.parent_path();
 
-    auto SyncedEmplaceMesh = [this]() {
-        std::unique_lock lock(mSceneMutex);
-        return mScene.EmplaceMesh();
-    };
-
-    auto SyncedEmplaceImage = [this]() {
-        std::unique_lock lock(mSceneMutex);
-        return mScene.EmplaceImage();
-    };
-
-    auto SyncedEmplaceMaterial = [this]() {
-        std::unique_lock lock(mSceneMutex);
-        return mScene.EmplaceMaterial();
-    };
-
     // Create the new mesh:
-    auto [meshKey, mesh] = SyncedEmplaceMesh();
+    auto [meshKey, mesh] = mScene.EmplaceMesh();
 
     mesh.Name = mModel.Config.Filepath.stem().string();
 
@@ -187,7 +162,7 @@ void AssetManager::EmplaceThings()
     for (auto [id, material] : enumerate(mModel.Gltf->materials))
     {
         // Create new scene material:
-        auto [matKey, mat] = SyncedEmplaceMaterial();
+        auto [matKey, mat] = mScene.EmplaceMaterial();
         mat.Name = mesh.Name + std::to_string(id);
 
         keyMap[id] = matKey;
@@ -200,7 +175,7 @@ void AssetManager::EmplaceThings()
 
         // Handle albedo:
         {
-            auto [imgKey, img] = SyncedEmplaceImage();
+            auto [imgKey, img] = mScene.EmplaceImage();
             mat.Albedo = imgKey;
 
             // Check if there is an albedo texture, if so - emplace its image:
@@ -225,7 +200,7 @@ void AssetManager::EmplaceThings()
                 const auto b = static_cast<uint8_t>(255.0f * fac.z());
                 const auto a = static_cast<uint8_t>(255.0f * fac.w());
 
-                img = ImageData::SinglePixel(Pixel{r, g, b, a});
+                img = ImageData::SinglePixel(Pixel{.R=r, .G=g, .B=b, .A=a});
             }
         }
 
@@ -235,7 +210,7 @@ void AssetManager::EmplaceThings()
             auto &roughnessInfo = material.pbrData.metallicRoughnessTexture;
             auto roughnessPath = GetTexturePath(*mModel.Gltf, roughnessInfo, workingDir);
 
-            auto [imgKey, img] = SyncedEmplaceImage();
+            auto [imgKey, img] = mScene.EmplaceImage();
             mat.Roughness = imgKey;
 
             if (roughnessPath.has_value())
@@ -256,7 +231,7 @@ void AssetManager::EmplaceThings()
                 const auto r =
                     static_cast<uint8_t>(255.0f * material.pbrData.roughnessFactor);
 
-                img = ImageData::SinglePixel(Pixel{0, r, m, 0});
+                img = ImageData::SinglePixel(Pixel{.R=0, .G=r, .B=m, .A=0});
             }
         }
 
@@ -268,7 +243,7 @@ void AssetManager::EmplaceThings()
 
             if (normalPath.has_value())
             {
-                auto [imgKey, img] = SyncedEmplaceImage();
+                auto [imgKey, img] = mScene.EmplaceImage();
 
                 mat.Normal = imgKey;
 
@@ -286,19 +261,20 @@ void AssetManager::EmplaceThings()
     {
         for (auto [primId, prim] : enumerate(submesh.primitives))
         {
+            //Emplace new primitive:
+            auto& newMeshPrim = mesh.Primitives.emplace_back();
+
             // Assign material keys to the mesh:
             if (auto id = prim.materialIndex)
             {
                 auto matId = keyMap[*id];
 
-                mesh.Materials.push_back(matId);
+                newMeshPrim.Material = matId;
             }
-
-            mesh.Geometry.emplace_back();
 
             mModel.PrimData.push_back(PrimitiveTaskData{
                 .SceneMesh = meshKey,
-                .ScenePrim = mesh.Geometry.size() - 1,
+                .ScenePrim = mesh.Primitives.size() - 1,
                 .GltfMesh = submeshId,
                 .GltfPrim = primId,
             });

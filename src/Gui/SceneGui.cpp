@@ -1,6 +1,5 @@
 #include "SceneGui.h"
 
-#include "CppUtils.h"
 #include "ImGuiUtils.h"
 #include "Scene.h"
 
@@ -34,7 +33,6 @@ SceneGui::SceneGui(SceneEditor &editor) : mEditor(editor), mModelLoader(editor)
 
     mHdriBrowser.SetCallbackFn([&]() {
         mEditor.SetHdri(mHdriBrowser.ChosenFile);
-        // mEditor.RequestEnvironmentUpdate();
     });
 
     mHdriBrowser.SetCheckFn([](const std::filesystem::path &path) {
@@ -458,19 +456,26 @@ void SceneGui::MeshesTab()
             // To-do: this is kind of ugly:
             // static used here because this value is accessed across
             // two different calls of this function.
-            static SceneKey *idToChange = nullptr;
+            struct PrimId{
+                SceneKey Mesh;
+                int64_t Idx;
+            };
 
-            for (const auto [num, id] : enumerate(mesh.Materials))
+            static std::optional<PrimId> primToChange = std::nullopt;
+
+            for (const auto [primIdx, prim] : enumerate(mesh.Primitives))
             {
-                const std::string suffix = "##mat" + mesh.Name + std::to_string(num);
-                std::string matName = mEditor.GetMaterial(id).Name + suffix;
+                auto id = prim.Material;
 
-                ImGui::Text("Material %lu: ", num);
+                const std::string matName = id ? mEditor.GetMaterial(*id).Name : "None";
+                const std::string suffix = "##mat" + mesh.Name + std::to_string(primIdx);
+
+                ImGui::Text("Material %lu: ", primIdx);
                 ImGui::SameLine();
 
-                if (ImGui::Selectable(matName.c_str()))
+                if (ImGui::Selectable((matName + suffix).c_str()))
                 {
-                    idToChange = &id;
+                    primToChange = {.Mesh = meshKey, .Idx = primIdx};
                     ImGui::OpenPopup("Select material:");
                 }
                 // To-do: adding new materials
@@ -478,13 +483,16 @@ void SceneGui::MeshesTab()
 
             if (ImGui::BeginPopup("Select material:"))
             {
-                if (idToChange)
+                if (primToChange)
                 {
                     for (auto &[id, mat] : mEditor.Materials())
                     {
                         if (ImGui::Selectable(mat.Name.c_str()))
                         {
-                            *idToChange = id;
+                            auto& mesh = mEditor.GetMesh((*primToChange).Mesh);
+                            auto& prim = mesh.Primitives[(*primToChange).Idx];
+
+                            prim.Material = id;
                             mEditor.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
                         }
                     }

@@ -15,7 +15,7 @@ std::pair<SceneKey, SceneMesh &> Scene::EmplaceMesh()
 std::pair<SceneKey, ImageData &> Scene::EmplaceImage()
 {
     std::unique_lock lock(mMutex);
-    
+
     auto key = mImageKeyGenerator.Get();
     assert(Images.count(key) == 0);
 
@@ -39,7 +39,7 @@ std::pair<SceneKey, SceneMaterial &> Scene::EmplaceMaterial()
 std::pair<SceneKey, SceneObject &> Scene::EmplaceObject()
 {
     std::unique_lock lock(mMutex);
-    
+
     auto key = mObjectKeyGenerator.Get();
     assert(Objects.count(key) == 0);
 

@@ -1,4 +1,5 @@
 #include "SceneEditor.h"
+#include "Primitives.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
@@ -6,19 +7,30 @@
 
 // SceneGraphNode Implementation:
 
-SceneGraphNode::SceneGraphNode()
+SceneGraphNode::SceneGraphNode(SceneEditor& editor)
+    : mEditor(editor)
 {
-    Payload = ChildrenArray{};
+    mPayload = ChildrenArray{};
 }
 
-SceneGraphNode::SceneGraphNode(SceneKey key)
+SceneGraphNode::SceneGraphNode(SceneEditor& editor, SceneKey key)
+    : mEditor(editor)
 {
-    Payload = key;
+    mPayload = key;
+}
+
+SceneGraphNode::~SceneGraphNode()
+{
+    if (IsLeaf())
+    {
+        // Remove object, the node pointed to:
+        mEditor.EraseObject(GetObjectKey());
+    }
 }
 
 bool SceneGraphNode::IsLeaf()
 {
-    return std::holds_alternative<SceneKey>(Payload);
+    return std::holds_alternative<SceneKey>(mPayload);
 }
 
 SceneKey SceneGraphNode::GetObjectKey()
@@ -26,7 +38,7 @@ SceneKey SceneGraphNode::GetObjectKey()
     if (!IsLeaf())
         throw std::logic_error("Only leaf nodes hold object keys!");
 
-    return std::get<SceneKey>(Payload);
+    return std::get<SceneKey>(mPayload);
 }
 
 SceneGraphNode::ChildrenArray &SceneGraphNode::GetChildren()
@@ -34,12 +46,12 @@ SceneGraphNode::ChildrenArray &SceneGraphNode::GetChildren()
     if (IsLeaf())
         throw std::logic_error("Leaf nodes have no children!");
 
-    return std::get<ChildrenArray>(Payload);
+    return std::get<ChildrenArray>(mPayload);
 }
 
 SceneGraphNode &SceneGraphNode::EmplaceChild()
 {
-    GetChildren().push_back(std::make_unique<SceneGraphNode>());
+    GetChildren().push_back(std::make_unique<SceneGraphNode>(mEditor));
 
     auto &child = *GetChildren().back();
     child.Parent = this;
@@ -49,7 +61,7 @@ SceneGraphNode &SceneGraphNode::EmplaceChild()
 
 SceneGraphNode &SceneGraphNode::EmplaceChild(SceneKey key)
 {
-    GetChildren().push_back(std::make_unique<SceneGraphNode>(key));
+    GetChildren().push_back(std::make_unique<SceneGraphNode>(mEditor, key));
 
     auto &child = *GetChildren().back();
     child.Parent = this;
@@ -81,15 +93,51 @@ void SceneGraphNode::UpdateTransforms(Scene &scene, glm::mat4 current)
     }
 }
 
+// NodeOpData Implementation:
+SceneGraphNode &SceneEditor::NodeOpData::GetSourceNode()
+{
+    auto &children = SrcParent->GetChildren();
+    auto &ptr = children[ChildId];
+    return *ptr;
+}
+
+auto SceneEditor::NodeOpData::GetSourceNodeIterator()
+{
+    auto &children = SrcParent->GetChildren();
+    return children.begin() + static_cast<int64_t>(ChildId);
+}
+
 // SceneEditor Implementation:
 
-SceneEditor::SceneEditor(Scene &scene) : mScene(scene), mAssetManager(scene)
+SceneEditor::SceneEditor(Scene &scene) : GraphRoot(*this), mScene(scene), mAssetManager(scene)
 {
+    // Emplace test material
+    auto [imgKey, img] = scene.EmplaceImage();
+    img = ImageData::SinglePixel(Pixel{.R = 255, .G = 255, .B = 255, .A = 255});
+
+    auto [matKey, mat] = scene.EmplaceMaterial();
+    mat.Name = "Pure white";
+    mat.Albedo = imgKey;
+
+    // Emplace test mesh
+    {
+        auto [meshKey, mesh] = mScene.EmplaceMesh();
+
+        mesh.Name = "Test Cube";
+        auto &prim = mesh.Primitives.emplace_back();
+        prim.Data = primitive::TexturedCubeWithTangent();
+        prim.Material = matKey;
+    }
+
+    // Request update:
     mScene.RequestUpdateAll();
 }
 
 void SceneEditor::OnUpdate()
 {
+    // Handle node operations if any were scheduled:
+    HandleNodeOp();
+
     mAssetManager.OnUpdate();
 }
 
@@ -176,4 +224,107 @@ void SceneEditor::SetHdri(const std::filesystem::path &path)
 void SceneEditor::RequestUpdate(Scene::UpdateFlag flag)
 {
     mScene.RequestUpdate(flag);
+}
+
+void SceneEditor::ScheduleNodeMove(NodeOpData data)
+{
+    mNodeOpType = NodeOp::Move;
+    mNodeOpData = data;
+}
+
+void SceneEditor::ScheduleNodeCopy(NodeOpData data)
+{
+    mNodeOpType = NodeOp::Copy;
+    mNodeOpData = data;
+}
+
+void SceneEditor::ScheduleNodeDeletion(NodeOpData data)
+{
+    mNodeOpType = NodeOp::Delete;
+    mNodeOpData = data;
+}
+
+void SceneEditor::HandleNodeOp()
+{
+    switch (mNodeOpType)
+    {
+    case NodeOp::Move: {
+        HandleNodeMove();
+        // To-do: this can be optimized to only update
+        // affected nodes:
+        UpdateTransforms(&GraphRoot);
+        break;
+    }
+    case NodeOp::Delete: {
+        HandleNodeDelete();
+        mScene.RequestUpdate(Scene::UpdateFlag::Objects);
+        break;
+    }
+    case NodeOp::Copy: {
+        HandleNodeCopy();
+        mScene.RequestUpdate(Scene::UpdateFlag::Objects);
+        break;
+    }
+    case NodeOp::None: {
+        break;
+    }
+    }
+
+    mNodeOpType = NodeOp::None;
+}
+
+void SceneEditor::HandleNodeMove()
+{
+    // We assume src and dst are different, since
+    // move operation wouldn't be scheduled otherwise.
+    assert(mNodeOpData.SrcParent != mNodeOpData.DstParent);
+
+    auto &srcChildren = mNodeOpData.SrcParent->GetChildren();
+    auto &dstChildren = mNodeOpData.DstParent->GetChildren();
+
+    // Move to dst, erase from src:
+    auto iter = mNodeOpData.GetSourceNodeIterator();
+
+    dstChildren.push_back(std::move(*iter));
+    srcChildren.erase(iter);
+}
+
+static void CopyNodeTree(SceneEditor& editor, SceneGraphNode& source, SceneGraphNode& target)
+{
+    auto& newNode = [&]() -> SceneGraphNode& {
+        if (source.IsLeaf())
+        {
+            auto key = editor.DuplicateObject(source.GetObjectKey());
+            return target.EmplaceChild(key);
+        }
+        else
+            return target.EmplaceChild(); 
+    }();
+    
+    newNode.Name = source.Name;
+    newNode.Translation = source.Translation;
+    newNode.Rotation = source.Rotation;
+    newNode.Scale = source.Scale;
+
+    if (!source.IsLeaf())
+    {
+        for (auto& child : source.GetChildren())
+        {
+            CopyNodeTree(editor, *child, newNode);
+        }
+    }
+}
+
+void SceneEditor::HandleNodeCopy()
+{
+    auto &oldNode = mNodeOpData.GetSourceNode();   
+    CopyNodeTree(*this, oldNode, *mNodeOpData.DstParent);
+}
+
+void SceneEditor::HandleNodeDelete()
+{
+    auto &children = mNodeOpData.SrcParent->GetChildren();
+    auto it = mNodeOpData.GetSourceNodeIterator();
+
+    children.erase(it);
 }

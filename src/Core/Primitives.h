@@ -13,4 +13,5 @@ GeometryData TexturedQuad();
 
 GeometryData ColoredCube();
 GeometryData TexturedCube();
+GeometryData TexturedCubeWithTangent();
 } // namespace primitive

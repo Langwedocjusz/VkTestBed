@@ -48,6 +48,8 @@ target_sources(${PROJECT_NAME}
         src/Core/Scene.cpp
         src/Core/SceneEditor.h
         src/Core/SceneEditor.cpp
+        src/Core/TangentsGenerator.h
+        src/Core/TangentsGenerator.cpp
         src/Core/Primitives.h
         src/Core/Primitives.cpp
         src/Core/RenderContext.h

@@ -10,13 +10,17 @@
 #include <ranges>
 #include <variant>
 
+class SceneEditor;
+
 class SceneGraphNode {
   public:
     using ChildrenArray = std::vector<std::unique_ptr<SceneGraphNode>>;
 
   public:
-    SceneGraphNode();
-    SceneGraphNode(SceneKey key);
+    SceneGraphNode(SceneEditor& editor);
+    SceneGraphNode(SceneEditor& editor, SceneKey key);
+
+    ~SceneGraphNode();
 
     bool IsLeaf();
 
@@ -41,7 +45,8 @@ class SceneGraphNode {
     std::string Name;
 
   private:
-    std::variant<ChildrenArray, SceneKey> Payload;
+    SceneEditor& mEditor;
+    std::variant<ChildrenArray, SceneKey> mPayload;
 };
 
 class SceneEditor {
@@ -50,19 +55,17 @@ class SceneEditor {
 
     void OnUpdate();
 
+    // Functions to manipulate the underlying scene:
     SceneMesh &GetMesh(SceneKey key);
     SceneMaterial &GetMaterial(SceneKey key);
     SceneObject &GetObject(SceneKey key);
+    Scene::Environment &GetEnv();
 
     void EraseMesh(SceneKey mesh);
 
     SceneKey EmplaceObject(std::optional<SceneKey> mesh);
     SceneKey DuplicateObject(SceneKey obj);
     void EraseObject(SceneKey key);
-
-    void LoadModel(const ModelConfig &config);
-
-    void SetHdri(const std::filesystem::path &path);
 
     auto Meshes()
     {
@@ -73,17 +76,51 @@ class SceneEditor {
         return std::views::all(mScene.Materials);
     }
 
+    void LoadModel(const ModelConfig &config);
+    void SetHdri(const std::filesystem::path &path);
+    void RequestUpdate(Scene::UpdateFlag flag);
+
+    // Functions to manipulate the scene-graph:
     void UpdateTransforms(SceneGraphNode *rootNode);
 
-    Scene::Environment &GetEnv();
-    void RequestUpdate(Scene::UpdateFlag flag);
+    struct NodeOpData {
+        SceneGraphNode *SrcParent;
+        int64_t ChildId;
+        SceneGraphNode *DstParent;
+
+        SceneGraphNode &GetSourceNode();
+        auto GetSourceNodeIterator();
+    };
+
+    void ScheduleNodeMove(NodeOpData data);
+    void ScheduleNodeCopy(NodeOpData data);
+    void ScheduleNodeDeletion(NodeOpData data);
 
   public:
     // Root of the scene-graph used by UI to control objects:
     SceneGraphNode GraphRoot;
 
+    // Trees representing mesh hierarchies of imported gltf scenes.
+    // They are grafted onto the main scene-graph when instancing the gltf.
+    std::vector<SceneGraphNode> Prefabs;
+
+  private:
+    void HandleNodeOp();
+    void HandleNodeMove();
+    void HandleNodeCopy();
+    void HandleNodeDelete();
+
   private:
     Scene &mScene;
-
     AssetManager mAssetManager;
+
+    enum class NodeOp
+    {
+        None,
+        Move,
+        Delete,
+        Copy
+    } mNodeOpType;
+
+    NodeOpData mNodeOpData;
 };

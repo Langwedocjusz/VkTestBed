@@ -14,69 +14,16 @@
 
 static const char *PAYLOAD_STRING = "SCENE_INSTANCE_PAYLOAD";
 
-SceneGraphNode &SceneGui::OpInfo::GetSourceNode()
-{
-    auto &children = Parent->GetChildren();
-    auto &ptr = children[ChildId];
-    return *ptr;
-}
-
-auto SceneGui::OpInfo::GetSourceNodeIterator()
-{
-    auto &children = Parent->GetChildren();
-    return children.begin() + ChildId;
-}
-
 SceneGui::SceneGui(SceneEditor &editor) : mEditor(editor), mModelLoader(editor)
 {
     mHdriBrowser.AddExtensionToFilter(".exr");
 
-    mHdriBrowser.SetCallbackFn([&]() {
-        mEditor.SetHdri(mHdriBrowser.ChosenFile);
-    });
+    mHdriBrowser.SetCallbackFn([&]() { mEditor.SetHdri(mHdriBrowser.ChosenFile); });
 
     mHdriBrowser.SetCheckFn([](const std::filesystem::path &path) {
         return std::filesystem::is_regular_file(path);
     });
 }
-
-/*void SceneGui::OnInit(Scene &scene)
-{
-    mHdriBrowser.AddExtensionToFilter(".exr");
-
-    mHdriBrowser.SetCallbackFn([&]() {
-        scene.Env.HdriPath = mHdriBrowser.ChosenFile;
-        scene.RequestEnvironmentUpdate();
-    });
-
-    mHdriBrowser.SetCheckFn([](const std::filesystem::path &path) {
-        return std::filesystem::is_regular_file(path);
-    });
-
-    {
-        auto &mesh = scene.EmplaceMesh();
-        mesh.Name = "Colored Cube";
-        mesh.Geometry = primitive::ColoredCube;
-    }
-
-    {
-        auto [key, mat] = scene.EmplaceMaterial2();
-
-        mat.Name = "Test Material";
-
-        mat[Material::Albedo] = Material::ImageSource{
-            .Path = "./assets/textures/texture.jpg",
-            .Channel = Material::ImageChannel::RGBA,
-        };
-
-        auto &mesh = scene.EmplaceMesh();
-        mesh.Name = "Textured Cube";
-        mesh.Geometry = primitive::TexturedCube;
-        mesh.Materials.push_back(key);
-    }
-
-    scene.RequestFullUpdate();
-}*/
 
 void SceneGui::OnImGui()
 {
@@ -108,9 +55,6 @@ void SceneGui::SceneHierarchyMenu()
     }
 
     ImGui::End();
-
-    // Handle node operations if any were scheduled:
-    HandleNodeOp();
 
     // Handle model loading if it was scheduled:
     mModelLoader.OnImGui();
@@ -171,22 +115,28 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
         ImGui::EndDragDropTarget();
     }
 
+    // Delete button:
+    if (imutils::CloseButton(nodeName, closeButtonPos))
+    {
+        // Reset selection if necessary:
+        if (&node == mSelectedNode)
+            mSelectedNode = nullptr;
+
+        // Schedule node deletion:
+        auto opData = SceneEditor::NodeOpData{
+            .SrcParent = parent,
+            .ChildId = childId,
+            .DstParent = nullptr,
+        };
+
+        mEditor.ScheduleNodeDeletion(opData);
+    }
+
     // Draw additional copy/delete ui on top:
     // To-do: also handle non-leaf nodes:
-    if (node.IsLeaf())
+    //if (node.IsLeaf())
     {
         ImGui::SameLine();
-
-        // Delete button:
-        if (imutils::CloseButton(nodeName, closeButtonPos))
-        {
-            mOpInfo = OpInfo{
-                .RequestedOp = OpType::Delete,
-                .Parent = parent,
-                .ChildId = childId,
-                .DstParent = nullptr,
-            };
-        }
 
         // Copy button:
         std::string copyButtonName = "+##" + nodeName;
@@ -201,12 +151,13 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
 
         if (ImGui::Button(copyButtonName.c_str()))
         {
-            mOpInfo = OpInfo{
-                .RequestedOp = OpType::Copy,
-                .Parent = parent,
+            auto opData = SceneEditor::NodeOpData{
+                .SrcParent = parent,
                 .ChildId = childId,
-                .DstParent = nullptr,
+                .DstParent = parent,
             };
+
+            mEditor.ScheduleNodeCopy(opData);
         }
 
         ImGui::PopStyleColor();
@@ -241,93 +192,15 @@ void SceneGui::HandleSceneDropPayload(SceneGraphNode &node)
 
         if (validTarget)
         {
-            mOpInfo = OpInfo{
-                .RequestedOp = OpType::Move,
-                .Parent = payload->Parent,
+            auto opData = SceneEditor::NodeOpData{
+                .SrcParent = payload->Parent,
                 .ChildId = payload->ChildId,
                 .DstParent = &node,
             };
+
+            mEditor.ScheduleNodeMove(opData);
         }
     }
-}
-
-void SceneGui::HandleNodeOp()
-{
-    switch (mOpInfo.RequestedOp)
-    {
-    case OpType::Move: {
-        HandleNodeMove();
-        // To-do: this can be optimized to only update
-        // affected nodes:
-        mEditor.UpdateTransforms(&mEditor.GraphRoot);
-        // mEditor.RequestObjectUpdate();
-        break;
-    }
-    case OpType::Delete: {
-        HandleNodeDelete();
-        // scene.RequestObjectUpdate();
-        break;
-    }
-    case OpType::Copy: {
-        HandleNodeCopy();
-        // scene.RequestObjectUpdate();
-        break;
-    }
-    case OpType::None: {
-        break;
-    }
-    }
-
-    mOpInfo.RequestedOp = OpType::None;
-}
-
-void SceneGui::HandleNodeMove()
-{
-    // We can assume src and dst are different, since
-    // move operation wouldn't be scheduled otherwise.
-    auto &srcChildren = mOpInfo.Parent->GetChildren();
-    auto &dstChildren = mOpInfo.DstParent->GetChildren();
-
-    // Move to dst, erase from src:
-    auto iter = mOpInfo.GetSourceNodeIterator();
-
-    dstChildren.push_back(std::move(*iter));
-    srcChildren.erase(iter);
-}
-
-void SceneGui::HandleNodeDelete()
-{
-    auto &node = mOpInfo.GetSourceNode();
-
-    // Reset selection if necessary:
-    if (&node == mSelectedNode)
-        mSelectedNode = nullptr;
-
-    // Remove object, the node pointed to:
-    mEditor.EraseObject(node.GetObjectKey());
-
-    // Erase the node:
-    auto &children = mOpInfo.Parent->GetChildren();
-    auto it = mOpInfo.GetSourceNodeIterator();
-
-    children.erase(it);
-}
-
-void SceneGui::HandleNodeCopy()
-{
-    // Retrieve old node:
-    auto &oldNode = mOpInfo.GetSourceNode();
-
-    // Duplicate object:
-    auto key = mEditor.DuplicateObject(oldNode.GetObjectKey());
-
-    // Duplicate node:
-    auto &newNode = mOpInfo.Parent->EmplaceChild(key);
-
-    newNode.Translation = oldNode.Translation;
-    newNode.Rotation = oldNode.Rotation;
-    newNode.Scale = oldNode.Scale;
-    newNode.Name = oldNode.Name;
 }
 
 void SceneGui::AddInstancePopup()
@@ -353,16 +226,12 @@ void SceneGui::AddInstancePopup()
 
             if (ImGui::Selectable(name.c_str()))
             {
-                // auto [idx, obj] = scene.EmplaceObject2();
-                // obj.MeshId = key;
-                // obj.Transform = glm::mat4(1.0f);
                 auto objKey = mEditor.EmplaceObject(meshKey);
 
                 auto &newNode = mEditor.GraphRoot.EmplaceChild(objKey);
                 newNode.Name = mesh.Name;
 
                 mEditor.RequestUpdate(Scene::UpdateFlag::Objects);
-                // scene.RequestObjectUpdate();
             }
         }
 
@@ -456,7 +325,7 @@ void SceneGui::MeshesTab()
             // To-do: this is kind of ugly:
             // static used here because this value is accessed across
             // two different calls of this function.
-            struct PrimId{
+            struct PrimId {
                 SceneKey Mesh;
                 int64_t Idx;
             };
@@ -489,8 +358,8 @@ void SceneGui::MeshesTab()
                     {
                         if (ImGui::Selectable(mat.Name.c_str()))
                         {
-                            auto& mesh = mEditor.GetMesh((*primToChange).Mesh);
-                            auto& prim = mesh.Primitives[(*primToChange).Idx];
+                            auto &mesh = mEditor.GetMesh((*primToChange).Mesh);
+                            auto &prim = mesh.Primitives[(*primToChange).Idx];
 
                             prim.Material = id;
                             mEditor.RequestUpdate(Scene::UpdateFlag::MeshMaterials);

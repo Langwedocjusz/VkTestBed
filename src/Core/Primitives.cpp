@@ -1,7 +1,11 @@
 #include "Primitives.h"
+#include "GeometryData.h"
+#include "TangentsGenerator.h"
 
 #include <cstdint>
+#include <pthread.h>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 // clang-format off
 
@@ -173,7 +177,7 @@ GeometryData primitive::ColoredCube()
     return res;
 }
 
-GeometryData primitive::TexturedCube()
+static GeometryData TexturedCubeImpl(bool withTangents)
 {
     using enum Vertex::AttributeType;
 
@@ -183,44 +187,99 @@ GeometryData primitive::TexturedCube()
         glm::vec3 Normal;
     };
 
-    constexpr auto spec = GeometrySpec::BuildV<Vertex, uint32_t>(24, 36);
+    struct VertexT{
+        glm::vec3 Position;
+        glm::vec2 TexCoord;
+        glm::vec3 Normal;
+        glm::vec4 Tangent;
+    };
+
+    //Generate the geometry data object:
+    const auto spec = [&](){
+        if (withTangents)
+            return GeometrySpec::BuildV<VertexT, uint32_t>(24, 36);
+        else
+        return GeometrySpec::BuildV<Vertex, uint32_t>(24, 36);
+    }();
 
     GeometryData res(spec);
 
-    new (res.VertexData.Data.get()) Vertex[spec.VertCount]
+    //Provide vertex data:
+    if (withTangents)
     {
-        //Top
-        {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-        {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-        {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-        //Bottom
-        {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f,-1.0f, 0.0f}},
-        {{ 0.5f,-0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f,-1.0f, 0.0f}},
-        {{ 0.5f,-0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f,-1.0f, 0.0f}},
-        {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f,-1.0f, 0.0f}},
-        //Front
-        {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-        {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-        {{ 0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-        //Back
-        {{-0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
-        {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
-        {{ 0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
-        {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
-        //Right
-        {{ 0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-        //Left
-        {{-0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}},
-        {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
-        {{-0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
-        {{-0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}},
-    };
+        new (res.VertexData.Data.get()) VertexT[spec.VertCount]
+        {
+            //Top
+            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, glm::vec4(0.0f)},
+            {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, glm::vec4(0.0f)},
+            {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, glm::vec4(0.0f)},
+            {{-0.5f, 0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, glm::vec4(0.0f)},
+            //Bottom
+            {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f,-1.0f, 0.0f}, glm::vec4(0.0f)},
+            {{ 0.5f,-0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f,-1.0f, 0.0f}, glm::vec4(0.0f)},
+            {{ 0.5f,-0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f,-1.0f, 0.0f}, glm::vec4(0.0f)},
+            {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f,-1.0f, 0.0f}, glm::vec4(0.0f)},
+            //Front
+            {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, glm::vec4(0.0f)},
+            {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, glm::vec4(0.0f)},
+            {{ 0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, glm::vec4(0.0f)},
+            {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, glm::vec4(0.0f)},
+            //Back
+            {{-0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f,-1.0f}, glm::vec4(0.0f)},
+            {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}, glm::vec4(0.0f)},
+            {{ 0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f,-1.0f}, glm::vec4(0.0f)},
+            {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f,-1.0f}, glm::vec4(0.0f)},
+            //Right
+            {{ 0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
+            {{ 0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
+            {{ 0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
+            {{ 0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
+            //Left
+            {{-0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
+            {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
+            {{-0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
+            {{-0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)}
+        };
+    }
 
+    else 
+    {
+        new (res.VertexData.Data.get()) Vertex[spec.VertCount]
+        {
+            //Top
+            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+            {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
+            {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
+            {{-0.5f, 0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+            //Bottom
+            {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f,-1.0f, 0.0f}},
+            {{ 0.5f,-0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f,-1.0f, 0.0f}},
+            {{ 0.5f,-0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f,-1.0f, 0.0f}},
+            {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f,-1.0f, 0.0f}},
+            //Front
+            {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+            {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+            {{ 0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+            {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+            //Back
+            {{-0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
+            {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
+            {{ 0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
+            {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
+            //Right
+            {{ 0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+            {{ 0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+            {{ 0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+            {{ 0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+            //Left
+            {{-0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}},
+            {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
+            {{-0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
+            {{-0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}},
+        };
+    }
+
+    //Provide index data:
     new (res.IndexData.Data.get()) uint32_t[spec.IdxCount]
     {
         //Top
@@ -237,12 +296,39 @@ GeometryData primitive::TexturedCube()
         20,21,22, 22,23,20
     };
 
-    res.Layout = GeometryLayout{
-        .VertexLayout = {Vec3, Vec2, Vec3},
-        .IndexType = VK_INDEX_TYPE_UINT32
-    };
+    //Generate the tangents if necessary:
+    if (withTangents)
+    {
+        //Generate the tangents:
+        auto layout = tangen::VertexLayout{
+            .Stride = 3 + 2 + 3 + 4,
+            .OffsetTexCoord = 3,
+            .OffsetNormal = 5,
+            .OffsetTangent = 8,
+        };
+
+        tangen::GenerateTangents(res, layout);
+    }
+            
+    //Fill in the layout:
+    if (withTangents)
+        res.Layout.VertexLayout = {Vec3, Vec2, Vec3, Vec4};
+    else
+        res.Layout.VertexLayout = {Vec3, Vec2, Vec3};
+
+    res.Layout.IndexType = VK_INDEX_TYPE_UINT32;
 
     return res;
+}
+
+GeometryData primitive::TexturedCube()
+{
+    return TexturedCubeImpl(false);
+}
+
+GeometryData primitive::TexturedCubeWithTangent()
+{
+    return TexturedCubeImpl(true);
 }
 
 // clang-format on

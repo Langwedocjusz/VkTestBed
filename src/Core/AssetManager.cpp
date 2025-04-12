@@ -200,7 +200,7 @@ void AssetManager::EmplaceThings()
                 const auto b = static_cast<uint8_t>(255.0f * fac.z());
                 const auto a = static_cast<uint8_t>(255.0f * fac.w());
 
-                img = ImageData::SinglePixel(Pixel{.R=r, .G=g, .B=b, .A=a});
+                img = ImageData::SinglePixel(Pixel{.R = r, .G = g, .B = b, .A = a});
             }
         }
 
@@ -231,7 +231,7 @@ void AssetManager::EmplaceThings()
                 const auto r =
                     static_cast<uint8_t>(255.0f * material.pbrData.roughnessFactor);
 
-                img = ImageData::SinglePixel(Pixel{.R=0, .G=r, .B=m, .A=0});
+                img = ImageData::SinglePixel(Pixel{.R = 0, .G = r, .B = m, .A = 0});
             }
         }
 
@@ -261,8 +261,8 @@ void AssetManager::EmplaceThings()
     {
         for (auto [primId, prim] : enumerate(submesh.primitives))
         {
-            //Emplace new primitive:
-            auto& newMeshPrim = mesh.Primitives.emplace_back();
+            // Emplace new primitive:
+            auto &newMeshPrim = mesh.Primitives.emplace_back();
 
             // Assign material keys to the mesh:
             if (auto id = prim.materialIndex)

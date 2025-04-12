@@ -24,7 +24,7 @@ class SceneKeyGenerator {
     SceneKey mCurrent = 0;
 };
 
-struct ScenePrimitive{
+struct ScenePrimitive {
     GeometryData Data;
     std::optional<SceneKey> Material;
 };

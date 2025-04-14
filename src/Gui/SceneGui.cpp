@@ -132,9 +132,7 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
         mEditor.ScheduleNodeDeletion(opData);
     }
 
-    // Draw additional copy/delete ui on top:
-    // To-do: also handle non-leaf nodes:
-    //if (node.IsLeaf())
+    // Copy button:
     {
         ImGui::SameLine();
 
@@ -205,6 +203,8 @@ void SceneGui::HandleSceneDropPayload(SceneGraphNode &node)
 
 void SceneGui::AddInstancePopup()
 {
+    using namespace std::views;
+
     if (ImGui::BeginPopupContextWindow())
     {
         ImGui::Text("Add:");
@@ -220,7 +220,17 @@ void SceneGui::AddInstancePopup()
         ImGui::Text("Instance:");
         ImGui::Separator();
 
-        for (auto &[meshKey, mesh] : mEditor.Meshes())
+        for (auto [prefabId, prefab] : enumerate(mEditor.Prefabs))
+        {
+            std::string name = prefab.Name + "##" + std::to_string(prefabId);
+
+            if (ImGui::Selectable(name.c_str()))
+            {
+                mEditor.InstancePrefab(prefabId);
+            }
+        }
+
+        /*for (auto &[meshKey, mesh] : mEditor.Meshes())
         {
             std::string name = mesh.Name + "##" + std::to_string(meshKey);
 
@@ -233,7 +243,7 @@ void SceneGui::AddInstancePopup()
 
                 mEditor.RequestUpdate(Scene::UpdateFlag::Objects);
             }
-        }
+        }*/
 
         // To-do: maybe move this to the data menu
         ImGui::Dummy(ImVec2(0.0f, 10.0f));

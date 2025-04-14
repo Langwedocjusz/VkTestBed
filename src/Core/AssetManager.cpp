@@ -1,14 +1,22 @@
 #include "AssetManager.h"
 
+#include "CppUtils.h"
 #include "ModelConfig.h"
 #include "ModelLoader.h"
+#include "SceneEditor.h"
+#include "glm/gtc/quaternion.hpp"
 
+#include <fastgltf/math.hpp>
+#include <fastgltf/types.hpp>
 #include <ranges>
 
 #include <iostream>
+#include <variant>
 
-AssetManager::AssetManager(Scene &scene) : mScene(scene)
+AssetManager::AssetManager(Scene &scene, SceneEditor &editor)
+    : mScene(scene), mEditor(editor)
 {
+    (void)mEditor;
 }
 
 void AssetManager::LoadModel(const ModelConfig &config)
@@ -27,7 +35,8 @@ void AssetManager::LoadModel(const ModelConfig &config)
     // elements in the scene
     mThreadPool.Push([this]() {
         ParseGltf();
-        EmplaceThings();
+        PreprocessGltfAssets();
+        ProcessGltfHierarchy();
 
         mModel.Stage = ModelStage::Parsed;
     });
@@ -81,6 +90,7 @@ void AssetManager::OnUpdate()
             mModel.Gltf = nullptr;
             mModel.ImgData.clear();
             mModel.PrimData.clear();
+            // mModel.MeshDict.clear();
 
             // Set scene update flags:
             mScene.RequestUpdate(Scene::UpdateFlag::Images);
@@ -144,16 +154,12 @@ static auto GetTexturePath(fastgltf::Asset &gltf, std::optional<T> &texInfo,
     return workingDir / uri.uri.fspath();
 }
 
-void AssetManager::EmplaceThings()
+void AssetManager::PreprocessGltfAssets()
 {
     using namespace std::views;
 
     const std::filesystem::path workingDir = mModel.Config.Filepath.parent_path();
-
-    // Create the new mesh:
-    auto [meshKey, mesh] = mScene.EmplaceMesh();
-
-    mesh.Name = mModel.Config.Filepath.stem().string();
+    const std::string baseName = mModel.Config.Filepath.stem().string();
 
     // Gather ids of the mesh materials:
     std::map<size_t, SceneKey> keyMap;
@@ -163,7 +169,7 @@ void AssetManager::EmplaceThings()
     {
         // Create new scene material:
         auto [matKey, mat] = mScene.EmplaceMaterial();
-        mat.Name = mesh.Name + std::to_string(id);
+        mat.Name = baseName + std::to_string(id);
 
         keyMap[id] = matKey;
 
@@ -256,16 +262,27 @@ void AssetManager::EmplaceThings()
         }
     }
 
-    // Iterate all mesh primitives:
-    for (auto [submeshId, submesh] : enumerate(mModel.Gltf->meshes))
+    // Iterate all gltf meshes:
+    for (auto [gltfMeshId, gltfMesh] : enumerate(mModel.Gltf->meshes))
     {
-        for (auto [primId, prim] : enumerate(submesh.primitives))
+        // Create the new mesh:
+        auto [meshKey, mesh] = mScene.EmplaceMesh();
+
+        // Update mesh dictionary:
+        mModel.MeshDict[gltfMeshId] = meshKey;
+
+        mesh.Name = baseName;
+        mesh.Name += " ";
+        mesh.Name += gltfMesh.name;
+
+        // Retrieve its primitives:
+        for (auto [gltfPrimId, gltfPrim] : enumerate(gltfMesh.primitives))
         {
             // Emplace new primitive:
             auto &newMeshPrim = mesh.Primitives.emplace_back();
 
             // Assign material keys to the mesh:
-            if (auto id = prim.materialIndex)
+            if (auto id = gltfPrim.materialIndex)
             {
                 auto matId = keyMap[*id];
 
@@ -275,8 +292,8 @@ void AssetManager::EmplaceThings()
             mModel.PrimData.push_back(PrimitiveTaskData{
                 .SceneMesh = meshKey,
                 .ScenePrim = mesh.Primitives.size() - 1,
-                .GltfMesh = submeshId,
-                .GltfPrim = primId,
+                .GltfMesh = gltfMeshId,
+                .GltfPrim = gltfPrimId,
             });
         }
     }
@@ -284,4 +301,68 @@ void AssetManager::EmplaceThings()
     // Set the number of tasks to do:
     mModel.TasksLeft =
         static_cast<int64_t>(mModel.ImgData.size() + mModel.PrimData.size());
+}
+
+static auto UnpackTransform(fastgltf::Node &node)
+    -> std::tuple<glm::vec3, glm::vec3, glm::vec3>
+{
+    glm::vec3 translation;
+    glm::vec3 rotation;
+    glm::vec3 scale;
+
+    auto UnpackTRS = [&](fastgltf::TRS &trs) {
+        translation =
+            glm::vec3{trs.translation.x(), trs.translation.y(), trs.translation.z()};
+
+        auto quat = glm::quat(trs.rotation.w(), trs.rotation.x(), trs.rotation.y(),
+                              trs.rotation.z());
+
+        rotation = glm::eulerAngles(quat);
+
+        scale = glm::vec3{trs.scale.x(), trs.scale.y(), trs.scale.z()};
+    };
+
+    auto UnpackMat4 = [&](fastgltf::math::fmat4x4 &mat) {
+        fastgltf::TRS trs;
+        fastgltf::math::decomposeTransformMatrix(mat, trs.scale, trs.rotation,
+                                                 trs.translation);
+
+        UnpackTRS(trs);
+    };
+
+    std::visit(overloaded{[&](fastgltf::TRS arg) { UnpackTRS(arg); },
+                          [&](fastgltf::math::fmat4x4 arg) { UnpackMat4(arg); }},
+               node.transform);
+
+    return {translation, rotation, scale};
+}
+
+void AssetManager::ProcessGltfHierarchy()
+{
+    // Append root of the hierarchy to scene editor prefabs:
+    auto &root = mEditor.Prefabs.emplace_back(mEditor);
+
+    const std::string baseName = mModel.Config.Filepath.stem().string();
+    root.Name = baseName;
+
+    // To-do: Currently we assume gltf holds one scene.
+    auto &scene = mModel.Gltf->scenes[0];
+
+    for (auto nodeIdx : scene.nodeIndices)
+    {
+        auto &node = mModel.Gltf->nodes[nodeIdx];
+        auto [translation, rotation, scale] = UnpackTransform(node);
+
+        // To-do: Assumes each of the 1st levl nodes holds a mesh.
+        if (node.meshIndex.has_value())
+        {
+            auto meshKey = mModel.MeshDict[*node.meshIndex];
+
+            auto &prefabNode = root.EmplaceChild(meshKey);
+            prefabNode.Translation = translation;
+            prefabNode.Rotation = rotation;
+            prefabNode.Scale = scale;
+            prefabNode.Name = node.name;
+        }
+    }
 }

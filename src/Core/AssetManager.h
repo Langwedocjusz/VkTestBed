@@ -10,9 +10,11 @@
 
 #include <atomic>
 
+class SceneEditor;
+
 class AssetManager {
   public:
-    AssetManager(Scene &scene);
+    AssetManager(Scene &scene, SceneEditor &editor);
 
     void OnUpdate();
 
@@ -21,10 +23,12 @@ class AssetManager {
 
   private:
     void ParseGltf();
-    void EmplaceThings();
+    void PreprocessGltfAssets();
+    void ProcessGltfHierarchy();
 
   private:
     Scene &mScene;
+    SceneEditor &mEditor;
 
     struct ImageTaskData {
         SceneKey ImageKey;
@@ -53,6 +57,8 @@ class AssetManager {
 
         std::vector<ImageTaskData> ImgData;
         std::vector<PrimitiveTaskData> PrimData;
+
+        std::map<size_t, SceneKey> MeshDict;
 
         ModelStage Stage = ModelStage::Idle;
 

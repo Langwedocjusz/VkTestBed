@@ -7,16 +7,21 @@
 
 // SceneGraphNode Implementation:
 
-SceneGraphNode::SceneGraphNode(SceneEditor& editor)
-    : mEditor(editor)
+SceneGraphNode::SceneGraphNode(SceneEditor &editor) : mEditor(editor)
 {
     mPayload = ChildrenArray{};
 }
 
-SceneGraphNode::SceneGraphNode(SceneEditor& editor, SceneKey key)
-    : mEditor(editor)
+SceneGraphNode::SceneGraphNode(SceneEditor &editor, SceneKey key) : mEditor(editor)
 {
     mPayload = key;
+}
+
+SceneGraphNode::SceneGraphNode(SceneGraphNode &&other) noexcept
+    : Parent(other.Parent), Translation(other.Translation), Rotation(other.Rotation),
+      Scale(other.Scale), Name(other.Name), mEditor(other.mEditor),
+      mPayload(std::move(other.mPayload))
+{
 }
 
 SceneGraphNode::~SceneGraphNode()
@@ -109,7 +114,8 @@ auto SceneEditor::NodeOpData::GetSourceNodeIterator()
 
 // SceneEditor Implementation:
 
-SceneEditor::SceneEditor(Scene &scene) : GraphRoot(*this), mScene(scene), mAssetManager(scene)
+SceneEditor::SceneEditor(Scene &scene)
+    : GraphRoot(*this), mScene(scene), mAssetManager(scene, *this)
 {
     // Emplace test material
     auto [imgKey, img] = scene.EmplaceImage();
@@ -289,18 +295,19 @@ void SceneEditor::HandleNodeMove()
     srcChildren.erase(iter);
 }
 
-static void CopyNodeTree(SceneEditor& editor, SceneGraphNode& source, SceneGraphNode& target)
+static void CopyNodeTree(SceneEditor &editor, SceneGraphNode &source,
+                         SceneGraphNode &target)
 {
-    auto& newNode = [&]() -> SceneGraphNode& {
+    auto &newNode = [&]() -> SceneGraphNode & {
         if (source.IsLeaf())
         {
             auto key = editor.DuplicateObject(source.GetObjectKey());
             return target.EmplaceChild(key);
         }
         else
-            return target.EmplaceChild(); 
+            return target.EmplaceChild();
     }();
-    
+
     newNode.Name = source.Name;
     newNode.Translation = source.Translation;
     newNode.Rotation = source.Rotation;
@@ -308,7 +315,7 @@ static void CopyNodeTree(SceneEditor& editor, SceneGraphNode& source, SceneGraph
 
     if (!source.IsLeaf())
     {
-        for (auto& child : source.GetChildren())
+        for (auto &child : source.GetChildren())
         {
             CopyNodeTree(editor, *child, newNode);
         }
@@ -317,7 +324,7 @@ static void CopyNodeTree(SceneEditor& editor, SceneGraphNode& source, SceneGraph
 
 void SceneEditor::HandleNodeCopy()
 {
-    auto &oldNode = mNodeOpData.GetSourceNode();   
+    auto &oldNode = mNodeOpData.GetSourceNode();
     CopyNodeTree(*this, oldNode, *mNodeOpData.DstParent);
 }
 
@@ -327,4 +334,45 @@ void SceneEditor::HandleNodeDelete()
     auto it = mNodeOpData.GetSourceNodeIterator();
 
     children.erase(it);
+}
+
+static void InstancePrefabImpl(SceneEditor &editor, SceneGraphNode &source,
+                               SceneGraphNode &target)
+{
+    auto &newNode = [&]() -> SceneGraphNode & {
+        if (source.IsLeaf())
+        {
+            // auto key = editor.DuplicateObject(source.GetObjectKey());
+            auto key = editor.EmplaceObject(source.GetObjectKey());
+
+            return target.EmplaceChild(key);
+        }
+        else
+            return target.EmplaceChild();
+    }();
+
+    newNode.Name = source.Name;
+    newNode.Translation = source.Translation;
+    newNode.Rotation = source.Rotation;
+    newNode.Scale = source.Scale;
+
+    if (!source.IsLeaf())
+    {
+        for (auto &child : source.GetChildren())
+        {
+            InstancePrefabImpl(editor, *child, newNode);
+        }
+    }
+}
+
+void SceneEditor::InstancePrefab(size_t prefabId)
+{
+    assert(prefabId < Prefabs.size());
+
+    auto &prefabRoot = Prefabs[prefabId];
+    InstancePrefabImpl(*this, prefabRoot, GraphRoot);
+
+    UpdateTransforms(&GraphRoot);
+
+    mScene.RequestUpdate(Scene::UpdateFlag::Objects);
 }

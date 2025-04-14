@@ -17,8 +17,14 @@ class SceneGraphNode {
     using ChildrenArray = std::vector<std::unique_ptr<SceneGraphNode>>;
 
   public:
-    SceneGraphNode(SceneEditor& editor);
-    SceneGraphNode(SceneEditor& editor, SceneKey key);
+    SceneGraphNode(SceneEditor &editor);
+    SceneGraphNode(SceneEditor &editor, SceneKey key);
+
+    SceneGraphNode(const SceneGraphNode &) = delete;
+    SceneGraphNode &operator=(const SceneGraphNode &) = delete;
+
+    SceneGraphNode(SceneGraphNode &&) noexcept;
+    SceneGraphNode &operator=(SceneGraphNode &&) = delete;
 
     ~SceneGraphNode();
 
@@ -45,7 +51,7 @@ class SceneGraphNode {
     std::string Name;
 
   private:
-    SceneEditor& mEditor;
+    SceneEditor &mEditor;
     std::variant<ChildrenArray, SceneKey> mPayload;
 };
 
@@ -82,6 +88,7 @@ class SceneEditor {
 
     // Functions to manipulate the scene-graph:
     void UpdateTransforms(SceneGraphNode *rootNode);
+    void InstancePrefab(size_t prefabId);
 
     struct NodeOpData {
         SceneGraphNode *SrcParent;

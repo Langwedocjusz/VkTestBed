@@ -13,7 +13,7 @@ struct Pixel {
 /// An owning handle to cpu side image data
 class ImageData {
   public:
-    static ImageData SinglePixel(Pixel p);
+    static ImageData SinglePixel(Pixel p, bool unorm = false);
     static ImageData ImportSTB(const std::string &path, bool unorm = false);
     static ImageData ImportEXR(const std::string &path);
 

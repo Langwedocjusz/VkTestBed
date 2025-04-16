@@ -6,7 +6,7 @@
 #define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
-ImageData ImageData::SinglePixel(Pixel p)
+ImageData ImageData::SinglePixel(Pixel p, bool unorm)
 {
     auto data = new Pixel(p);
 
@@ -16,6 +16,7 @@ ImageData ImageData::SinglePixel(Pixel p)
     res.Height = 1;
     res.Channels = 4;
     res.BytesPerChannel = 1;
+    res.Unorm = unorm;
 
     res.Data = static_cast<void *>(data);
 

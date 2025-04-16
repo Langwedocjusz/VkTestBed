@@ -62,14 +62,14 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
     auto albedoData = ImageData::SinglePixel(Pixel{255, 255, 255, 0});
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0});
-    auto normalData = ImageData::SinglePixel(Pixel{0, 0, 255, 0});
+    auto normalData = ImageData::SinglePixel(Pixel{128, 128, 255, 0});
 
     mDefaultAlbedo.Img =
         ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, albedoData);
     mDefaultRoughness.Img =
-        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, roughnessData);
+        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, roughnessData, VK_FORMAT_R8G8B8A8_UNORM);
     mDefaultNormal.Img =
-        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, normalData);
+        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, normalData, VK_FORMAT_R8G8B8A8_UNORM);
 
     mDefaultAlbedo.View =
         Image::CreateView2D(mCtx, mDefaultAlbedo.Img, mDefaultAlbedo.Img.Info.Format,
@@ -446,7 +446,7 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         auto &albedo = GetTexture(sceneMat.Albedo, mDefaultAlbedo);
         auto &roughness = GetTexture(sceneMat.Roughness, mDefaultRoughness);
         auto &normal = GetTexture(sceneMat.Normal, mDefaultNormal);
-
+        
         // Update the descriptor set:
         DescriptorUpdater(mat.DescriptorSet)
             .WriteImageSampler(0, albedo.View, mSampler2D)

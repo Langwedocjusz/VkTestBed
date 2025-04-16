@@ -112,7 +112,7 @@ void main()
 
     //Do normal mapping or use vertex normal:
     #ifdef USE_NORMAL_MAPPING
-    vec3 normal = 2.0 * texture(normal_map, texCoord).xyz - 1.0;
+    vec3 texNormal = 2.0 * texture(normal_map, texCoord).xyz - 1.0;
 
     vec3 N = vertNormal;
     vec3 T = vertTangent.xyz;
@@ -120,7 +120,7 @@ void main()
 
     mat3 TBN = mat3(T,B,N);
 
-    normal = normalize(TBN * normal);
+    vec3 normal = normalize(TBN * texNormal);
 
     #else
     vec3 normal = vertNormal;

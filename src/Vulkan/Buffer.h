@@ -14,7 +14,7 @@ struct GPUBufferInfo {
     VkQueue Queue;
     VkCommandPool Pool;
     VkBufferUsageFlags Usage;
-    VkMemoryPropertyFlags Properties;
+    VmaAllocationCreateFlags CreateFlags;
     VkDeviceSize Size;
     const void *Data;
 };
@@ -22,7 +22,8 @@ struct GPUBufferInfo {
 struct Buffer {
   public:
     static Buffer CreateBuffer(VulkanContext &ctx, VkDeviceSize size,
-                               VkBufferUsageFlags usage, VmaAllocationCreateFlags flags);
+                               VkBufferUsageFlags usage,
+                               VmaAllocationCreateFlags flags = 0);
     static void DestroyBuffer(VulkanContext &ctx, Buffer &buf);
 
     static void UploadToBuffer(VulkanContext &ctx, Buffer buff, const void *data,

@@ -6,10 +6,6 @@ layout(set = 0, binding = 1) uniform sampler2D environment;
 
 layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
-layout(push_constant) uniform constants {
-    int SideId;
-} PushConstants;
-
 #define RIGHT 0
 #define LEFT 1
 #define BOTTOM 2
@@ -19,9 +15,10 @@ layout(push_constant) uniform constants {
 
 void main()
 {
+    uint sideId = gl_GlobalInvocationID.z;
     uvec2 index = gl_GlobalInvocationID.xy;
 
-    ivec3 outCoord = ivec3(index.x, index.y, PushConstants.SideId);
+    ivec3 outCoord = ivec3(index.x, index.y, sideId);
 
     vec2 ts = vec2(index.x, index.y) + vec2(0.5);
     ts = ts / vec2(imageSize(resultImage));
@@ -29,7 +26,7 @@ void main()
 
     vec3 dir;
 
-    switch(PushConstants.SideId)
+    switch(sideId)
     {
         case TOP:    {dir = vec3(ts.x, -1.0, -ts.y); break;}
         case BOTTOM: {dir = vec3(ts.x,  1.0, ts.y); break;}
@@ -50,7 +47,7 @@ void main()
     vec4 res = texture(environment, texCoord);
 
     //Debug side visualization
-    //switch(PushConstants.SideId)
+    //switch(sideId)
     //{
     //    case TOP:    {res = vec4(0,1,0,1); break;}
     //    case BOTTOM: {res = vec4(1,0,1,1); break;}

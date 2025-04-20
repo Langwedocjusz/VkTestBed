@@ -474,6 +474,11 @@ void SceneGui::EnvironmentTab()
         mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
     }
 
+    if (ImGui::Button("Reload", size))
+    {
+        mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
+    }
+
     // Implementation of the popup for hdri selection:
     SelectHdriPopup();
 }

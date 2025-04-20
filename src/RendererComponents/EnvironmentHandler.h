@@ -8,6 +8,7 @@
 #include "VulkanContext.h"
 
 #include <glm/glm.hpp>
+#include <vulkan/vulkan_core.h>
 
 class EnvironmentHandler {
   public:
@@ -22,40 +23,81 @@ class EnvironmentHandler {
     {
         return mEnvUBOData.HdriEnabled;
     }
-    [[nodiscard]] VkDescriptorSet *GetDescriptorSetPtr()
+
+    [[nodiscard]] VkDescriptorSet *GetBackgroundDSPtr()
     {
-        return &mEnvironmentDescriptorSet;
+        return &mBackgroundDescriptorSet;
     }
-    [[nodiscard]] VkDescriptorSetLayout GetDescriptorLayout() const
+    [[nodiscard]] VkDescriptorSetLayout GetBackgroundDSLayout() const
     {
-        return mEnvironmentDescriptorSetLayout;
+        return mBackgroundDescrptorSetLayout;
     }
+
+    [[nodiscard]] VkDescriptorSet *GetLightingDSPtr()
+    {
+        return &mLightingDescriptorSet;
+    }
+    [[nodiscard]] VkDescriptorSetLayout GetLightingDSLayout() const
+    {
+        return mLightingDescriptorSetLayout;
+    }
+
+  private:
+    void ConvertEquirectToCubemap(const ImageData &data, VkFormat format);
+    void CalculateDiffuseIrradiance();
 
   private:
     VulkanContext &mCtx;
     FrameInfo &mFrame;
     RenderContext::Queues &mQueues;
 
-    DescriptorAllocator mDescriptorAllocator;
+    // Descriptor sets exposed to the outside world:
+    VkDescriptorSetLayout mLightingDescriptorSetLayout;
+    VkDescriptorSet mLightingDescriptorSet;
 
-    VkDescriptorSetLayout mEnvironmentDescriptorSetLayout;
-    VkDescriptorSet mEnvironmentDescriptorSet;
+    VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
+    VkDescriptorSet mBackgroundDescriptorSet;
 
-    std::optional<SceneKey> mLastHdri;
+    // Descriptor set for generating the cubemap:
+    VkDescriptorSetLayout mTexToImgDescriptorSetLayout;
+    VkDescriptorSet mTexToImgDescriptorSet;
 
-    VkDescriptorSetLayout mCubeGenDescriptorSetLayout;
-    VkDescriptorSet mCubeGenDescriptorSet;
+    // Descriptor set for irradiance reduction buffers:
+    VkDescriptorSetLayout mIrradianceDescriptorSetLayout;
+    VkDescriptorSet mIrradianceDescriptorSet;
 
+    // Compute pipelines for resource generation:
     Pipeline mEquiRectToCubePipeline;
 
-    struct CubeGenPCData {
-        int32_t SideId;
+    struct IrradianceSHPushConstants {
+        uint32_t CubemapRes;
+        uint32_t ReduceBlock;
     };
 
-    Image mCubemap;
-    VkImageView mCubemapView;
+    struct ReducePushConstants {
+        uint32_t BufferSize;
+    };
+
+    Pipeline mIrradianceSHPipeline;
+    Pipeline mIrradianceReducePipeline;
+
+    // SSBOs for reduction when computing SH irradiance coefficients:
+    Buffer mFirstReducionBuffer;
+    Buffer mFinalReductionBuffer;
+
+    uint32_t mReduceBlock = 32;
+    uint32_t mFirstBufferLen = 0;
+
+    // Cubemap background texture:
+    struct Texture {
+        Image Img;
+        VkImageView View;
+    };
+
+    Texture mCubemap;
     VkSampler mSampler;
 
+    // Uniform buffer object with environment info for lighting:
     struct EnvUBOData {
         // Fourth component indicates whether the light is on or not
         glm::vec4 LightDir = glm::vec4(glm::normalize(glm::vec3(1, -1, 1)), 1);
@@ -64,6 +106,8 @@ class EnvironmentHandler {
 
     Buffer mEnvUBO;
 
+    std::optional<SceneKey> mLastHdri;
+    DescriptorAllocator mDescriptorAllocator;
     DeletionQueue mDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;
 };

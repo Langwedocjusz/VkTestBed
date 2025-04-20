@@ -1,10 +1,12 @@
 #include "EnvironmentHandler.h"
 
 #include "Barrier.h"
+#include "Descriptor.h"
 #include "ImageLoaders.h"
 #include "Sampler.h"
 #include "Shader.h"
 #include "VkUtils.h"
+#include <vulkan/vulkan_core.h>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
                                        RenderContext::Queues &queues)
@@ -19,42 +21,65 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
                    .Build(mCtx);
     mDeletionQueue.push_back(mSampler);
 
-    // Descriptor layout for generating the cubemap:
-    mCubeGenDescriptorSetLayout =
+    // Initialize main descriptor allocator:
+    {
+        std::vector<VkDescriptorPoolSize> poolCounts{
+            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+        };
+
+        mDescriptorAllocator.OnInit(poolCounts);
+    }
+
+    // Descriptor set for sampling the background cubemap
+    mBackgroundDescrptorSetLayout =
+        DescriptorSetLayoutBuilder()
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
+            .Build(ctx);
+
+    mDeletionQueue.push_back(mBackgroundDescrptorSetLayout);
+
+    mBackgroundDescriptorSet =
+        mDescriptorAllocator.Allocate(mBackgroundDescrptorSetLayout);
+
+    // Descriptor set for using lighting information:
+    mLightingDescriptorSetLayout =
+        DescriptorSetLayoutBuilder()
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .Build(ctx);
+
+    mDeletionQueue.push_back(mLightingDescriptorSetLayout);
+
+    mLightingDescriptorSet = mDescriptorAllocator.Allocate(mLightingDescriptorSetLayout);
+
+    // Descriptor set for sampling a texure and saving to image:
+    mTexToImgDescriptorSetLayout =
         DescriptorSetLayoutBuilder()
             .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
             .AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         VK_SHADER_STAGE_COMPUTE_BIT)
             .Build(ctx);
 
-    mDeletionQueue.push_back(mCubeGenDescriptorSetLayout);
+    mDeletionQueue.push_back(mTexToImgDescriptorSetLayout);
 
-    // Descriptor layout for sampling the cubemap and accessing lighting info:
-    mEnvironmentDescriptorSetLayout =
+    mTexToImgDescriptorSet = mDescriptorAllocator.Allocate(mTexToImgDescriptorSetLayout);
+
+    // Descriptor set for irradiance SH data buffer:
+    mIrradianceDescriptorSetLayout =
         DescriptorSetLayoutBuilder()
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
-            .AddBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+            .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
             .Build(ctx);
 
-    mDeletionQueue.push_back(mEnvironmentDescriptorSetLayout);
+    mDeletionQueue.push_back(mIrradianceDescriptorSetLayout);
 
-    // Initialize main descriptor allocator:
-    {
-        std::vector<VkDescriptorPoolSize> poolCounts{
-            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}};
-
-        mDescriptorAllocator.OnInit(poolCounts);
-    }
-
-    // Allocate descriptor sets:
-    mEnvironmentDescriptorSet =
-        mDescriptorAllocator.Allocate(mEnvironmentDescriptorSetLayout);
-
-    mCubeGenDescriptorSet = mDescriptorAllocator.Allocate(mCubeGenDescriptorSetLayout);
+    mIrradianceDescriptorSet =
+        mDescriptorAllocator.Allocate(mIrradianceDescriptorSetLayout);
 
     // Create cubemap image and view:
     constexpr uint32_t cubeSize = 1024;
@@ -67,23 +92,81 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
         .MipLevels = 1,
     };
 
-    mCubemap = Image::CreateCubemap(mCtx, cubemapInfo);
-    mDeletionQueue.push_back(mCubemap);
+    mCubemap.Img = Image::CreateCubemap(mCtx, cubemapInfo);
+    mCubemap.View = Image::CreateViewCube(mCtx, mCubemap.Img, cubemapInfo.Format,
+                                          VK_IMAGE_ASPECT_COLOR_BIT);
 
-    mCubemapView = Image::CreateViewCube(mCtx, mCubemap, cubemapInfo.Format,
-                                         VK_IMAGE_ASPECT_COLOR_BIT);
-    mDeletionQueue.push_back(mCubemapView);
+    mDeletionQueue.push_back(mCubemap.Img);
+    mDeletionQueue.push_back(mCubemap.View);
 
     // Uniform buffer for other environment data:
+    // mEnvUBOData.IrradianceSH.fill(glm::vec4(0.0f));
+
     mEnvUBO = Buffer::CreateMappedUniformBuffer(ctx, sizeof(mEnvUBOData));
     mDeletionQueue.push_back(mEnvUBO);
 
     Buffer::UploadToMappedBuffer(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
 
-    // Update the environment descriptor:
-    DescriptorUpdater(mEnvironmentDescriptorSet)
-        .WriteImageSampler(0, mCubemapView, mSampler)
-        .WriteUniformBuffer(1, mEnvUBO.Handle, sizeof(mEnvUBOData))
+    // Shader storage buffer storage for computing irradiance SH:
+    {
+        auto usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+        const uint32_t groupsPerLine = (cubeSize / mReduceBlock);
+        const uint32_t groupsPerSide = groupsPerLine * groupsPerLine;
+
+        mFirstBufferLen = 6 * groupsPerSide;
+        // const uint32_t numGroups2 = numGroups1 / (localGroupSize * localGroupSize);
+
+        struct SHData {
+            glm::vec4 SH_L0;
+            glm::vec4 SH_L1_M_1;
+            glm::vec4 SH_L1_M0;
+            glm::vec4 SH_L1_M1;
+            glm::vec4 SH_L2_M_2;
+            glm::vec4 SH_L2_M_1;
+            glm::vec4 SH_L2_M0;
+            glm::vec4 SH_L2_M1;
+            glm::vec4 SH_L2_M2;
+        };
+
+        VkDeviceSize sizeFirst = mFirstBufferLen * sizeof(SHData);
+        VkDeviceSize sizeFinal = 1 * sizeof(SHData);
+
+        mFirstReducionBuffer = Buffer::CreateBuffer(mCtx, sizeFirst, usage);
+        mFinalReductionBuffer = Buffer::CreateBuffer(mCtx, sizeFinal, usage);
+
+        mDeletionQueue.push_back(mFirstReducionBuffer);
+        mDeletionQueue.push_back(mFinalReductionBuffer);
+
+        // auto GetBufferAddress = [&](VkBuffer buffer) {
+        //     VkBufferDeviceAddressInfo deviceAdressInfo{};
+        //     deviceAdressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        //     deviceAdressInfo.buffer = buffer;
+        //
+        //     return vkGetBufferDeviceAddress(mCtx.Device, &deviceAdressInfo);
+        // };
+        //
+        // mFirstBufferAddress = GetBufferAddress(mFirstReducionBuffer.Handle);
+        // mFinalBufferAddress = GetBufferAddress(mFinalReductionBuffer.Handle);
+    }
+
+    // Update the exposed descriptors:
+    DescriptorUpdater(mBackgroundDescriptorSet)
+        .WriteImageSampler(0, mCubemap.View, mSampler)
+        .Update(mCtx);
+
+    DescriptorUpdater(mLightingDescriptorSet)
+        .WriteUniformBuffer(0, mEnvUBO.Handle, sizeof(mEnvUBOData))
+        .WriteShaderStorageBuffer(1, mFinalReductionBuffer.Handle,
+            mFinalReductionBuffer.AllocInfo.size)
+        .Update(mCtx);
+
+    // Update irradiance descriptor
+    DescriptorUpdater(mIrradianceDescriptorSet)
+        .WriteShaderStorageBuffer(0, mFirstReducionBuffer.Handle,
+                                  mFirstReducionBuffer.AllocInfo.size)
+        .WriteShaderStorageBuffer(1, mFinalReductionBuffer.Handle,
+                                  mFinalReductionBuffer.AllocInfo.size)
         .Update(mCtx);
 
     // Build the compute pipeline:
@@ -106,12 +189,39 @@ void EnvironmentHandler::RebuildPipelines()
 
     mEquiRectToCubePipeline = ComputePipelineBuilder()
                                   .SetShaderStage(equiToCubeShaderStages[0])
-                                  .AddDescriptorSetLayout(mCubeGenDescriptorSetLayout)
-                                  .SetPushConstantSize(sizeof(CubeGenPCData))
+                                  .AddDescriptorSetLayout(mTexToImgDescriptorSetLayout)
                                   .Build(mCtx);
 
     mPipelineDeletionQueue.push_back(mEquiRectToCubePipeline.Handle);
     mPipelineDeletionQueue.push_back(mEquiRectToCubePipeline.Layout);
+
+    auto irrSHShaderStages = ShaderBuilder()
+                                 .SetComputePath("assets/spirv/IrradianceCalcSHComp.spv")
+                                 .Build(mCtx);
+
+    mIrradianceSHPipeline = ComputePipelineBuilder()
+                                .SetShaderStage(irrSHShaderStages[0])
+                                .AddDescriptorSetLayout(mBackgroundDescrptorSetLayout)
+                                .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
+                                .SetPushConstantSize(sizeof(IrradianceSHPushConstants))
+                                .Build(mCtx);
+
+    mPipelineDeletionQueue.push_back(mIrradianceSHPipeline.Handle);
+    mPipelineDeletionQueue.push_back(mIrradianceSHPipeline.Layout);
+
+    auto irrReduceShaderStages =
+        ShaderBuilder()
+            .SetComputePath("assets/spirv/IrradianceReduceComp.spv")
+            .Build(mCtx);
+
+    mIrradianceReducePipeline =
+        ComputePipelineBuilder()
+            .SetShaderStage(irrReduceShaderStages[0])
+            .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
+            .Build(mCtx);
+
+    mPipelineDeletionQueue.push_back(mIrradianceReducePipeline.Handle);
+    mPipelineDeletionQueue.push_back(mIrradianceReducePipeline.Layout);
 }
 
 void EnvironmentHandler::LoadEnvironment(const Scene &scene)
@@ -129,67 +239,123 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
     {
         mLastHdri = key;
 
-        auto &pool = mFrame.CurrentPool();
-
-        // Load equirectangular environment map:
-        auto &data = scene.Images.at(*key);
+        const auto &data = scene.Images.at(*key);
         const auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
 
-        auto envMap =
-            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, data, format);
+        ConvertEquirectToCubemap(data, format);
+        // CalculateDiffuseIrradiance();
+    }
 
-        auto envView = Image::CreateView2D(mCtx, envMap, envMap.Info.Format,
-                                           VK_IMAGE_ASPECT_COLOR_BIT);
+    CalculateDiffuseIrradiance();
+}
 
-        DescriptorUpdater(mCubeGenDescriptorSet)
-            .WriteImageStorage(0, mCubemapView)
-            .WriteImageSampler(1, envView, mSampler)
-            .Update(mCtx);
+void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkFormat format)
+{
+    auto &pool = mFrame.CurrentPool();
+
+    // Load equirectangular environment map:
+    auto envMap = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, data, format);
+
+    auto envView =
+        Image::CreateView2D(mCtx, envMap, envMap.Info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    DescriptorUpdater(mTexToImgDescriptorSet)
+        .WriteImageStorage(0, mCubemap.View)
+        .WriteImageSampler(1, envView, mSampler)
+        .Update(mCtx);
+
+    {
+        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+
+        // Transition cubemap to use as storage image:
+        auto barrierInfo = barrier::ImageLayoutBarrierInfo{
+            .Image = mCubemap.Img.Handle,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6},
+        };
+        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
 
         // Sample equirectangular map to cubemap
         // using a compute pipeline:
-        {
-            vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+        vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          mEquiRectToCubePipeline.Handle);
 
-            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image = mCubemap.Handle,
-                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6},
-            };
-            barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
+        vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                mEquiRectToCubePipeline.Layout, 0, 1,
+                                &mTexToImgDescriptorSet, 0, nullptr);
 
-            vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                              mEquiRectToCubePipeline.Handle);
+        uint32_t localSizeX = 32, localSizeY = 32;
 
-            vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                    mEquiRectToCubePipeline.Layout, 0, 1,
-                                    &mCubeGenDescriptorSet, 0, nullptr);
+        uint32_t dispCountX = mCubemap.Img.Info.Extent.width / localSizeX;
+        uint32_t dispCountY = mCubemap.Img.Info.Extent.width / localSizeY;
 
-            for (int32_t side = 0; side < 6; side++)
-            {
-                auto pcData = CubeGenPCData{};
-                pcData.SideId = side;
+        vkCmdDispatch(cmd.Buffer, dispCountX, dispCountY, 6);
 
-                vkCmdPushConstants(cmd.Buffer, mEquiRectToCubePipeline.Layout,
-                                   VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pcData),
-                                   &pcData);
+        // Transition cubemap back to be used as texture:
+        barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
+    }
 
-                uint32_t localSizeX = 32, localSizeY = 32;
+    // Clean up the equirectangular map:
+    Image::DestroyImage(mCtx, envMap);
+    vkDestroyImageView(mCtx.Device, envView, nullptr);
+}
 
-                uint32_t dispCountX = mCubemap.Info.Extent.width / localSizeX;
-                uint32_t dispCountY = mCubemap.Info.Extent.width / localSizeY;
+void EnvironmentHandler::CalculateDiffuseIrradiance()
+{
+    auto &pool = mFrame.CurrentPool();
 
-                vkCmdDispatch(cmd.Buffer, dispCountX, dispCountY, 1);
-            }
+    // Do parallel patch-based computation of SH coeficcients
+    {
+        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
 
-            barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
-        }
+        vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          mIrradianceSHPipeline.Handle);
 
-        // Clean up the equirectangular map:
-        Image::DestroyImage(mCtx, envMap);
-        vkDestroyImageView(mCtx.Device, envView, nullptr);
+        vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                mIrradianceSHPipeline.Layout, 0, 1,
+                                &mBackgroundDescriptorSet, 0, nullptr);
+
+        vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                mIrradianceSHPipeline.Layout, 1, 1,
+                                &mIrradianceDescriptorSet, 0, nullptr);
+
+        IrradianceSHPushConstants pcData{
+            .CubemapRes = mCubemap.Img.Info.Extent.width,
+            .ReduceBlock = mReduceBlock,
+        };
+
+        vkCmdPushConstants(cmd.Buffer, mIrradianceSHPipeline.Layout,
+                           VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                           sizeof(IrradianceSHPushConstants), &pcData);
+
+        uint32_t localSizeX = 1024;
+        uint32_t dispCountX = mFirstBufferLen / localSizeX;
+
+        vkCmdDispatch(cmd.Buffer, dispCountX, 1, 1);
+    }
+
+    // Sum-reduce the resulting array:
+    {
+        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+
+        vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          mIrradianceReducePipeline.Handle);
+
+        vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                mIrradianceReducePipeline.Layout, 0, 1,
+                                &mIrradianceDescriptorSet, 0, nullptr);
+
+        ReducePushConstants pcData{
+            .BufferSize = mFirstBufferLen,
+        };
+
+        vkCmdPushConstants(cmd.Buffer, mIrradianceSHPipeline.Layout,
+                           VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ReducePushConstants),
+                           &pcData);
+
+        vkCmdDispatch(cmd.Buffer, 1, 1, 1);
     }
 }

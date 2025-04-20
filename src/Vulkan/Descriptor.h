@@ -40,6 +40,9 @@ class DescriptorUpdater {
     DescriptorUpdater &WriteUniformBuffer(uint32_t binding, VkBuffer buffer,
                                           VkDeviceSize size);
 
+    DescriptorUpdater &WriteShaderStorageBuffer(uint32_t binding, VkBuffer buffer,
+                                                VkDeviceSize size);
+
     /// Uses combined sampler, with read only optimal layout
     DescriptorUpdater &WriteImageSampler(uint32_t binding, VkImageView imageView,
                                          VkSampler sampler);
@@ -52,6 +55,7 @@ class DescriptorUpdater {
     enum class WriteType
     {
         UniformBuffer,
+        ShaderStorageBuffer,
         CombinedImageSampler,
         StorageImage,
     };

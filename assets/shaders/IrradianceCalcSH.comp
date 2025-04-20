@@ -1,0 +1,158 @@
+#version 450
+
+layout(set = 0, binding = 0) uniform samplerCube environment;
+
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+struct SHData {
+    vec4 SH_L0;
+    vec4 SH_L1_M_1;
+    vec4 SH_L1_M0;
+    vec4 SH_L1_M1;
+    vec4 SH_L2_M_2;
+    vec4 SH_L2_M_1;
+    vec4 SH_L2_M0;
+    vec4 SH_L2_M1;
+    vec4 SH_L2_M2;
+};
+
+layout(std140, set = 1, binding = 0) writeonly buffer SHBuffer {
+   SHData outputSH[ ];
+};
+
+layout(push_constant) uniform constants {
+    uint CubemapRes;
+    uint ReduceBlockLine;
+ }  PushConstants;
+
+
+float AreaElement(float x, float y)
+{
+    //Calculate area corresponding to square, stretching from
+    //center of a cube's face, up to face coordinate uv (whose range is [-1,1]),
+    //after said square is projected onto a unit sphere.
+    return atan(x * y, sqrt(x * x + y * y + 1));
+}
+
+float TexelSolidAngle(vec2 uv)
+{
+    //Return area of texel from cubemap, centered on uv, after projection onto unit sphere.
+   float invResolution = 1.0 / float(PushConstants.CubemapRes);
+ 
+    // U and V are the -1..1 texture coordinate on the current face.
+    // Get projected area for this texel
+    float x0 = uv.x - invResolution;
+    float y0 = uv.y - invResolution;
+    float x1 = uv.x + invResolution;
+    float y1 = uv.y + invResolution;
+
+    float solidAngle = AreaElement(x0, y0) - AreaElement(x0, y1) - AreaElement(x1, y0) + AreaElement(x1, y1);
+ 
+    return solidAngle;
+}
+
+vec2 GetCoordsCentered(uvec2 texelCoord)
+{
+    //Converts texel coord to [-1,1] coordinates.
+    vec2 ts = vec2(texelCoord.x) + vec2(0.5);
+    ts = ts / vec2(PushConstants.CubemapRes);
+    ts = 2.0 * ts - 1.0;
+
+    return ts;
+}
+
+vec3 GetCubemapDir(vec2 ts, uint sideId)
+{
+    vec3 dir;
+
+    #define RIGHT 0
+    #define LEFT 1
+    #define BOTTOM 2
+    #define TOP 3
+    #define FRONT 4
+    #define BACK 5
+
+    switch(sideId)
+    {
+        case TOP:    {dir = vec3(ts.x, -1.0, -ts.y); break;}
+        case BOTTOM: {dir = vec3(ts.x,  1.0, ts.y); break;}
+        case RIGHT:  {dir = vec3( 1.0, -ts.y, -ts.x); break;}
+        case LEFT:   {dir = vec3(-1.0, -ts.y, ts.x); break;}
+        case FRONT:  {dir = vec3(ts.x, -ts.y,  1.0); break;}
+        case BACK:   {dir = vec3(-ts.x, -ts.y, -1.0); break;}
+    }
+
+    return normalize(dir);
+}
+
+void main()
+{
+    //Retrieve buffer saving idx
+    uint bufferIdx = gl_GlobalInvocationID.x;
+
+    //Calculate cubemap texel coordinates:
+    uint numPerLine = PushConstants.CubemapRes/PushConstants.ReduceBlockLine;
+    uint numPerSide = numPerLine * numPerLine;
+
+    uint sideId = bufferIdx / numPerSide;
+    uint clusterId = bufferIdx % numPerSide;
+
+    uvec2 sideCoord = uvec2(
+        clusterId % PushConstants.ReduceBlockLine,
+        clusterId / PushConstants.ReduceBlockLine
+    ) * PushConstants.ReduceBlockLine;
+
+
+    //Calculate first 9 coefficients of environment
+    //in spherical harmonic decomposition.
+    SHData res = SHData(
+        vec4(0), vec4(0), vec4(0),
+        vec4(0), vec4(0), vec4(0),
+        vec4(0), vec4(0), vec4(0)
+    );
+
+    for (int i=0; i<PushConstants.ReduceBlockLine; i++)
+    {
+        for (int j=0; j<PushConstants.ReduceBlockLine; j++)
+        {
+            uvec2 pixelCoord = sideCoord + uvec2(i,j);
+
+            vec2 centeredUV = GetCoordsCentered(pixelCoord);
+
+            //Retrieve environment sample:
+            vec3 dir = GetCubemapDir(centeredUV, sideId);
+            vec3 envSample = texture(environment, dir).rgb;
+
+            //Calculate spherical harmonics at sample dir:
+            float x = dir.x, y = dir.y, z = dir.z;
+
+            float sinTheta = sqrt(x*x + y*y);
+
+            float SH_L0     = 0.28209479177;
+            float SH_L1_M_1 = 0.48860251190 * y;
+            float SH_L1_M0  = 0.48860251190 * z;
+            float SH_L1_M1  = 0.48860251190 * x;
+            float SH_L2_M_2 = 1.09254843059 * x*y;
+            float SH_L2_M_1 = 1.09254843059 * y*z;
+            float SH_L2_M0  = 0.31539156525 * (3.0*z*z - 1.0);
+            float SH_L2_M1  = 1.09254843059 * x*z;
+            float SH_L2_M2  = 0.54627421529 * (x*x - y*y);
+
+            //Integrate L2 scalar product of environment with the Harmonics:
+            float solidAngle = TexelSolidAngle(centeredUV);
+
+            res.SH_L0.rgb     += SH_L0     * envSample * sinTheta * solidAngle;
+            res.SH_L1_M_1.rgb += SH_L1_M_1 * envSample * sinTheta * solidAngle;
+            res.SH_L1_M0.rgb  += SH_L1_M0  * envSample * sinTheta * solidAngle;
+            res.SH_L1_M1.rgb  += SH_L1_M1  * envSample * sinTheta * solidAngle;
+            res.SH_L2_M_2.rgb += SH_L2_M_2 * envSample * sinTheta * solidAngle;
+            res.SH_L2_M_1.rgb += SH_L2_M_1 * envSample * sinTheta * solidAngle;
+            res.SH_L2_M0.rgb  += SH_L2_M0  * envSample * sinTheta * solidAngle;
+            res.SH_L2_M1.rgb  += SH_L2_M1  * envSample * sinTheta * solidAngle;
+            res.SH_L2_M2.rgb  += SH_L2_M2  * envSample * sinTheta * solidAngle;
+        }
+    }
+
+    //Write to SH buffer:
+    outputSH[bufferIdx] = res;
+}

@@ -111,6 +111,24 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t binding,
     return *this;
 }
 
+DescriptorUpdater &DescriptorUpdater::WriteShaderStorageBuffer(uint32_t binding,
+                                                               VkBuffer buffer,
+                                                               VkDeviceSize size)
+{
+    auto &bufferInfo = mBufferInfos.emplace_back();
+    bufferInfo.buffer = buffer;
+    bufferInfo.offset = 0;
+    bufferInfo.range = size;
+
+    mWriteInfos.push_back(WriteInfo{
+        .Binding = binding,
+        .Type = WriteType::ShaderStorageBuffer,
+        .InfoId = mBufferInfos.size() - 1,
+    });
+
+    return *this;
+}
+
 DescriptorUpdater &DescriptorUpdater::WriteImageSampler(uint32_t binding,
                                                         VkImageView imageView,
                                                         VkSampler sampler)
@@ -163,6 +181,11 @@ void DescriptorUpdater::Update(VulkanContext &ctx)
         {
         case WriteType::UniformBuffer: {
             write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            write.pBufferInfo = &mBufferInfos[writeInfo.InfoId];
+            break;
+        }
+        case WriteType::ShaderStorageBuffer: {
+            write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             write.pBufferInfo = &mBufferInfos[writeInfo.InfoId];
             break;
         }

@@ -63,7 +63,7 @@ Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info)
 {
     const auto usage = info.Usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    Buffer buff = CreateBuffer(ctx, info.Size, usage, info.Properties);
+    Buffer buff = CreateBuffer(ctx, info.Size, usage, info.CreateFlags);
 
     Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
     UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);

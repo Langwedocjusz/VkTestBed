@@ -13,10 +13,26 @@ layout(set = 1, binding = 0) uniform sampler2D albedo_map;
 layout(set = 1, binding = 1) uniform sampler2D rougness_map;
 layout(set = 1, binding = 2) uniform sampler2D normal_map;
 
-layout(set = 2, binding = 1) uniform UniformBufferObject {
+layout(set = 2, binding = 0) uniform UniformBufferObject {
     vec4 LightDir;
     int HdriEnabled;
 } EnvUBO;
+
+struct SHData {
+    vec4 SH_L0;
+    vec4 SH_L1_M_1;
+    vec4 SH_L1_M0;
+    vec4 SH_L1_M1;
+    vec4 SH_L2_M_2;
+    vec4 SH_L2_M_1;
+    vec4 SH_L2_M0;
+    vec4 SH_L2_M1;
+    vec4 SH_L2_M2;
+};
+
+layout(std140, set = 2, binding = 1) readonly buffer SHBuffer {
+   SHData irradianceMap;
+};
 
 layout(push_constant) uniform constants {
     float AlphaCutoff;
@@ -95,6 +111,35 @@ vec3 ACESFilm(vec3 x)
     return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
 }
 
+vec3 SHReconstruction(SHData data, vec3 dir)
+{
+    float x = dir.x, y = dir.y, z = dir.z;
+
+    float SH_L0     = 0.28209479177;
+    float SH_L1_M_1 = 0.48860251190 * y;
+    float SH_L1_M0  = 0.48860251190 * z;
+    float SH_L1_M1  = 0.48860251190 * x;
+    float SH_L2_M_2 = 1.09254843059 * x*y;
+    float SH_L2_M_1 = 1.09254843059 * y*z;
+    float SH_L2_M0  = 0.31539156525 * (3.0*z*z - 1.0);
+    float SH_L2_M1  = 1.09254843059 * x*z;
+    float SH_L2_M2  = 0.54627421529 * (x*x - y*y);
+
+    vec3 res = vec3(0);
+
+    res += data.SH_L0.rgb * SH_L0;
+    res += data.SH_L1_M_1.rgb * SH_L1_M_1;
+    res += data.SH_L1_M0.rgb * SH_L1_M0;
+    res += data.SH_L1_M1.rgb * SH_L1_M1;
+    res += data.SH_L2_M_2.rgb * SH_L2_M_2;
+    res += data.SH_L2_M_1.rgb * SH_L2_M_1;
+    res += data.SH_L2_M0.rgb * SH_L2_M0;
+    res += data.SH_L2_M1.rgb * SH_L2_M1;
+    res += data.SH_L2_M2.rgb * SH_L2_M2;
+
+    return res;
+}
+
 void main()
 {
     //Sample albedo:
@@ -153,6 +198,9 @@ void main()
     //Do color correction:
     res.rgb = ACESFilm(res.rgb);
     res.rgb = pow(res.rgb, vec3(1.0/2.2));
+
+    //res.rgb = SHReconstruction(irradianceMap, normalize(normal));
+    //res.rgb = albedo.rgb * SHReconstruction(irradianceMap, normalize(normal));
 
     outColor = res;
 }

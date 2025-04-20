@@ -1,0 +1,55 @@
+#version 450
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+struct SHData {
+    vec4 SH_L0;
+    vec4 SH_L1_M_1;
+    vec4 SH_L1_M0;
+    vec4 SH_L1_M1;
+    vec4 SH_L2_M_2;
+    vec4 SH_L2_M_1;
+    vec4 SH_L2_M0;
+    vec4 SH_L2_M1;
+    vec4 SH_L2_M2;
+};
+
+layout(std140, set = 0, binding = 0) readonly buffer SHBufferIn {
+   SHData inputSH[ ];
+};
+
+layout(std140, set = 0, binding = 1) writeonly buffer SHBufferOut {
+   SHData outputSH;
+};
+
+layout(push_constant) uniform constants {
+    uint InputSize;
+}  PushConstants;
+
+void main()
+{
+    //To-do: This is just idiotic linear summation.
+    //Since this is done on gpu, it *really* should use
+    //some clever parallelized algorithm.
+
+    SHData res = SHData(
+        vec4(0), vec4(0), vec4(0),
+        vec4(0), vec4(0), vec4(0),
+        vec4(0), vec4(0), vec4(0)
+    );
+
+    for (int i=0; i<PushConstants.InputSize; i++)
+    {
+        res.SH_L0     += inputSH[i].SH_L0;
+        res.SH_L1_M_1 += inputSH[i].SH_L1_M_1;
+        res.SH_L1_M0  += inputSH[i].SH_L1_M0;
+        res.SH_L1_M1  += inputSH[i].SH_L1_M1;
+        res.SH_L2_M_2 += inputSH[i].SH_L2_M_2;
+        res.SH_L2_M_1 += inputSH[i].SH_L2_M_1;
+        res.SH_L2_M0  += inputSH[i].SH_L2_M0;
+        res.SH_L2_M1  += inputSH[i].SH_L2_M1;
+        res.SH_L2_M2  += inputSH[i].SH_L2_M2;
+    }
+
+    outputSH = res;
+}

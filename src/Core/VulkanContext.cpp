@@ -31,6 +31,10 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     VkPhysicalDeviceFeatures features{};
     features.samplerAnisotropy = true;
 
+    VkPhysicalDeviceVulkan12Features features12{};
+    features12.bufferDeviceAddress = true;
+    features12.descriptorIndexing = true;
+
     VkPhysicalDeviceVulkan13Features features13{};
     features13.dynamicRendering = true;
     features13.synchronization2 = true;
@@ -38,6 +42,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     auto phys_device_ret = vkb::PhysicalDeviceSelector(Instance)
                                .set_surface(Surface)
                                .set_required_features(features)
+                               .set_required_features_12(features12)
                                .set_required_features_13(features13)
                                .select();
 
@@ -59,6 +64,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     allocatorCreateInfo.physicalDevice = PhysicalDevice;
     allocatorCreateInfo.device = Device;
     allocatorCreateInfo.instance = Instance;
+    allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
     vmaCreateAllocator(&allocatorCreateInfo, &Allocator);
 

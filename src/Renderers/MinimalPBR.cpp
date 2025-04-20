@@ -66,10 +66,10 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
     mDefaultAlbedo.Img =
         ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, albedoData);
-    mDefaultRoughness.Img =
-        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, roughnessData, VK_FORMAT_R8G8B8A8_UNORM);
-    mDefaultNormal.Img =
-        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, normalData, VK_FORMAT_R8G8B8A8_UNORM);
+    mDefaultRoughness.Img = ImageLoaders::LoadImage2D(
+        mCtx, mQueues.Graphics, pool, roughnessData, VK_FORMAT_R8G8B8A8_UNORM);
+    mDefaultNormal.Img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool,
+                                                   normalData, VK_FORMAT_R8G8B8A8_UNORM);
 
     mDefaultAlbedo.View =
         Image::CreateView2D(mCtx, mDefaultAlbedo.Img, mDefaultAlbedo.Img.Info.Format,
@@ -126,7 +126,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPushConstantSize(sizeof(MaterialPCData))
             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-            .AddDescriptorSetLayout(mEnvHandler.GetDescriptorLayout())
+            .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx);
@@ -150,7 +150,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(BackgroundPCData))
-            .AddDescriptorSetLayout(mEnvHandler.GetDescriptorLayout())
+            .AddDescriptorSetLayout(mEnvHandler.GetBackgroundDSLayout())
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx);
@@ -202,7 +202,7 @@ void MinimalPbrRenderer::OnRender()
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 mMainPipeline.Layout, 2, 1,
-                                mEnvHandler.GetDescriptorSetPtr(), 0, nullptr);
+                                mEnvHandler.GetLightingDSPtr(), 0, nullptr);
 
         uint32_t numDraws = 0, numIdx = 0;
 
@@ -249,7 +249,7 @@ void MinimalPbrRenderer::OnRender()
         {
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                     mBackgroundPipeline.Layout, 0, 1,
-                                    mEnvHandler.GetDescriptorSetPtr(), 0, nullptr);
+                                    mEnvHandler.GetBackgroundDSPtr(), 0, nullptr);
 
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                               mBackgroundPipeline.Handle);
@@ -446,7 +446,7 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         auto &albedo = GetTexture(sceneMat.Albedo, mDefaultAlbedo);
         auto &roughness = GetTexture(sceneMat.Roughness, mDefaultRoughness);
         auto &normal = GetTexture(sceneMat.Normal, mDefaultNormal);
-        
+
         // Update the descriptor set:
         DescriptorUpdater(mat.DescriptorSet)
             .WriteImageSampler(0, albedo.View, mSampler2D)

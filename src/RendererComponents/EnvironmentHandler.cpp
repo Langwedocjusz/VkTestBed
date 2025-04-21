@@ -46,12 +46,12 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
         mDescriptorAllocator.Allocate(mBackgroundDescrptorSetLayout);
 
     // Descriptor set for using lighting information:
-    mLightingDescriptorSetLayout =
-        DescriptorSetLayoutBuilder()
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
-            .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .Build(ctx);
+    mLightingDescriptorSetLayout = DescriptorSetLayoutBuilder()
+                                       .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                                   VK_SHADER_STAGE_FRAGMENT_BIT)
+                                       .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                                   VK_SHADER_STAGE_FRAGMENT_BIT)
+                                       .Build(ctx);
 
     mDeletionQueue.push_back(mLightingDescriptorSetLayout);
 
@@ -99,9 +99,22 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
     mDeletionQueue.push_back(mCubemap.Img);
     mDeletionQueue.push_back(mCubemap.View);
 
-    // Uniform buffer for other environment data:
-    // mEnvUBOData.IrradianceSH.fill(glm::vec4(0.0f));
+    // Immidiately transition to shader read layout:
+    {
+        auto &pool = mFrame.CurrentPool();
+        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
 
+        auto barrierInfo = barrier::ImageLayoutBarrierInfo{
+            .Image = mCubemap.Img.Handle,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6},
+        };
+
+        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
+    }
+
+    // Create lighting uniform buffer:
     mEnvUBO = Buffer::CreateMappedUniformBuffer(ctx, sizeof(mEnvUBOData));
     mDeletionQueue.push_back(mEnvUBO);
 
@@ -158,7 +171,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
     DescriptorUpdater(mLightingDescriptorSet)
         .WriteUniformBuffer(0, mEnvUBO.Handle, sizeof(mEnvUBOData))
         .WriteShaderStorageBuffer(1, mFinalReductionBuffer.Handle,
-            mFinalReductionBuffer.AllocInfo.size)
+                                  mFinalReductionBuffer.AllocInfo.size)
         .Update(mCtx);
 
     // Update irradiance descriptor
@@ -218,6 +231,7 @@ void EnvironmentHandler::RebuildPipelines()
         ComputePipelineBuilder()
             .SetShaderStage(irrReduceShaderStages[0])
             .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
+            .SetPushConstantSize(sizeof(ReducePushConstants))
             .Build(mCtx);
 
     mPipelineDeletionQueue.push_back(mIrradianceReducePipeline.Handle);

@@ -125,14 +125,34 @@ SceneEditor::SceneEditor(Scene &scene)
     mat.Name = "Pure white";
     mat.Albedo = imgKey;
 
-    // Emplace test mesh
+    // Add test cube:
     {
+        // Emplace mesh:
         auto [meshKey, mesh] = mScene.EmplaceMesh();
 
         mesh.Name = "Test Cube";
         auto &prim = mesh.Primitives.emplace_back();
         prim.Data = primitive::TexturedCubeWithTangent();
         prim.Material = matKey;
+
+        // Construct prefab:
+        auto &root = Prefabs.emplace_back(*this, meshKey);
+        root.Name = "Test Cube";
+    }
+
+    // Add test sphere:
+    {
+        // Emplace mesh:
+        auto [meshKey, mesh] = mScene.EmplaceMesh();
+
+        mesh.Name = "Test Cube";
+        auto &prim = mesh.Primitives.emplace_back();
+        prim.Data = primitive::TexturedSphereWithTangent(0.5f, 24);
+        prim.Material = matKey;
+
+        // Construct prefab:
+        auto &root = Prefabs.emplace_back(*this, meshKey);
+        root.Name = "Test Sphere";
     }
 
     // Request update:

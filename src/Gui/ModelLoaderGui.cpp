@@ -1,15 +1,21 @@
 #include "ModelLoaderGui.h"
 
-#include "ModelLoader.h"
 #include "imgui.h"
 
 #include <fastgltf/types.hpp>
 #include <filesystem>
-#include <iostream>
-#include <ranges>
 
 ModelLoaderGui::ModelLoaderGui(SceneEditor &editor) : mEditor(editor)
 {
+    auto path = std::filesystem::current_path() / "assets/gltf";
+
+    if (std::filesystem::exists(path))
+    {
+        mBrowser.CurrentPath = path;
+    }
+
+    mBrowser.AddExtensionToFilter(".exr");
+
     mBrowser.AddExtensionToFilter(".gltf");
 
     mBrowser.SetCallbackFn([&]() { mImportPopup = true; });

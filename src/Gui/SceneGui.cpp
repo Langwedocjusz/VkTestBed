@@ -8,14 +8,23 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
+#include <filesystem>
 #include <optional>
 #include <ranges>
 #include <string>
 
 static const char *PAYLOAD_STRING = "SCENE_INSTANCE_PAYLOAD";
 
-SceneGui::SceneGui(SceneEditor &editor) : mEditor(editor), mModelLoader(editor)
+SceneGui::SceneGui(SceneEditor &editor)
+    : mEditor(editor), mModelLoader(editor)
 {
+    auto path = std::filesystem::current_path() / "assets/cubemaps";
+
+    if (std::filesystem::exists(path))
+    {
+        mHdriBrowser.CurrentPath = path;
+    }
+
     mHdriBrowser.AddExtensionToFilter(".exr");
 
     mHdriBrowser.SetCallbackFn([&]() { mEditor.SetHdri(mHdriBrowser.ChosenFile); });

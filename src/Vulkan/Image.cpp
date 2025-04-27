@@ -2,135 +2,45 @@
 
 #include "Barrier.h"
 #include "Buffer.h"
+#include "BufferUtils.h"
 #include "DeletionQueue.h"
 #include "VkUtils.h"
 #include <vulkan/vulkan_core.h>
 
-Image Image::CreateImage2D(VulkanContext &ctx, ImageInfo info)
+#include <cmath>
+
+uint32_t Image::CalcNumMips(uint32_t width, uint32_t height)
+{
+    return static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+}
+
+Image Image::Create(VulkanContext &ctx, VkImageCreateInfo &info)
 {
     Image img;
     img.Info = info;
-
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-
-    assert(info.Extent.depth == 1);
-
-    imageInfo.extent = info.Extent;
-    imageInfo.format = info.Format;
-    imageInfo.usage = info.Usage;
-    imageInfo.mipLevels = info.MipLevels;
-    // This is actual order of pixels in memory, not sampler tiling:
-    imageInfo.tiling = info.Tiling;
-
-    // Hardcoded part:
-    imageInfo.flags = 0;
-    imageInfo.arrayLayers = 1;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    // Only other option is PREINITIALIZED:
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    // Multisampling, only relevant for attachments:
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
     allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     allocCreateInfo.priority = 1.0f;
 
-    vmaCreateImage(ctx.Allocator, &imageInfo, &allocCreateInfo, &img.Handle,
-                   &img.Allocation, nullptr);
+    vmaCreateImage(ctx.Allocator, &info, &allocCreateInfo, &img.Handle, &img.Allocation,
+                   nullptr);
 
     return img;
 }
 
-Image Image::CreateCubemap(VulkanContext &ctx, ImageInfo info)
-{
-    Image img;
-    img.Info = info;
-
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-
-    assert(info.Extent.depth == 1);
-
-    imageInfo.extent = info.Extent;
-    imageInfo.format = info.Format;
-    imageInfo.usage = info.Usage;
-    imageInfo.tiling = info.Tiling; // Order of pixels in memory
-
-    // Hardcoded part:
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 6;
-    imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-    allocCreateInfo.priority = 1.0f;
-
-    vmaCreateImage(ctx.Allocator, &imageInfo, &allocCreateInfo, &img.Handle,
-                   &img.Allocation, nullptr);
-
-    return img;
-}
-
-void Image::DestroyImage(VulkanContext &ctx, Image &img)
+void Image::Destroy(VulkanContext &ctx, Image &img)
 {
     vmaDestroyImage(ctx.Allocator, img.Handle, img.Allocation);
 }
 
-VkImageView Image::CreateView2D(VulkanContext &ctx, Image &img, VkFormat format,
-                                VkImageAspectFlags aspectFlags)
+VkImageView Image::CreateView(VulkanContext &ctx, VkImageViewCreateInfo &info)
 {
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-
-    viewInfo.image = img.Handle;
-    viewInfo.format = format;
-    viewInfo.subresourceRange.aspectMask = aspectFlags;
-
-    // Hardcoded for now:
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = img.Info.MipLevels;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
     VkImageView imageView;
 
-    if (vkCreateImageView(ctx.Device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create texture image view!");
-
-    return imageView;
-}
-
-VkImageView Image::CreateViewCube(VulkanContext &ctx, Image &img, VkFormat format,
-                                  VkImageAspectFlags aspectFlags)
-{
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-
-    viewInfo.image = img.Handle;
-    viewInfo.format = format;
-    viewInfo.subresourceRange.aspectMask = aspectFlags;
-
-    // Hardcoded for now:
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 6;
-
-    VkImageView imageView;
-
-    if (vkCreateImageView(ctx.Device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create texture image view!");
+    if (vkCreateImageView(ctx.Device, &info, nullptr, &imageView) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create image view!");
 
     return imageView;
 }
@@ -138,8 +48,8 @@ VkImageView Image::CreateViewCube(VulkanContext &ctx, Image &img, VkFormat forma
 void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
 {
     // Create buffer and upload image data
-    Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
-    Buffer::UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);
+    Buffer stagingBuffer = MakeBuffer::Staging(ctx, info.Size);
+    Buffer::Upload(ctx, stagingBuffer, info.Data, info.Size);
 
     // Submit single-time command to queue
     {
@@ -151,7 +61,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
             .Image = img.Handle,
             .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.MipLevels, 0, 1},
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.mipLevels, 0, 1},
         };
 
         barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
@@ -163,7 +73,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
         region.bufferRowLength = 0;
         region.bufferImageHeight = 0;
         region.imageOffset = {0, 0, 0};
-        region.imageExtent = img.Info.Extent;
+        region.imageExtent = img.Info.extent;
         // Assumes that image is color (not depth/stencil)
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         // Assumes that we are targeting mip level zero,
@@ -182,7 +92,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
         barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
     }
 
-    Buffer::DestroyBuffer(ctx, stagingBuffer);
+    Buffer::Destroy(ctx, stagingBuffer);
 }
 
 void Image::GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
@@ -190,64 +100,67 @@ void Image::GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
 {
     vkutils::ScopedCommand cmd(ctx, queue, pool);
 
-    VkExtent3D srcSize = img.Info.Extent;
-    VkExtent3D dstSize = img.Info.Extent;
+    VkExtent3D srcSize = img.Info.extent;
+    VkExtent3D dstSize = img.Info.extent;
 
     dstSize.width /= 2;
     dstSize.height /= 2;
 
-    for (uint32_t mip = 1; mip < img.Info.MipLevels; mip++)
+    for (uint32_t mip = 1; mip < img.Info.mipLevels; mip++)
     {
-        auto srcInfo = barrier::ImageLayoutBarrierInfo{
-            .Image = img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 1, 0, 1},
-        };
-
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, srcInfo);
-
-        auto dstInfo = barrier::ImageLayoutBarrierInfo{
-            .Image = img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, 0, 1},
-        };
-
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, dstInfo);
-
-        VkImageBlit2 blitRegion{};
-        blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
-
-        blitRegion.srcOffsets[1].x = srcSize.width;
-        blitRegion.srcOffsets[1].y = srcSize.height;
-        blitRegion.srcOffsets[1].z = 1;
-
-        blitRegion.dstOffsets[1].x = dstSize.width;
-        blitRegion.dstOffsets[1].y = dstSize.height;
-        blitRegion.dstOffsets[1].z = 1;
-
-        blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blitRegion.srcSubresource.baseArrayLayer = 0;
-        blitRegion.srcSubresource.layerCount = 1;
-        blitRegion.srcSubresource.mipLevel = mip - 1;
-
-        blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blitRegion.dstSubresource.baseArrayLayer = 0;
-        blitRegion.dstSubresource.layerCount = 1;
-        blitRegion.dstSubresource.mipLevel = mip;
-
-        VkBlitImageInfo2 blitInfo{};
-        blitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
-        blitInfo.dstImage = img.Handle;
-        blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        blitInfo.srcImage = img.Handle;
-        blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        blitInfo.filter = VK_FILTER_LINEAR;
-        blitInfo.regionCount = 1;
-        blitInfo.pRegions = &blitRegion;
-
-        vkCmdBlitImage2(cmd.Buffer, &blitInfo);
+        for (uint32_t layer = 0; layer < img.Info.arrayLayers; layer++)
+        {
+            auto srcInfo = barrier::ImageLayoutBarrierInfo{
+                .Image = img.Handle,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 1, layer, 1},
+            };
+    
+            barrier::ImageLayoutBarrierCoarse(cmd.Buffer, srcInfo);
+    
+            auto dstInfo = barrier::ImageLayoutBarrierInfo{
+                .Image = img.Handle,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, layer, 1},
+            };
+    
+            barrier::ImageLayoutBarrierCoarse(cmd.Buffer, dstInfo);
+    
+            VkImageBlit2 blitRegion{};
+            blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+    
+            blitRegion.srcOffsets[1].x = srcSize.width;
+            blitRegion.srcOffsets[1].y = srcSize.height;
+            blitRegion.srcOffsets[1].z = 1;
+    
+            blitRegion.dstOffsets[1].x = dstSize.width;
+            blitRegion.dstOffsets[1].y = dstSize.height;
+            blitRegion.dstOffsets[1].z = 1;
+    
+            blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blitRegion.srcSubresource.baseArrayLayer = layer;
+            blitRegion.srcSubresource.layerCount = 1;
+            blitRegion.srcSubresource.mipLevel = mip - 1;
+    
+            blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blitRegion.dstSubresource.baseArrayLayer = layer;
+            blitRegion.dstSubresource.layerCount = 1;
+            blitRegion.dstSubresource.mipLevel = mip;
+    
+            VkBlitImageInfo2 blitInfo{};
+            blitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+            blitInfo.dstImage = img.Handle;
+            blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            blitInfo.srcImage = img.Handle;
+            blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            blitInfo.filter = VK_FILTER_LINEAR;
+            blitInfo.regionCount = 1;
+            blitInfo.pRegions = &blitRegion;
+    
+            vkCmdBlitImage2(cmd.Buffer, &blitInfo);
+        }
 
         srcSize.width /= 2;
         srcSize.height /= 2;
@@ -259,7 +172,7 @@ void Image::GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
         .Image = img.Handle,
         .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.MipLevels, 0, 1},
+        .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.mipLevels, 0, img.Info.arrayLayers},
     };
 
     barrier::ImageLayoutBarrierCoarse(cmd.Buffer, finalInfo);

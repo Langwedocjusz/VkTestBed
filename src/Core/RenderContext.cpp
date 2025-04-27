@@ -131,7 +131,10 @@ void RenderContext::OnImGui()
     mCamera->OnImGui();
 
     if (mShowStats)
+    {
+        // To-do: update memory stats
         imutils::DisplayStats(mFrameInfo.Stats);
+    }
 }
 
 void RenderContext::OnRender()

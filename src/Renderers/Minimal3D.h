@@ -4,6 +4,7 @@
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Scene.h"
+#include "Texture.h"
 
 #include <vulkan/vulkan.h>
 
@@ -74,11 +75,6 @@ class Minimal3DRenderer : public IRenderer {
     };
 
     std::map<SceneKey, std::vector<InstanceData>> mInstanceData;
-
-    struct Texture {
-        Image TexImage;
-        VkImageView View;
-    };
 
     Texture mDefaultImage;
     std::map<SceneKey, Texture> mImages;

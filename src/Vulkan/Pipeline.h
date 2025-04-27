@@ -1,11 +1,13 @@
 #pragma once
 
+#include "DeletionQueue.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 
 #include <vulkan/vulkan.h>
 
 #include <optional>
+#include <string_view>
 #include <vector>
 
 struct Pipeline {
@@ -15,7 +17,7 @@ struct Pipeline {
 
 class PipelineBuilder {
   public:
-    PipelineBuilder();
+    PipelineBuilder(std::string_view debugName);
 
     PipelineBuilder &SetShaderStages(
         const std::vector<VkPipelineShaderStageCreateInfo> &stages);
@@ -41,8 +43,10 @@ class PipelineBuilder {
     PipelineBuilder &SetPushConstantSize(uint32_t size);
 
     Pipeline Build(VulkanContext &ctx);
+    Pipeline Build(VulkanContext &ctx, DeletionQueue &queue);
 
   private:
+    Pipeline BuildImpl(VulkanContext &ctx);
     void UpdateVertexInput();
 
   private:
@@ -61,24 +65,31 @@ class PipelineBuilder {
 
     std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
 
-    uint32_t mPushConstantSize = 0;
+    std::optional<VkPushConstantRange> mPushConstantRange;
 
     VkVertexInputBindingDescription mBindingDescription;
     std::vector<VkVertexInputAttributeDescription> mAttributeDescriptions;
+
+    std::string mDebugName;
 };
 
 class ComputePipelineBuilder {
   public:
-    ComputePipelineBuilder() = default;
+    ComputePipelineBuilder(std::string_view debugName);
 
     ComputePipelineBuilder &SetShaderStage(VkPipelineShaderStageCreateInfo stage);
     ComputePipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
     ComputePipelineBuilder &SetPushConstantSize(uint32_t size);
 
     Pipeline Build(VulkanContext &ctx);
+    Pipeline Build(VulkanContext &ctx, DeletionQueue &queue);
+
+  private:
+    Pipeline BuildImpl(VulkanContext &ctx);
 
   private:
     VkPipelineShaderStageCreateInfo mShaderStage;
     std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
-    uint32_t mPushConstantSize = 0;
+    std::optional<VkPushConstantRange> mPushConstantRange;
+    std::string mDebugName;
 };

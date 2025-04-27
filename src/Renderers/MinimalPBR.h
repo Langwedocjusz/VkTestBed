@@ -7,9 +7,11 @@
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Scene.h"
+#include "Texture.h"
+
+#include <vulkan/vulkan.h>
 
 #include <map>
-#include <vulkan/vulkan.h>
 
 class MinimalPbrRenderer : public IRenderer {
   public:
@@ -61,11 +63,6 @@ class MinimalPbrRenderer : public IRenderer {
         float AlphaCutoff;
         glm::vec3 ViewPos;
         glm::mat4 Transform;
-    };
-
-    struct Texture {
-        Image Img;
-        VkImageView View;
     };
 
     Texture mDefaultAlbedo;

@@ -91,6 +91,8 @@ target_sources(${PROJECT_NAME}
         src/Renderers/MinimalPBR.cpp
         src/Vulkan/Buffer.h
         src/Vulkan/Buffer.cpp
+        src/Vulkan/BufferUtils.h
+        src/Vulkan/BufferUtils.cpp
         src/Vulkan/Common.h
         src/Vulkan/Common.cpp
         src/Vulkan/Barrier.h
@@ -103,13 +105,15 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Image.cpp
         src/Vulkan/ImageLoaders.h
         src/Vulkan/ImageLoaders.cpp
-        src/Vulkan/MeshBuffers.h
+        src/Vulkan/ImageUtils.h
+        src/Vulkan/ImageUtils.cpp
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
         src/Vulkan/Sampler.h
         src/Vulkan/Sampler.cpp
         src/Vulkan/Shader.h
         src/Vulkan/Shader.cpp
+        src/Vulkan/Texture.h
         src/Vulkan/VkInit.h
         src/Vulkan/VkInit.cpp
         src/Vulkan/VkUtils.h

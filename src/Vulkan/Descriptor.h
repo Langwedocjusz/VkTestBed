@@ -1,21 +1,29 @@
 #pragma once
 
+#include "DeletionQueue.h"
 #include "VulkanContext.h"
 
-#include <span>
 #include <vulkan/vulkan.h>
+
+#include <span>
+#include <string>
 
 class DescriptorSetLayoutBuilder {
   public:
-    DescriptorSetLayoutBuilder() = default;
+    DescriptorSetLayoutBuilder(std::string_view debugName);
 
     DescriptorSetLayoutBuilder &AddBinding(uint32_t binding, VkDescriptorType type,
                                            uint32_t stages);
 
     VkDescriptorSetLayout Build(VulkanContext &ctx);
+    VkDescriptorSetLayout Build(VulkanContext &ctx, DeletionQueue &queue);
+
+  private:
+    VkDescriptorSetLayout BuildImpl(VulkanContext &ctx);
 
   private:
     std::vector<VkDescriptorSetLayoutBinding> mBindings;
+    std::string mDebugName;
 };
 
 namespace Descriptor

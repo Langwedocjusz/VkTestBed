@@ -4,6 +4,7 @@
 
 #include "Buffer.h"
 #include "Image.h"
+#include "Texture.h"
 
 #include <vulkan/vulkan.h>
 
@@ -55,6 +56,13 @@ class DeletionQueue {
     void push_back(Image &img)
     {
         mDeletionObjects.emplace_back(VkAllocatedImage{img.Handle, img.Allocation});
+    }
+
+    void push_back(Texture &tex)
+    {
+        mDeletionObjects.emplace_back(
+            VkAllocatedImage{tex.Img.Handle, tex.Img.Allocation});
+        mDeletionObjects.emplace_back(tex.View);
     }
 
     void flush();

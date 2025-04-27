@@ -1,7 +1,16 @@
 #include "Descriptor.h"
 
+#include "VkUtils.h"
+
+#include <vulkan/vulkan.h>
+
 #include <cstdint>
 #include <vulkan/vulkan_core.h>
+
+DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(std::string_view debugName)
+    : mDebugName(debugName)
+{
+}
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t binding,
                                                                    VkDescriptorType type,
@@ -22,7 +31,22 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t bind
 
 VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
 {
-    VkDescriptorSetLayout layout;
+    return BuildImpl(ctx);
+}
+
+VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx,
+                                                        DeletionQueue &queue)
+{
+    const auto res = BuildImpl(ctx);
+
+    queue.push_back(res);
+
+    return res;
+}
+
+VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildImpl(VulkanContext &ctx)
+{
+    VkDescriptorSetLayout layout{};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -32,6 +56,8 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
     if (vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr, &layout) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to create descriptor set layout!");
+
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, layout, mDebugName);
 
     return layout;
 }

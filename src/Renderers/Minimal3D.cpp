@@ -1,9 +1,10 @@
 #include "Minimal3D.h"
 #include "Barrier.h"
+#include "BufferUtils.h"
 #include "Common.h"
 #include "Descriptor.h"
 #include "ImageLoaders.h"
-#include "MeshBuffers.h"
+#include "ImageUtils.h"
 #include "Renderer.h"
 #include "Sampler.h"
 #include "Shader.h"
@@ -21,12 +22,10 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
 {
     // Create descriptor set layout for sampling textures
     mTextureDescriptorSetLayout =
-        DescriptorSetLayoutBuilder()
+        DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
             .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
-            .Build(ctx);
-
-    mMainDeletionQueue.push_back(mTextureDescriptorSetLayout);
+            .Build(ctx, mMainDeletionQueue);
 
     // Initialize descriptor allocator for materials
     constexpr uint32_t imgPerMat = 1;
@@ -41,24 +40,16 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
     auto &pool = mFrame.CurrentPool();
     auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255});
 
-    mDefaultImage.TexImage =
-        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgData);
-
-    auto format = mDefaultImage.TexImage.Info.Format;
-    mDefaultImage.View = Image::CreateView2D(mCtx, mDefaultImage.TexImage, format,
-                                             VK_IMAGE_ASPECT_COLOR_BIT);
-
-    mMainDeletionQueue.push_back(mDefaultImage.TexImage);
-    mMainDeletionQueue.push_back(mDefaultImage.View);
+    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, mQueues.Graphics, pool, imgData,
+                                                  VK_FORMAT_R8G8B8A8_SRGB);
+    mMainDeletionQueue.push_back(mDefaultImage);
 
     // Create the texture sampler:
-    mSampler = SamplerBuilder()
+    mSampler = SamplerBuilder("Minimal3DSampler")
                    .SetMagFilter(VK_FILTER_LINEAR)
                    .SetMinFilter(VK_FILTER_LINEAR)
                    .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                   .Build(mCtx);
-
-    mMainDeletionQueue.push_back(mSampler);
+                   .Build(mCtx, mMainDeletionQueue);
 
     // Build the graphics pipelines:
     RebuildPipelines();
@@ -87,7 +78,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .Build(mCtx);
 
     mColoredPipeline =
-        PipelineBuilder()
+        PipelineBuilder("Minimal3DColoredPipeline")
             .SetShaderStages(coloredShaderStages)
             .SetVertexInput(mColoredLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
@@ -98,10 +89,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
-            .Build(mCtx);
-
-    mPipelineDeletionQueue.push_back(mColoredPipeline.Handle);
-    mPipelineDeletionQueue.push_back(mColoredPipeline.Layout);
+            .Build(mCtx, mPipelineDeletionQueue);
 
     auto textuedShaderStages =
         ShaderBuilder()
@@ -110,7 +98,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .Build(mCtx);
 
     mTexturedPipeline =
-        PipelineBuilder()
+        PipelineBuilder("Minimal3DTexturedPipeline")
             .SetShaderStages(textuedShaderStages)
             .SetVertexInput(mTexturedLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
@@ -122,10 +110,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mTextureDescriptorSetLayout)
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
-            .Build(mCtx);
-
-    mPipelineDeletionQueue.push_back(mTexturedPipeline.Handle);
-    mPipelineDeletionQueue.push_back(mTexturedPipeline.Layout);
+            .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void Minimal3DRenderer::OnUpdate([[maybe_unused]] float deltaTime)
@@ -244,17 +229,16 @@ void Minimal3DRenderer::CreateSwapchainResources()
     uint32_t width = ScaleResolution(mCtx.Swapchain.extent.width);
     uint32_t height = ScaleResolution(mCtx.Swapchain.extent.height);
 
-    VkExtent3D drawExtent{
+    VkExtent2D drawExtent{
         .width = width,
         .height = height,
-        .depth = 1,
     };
 
     VkImageUsageFlags drawUsage{};
     drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    ImageInfo renderTargetInfo{
+    Image2DInfo renderTargetInfo{
         .Extent = drawExtent,
         .Format = mRenderTargetFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -262,16 +246,16 @@ void Minimal3DRenderer::CreateSwapchainResources()
         .MipLevels = 1,
     };
 
-    mRenderTarget = Image::CreateImage2D(mCtx, renderTargetInfo);
+    mRenderTarget = MakeImage::Image2D(mCtx, renderTargetInfo);
     mSwapchainDeletionQueue.push_back(mRenderTarget);
 
     // Create the render target view:
-    mRenderTargetView = Image::CreateView2D(mCtx, mRenderTarget, mRenderTargetFormat,
-                                            VK_IMAGE_ASPECT_COLOR_BIT);
+    mRenderTargetView = MakeView::View2D(mCtx, mRenderTarget, mRenderTargetFormat,
+                                         VK_IMAGE_ASPECT_COLOR_BIT);
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 
     // Create depth buffer:
-    ImageInfo depthBufferInfo{
+    Image2DInfo depthBufferInfo{
         .Extent = drawExtent,
         .Format = mDepthFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -279,9 +263,9 @@ void Minimal3DRenderer::CreateSwapchainResources()
         .MipLevels = 1,
     };
 
-    mDepthBuffer = Image::CreateImage2D(mCtx, depthBufferInfo);
+    mDepthBuffer = MakeImage::Image2D(mCtx, depthBufferInfo);
     mDepthBufferView =
-        Image::CreateView2D(mCtx, mDepthBuffer, mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+        MakeView::View2D(mCtx, mDepthBuffer, mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     mSwapchainDeletionQueue.push_back(mDepthBuffer);
     mSwapchainDeletionQueue.push_back(mDepthBufferView);
@@ -314,12 +298,12 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
     auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
         drawable.VertexBuffer =
-            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
+            MakeBuffer::Vertex(mCtx, mQueues.Graphics, pool, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
         drawable.IndexBuffer =
-            IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+            MakeBuffer::Index(mCtx, mQueues.Graphics, pool, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         mSceneDeletionQueue.push_back(drawable.VertexBuffer);
@@ -367,15 +351,9 @@ void Minimal3DRenderer::LoadImages(const Scene &scene)
 
         auto &texture = mImages[key];
 
-        texture.TexImage =
-            ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, imgData);
-
-        auto format = texture.TexImage.Info.Format;
-        texture.View = Image::CreateView2D(mCtx, texture.TexImage, format,
-                                           VK_IMAGE_ASPECT_COLOR_BIT);
-
-        mSceneDeletionQueue.push_back(texture.TexImage);
-        mSceneDeletionQueue.push_back(texture.View);
+        texture = TextureLoaders::LoadTexture2DMipped(mCtx, mQueues.Graphics, pool,
+                                                      imgData, VK_FORMAT_R8G8B8A8_SRGB);
+        mSceneDeletionQueue.push_back(texture);
     }
 }
 

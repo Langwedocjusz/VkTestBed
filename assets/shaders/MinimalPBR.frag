@@ -34,6 +34,9 @@ layout(std140, set = 2, binding = 1) readonly buffer SHBuffer {
    SHData irradianceMap;
 };
 
+layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
+layout(set = 2, binding = 3) uniform sampler2D integrationMap;
+
 layout(push_constant) uniform constants {
     float AlphaCutoff;
     float PosX;
@@ -65,6 +68,12 @@ vec3 F_Schlick(float u, vec3 f0)
 {
     float f = pow(1.0 - u, 5.0);
     return f + f0 * (1.0 - f);
+}
+
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) *
+    pow(1.0 - cosTheta, 5.0);
 }
 
 float Fd_Lambert()
@@ -127,8 +136,8 @@ vec3 SHReconstruction(SHData data, vec3 dir)
 
     vec3 res = vec3(0);
 
-    float A0 = 1.0, A1 = 1.0, A2 = 1.0;
-    //float A0 = 3.141593, A1 = 2.094395, A2 = 0.785398;
+    //float A0 = 1.0, A1 = 1.0, A2 = 1.0;
+    float A0 = 3.141593, A1 = 2.094395, A2 = 0.785398;
 
     res += A0 * data.SH_L0.rgb * SH_L0;
     res += A1 * data.SH_L1_M_1.rgb * SH_L1_M_1;
@@ -198,12 +207,25 @@ void main()
         res.rgb += skyCol * BRDF(normal, view, -ldir, roughness, diffuse, f0);
     }
 
+    //Specular IBL:s
+    vec3 irradiance = SHReconstruction(irradianceMap, normalize(normal));
+    vec3 diffuseIBL = diffuse * irradiance;
+
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 R = reflect(-view, normal);
+
+    vec3 prefilteredColor = textureLod(prefilteredMap, R,  roughness * MAX_REFLECTION_LOD).rgb;
+
+    vec3 F        = FresnelSchlickRoughness(max(dot(normal, view), 0.0), f0, roughness);
+    vec2 envBRDF  = texture(integrationMap, vec2(max(dot(normal, view), 0.0), roughness)).rg;
+    vec3 specularIBL = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+
+    res.rgb = 0.4 * (diffuseIBL + specularIBL);
+
     //Do color correction:
     res.rgb = ACESFilm(res.rgb);
     res.rgb = pow(res.rgb, vec3(1.0/2.2));
 
-    //res.rgb = SHReconstruction(irradianceMap, normalize(normal));
-    //res.rgb = albedo.rgb * SHReconstruction(irradianceMap, normalize(normal));
 
     outColor = res;
 }

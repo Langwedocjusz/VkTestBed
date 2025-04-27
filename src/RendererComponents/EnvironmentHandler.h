@@ -5,6 +5,7 @@
 #include "Pipeline.h"
 #include "RenderContext.h"
 #include "Scene.h"
+#include "Texture.h"
 #include "VulkanContext.h"
 
 #include <glm/glm.hpp>
@@ -44,7 +45,10 @@ class EnvironmentHandler {
 
   private:
     void ConvertEquirectToCubemap(const ImageData &data, VkFormat format);
+
     void CalculateDiffuseIrradiance();
+    void GeneratePrefilteredMap();
+    void GenerateIntegrationMap();
 
   private:
     VulkanContext &mCtx;
@@ -58,6 +62,8 @@ class EnvironmentHandler {
     VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
     VkDescriptorSet mBackgroundDescriptorSet;
 
+    // Private descriptor sets:
+
     // Descriptor set for generating the cubemap:
     VkDescriptorSetLayout mTexToImgDescriptorSetLayout;
     VkDescriptorSet mTexToImgDescriptorSet;
@@ -65,6 +71,14 @@ class EnvironmentHandler {
     // Descriptor set for irradiance reduction buffers:
     VkDescriptorSetLayout mIrradianceDescriptorSetLayout;
     VkDescriptorSet mIrradianceDescriptorSet;
+
+    // Descriptor set for generating the prefiltered map:
+    VkDescriptorSetLayout mPrefilteredDescriptorSetLayout;
+    VkDescriptorSet mPrefilteredDescriptorSet;
+
+    // Descriptor set for generating the integration map:
+    VkDescriptorSetLayout mIntegrationDescriptorSetLayout;
+    VkDescriptorSet mIntegrationDescriptorSet;
 
     // Compute pipelines for resource generation:
     Pipeline mEquiRectToCubePipeline;
@@ -81,6 +95,15 @@ class EnvironmentHandler {
     Pipeline mIrradianceSHPipeline;
     Pipeline mIrradianceReducePipeline;
 
+    struct PrefilteredPushConstants {
+        uint32_t CubeResolution;
+        uint32_t MipLevel;
+        float Roughness;
+    };
+
+    Pipeline mPrefilteredGenPipeline;
+    Pipeline mIntegrationGenPipeline;
+
     // SSBOs for reduction when computing SH irradiance coefficients:
     Buffer mFirstReducionBuffer;
     Buffer mFinalReductionBuffer;
@@ -89,13 +112,14 @@ class EnvironmentHandler {
     uint32_t mFirstBufferLen = 0;
 
     // Cubemap background texture:
-    struct Texture {
-        Image Img;
-        VkImageView View;
-    };
-
     Texture mCubemap;
+    Texture mPrefiltered;
+    Texture mIntegration;
+
+    std::vector<VkImageView> mPrefilteredMipViews;
+
     VkSampler mSampler;
+    VkSampler mSamplerMipped;
 
     // Uniform buffer object with environment info for lighting:
     struct EnvUBOData {

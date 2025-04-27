@@ -1,10 +1,11 @@
 #include "Camera.h"
 
+#include "BufferUtils.h"
 #include "Descriptor.h"
 #include "Keycodes.h"
-#include "glm/trigonometric.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/trigonometric.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
 
@@ -16,9 +17,9 @@ Camera::Camera(VulkanContext &ctx, FrameInfo &info)
     // Create descriptor sets:
     //  Descriptor layout
     mDescriptorSetLayout =
-        DescriptorSetLayoutBuilder()
+        DescriptorSetLayoutBuilder("CameraDescriptorLayout")
             .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-            .Build(ctx);
+            .Build(ctx, mMainDeletionQueue);
 
     // Descriptor pool
     uint32_t maxSets = mFrame.MaxInFlight;
@@ -28,14 +29,12 @@ Camera::Camera(VulkanContext &ctx, FrameInfo &info)
     };
 
     mDescriptorPool = Descriptor::InitPool(ctx, maxSets, poolCounts);
+    mMainDeletionQueue.push_back(mDescriptorPool);
 
     // Descriptor sets allocation
     std::vector<VkDescriptorSetLayout> layouts(mFrame.MaxInFlight, mDescriptorSetLayout);
 
     mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
-
-    mMainDeletionQueue.push_back(mDescriptorPool);
-    mMainDeletionQueue.push_back(mDescriptorSetLayout);
 
     // Create Uniform Buffers:
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -44,7 +43,7 @@ Camera::Camera(VulkanContext &ctx, FrameInfo &info)
 
     for (auto &uniformBuffer : mUniformBuffers)
     {
-        uniformBuffer = Buffer::CreateMappedUniformBuffer(ctx, bufferSize);
+        uniformBuffer = MakeBuffer::MappedUniform(ctx, bufferSize);
         mMainDeletionQueue.push_back(uniformBuffer);
     }
 
@@ -81,7 +80,7 @@ void Camera::OnUpdate(float deltatime)
     mUBOData.ViewProjection = mProj * mView;
 
     auto &uniformBuffer = mUniformBuffers[mFrame.Index];
-    Buffer::UploadToMappedBuffer(uniformBuffer, &mUBOData, sizeof(mUBOData));
+    Buffer::UploadToMapped(uniformBuffer, &mUBOData, sizeof(mUBOData));
 }
 
 glm::mat4 Camera::ProjPerspective()

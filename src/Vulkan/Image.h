@@ -2,14 +2,6 @@
 
 #include "VulkanContext.h"
 
-struct ImageInfo {
-    VkExtent3D Extent;
-    VkFormat Format;
-    VkImageTiling Tiling;
-    VkImageUsageFlags Usage;
-    uint32_t MipLevels;
-};
-
 struct ImageUploadInfo {
     VkQueue Queue;
     VkCommandPool Pool;
@@ -19,21 +11,18 @@ struct ImageUploadInfo {
 };
 
 struct Image {
-    static Image CreateImage2D(VulkanContext &ctx, ImageInfo info);
-    static Image CreateCubemap(VulkanContext &ctx, ImageInfo info);
+    static Image Create(VulkanContext &ctx, VkImageCreateInfo &info);
+    static void Destroy(VulkanContext &ctx, Image &img);
 
-    static void DestroyImage(VulkanContext &ctx, Image &img);
-
-    static VkImageView CreateView2D(VulkanContext &ctx, Image &img, VkFormat format,
-                                    VkImageAspectFlags aspectFlags);
-    static VkImageView CreateViewCube(VulkanContext &ctx, Image &img, VkFormat format,
-                                      VkImageAspectFlags aspectFlags);
+    static VkImageView CreateView(VulkanContext &ctx, VkImageViewCreateInfo &info);
 
     static void UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info);
+
+    static uint32_t CalcNumMips(uint32_t width, uint32_t height);
     static void GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
                              Image &img);
 
     VkImage Handle;
+    VkImageCreateInfo Info;
     VmaAllocation Allocation;
-    ImageInfo Info;
 };

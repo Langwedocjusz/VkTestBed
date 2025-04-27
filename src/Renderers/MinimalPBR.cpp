@@ -1,9 +1,10 @@
 #include "MinimalPBR.h"
 #include "Barrier.h"
+#include "BufferUtils.h"
 #include "Common.h"
 #include "Descriptor.h"
 #include "ImageLoaders.h"
-#include "MeshBuffers.h"
+#include "ImageUtils.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Sampler.h"
@@ -26,27 +27,24 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
       mMaterialDeletionQueue(ctx)
 {
     // Create the texture sampler:
-    mSampler2D = SamplerBuilder()
+    mSampler2D = SamplerBuilder("MinimalPbrSampler2D")
                      .SetMagFilter(VK_FILTER_LINEAR)
                      .SetMinFilter(VK_FILTER_LINEAR)
                      .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
                      .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
                      .SetMaxLod(12.0f)
-                     .Build(mCtx);
-    mMainDeletionQueue.push_back(mSampler2D);
+                     .Build(mCtx, mMainDeletionQueue);
 
     // Create descriptor set layout for sampling textures:
     mMaterialDescriptorSetLayout =
-        DescriptorSetLayoutBuilder()
+        DescriptorSetLayoutBuilder("MinimalPBRMaterialDescriptorLayout")
             .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
             .AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
             .AddBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
-            .Build(ctx);
-
-    mMainDeletionQueue.push_back(mMaterialDescriptorSetLayout);
+            .Build(ctx, mMainDeletionQueue);
 
     // Initialize descriptor allocator for materials:
     {
@@ -64,29 +62,16 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0});
     auto normalData = ImageData::SinglePixel(Pixel{128, 128, 255, 0});
 
-    mDefaultAlbedo.Img =
-        ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool, albedoData);
-    mDefaultRoughness.Img = ImageLoaders::LoadImage2D(
+    mDefaultAlbedo = TextureLoaders::LoadTexture2D(mCtx, mQueues.Graphics, pool,
+                                                   albedoData, VK_FORMAT_R8G8B8A8_SRGB);
+    mDefaultRoughness = TextureLoaders::LoadTexture2D(
         mCtx, mQueues.Graphics, pool, roughnessData, VK_FORMAT_R8G8B8A8_UNORM);
-    mDefaultNormal.Img = ImageLoaders::LoadImage2D(mCtx, mQueues.Graphics, pool,
+    mDefaultNormal = TextureLoaders::LoadTexture2D(mCtx, mQueues.Graphics, pool,
                                                    normalData, VK_FORMAT_R8G8B8A8_UNORM);
 
-    mDefaultAlbedo.View =
-        Image::CreateView2D(mCtx, mDefaultAlbedo.Img, mDefaultAlbedo.Img.Info.Format,
-                            VK_IMAGE_ASPECT_COLOR_BIT);
-    mDefaultRoughness.View =
-        Image::CreateView2D(mCtx, mDefaultRoughness.Img,
-                            mDefaultRoughness.Img.Info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-    mDefaultNormal.View =
-        Image::CreateView2D(mCtx, mDefaultNormal.Img, mDefaultNormal.Img.Info.Format,
-                            VK_IMAGE_ASPECT_COLOR_BIT);
-
-    mMainDeletionQueue.push_back(mDefaultAlbedo.Img);
-    mMainDeletionQueue.push_back(mDefaultAlbedo.View);
-    mMainDeletionQueue.push_back(mDefaultRoughness.Img);
-    mMainDeletionQueue.push_back(mDefaultRoughness.View);
-    mMainDeletionQueue.push_back(mDefaultNormal.Img);
-    mMainDeletionQueue.push_back(mDefaultNormal.View);
+    mMainDeletionQueue.push_back(mDefaultAlbedo);
+    mMainDeletionQueue.push_back(mDefaultRoughness);
+    mMainDeletionQueue.push_back(mDefaultNormal);
 
     // Build the graphics pipelines:
     RebuildPipelines();
@@ -116,7 +101,7 @@ void MinimalPbrRenderer::RebuildPipelines()
                                 .Build(mCtx);
 
     mMainPipeline =
-        PipelineBuilder()
+        PipelineBuilder("MinimalPBRMainPipeline")
             .SetShaderStages(mainShaderStages)
             .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
@@ -129,10 +114,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
-            .Build(mCtx);
-
-    mPipelineDeletionQueue.push_back(mMainPipeline.Handle);
-    mPipelineDeletionQueue.push_back(mMainPipeline.Layout);
+            .Build(mCtx, mPipelineDeletionQueue);
 
     // Background rendering pipeline:
     auto backgroundShaderStages = ShaderBuilder()
@@ -143,7 +125,7 @@ void MinimalPbrRenderer::RebuildPipelines()
     // No vertex format, since we just hardcode the fullscreen triangle in
     // the vertex shader:
     mBackgroundPipeline =
-        PipelineBuilder()
+        PipelineBuilder("MinimalPBRBackgroundPipeline")
             .SetShaderStages(backgroundShaderStages)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -153,10 +135,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mEnvHandler.GetBackgroundDSLayout())
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
             .SetDepthFormat(mDepthFormat)
-            .Build(mCtx);
-
-    mPipelineDeletionQueue.push_back(mBackgroundPipeline.Handle);
-    mPipelineDeletionQueue.push_back(mBackgroundPipeline.Layout);
+            .Build(mCtx, mPipelineDeletionQueue);
 
     // Rebuild env handler pipelines as well:
     mEnvHandler.RebuildPipelines();
@@ -285,17 +264,16 @@ void MinimalPbrRenderer::CreateSwapchainResources()
     uint32_t width = ScaleResolution(mCtx.Swapchain.extent.width);
     uint32_t height = ScaleResolution(mCtx.Swapchain.extent.height);
 
-    VkExtent3D drawExtent{
+    VkExtent2D drawExtent{
         .width = width,
         .height = height,
-        .depth = 1,
     };
 
     VkImageUsageFlags drawUsage{};
     drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    ImageInfo renderTargetInfo{
+    Image2DInfo renderTargetInfo{
         .Extent = drawExtent,
         .Format = mRenderTargetFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -303,16 +281,16 @@ void MinimalPbrRenderer::CreateSwapchainResources()
         .MipLevels = 1,
     };
 
-    mRenderTarget = Image::CreateImage2D(mCtx, renderTargetInfo);
+    mRenderTarget = MakeImage::Image2D(mCtx, renderTargetInfo);
     mSwapchainDeletionQueue.push_back(mRenderTarget);
 
     // Create the render target view:
-    mRenderTargetView = Image::CreateView2D(mCtx, mRenderTarget, mRenderTargetFormat,
-                                            VK_IMAGE_ASPECT_COLOR_BIT);
+    mRenderTargetView = MakeView::View2D(mCtx, mRenderTarget, mRenderTargetFormat,
+                                         VK_IMAGE_ASPECT_COLOR_BIT);
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 
     // Create depth buffer:
-    ImageInfo depthBufferInfo{
+    Image2DInfo depthBufferInfo{
         .Extent = drawExtent,
         .Format = mDepthFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -320,9 +298,9 @@ void MinimalPbrRenderer::CreateSwapchainResources()
         .MipLevels = 1,
     };
 
-    mDepthBuffer = Image::CreateImage2D(mCtx, depthBufferInfo);
+    mDepthBuffer = MakeImage::Image2D(mCtx, depthBufferInfo);
     mDepthBufferView =
-        Image::CreateView2D(mCtx, mDepthBuffer, mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+        MakeView::View2D(mCtx, mDepthBuffer, mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     mSwapchainDeletionQueue.push_back(mDepthBuffer);
     mSwapchainDeletionQueue.push_back(mDepthBufferView);
@@ -357,12 +335,12 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
     auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
         drawable.VertexBuffer =
-            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
+            MakeBuffer::Vertex(mCtx, mQueues.Graphics, pool, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
         drawable.IndexBuffer =
-            IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+            MakeBuffer::Index(mCtx, mQueues.Graphics, pool, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         // Update deletion queue:
@@ -404,14 +382,10 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
 
         auto format = imgData.Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 
-        texture.Img =
-            ImageLoaders::LoadImage2DMip(mCtx, mQueues.Graphics, pool, imgData, format);
+        texture = TextureLoaders::LoadTexture2DMipped(mCtx, mQueues.Graphics, pool,
+                                                      imgData, format);
 
-        texture.View =
-            Image::CreateView2D(mCtx, texture.Img, format, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        mSceneDeletionQueue.push_back(texture.Img);
-        mSceneDeletionQueue.push_back(texture.View);
+        mSceneDeletionQueue.push_back(texture);
     }
 }
 

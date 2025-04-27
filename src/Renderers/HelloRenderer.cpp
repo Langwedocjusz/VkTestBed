@@ -1,5 +1,6 @@
 #include "HelloRenderer.h"
-#include "MeshBuffers.h"
+#include "BufferUtils.h"
+#include "ImageUtils.h"
 #include "Renderer.h"
 #include "Shader.h"
 #include "VkInit.h"
@@ -38,7 +39,7 @@ void HelloRenderer::RebuildPipelines()
                             .Build(mCtx);
 
     mGraphicsPipeline =
-        PipelineBuilder()
+        PipelineBuilder("HelloRendererPipeline")
             .SetShaderStages(shaderStages)
             .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
@@ -47,10 +48,7 @@ void HelloRenderer::RebuildPipelines()
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(glm::mat4))
             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
-            .Build(mCtx);
-
-    mPipelineDeletionQueue.push_back(mGraphicsPipeline.Handle);
-    mPipelineDeletionQueue.push_back(mGraphicsPipeline.Layout);
+            .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)
@@ -119,17 +117,16 @@ void HelloRenderer::CreateSwapchainResources()
     uint32_t width = ScaleResolution(mCtx.Swapchain.extent.width);
     uint32_t height = ScaleResolution(mCtx.Swapchain.extent.height);
 
-    VkExtent3D drawExtent{
+    VkExtent2D drawExtent{
         .width = width,
         .height = height,
-        .depth = 1,
     };
 
     VkImageUsageFlags drawUsage{};
     drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    ImageInfo renderTargetInfo{
+    Image2DInfo renderTargetInfo{
         .Extent = drawExtent,
         .Format = mRenderTargetFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -137,12 +134,12 @@ void HelloRenderer::CreateSwapchainResources()
         .MipLevels = 1,
     };
 
-    mRenderTarget = Image::CreateImage2D(mCtx, renderTargetInfo);
+    mRenderTarget = MakeImage::Image2D(mCtx, renderTargetInfo);
     mSwapchainDeletionQueue.push_back(mRenderTarget);
 
     // Create the render target view:
-    mRenderTargetView = Image::CreateView2D(mCtx, mRenderTarget, mRenderTargetFormat,
-                                            VK_IMAGE_ASPECT_COLOR_BIT);
+    mRenderTargetView = MakeView::View2D(mCtx, mRenderTarget, mRenderTargetFormat,
+                                         VK_IMAGE_ASPECT_COLOR_BIT);
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 }
 
@@ -163,12 +160,12 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
     auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
         drawable.VertexBuffer =
-            VertexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.VertexData);
+            MakeBuffer::Vertex(mCtx, mQueues.Graphics, pool, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
         drawable.IndexBuffer =
-            IndexBuffer::Create(mCtx, mQueues.Graphics, pool, geo.IndexData);
+            MakeBuffer::Index(mCtx, mQueues.Graphics, pool, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         // Update deletion queue:

@@ -41,7 +41,7 @@ class IRenderer {
     }
     [[nodiscard]] VkExtent2D GetTargetSize() const
     {
-        return {mRenderTarget.Info.Extent.width, mRenderTarget.Info.Extent.height};
+        return {mRenderTarget.Info.extent.width, mRenderTarget.Info.extent.height};
     }
 
   protected:

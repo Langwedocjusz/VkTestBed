@@ -18,6 +18,8 @@ struct FrameStats {
     uint32_t NumDraws = 0;
     uint32_t NumTriangles = 0;
     uint32_t NumDispatches = 0;
+    size_t MemoryBudget = 0;
+    size_t MemoryUsage = 0;
 };
 
 struct FrameInfo {

@@ -1,4 +1,11 @@
 #include "Sampler.h"
+#include "VkUtils.h"
+
+#include <vulkan/vulkan.h>
+
+SamplerBuilder::SamplerBuilder(std::string_view debugName) : mDebugName(debugName)
+{
+}
 
 SamplerBuilder &SamplerBuilder::SetMagFilter(VkFilter filter)
 {
@@ -32,7 +39,21 @@ SamplerBuilder &SamplerBuilder::SetMaxLod(float maxLod)
 
 VkSampler SamplerBuilder::Build(VulkanContext &ctx)
 {
-    VkSampler sampler;
+    return BuildImpl(ctx);
+}
+
+VkSampler SamplerBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
+{
+    const auto res = BuildImpl(ctx);
+
+    queue.push_back(res);
+
+    return res;
+}
+
+VkSampler SamplerBuilder::BuildImpl(VulkanContext &ctx)
+{
+    VkSampler sampler{};
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -62,6 +83,8 @@ VkSampler SamplerBuilder::Build(VulkanContext &ctx)
 
     if (vkCreateSampler(ctx.Device, &samplerInfo, nullptr, &sampler) != VK_SUCCESS)
         throw std::runtime_error("Failed to create texture sampler!");
+
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_SAMPLER, sampler, mDebugName);
 
     return sampler;
 }

@@ -1,9 +1,10 @@
 #include "Pipeline.h"
+#include "VkUtils.h"
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-PipelineBuilder::PipelineBuilder()
+PipelineBuilder::PipelineBuilder(std::string_view debugName) : mDebugName(debugName)
 {
     // Initialize all vulkan structs:
     mVertexInput = {};
@@ -153,14 +154,35 @@ PipelineBuilder &PipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout d
 
 PipelineBuilder &PipelineBuilder::SetPushConstantSize(uint32_t size)
 {
-    mPushConstantSize = size;
+    VkPushConstantRange pcRange{};
+    pcRange.offset = 0;
+    pcRange.size = size;
+    // To-do: may expose more granular control over this:
+    pcRange.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
+
+    mPushConstantRange = pcRange;
 
     return *this;
 }
 
 Pipeline PipelineBuilder::Build(VulkanContext &ctx)
 {
-    Pipeline pipeline;
+    return BuildImpl(ctx);
+}
+
+Pipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
+{
+    const auto res = BuildImpl(ctx);
+
+    queue.push_back(res.Handle);
+    queue.push_back(res.Layout);
+
+    return res;
+}
+
+Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
+{
+    Pipeline pipeline{};
 
     // Create pipeline layout:
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
@@ -173,21 +195,20 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
         pipelineLayoutInfo.pSetLayouts = mDescriptorLayouts.data();
     }
 
-    if (mPushConstantSize != 0)
+    if (mPushConstantRange)
     {
-        VkPushConstantRange pushConstant{};
-        pushConstant.offset = 0;
-        pushConstant.size = mPushConstantSize;
-        // To-do: may expose more granular control over this:
-        pushConstant.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
+        auto &pcRange = *mPushConstantRange;
 
-        pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+        pipelineLayoutInfo.pPushConstantRanges = &pcRange;
         pipelineLayoutInfo.pushConstantRangeCount = 1;
     }
 
     if (vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
                                &pipeline.Layout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a pipeline layout!");
+
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline.Layout,
+                          mDebugName);
 
     // Fill in dynamic state info:
     VkViewport viewport = {};
@@ -255,10 +276,17 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx)
                                   &pipeline.Handle) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a Graphics Pipeline!");
 
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);
+
     for (auto &shaderInfo : mShaderStages)
         vkDestroyShaderModule(ctx.Device, shaderInfo.module, nullptr);
 
     return pipeline;
+}
+
+ComputePipelineBuilder::ComputePipelineBuilder(std::string_view debugName)
+    : mDebugName(debugName)
+{
 }
 
 ComputePipelineBuilder &ComputePipelineBuilder::SetShaderStage(
@@ -278,13 +306,33 @@ ComputePipelineBuilder &ComputePipelineBuilder::AddDescriptorSetLayout(
 
 ComputePipelineBuilder &ComputePipelineBuilder::SetPushConstantSize(uint32_t size)
 {
-    mPushConstantSize = size;
+    VkPushConstantRange pcRange{};
+    pcRange.offset = 0;
+    pcRange.size = size;
+    pcRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    mPushConstantRange = pcRange;
     return *this;
 }
 
 Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx)
 {
-    Pipeline pipeline;
+    return BuildImpl(ctx);
+}
+
+Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
+{
+    const auto res = BuildImpl(ctx);
+
+    queue.push_back(res.Handle);
+    queue.push_back(res.Layout);
+
+    return res;
+}
+
+Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
+{
+    Pipeline pipeline{};
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -296,20 +344,20 @@ Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx)
         pipelineLayoutInfo.pSetLayouts = mDescriptorLayouts.data();
     }
 
-    if (mPushConstantSize != 0)
+    if (mPushConstantRange)
     {
-        VkPushConstantRange pushConstant{};
-        pushConstant.offset = 0;
-        pushConstant.size = mPushConstantSize;
-        pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        auto &pcRange = *mPushConstantRange;
 
-        pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+        pipelineLayoutInfo.pPushConstantRanges = &pcRange;
         pipelineLayoutInfo.pushConstantRangeCount = 1;
     }
 
     if (vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
                                &pipeline.Layout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create compute pipeline layout!");
+
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline.Layout,
+                          mDebugName);
 
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -319,6 +367,8 @@ Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx)
     if (vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
                                  &pipeline.Handle) != VK_SUCCESS)
         throw std::runtime_error("Failed to create compute pipeline!");
+
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);
 
     vkDestroyShaderModule(ctx.Device, mShaderStage.module, nullptr);
 

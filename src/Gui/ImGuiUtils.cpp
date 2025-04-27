@@ -49,6 +49,11 @@ void imutils::DisplayStats(FrameStats &stats)
     ImGui::Text("Draws: %i", stats.NumDraws);
     ImGui::Text("Dispatches: %i", stats.NumDispatches);
 
+    // To-do: enable this
+    // const float memPercent = static_cast<float>(stats.MemoryUsage) /
+    // static_cast<float>(stats.MemoryBudget); ImGui::Text("Memory Usage: %zu, (%f %%)",
+    // stats.MemoryUsage, memPercent);
+
     ImGui::End();
 
     ImGui::PopStyleColor(1);

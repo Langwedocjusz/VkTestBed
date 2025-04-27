@@ -11,7 +11,7 @@ class VulkanContext {
                   SystemWindow &window);
     ~VulkanContext();
 
-    void CreateSwapchain(bool first_run = false);
+    void CreateSwapchain(bool firstRun = false);
 
   public:
     vkb::Instance Instance;
@@ -29,4 +29,7 @@ class VulkanContext {
     bool SwapchainOk = true;
     uint32_t RequestedWidth;
     uint32_t RequestedHeight;
+
+    // Non-core function pointers:
+    PFN_vkSetDebugUtilsObjectNameEXT SetDebugUtilsObjectName = VK_NULL_HANDLE;
 };

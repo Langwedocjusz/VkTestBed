@@ -1,10 +1,10 @@
 #version 450
 
+layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
 layout (set = 0, binding = 0, Rgba32f) uniform writeonly imageCube resultImage;
 
 layout(set = 0, binding = 1) uniform sampler2D environment;
-
-layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 #define RIGHT 0
 #define LEFT 1
@@ -13,18 +13,26 @@ layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 #define FRONT 4
 #define BACK 5
 
-void main()
+vec2 GetCoordsCentered(uvec2 texelCoord)
 {
-    uint sideId = gl_GlobalInvocationID.z;
-    uvec2 index = gl_GlobalInvocationID.xy;
-
-    ivec3 outCoord = ivec3(index.x, index.y, sideId);
-
-    vec2 ts = vec2(index.x, index.y) + vec2(0.5);
+    //Converts texel coord to [-1,1] coordinates.
+    vec2 ts = vec2(texelCoord) + vec2(0.5);
     ts = ts / vec2(imageSize(resultImage));
     ts = 2.0 * ts - 1.0;
 
+    return ts;
+}
+
+vec3 GetCubemapDir(vec2 ts, uint sideId)
+{
     vec3 dir;
+
+    #define RIGHT 0
+    #define LEFT 1
+    #define BOTTOM 2
+    #define TOP 3
+    #define FRONT 4
+    #define BACK 5
 
     switch(sideId)
     {
@@ -36,7 +44,19 @@ void main()
         case BACK:   {dir = vec3(-ts.x, -ts.y, -1.0); break;}
     }
 
-    dir = normalize(dir);
+    return normalize(dir);
+}
+
+void main()
+{
+    uint sideId = gl_GlobalInvocationID.z;
+    uvec2 index = gl_GlobalInvocationID.xy;
+
+    ivec3 outCoord = ivec3(index.x, index.y, sideId);
+
+    vec2 ts = GetCoordsCentered(index);
+
+    vec3 dir = GetCubemapDir(ts, sideId);
 
     const float pi = 3.141592535;
 

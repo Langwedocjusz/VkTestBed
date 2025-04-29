@@ -2,38 +2,6 @@
 
 #include <vulkan/vulkan.h>
 
-VkQueue vkinit::CreateQueue(VulkanContext &ctx, vkb::QueueType type)
-{
-    auto queue = ctx.Device.get_queue(type);
-
-    if (!queue.has_value())
-    {
-        auto err_msg = "Failed to get a queue: " + queue.error().message();
-        throw std::runtime_error(err_msg);
-    }
-
-    return queue.value();
-}
-
-VkQueue vkinit::CreateQueue(VulkanContext &ctx, vkb::QueueType type,
-                            VkQueueFamilyProperties &properties)
-{
-    auto idx = ctx.Device.get_queue_index(type);
-
-    auto queue = ctx.Device.get_queue(type);
-
-    if (!queue.has_value())
-    {
-        auto err_msg = "Failed to get a queue: " + queue.error().message();
-        throw std::runtime_error(err_msg);
-    }
-
-    auto propVector = ctx.PhysicalDevice.get_queue_families();
-    properties = propVector[idx.value()];
-
-    return queue.value();
-}
-
 void vkinit::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
 {
     VkFenceCreateInfo fence_info = {};

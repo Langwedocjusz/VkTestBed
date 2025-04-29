@@ -1,6 +1,6 @@
 #pragma once
 
-#include "RenderContext.h"
+#include "Frame.h"
 #include "VulkanContext.h"
 
 #include <span>
@@ -14,13 +14,12 @@ void SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFence fenc
                  std::span<VkPipelineStageFlags> waitStages,
                  std::span<VkSemaphore> signalSemaphores);
 
-void SubmitGraphicsQueue(RenderContext::Queues &queues,
-                         std::span<VkCommandBuffer> buffers, FrameData &frame);
+void SubmitGraphicsQueue(VulkanContext &ctx, std::span<VkCommandBuffer> buffers, FrameData &frame);
 
-void SubmitGraphicsQueue(RenderContext::Queues &queues, VkCommandBuffer buffer,
+void SubmitGraphicsQueue(VulkanContext &ctx, VkCommandBuffer buffer,
                          FrameData &frame);
 
 void AcquireNextImage(VulkanContext &ctx, FrameInfo &frame);
 
-void PresentFrame(VulkanContext &ctx, RenderContext::Queues &queues, FrameInfo &frame);
+void PresentFrame(VulkanContext &ctx, FrameInfo &frame);
 } // namespace common

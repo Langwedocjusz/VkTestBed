@@ -20,7 +20,7 @@ static std::tuple<VkDeviceSize, VkExtent2D> RepackImgData(const ImageData &data)
     return {size, extent};
 }
 
-Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+Image ImageLoaders::LoadImage2D(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
                                 const ImageData &data, VkFormat format)
 {
     auto [imageSize, extent] = RepackImgData(data);
@@ -48,7 +48,7 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, VkQueue queue, VkCommandPool
     return img;
 }
 
-Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
                                    const ImageData &data, VkFormat format)
 {
     auto [imageSize, extent] = RepackImgData(data);
@@ -78,7 +78,7 @@ Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, VkQueue queue, VkCommandP
     return img;
 }
 
-Texture TextureLoaders::LoadTexture2D(VulkanContext &ctx, VkQueue queue,
+Texture TextureLoaders::LoadTexture2D(VulkanContext &ctx, QueueType queue,
                                       VkCommandPool pool, const ImageData &data,
                                       VkFormat format)
 {
@@ -90,7 +90,7 @@ Texture TextureLoaders::LoadTexture2D(VulkanContext &ctx, VkQueue queue,
     return res;
 }
 
-Texture TextureLoaders::LoadTexture2DMipped(VulkanContext &ctx, VkQueue queue,
+Texture TextureLoaders::LoadTexture2DMipped(VulkanContext &ctx, QueueType queue,
                                             VkCommandPool pool, const ImageData &data,
                                             VkFormat format)
 {

@@ -3,7 +3,7 @@
 #include "DeletionQueue.h"
 #include "Descriptor.h"
 #include "Pipeline.h"
-#include "RenderContext.h"
+#include "Frame.h"
 #include "Scene.h"
 #include "Texture.h"
 #include "VulkanContext.h"
@@ -13,8 +13,7 @@
 
 class EnvironmentHandler {
   public:
-    EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
-                       RenderContext::Queues &queues);
+    EnvironmentHandler(VulkanContext &ctx, FrameInfo &info);
     ~EnvironmentHandler();
 
     void RebuildPipelines();
@@ -53,7 +52,6 @@ class EnvironmentHandler {
   private:
     VulkanContext &mCtx;
     FrameInfo &mFrame;
-    RenderContext::Queues &mQueues;
 
     // Descriptor sets exposed to the outside world:
     VkDescriptorSetLayout mLightingDescriptorSetLayout;

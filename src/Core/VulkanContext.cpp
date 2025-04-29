@@ -1,5 +1,25 @@
 #include "VulkanContext.h"
+#include "VkBootstrap.h"
 #include <stdexcept>
+
+static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
+                           VkQueueFamilyProperties &properties)
+{
+    auto idx = ctx.Device.get_queue_index(type);
+
+    auto queue = ctx.Device.get_queue(type);
+
+    if (!queue.has_value())
+    {
+        auto err_msg = "Failed to get a queue: " + queue.error().message();
+        throw std::runtime_error(err_msg);
+    }
+
+    auto propVector = ctx.PhysicalDevice.get_queue_families();
+    properties = propVector[idx.value()];
+
+    return queue.value();
+}
 
 VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string &appName,
                              SystemWindow &window)
@@ -74,6 +94,13 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
 
     Device = deviceRet.value();
 
+    // Create queues:
+    Queues.Graphics =
+        CreateQueue(*this, vkb::QueueType::graphics, QueueProperties.Graphics);
+
+    Queues.Present =
+        CreateQueue(*this, vkb::QueueType::present, QueueProperties.Present);
+
     // Vma Allocator creation:
     VmaAllocatorCreateInfo allocatorCreateInfo = {};
     allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
@@ -124,4 +151,23 @@ void VulkanContext::CreateSwapchain(bool firstRun)
 
     SwapchainImages = Swapchain.get_images().value();
     SwapchainImageViews = Swapchain.get_image_views().value();
+}
+
+VkQueue VulkanContext::GetQueue(QueueType type)
+{
+    switch(type)
+    {
+        case QueueType::Graphics:
+        {
+            return Queues.Graphics;
+        }
+        case QueueType::Present:
+        {
+            return Queues.Present;
+        }
+        default:
+        {
+            throw std::runtime_error("Queue type not yet supported!");
+        }
+    }
 }

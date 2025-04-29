@@ -3,9 +3,9 @@
 #include "Barrier.h"
 #include "Buffer.h"
 #include "BufferUtils.h"
-#include "DeletionQueue.h"
 #include "VkUtils.h"
-#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.h>
 
 #include <cmath>
 
@@ -95,7 +95,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
     Buffer::Destroy(ctx, stagingBuffer);
 }
 
-void Image::GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+void Image::GenerateMips(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
                          Image &img)
 {
     vkutils::ScopedCommand cmd(ctx, queue, pool);
@@ -103,64 +103,63 @@ void Image::GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
     VkExtent3D srcSize = img.Info.extent;
     VkExtent3D dstSize = img.Info.extent;
 
+    const auto numArrays = img.Info.arrayLayers;
+
     dstSize.width /= 2;
     dstSize.height /= 2;
 
     for (uint32_t mip = 1; mip < img.Info.mipLevels; mip++)
     {
-        for (uint32_t layer = 0; layer < img.Info.arrayLayers; layer++)
-        {
-            auto srcInfo = barrier::ImageLayoutBarrierInfo{
-                .Image = img.Handle,
-                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 1, layer, 1},
-            };
-    
-            barrier::ImageLayoutBarrierCoarse(cmd.Buffer, srcInfo);
-    
-            auto dstInfo = barrier::ImageLayoutBarrierInfo{
-                .Image = img.Handle,
-                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, layer, 1},
-            };
-    
-            barrier::ImageLayoutBarrierCoarse(cmd.Buffer, dstInfo);
-    
-            VkImageBlit2 blitRegion{};
-            blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
-    
-            blitRegion.srcOffsets[1].x = srcSize.width;
-            blitRegion.srcOffsets[1].y = srcSize.height;
-            blitRegion.srcOffsets[1].z = 1;
-    
-            blitRegion.dstOffsets[1].x = dstSize.width;
-            blitRegion.dstOffsets[1].y = dstSize.height;
-            blitRegion.dstOffsets[1].z = 1;
-    
-            blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            blitRegion.srcSubresource.baseArrayLayer = layer;
-            blitRegion.srcSubresource.layerCount = 1;
-            blitRegion.srcSubresource.mipLevel = mip - 1;
-    
-            blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            blitRegion.dstSubresource.baseArrayLayer = layer;
-            blitRegion.dstSubresource.layerCount = 1;
-            blitRegion.dstSubresource.mipLevel = mip;
-    
-            VkBlitImageInfo2 blitInfo{};
-            blitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
-            blitInfo.dstImage = img.Handle;
-            blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            blitInfo.srcImage = img.Handle;
-            blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            blitInfo.filter = VK_FILTER_LINEAR;
-            blitInfo.regionCount = 1;
-            blitInfo.pRegions = &blitRegion;
-    
-            vkCmdBlitImage2(cmd.Buffer, &blitInfo);
-        }
+        auto srcInfo = barrier::ImageLayoutBarrierInfo{
+            .Image = img.Handle,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 1, 0, numArrays},
+        };
+
+        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, srcInfo);
+
+        auto dstInfo = barrier::ImageLayoutBarrierInfo{
+            .Image = img.Handle,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, 0, numArrays},
+        };
+
+        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, dstInfo);
+
+        VkImageBlit2 blitRegion{};
+        blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+
+        blitRegion.srcOffsets[1].x = srcSize.width;
+        blitRegion.srcOffsets[1].y = srcSize.height;
+        blitRegion.srcOffsets[1].z = 1;
+
+        blitRegion.dstOffsets[1].x = dstSize.width;
+        blitRegion.dstOffsets[1].y = dstSize.height;
+        blitRegion.dstOffsets[1].z = 1;
+
+        blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blitRegion.srcSubresource.baseArrayLayer = 0;
+        blitRegion.srcSubresource.layerCount = numArrays;
+        blitRegion.srcSubresource.mipLevel = mip - 1;
+
+        blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blitRegion.dstSubresource.baseArrayLayer = 0;
+        blitRegion.dstSubresource.layerCount = numArrays;
+        blitRegion.dstSubresource.mipLevel = mip;
+
+        VkBlitImageInfo2 blitInfo{};
+        blitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+        blitInfo.dstImage = img.Handle;
+        blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        blitInfo.srcImage = img.Handle;
+        blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        blitInfo.filter = VK_FILTER_LINEAR;
+        blitInfo.regionCount = 1;
+        blitInfo.pRegions = &blitRegion;
+
+        vkCmdBlitImage2(cmd.Buffer, &blitInfo);
 
         srcSize.width /= 2;
         srcSize.height /= 2;
@@ -172,7 +171,8 @@ void Image::GenerateMips(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
         .Image = img.Handle,
         .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.mipLevels, 0, img.Info.arrayLayers},
+        .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.mipLevels, 0,
+                             img.Info.arrayLayers},
     };
 
     barrier::ImageLayoutBarrierCoarse(cmd.Buffer, finalInfo);

@@ -12,9 +12,8 @@
 
 #include <vulkan/vulkan_core.h>
 
-EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
-                                       RenderContext::Queues &queues)
-    : mCtx(ctx), mFrame(info), mQueues(queues), mDescriptorAllocator(ctx),
+EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
+    : mCtx(ctx), mFrame(info), mDescriptorAllocator(ctx),
       mDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
 {
     // Create the texture samplers:
@@ -126,7 +125,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info,
     // Immidiately transition to shader read layout:
     {
         auto &pool = mFrame.CurrentPool();
-        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
 
         auto barrierInfo = barrier::ImageLayoutBarrierInfo{
             .Image = mCubemap.Img.Handle,
@@ -352,7 +351,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkForma
 
     // Load equirectangular environment map:
     auto envMap =
-        TextureLoaders::LoadTexture2D(mCtx, mQueues.Graphics, pool, data, format);
+        TextureLoaders::LoadTexture2D(mCtx, QueueType::Graphics, pool, data, format);
 
     DescriptorUpdater(mTexToImgDescriptorSet)
         .WriteImageStorage(0, mCubemap.View)
@@ -360,7 +359,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkForma
         .Update(mCtx);
 
     {
-        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
 
         // Transition cubemap to use as storage image:
         auto barrierInfo = barrier::ImageLayoutBarrierInfo{
@@ -395,7 +394,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkForma
     }
 
     // Generate mip levels (to use when generating prefiltered map)
-    Image::GenerateMips(mCtx, mQueues.Graphics, pool, mCubemap.Img);
+    Image::GenerateMips(mCtx, QueueType::Graphics, pool, mCubemap.Img);
 
     // Clean up the equirectangular map:
     Image::Destroy(mCtx, envMap.Img);
@@ -408,7 +407,7 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
 
     // Do parallel patch-based computation of SH coeficcients
     {
-        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
 
         vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                           mIrradianceSHPipeline.Handle);
@@ -438,7 +437,7 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
 
     // Sum-reduce the resulting array:
     {
-        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
 
         vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                           mIrradianceReducePipeline.Handle);
@@ -467,10 +466,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
     // Blit cubemap onto prefiltered map level zero:
     {
-        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
-
-        VkExtent3D srcSize = mCubemap.Img.Info.extent;
-        VkExtent3D dstSize = mPrefiltered.Img.Info.extent;
+        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
 
         // Transition cubemap to transfer source:
         auto srcInfo = barrier::ImageLayoutBarrierInfo{
@@ -492,38 +488,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
         barrier::ImageLayoutBarrierCoarse(cmd.Buffer, dstInfo);
 
         // Issue the blit command:
-        VkImageBlit2 blitRegion{};
-        blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
-
-        blitRegion.srcOffsets[1].x = srcSize.width;
-        blitRegion.srcOffsets[1].y = srcSize.height;
-        blitRegion.srcOffsets[1].z = 1;
-
-        blitRegion.dstOffsets[1].x = dstSize.width;
-        blitRegion.dstOffsets[1].y = dstSize.height;
-        blitRegion.dstOffsets[1].z = 1;
-
-        blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blitRegion.srcSubresource.baseArrayLayer = 0;
-        blitRegion.srcSubresource.layerCount = 6;
-        blitRegion.srcSubresource.mipLevel = 0;
-
-        blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blitRegion.dstSubresource.baseArrayLayer = 0;
-        blitRegion.dstSubresource.layerCount = 6;
-        blitRegion.dstSubresource.mipLevel = 0;
-
-        VkBlitImageInfo2 blitInfo{};
-        blitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
-        blitInfo.dstImage = mPrefiltered.Img.Handle;
-        blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        blitInfo.srcImage = mCubemap.Img.Handle;
-        blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        blitInfo.filter = VK_FILTER_LINEAR;
-        blitInfo.regionCount = 1;
-        blitInfo.pRegions = &blitRegion;
-
-        vkCmdBlitImage2(cmd.Buffer, &blitInfo);
+        vkutils::BlitImageZeroMip(cmd.Buffer, mCubemap.Img, mPrefiltered.Img);
 
         // Transition cubemap to be used as a texture:
         srcInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -563,7 +528,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
                 .WriteImageStorage(1, mPrefilteredMipViews[mip])
                 .Update(mCtx);
 
-            vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+            vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
 
             vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                               mPrefilteredGenPipeline.Handle);
@@ -585,7 +550,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
     // Transition prefiltered map to be used as a texture:
     {
-        vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
 
         auto dstInfo = barrier::ImageLayoutBarrierInfo{
             .Image = mPrefiltered.Img.Handle,
@@ -601,7 +566,7 @@ void EnvironmentHandler::GenerateIntegrationMap()
 {
     auto &pool = mFrame.CurrentPool();
 
-    vkutils::ScopedCommand cmd(mCtx, mQueues.Graphics, pool);
+    vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
 
     auto barrierInfo = barrier::ImageLayoutBarrierInfo{
         .Image = mIntegration.Img.Handle,

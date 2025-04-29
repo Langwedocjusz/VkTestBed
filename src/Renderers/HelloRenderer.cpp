@@ -13,9 +13,8 @@
 #include <vulkan/vulkan.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
-                             RenderContext::Queues &queues,
                              std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, queues, camera), mSceneDeletionQueue(ctx)
+    : IRenderer(ctx, info, camera), mSceneDeletionQueue(ctx)
 {
     RebuildPipelines();
     CreateSwapchainResources();
@@ -160,12 +159,12 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
     auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
         drawable.VertexBuffer =
-            MakeBuffer::Vertex(mCtx, mQueues.Graphics, pool, geo.VertexData);
+            MakeBuffer::Vertex(mCtx, QueueType::Graphics, pool, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
         drawable.IndexBuffer =
-            MakeBuffer::Index(mCtx, mQueues.Graphics, pool, geo.IndexData);
+            MakeBuffer::Index(mCtx, QueueType::Graphics, pool, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         // Update deletion queue:

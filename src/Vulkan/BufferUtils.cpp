@@ -30,7 +30,7 @@ Buffer MakeBuffer::TransferDST(VulkanContext &ctx, TransferDSTInfo info)
     Buffer::Upload(ctx, stagingBuffer, info.Data, info.Size);
 
     {
-        vkutils::ScopedCommand cmd(info.Ctx, info.Queue, info.Pool);
+        vkutils::ScopedCommand cmd(ctx, info.Queue, info.Pool);
 
         CopyBufferInfo cp_info{
             .Src = stagingBuffer.Handle,
@@ -46,13 +46,12 @@ Buffer MakeBuffer::TransferDST(VulkanContext &ctx, TransferDSTInfo info)
     return buff;
 }
 
-Buffer MakeBuffer::Vertex(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+Buffer MakeBuffer::Vertex(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
                           const OpaqueBuffer &buf)
 {
     Buffer res;
 
     TransferDSTInfo info{
-        .Ctx = ctx,
         .Queue = queue,
         .Pool = pool,
         .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -66,13 +65,12 @@ Buffer MakeBuffer::Vertex(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
     return res;
 }
 
-Buffer MakeBuffer::Index(VulkanContext &ctx, VkQueue queue, VkCommandPool pool,
+Buffer MakeBuffer::Index(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
                          const OpaqueBuffer &buf)
 {
     Buffer res;
 
     TransferDSTInfo info{
-        .Ctx = ctx,
         .Queue = queue,
         .Pool = pool,
         .Usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,

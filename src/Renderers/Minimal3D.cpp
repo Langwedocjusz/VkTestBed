@@ -15,9 +15,8 @@
 #include <vulkan/vulkan.h>
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
-                                     RenderContext::Queues &queues,
                                      std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, queues, camera), mTextureDescriptorAllocator(ctx),
+    : IRenderer(ctx, info, camera), mTextureDescriptorAllocator(ctx),
       mSceneDeletionQueue(ctx)
 {
     // Create descriptor set layout for sampling textures
@@ -40,7 +39,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
     auto &pool = mFrame.CurrentPool();
     auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255});
 
-    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, mQueues.Graphics, pool, imgData,
+    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, QueueType::Graphics, pool, imgData,
                                                   VK_FORMAT_R8G8B8A8_SRGB);
     mMainDeletionQueue.push_back(mDefaultImage);
 
@@ -298,12 +297,12 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
     auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
         drawable.VertexBuffer =
-            MakeBuffer::Vertex(mCtx, mQueues.Graphics, pool, geo.VertexData);
+            MakeBuffer::Vertex(mCtx, QueueType::Graphics, pool, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
         drawable.IndexBuffer =
-            MakeBuffer::Index(mCtx, mQueues.Graphics, pool, geo.IndexData);
+            MakeBuffer::Index(mCtx, QueueType::Graphics, pool, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         mSceneDeletionQueue.push_back(drawable.VertexBuffer);
@@ -351,7 +350,7 @@ void Minimal3DRenderer::LoadImages(const Scene &scene)
 
         auto &texture = mImages[key];
 
-        texture = TextureLoaders::LoadTexture2DMipped(mCtx, mQueues.Graphics, pool,
+        texture = TextureLoaders::LoadTexture2DMipped(mCtx, QueueType::Graphics, pool,
                                                       imgData, VK_FORMAT_R8G8B8A8_SRGB);
         mSceneDeletionQueue.push_back(texture);
     }

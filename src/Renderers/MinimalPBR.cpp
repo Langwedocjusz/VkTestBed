@@ -20,10 +20,9 @@
 #include <ranges>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
-                                       RenderContext::Queues &queues,
                                        std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, queues, camera), mMaterialDescriptorAllocator(ctx),
-      mEnvHandler(ctx, info, queues), mSceneDeletionQueue(ctx),
+    : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
+      mEnvHandler(ctx, info), mSceneDeletionQueue(ctx),
       mMaterialDeletionQueue(ctx)
 {
     // Create the texture sampler:
@@ -62,11 +61,11 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0});
     auto normalData = ImageData::SinglePixel(Pixel{128, 128, 255, 0});
 
-    mDefaultAlbedo = TextureLoaders::LoadTexture2D(mCtx, mQueues.Graphics, pool,
+    mDefaultAlbedo = TextureLoaders::LoadTexture2D(mCtx, QueueType::Graphics, pool,
                                                    albedoData, VK_FORMAT_R8G8B8A8_SRGB);
     mDefaultRoughness = TextureLoaders::LoadTexture2D(
-        mCtx, mQueues.Graphics, pool, roughnessData, VK_FORMAT_R8G8B8A8_UNORM);
-    mDefaultNormal = TextureLoaders::LoadTexture2D(mCtx, mQueues.Graphics, pool,
+        mCtx, QueueType::Graphics, pool, roughnessData, VK_FORMAT_R8G8B8A8_UNORM);
+    mDefaultNormal = TextureLoaders::LoadTexture2D(mCtx, QueueType::Graphics, pool,
                                                    normalData, VK_FORMAT_R8G8B8A8_UNORM);
 
     mMainDeletionQueue.push_back(mDefaultAlbedo);
@@ -335,12 +334,12 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
     auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
         drawable.VertexBuffer =
-            MakeBuffer::Vertex(mCtx, mQueues.Graphics, pool, geo.VertexData);
+            MakeBuffer::Vertex(mCtx, QueueType::Graphics, pool, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
         drawable.IndexBuffer =
-            MakeBuffer::Index(mCtx, mQueues.Graphics, pool, geo.IndexData);
+            MakeBuffer::Index(mCtx, QueueType::Graphics, pool, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         // Update deletion queue:
@@ -382,7 +381,7 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
 
         auto format = imgData.Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 
-        texture = TextureLoaders::LoadTexture2DMipped(mCtx, mQueues.Graphics, pool,
+        texture = TextureLoaders::LoadTexture2DMipped(mCtx, QueueType::Graphics, pool,
                                                       imgData, format);
 
         mSceneDeletionQueue.push_back(texture);

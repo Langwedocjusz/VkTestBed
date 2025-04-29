@@ -8,9 +8,11 @@ namespace iminit
 {
 void InitImGui();
 void InitGlfwBackend(GLFWwindow *window);
+
 VkDescriptorPool CreateDescriptorPool(VulkanContext &ctx);
+
 void InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPool,
-                       VkQueue graphicsQueue, uint32_t framesInFlight);
+                       uint32_t framesInFlight);
 
 void BeginGuiFrame();
 void FinalizeGuiFrame();

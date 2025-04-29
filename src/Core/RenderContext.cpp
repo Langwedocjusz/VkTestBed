@@ -14,20 +14,13 @@
 
 #include <iostream>
 #include <memory>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 #include "ImGuiUtils.h"
 
 RenderContext::RenderContext(VulkanContext &ctx)
     : mCtx(ctx), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
 {
-    // Create queues:
-    VkQueueFamilyProperties graphicsProperties;
-
-    mQueues.Graphics =
-        vkinit::CreateQueue(ctx, vkb::QueueType::graphics, graphicsProperties);
-    mQueues.Present = vkinit::CreateQueue(ctx, vkb::QueueType::present);
-
     // Create per frame command pools/buffers and sync-objects:
     for (auto &data : mFrameInfo.Data)
     {
@@ -59,7 +52,7 @@ RenderContext::RenderContext(VulkanContext &ctx)
 
     if (!limits.timestampComputeAndGraphics)
     {
-        if (graphicsProperties.timestampValidBits == 0)
+        if (mCtx.QueueProperties.Graphics.timestampValidBits == 0)
         {
             mTimestampSupported = false;
         }
@@ -81,7 +74,7 @@ RenderContext::RenderContext(VulkanContext &ctx)
             // Reset all timestamps preemptively
             {
                 auto &pool = mFrameInfo.CurrentPool();
-                auto cmd = vkutils::ScopedCommand(mCtx, mQueues.Graphics, pool);
+                auto cmd = vkutils::ScopedCommand(mCtx, QueueType::Graphics, pool);
 
                 vkCmdResetQueryPool(cmd.Buffer, mQueryPool, 0, mNumTimestamps);
             }
@@ -100,7 +93,7 @@ RenderContext::RenderContext(VulkanContext &ctx)
     mCamera = std::make_unique<Camera>(mCtx, mFrameInfo);
 
     // To-do: Move this to some factory function:
-    mRenderer = std::make_unique<MinimalPbrRenderer>(mCtx, mFrameInfo, mQueues, mCamera);
+    mRenderer = std::make_unique<MinimalPbrRenderer>(mCtx, mFrameInfo, mCamera);
 }
 
 void RenderContext::InitImGuiVulkanBackend()
@@ -108,8 +101,7 @@ void RenderContext::InitImGuiVulkanBackend()
     mImGuiDescriptorPool = iminit::CreateDescriptorPool(mCtx);
     mMainDeletionQueue.push_back(mImGuiDescriptorPool);
 
-    iminit::InitVulkanBackend(mCtx, mImGuiDescriptorPool, mQueues.Graphics,
-                              mFrameInfo.MaxInFlight);
+    iminit::InitVulkanBackend(mCtx, mImGuiDescriptorPool, mFrameInfo.MaxInFlight);
 }
 
 RenderContext::~RenderContext()
@@ -157,7 +149,7 @@ void RenderContext::OnRender()
     DrawFrame();
 
     // 5. Present the frame to swapchain:
-    common::PresentFrame(mCtx, mQueues, mFrameInfo);
+    common::PresentFrame(mCtx, mFrameInfo);
 
     // 6. Advance frame index:
     mFrameInfo.FrameNumber++;
@@ -168,9 +160,15 @@ void RenderContext::DrawFrame()
 {
     auto &frame = mFrameInfo.CurrentData();
     auto &cmd = mFrameInfo.CurrentCmd();
-    auto &swapchainImage = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
 
-    VkExtent2D swapchainSize{mCtx.Swapchain.extent.width, mCtx.Swapchain.extent.height};
+    auto &swapchainImage = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
+    auto swapchainExtent = mCtx.Swapchain.extent;
+
+    auto swapchainInfo = vkutils::BlitImageInfo{
+        .ImgHandle = swapchainImage,
+        .Extent = VkExtent3D{swapchainExtent.width, swapchainExtent.height, 1},
+        .NumLayers = 1,
+    };
 
     // I. Reset the command buffer
     vkResetCommandBuffer(cmd, 0);
@@ -183,7 +181,7 @@ void RenderContext::DrawFrame()
                             2 * mFrameInfo.Index);
 
         // 1. Transition render target to rendering:
-        barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTarget());
+        barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTarget().Handle);
 
         // 2. Render to image:
         mRenderer->OnRender();
@@ -191,7 +189,7 @@ void RenderContext::DrawFrame()
         // 3. Transition render target and swapchain image for copy
         {
             auto info = barrier::ImageLayoutBarrierInfo{
-                .Image = mRenderer->GetTarget(),
+                .Image = mRenderer->GetTarget().Handle,
                 .OldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
@@ -212,8 +210,7 @@ void RenderContext::DrawFrame()
         }
 
         // 4. Copy render target to swapchain image
-        vkutils::BlitImage(cmd, mRenderer->GetTarget(), swapchainImage,
-                           mRenderer->GetTargetSize(), swapchainSize);
+        vkutils::BlitImageZeroMip(cmd, mRenderer->GetTarget(), swapchainInfo);
 
         // 5. Transition swapchain image to render
         {
@@ -248,7 +245,7 @@ void RenderContext::DrawFrame()
     vkutils::EndRecording(cmd);
 
     // III. Submit the command buffer
-    common::SubmitGraphicsQueue(mQueues, cmd, frame);
+    common::SubmitGraphicsQueue(mCtx, cmd, frame);
 
     // IV. Query for timestamp results (previous frame):
     auto ModDecrement = [](uint32_t x, uint32_t n) { return (x != 0) ? x - 1 : n - 1; };

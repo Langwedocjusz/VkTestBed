@@ -31,11 +31,6 @@ class RenderContext {
     void LoadScene(Scene &scene);
     void RebuildPipelines();
 
-    struct Queues {
-        VkQueue Graphics;
-        VkQueue Present;
-    };
-
   private:
     void DrawFrame();
     void DrawUI(VkCommandBuffer cmd);
@@ -44,7 +39,6 @@ class RenderContext {
     VulkanContext &mCtx;
 
     FrameInfo mFrameInfo;
-    Queues mQueues;
 
     std::unique_ptr<Camera> mCamera;
     std::unique_ptr<IRenderer> mRenderer;

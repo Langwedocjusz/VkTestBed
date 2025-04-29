@@ -1,15 +1,19 @@
 #pragma once
 
 #include "Image.h"
-#include "RenderContext.h"
+#include "Frame.h"
+#include "Camera.h"
+#include "Scene.h"
 
 #include <vulkan/vulkan.h>
 
+#include <memory>
+
 class IRenderer {
   public:
-    IRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
+    IRenderer(VulkanContext &ctx, FrameInfo &info,
               std::unique_ptr<Camera> &camera)
-        : mCtx(ctx), mFrame(info), mQueues(queues), mCamera(camera),
+        : mCtx(ctx), mFrame(info), mCamera(camera),
           mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx),
           mPipelineDeletionQueue(ctx)
     {
@@ -31,9 +35,9 @@ class IRenderer {
         mSwapchainDeletionQueue.flush();
     }
 
-    [[nodiscard]] VkImage GetTarget() const
+    [[nodiscard]] const Image &GetTarget() const
     {
-        return mRenderTarget.Handle;
+        return mRenderTarget;
     }
     [[nodiscard]] VkImageView GetTargetView() const
     {
@@ -47,7 +51,6 @@ class IRenderer {
   protected:
     VulkanContext &mCtx;
     FrameInfo &mFrame;
-    RenderContext::Queues &mQueues;
     std::unique_ptr<Camera> &mCamera;
 
     Image mRenderTarget;

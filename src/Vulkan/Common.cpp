@@ -51,23 +51,26 @@ void common::SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFe
     }
 }
 
-void common::SubmitGraphicsQueue(RenderContext::Queues &queues,
+void common::SubmitGraphicsQueue(VulkanContext &ctx,
                                  std::span<VkCommandBuffer> buffers, FrameData &frame)
 {
+    auto queue = ctx.GetQueue(QueueType::Graphics);
+
     std::array<VkSemaphore, 1> waitSemaphores{frame.ImageAcquiredSemaphore};
     std::array<VkPipelineStageFlags, 1> waitStages{
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     std::array<VkSemaphore, 1> signalSemaphores{frame.RenderCompletedSemaphore};
 
-    SubmitQueue(queues.Graphics, buffers, frame.InFlightFence, waitSemaphores, waitStages,
+    SubmitQueue(queue, buffers, frame.InFlightFence, waitSemaphores, waitStages,
                 signalSemaphores);
 }
 
-void common::SubmitGraphicsQueue(RenderContext::Queues &queues, VkCommandBuffer buffer,
+void common::SubmitGraphicsQueue(VulkanContext &ctx, VkCommandBuffer buffer,
                                  FrameData &frame)
 {
     auto buffers = std::array<VkCommandBuffer, 1>{buffer};
-    SubmitGraphicsQueue(queues, buffers, frame);
+
+    SubmitGraphicsQueue(ctx, buffers, frame);
 }
 
 void common::AcquireNextImage(VulkanContext &ctx, FrameInfo &frame)
@@ -91,9 +94,9 @@ void common::AcquireNextImage(VulkanContext &ctx, FrameInfo &frame)
     }
 }
 
-void common::PresentFrame(VulkanContext &ctx, RenderContext::Queues &queues,
-                          FrameInfo &frame)
+void common::PresentFrame(VulkanContext &ctx, FrameInfo &frame)
 {
+    auto queue = ctx.GetQueue(QueueType::Present);
     auto renderSemaphore = frame.CurrentData().RenderCompletedSemaphore;
 
     std::array<VkSemaphore, 1> waitSemaphores{renderSemaphore};
@@ -107,7 +110,7 @@ void common::PresentFrame(VulkanContext &ctx, RenderContext::Queues &queues,
     present_info.pSwapchains = swapChains.data();
     present_info.pImageIndices = &frame.ImageIndex;
 
-    VkResult result = vkQueuePresentKHR(queues.Present, &present_info);
+    VkResult result = vkQueuePresentKHR(queue, &present_info);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {

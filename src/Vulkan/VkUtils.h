@@ -1,31 +1,12 @@
 #pragma once
 
+#include "Image.h"
 #include "VulkanContext.h"
 
 #include <vulkan/vulkan.h>
 
 namespace vkutils
 {
-void BeginRecording(VkCommandBuffer buffer);
-void EndRecording(VkCommandBuffer buffer);
-
-/// Utility that creates a command buffer for single time
-/// command exectuion and submits it at the end of scope.
-class ScopedCommand {
-  public:
-    ScopedCommand(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool);
-    ScopedCommand(const ScopedCommand &) = delete;
-
-    ~ScopedCommand();
-
-  public:
-    VkCommandBuffer Buffer;
-
-  private:
-    VulkanContext &ctx;
-    VkQueue mQueue;
-    VkCommandPool mCommandPool;
-};
 
 template <typename HandleType>
 inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handle,
@@ -42,6 +23,33 @@ inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handl
     ctx.SetDebugUtilsObjectName(ctx.Device.device, &debugLayoutInfo);
 }
 
-void BlitImage(VkCommandBuffer cmd, VkImage source, VkImage destination,
-               VkExtent2D srcSize, VkExtent2D dstSize);
+/// Utility that creates a command buffer for single time
+/// command exectuion and submits it at the end of scope.
+class ScopedCommand {
+  public:
+    ScopedCommand(VulkanContext &ctx, QueueType type, VkCommandPool commandPool);
+    ScopedCommand(const ScopedCommand &) = delete;
+
+    ~ScopedCommand();
+
+  public:
+    VkCommandBuffer Buffer;
+
+  private:
+    VulkanContext &ctx;
+    VkQueue mQueue;
+    VkCommandPool mCommandPool;
+};
+
+void BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags = 0);
+void EndRecording(VkCommandBuffer buffer);
+
+struct BlitImageInfo {
+    VkImage ImgHandle;
+    VkExtent3D Extent;
+    uint32_t NumLayers;
+};
+
+void BlitImageZeroMip(VkCommandBuffer cmd, const Image &src, const Image &dst);
+void BlitImageZeroMip(VkCommandBuffer cmd, const Image &src, BlitImageInfo dst);
 } // namespace vkutils

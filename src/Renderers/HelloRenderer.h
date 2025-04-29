@@ -9,7 +9,7 @@
 
 class HelloRenderer : public IRenderer {
   public:
-    HelloRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
+    HelloRenderer(VulkanContext &ctx, FrameInfo &info,
                   std::unique_ptr<Camera> &camera);
     ~HelloRenderer();
 

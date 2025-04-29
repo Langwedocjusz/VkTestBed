@@ -12,7 +12,7 @@
 
 class Minimal3DRenderer : public IRenderer {
   public:
-    Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
+    Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                       std::unique_ptr<Camera> &camera);
     ~Minimal3DRenderer();
 

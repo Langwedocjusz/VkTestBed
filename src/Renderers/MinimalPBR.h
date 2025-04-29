@@ -15,7 +15,7 @@
 
 class MinimalPbrRenderer : public IRenderer {
   public:
-    MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, RenderContext::Queues &queues,
+    MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                        std::unique_ptr<Camera> &camera);
     ~MinimalPbrRenderer();
 

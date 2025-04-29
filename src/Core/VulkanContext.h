@@ -5,6 +5,13 @@
 
 #include "vk_mem_alloc.h"
 
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+
+enum class QueueType{
+    Graphics, Present
+};
+
 class VulkanContext {
   public:
     VulkanContext(uint32_t width, uint32_t height, const std::string &appName,
@@ -13,10 +20,22 @@ class VulkanContext {
 
     void CreateSwapchain(bool firstRun = false);
 
+    VkQueue GetQueue(QueueType type);
+
   public:
     vkb::Instance Instance;
     vkb::PhysicalDevice PhysicalDevice;
     vkb::Device Device;
+
+    struct Queues {
+        VkQueue Graphics = VK_NULL_HANDLE;
+        VkQueue Present = VK_NULL_HANDLE;
+    } Queues;
+
+    struct QueueProperties{
+        VkQueueFamilyProperties Graphics;
+        VkQueueFamilyProperties Present;
+    } QueueProperties;
 
     VmaAllocator Allocator;
 

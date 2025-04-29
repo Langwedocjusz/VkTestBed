@@ -1,5 +1,6 @@
 #include "ImGuiInit.h"
 
+#include "VulkanContext.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -54,8 +55,10 @@ void iminit::InitGlfwBackend(GLFWwindow *window)
 }
 
 void iminit::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPool,
-                               VkQueue graphicsQueue, uint32_t framesInFlight)
+                               uint32_t framesInFlight)
 {
+    auto graphicsQueue = ctx.GetQueue(QueueType::Graphics);
+
     ImGui_ImplVulkan_InitInfo init_info = {};
 
     init_info.Instance = ctx.Instance;

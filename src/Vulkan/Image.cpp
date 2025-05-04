@@ -17,7 +17,8 @@ uint32_t Image::CalcNumMips(uint32_t width, uint32_t height)
     return static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
 }
 
-Image Image::Create(VulkanContext &ctx, VkImageCreateInfo &info)
+Image Image::Create(VulkanContext &ctx, const std::string &debugName,
+                    VkImageCreateInfo &info)
 {
     Image img;
     img.Info = info;
@@ -27,8 +28,12 @@ Image Image::Create(VulkanContext &ctx, VkImageCreateInfo &info)
     allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     allocCreateInfo.priority = 1.0f;
 
-    vmaCreateImage(ctx.Allocator, &info, &allocCreateInfo, &img.Handle, &img.Allocation,
-                   nullptr);
+    auto ret = vmaCreateImage(ctx.Allocator, &info, &allocCreateInfo, &img.Handle,
+                              &img.Allocation, nullptr);
+
+    ASSERT(ret == VK_SUCCESS, "Failed to create an image!");
+
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_IMAGE, img.Handle, debugName);
 
     return img;
 }
@@ -38,7 +43,8 @@ void Image::Destroy(VulkanContext &ctx, Image &img)
     vmaDestroyImage(ctx.Allocator, img.Handle, img.Allocation);
 }
 
-VkImageView Image::CreateView(VulkanContext &ctx, VkImageViewCreateInfo &info)
+VkImageView Image::CreateView(VulkanContext &ctx, const std::string &debugName,
+                              VkImageViewCreateInfo &info)
 {
     VkImageView imageView;
 
@@ -46,13 +52,16 @@ VkImageView Image::CreateView(VulkanContext &ctx, VkImageViewCreateInfo &info)
 
     ASSERT(ret == VK_SUCCESS, "Failed to create image view!");
 
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_IMAGE_VIEW, imageView, debugName);
+
     return imageView;
 }
 
 void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
 {
     // Create buffer and upload image data
-    Buffer stagingBuffer = MakeBuffer::Staging(ctx, info.Size);
+    Buffer stagingBuffer =
+        MakeBuffer::Staging(ctx, "ImageUploadStagingBuffer", info.Size);
     Buffer::Upload(ctx, stagingBuffer, info.Data, info.Size);
 
     // Submit single-time command to queue

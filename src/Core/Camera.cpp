@@ -43,7 +43,7 @@ Camera::Camera(VulkanContext &ctx, FrameInfo &info)
 
     for (auto &uniformBuffer : mUniformBuffers)
     {
-        uniformBuffer = MakeBuffer::MappedUniform(ctx, bufferSize);
+        uniformBuffer = MakeBuffer::MappedUniform(ctx, "CameraUniformBuffer", bufferSize);
         mMainDeletionQueue.push_back(uniformBuffer);
     }
 

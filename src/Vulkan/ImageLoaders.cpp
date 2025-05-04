@@ -18,8 +18,8 @@ static std::tuple<VkDeviceSize, VkExtent2D> RepackImgData(const ImageData &data)
     return {size, extent};
 }
 
-Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const ImageData &data,
-                                VkFormat format)
+Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const std::string &debugName,
+                                const ImageData &data, VkFormat format)
 {
     auto [imageSize, extent] = RepackImgData(data);
 
@@ -31,7 +31,7 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const ImageData &data,
         .MipLevels = 1,
     };
 
-    Image img = MakeImage::Image2D(ctx, imgInfo);
+    Image img = MakeImage::Image2D(ctx, debugName, imgInfo);
 
     ImageUploadInfo uploadInfo{
         .Data = data.Data,
@@ -44,8 +44,8 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const ImageData &data,
     return img;
 }
 
-Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, const ImageData &data,
-                                   VkFormat format)
+Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, const std::string &debugName,
+                                   const ImageData &data, VkFormat format)
 {
     auto [imageSize, extent] = RepackImgData(data);
 
@@ -58,7 +58,7 @@ Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, const ImageData &data,
         .MipLevels = Image::CalcNumMips(data.Width, data.Height),
     };
 
-    Image img = MakeImage::Image2D(ctx, imgInfo);
+    Image img = MakeImage::Image2D(ctx, debugName, imgInfo);
 
     ImageUploadInfo uploadInfo{
         .Data = data.Data,
@@ -72,24 +72,27 @@ Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, const ImageData &data,
     return img;
 }
 
-Texture TextureLoaders::LoadTexture2D(VulkanContext &ctx, const ImageData &data,
-                                      VkFormat format)
+Texture TextureLoaders::LoadTexture2D(VulkanContext &ctx, const std::string &debugName,
+                                      const ImageData &data, VkFormat format)
 {
     Texture res{};
 
-    res.Img = ImageLoaders::LoadImage2D(ctx, data, format);
-    res.View = MakeView::View2D(ctx, res.Img, format, VK_IMAGE_ASPECT_COLOR_BIT);
+    res.Img = ImageLoaders::LoadImage2D(ctx, debugName, data, format);
+    res.View =
+        MakeView::View2D(ctx, debugName, res.Img, format, VK_IMAGE_ASPECT_COLOR_BIT);
 
     return res;
 }
 
-Texture TextureLoaders::LoadTexture2DMipped(VulkanContext &ctx, const ImageData &data,
-                                            VkFormat format)
+Texture TextureLoaders::LoadTexture2DMipped(VulkanContext &ctx,
+                                            const std::string &debugName,
+                                            const ImageData &data, VkFormat format)
 {
     Texture res{};
 
-    res.Img = ImageLoaders::LoadImage2DMip(ctx, data, format);
-    res.View = MakeView::View2D(ctx, res.Img, format, VK_IMAGE_ASPECT_COLOR_BIT);
+    res.Img = ImageLoaders::LoadImage2DMip(ctx, debugName, data, format);
+    res.View =
+        MakeView::View2D(ctx, debugName, res.Img, format, VK_IMAGE_ASPECT_COLOR_BIT);
 
     return res;
 }

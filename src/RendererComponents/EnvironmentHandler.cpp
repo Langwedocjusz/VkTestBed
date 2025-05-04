@@ -10,7 +10,9 @@
 #include "Shader.h"
 #include "VkUtils.h"
 
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
+
+#include <format>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
     : mCtx(ctx), mFrame(info), mDescriptorAllocator(ctx), mDeletionQueue(ctx),
@@ -120,7 +122,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
         .MipLevels = Image::CalcNumMips(cubeSize, cubeSize),
     };
 
-    mCubemap = MakeTexture::TextureCube(mCtx, cubemapInfo, mDeletionQueue);
+    mCubemap = MakeTexture::TextureCube(mCtx, "EnvCubemap", cubemapInfo, mDeletionQueue);
 
     // Immidiately transition to shader read layout:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
@@ -148,13 +150,15 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
         .MipLevels = prefilteredMips,
     };
 
-    mPrefiltered = MakeTexture::TextureCube(mCtx, prefilteredInfo, mDeletionQueue);
+    mPrefiltered = MakeTexture::TextureCube(mCtx, "EnvPrefilteredMap", prefilteredInfo, mDeletionQueue);
 
     // Create single mip views for usage in compute:
     for (uint32_t mip = 0; mip < prefilteredMips; mip++)
     {
+        const auto name = std::format("EnvPrefilteredViewMip{}", mip);
+
         auto view =
-            MakeView::ViewCubeSingleMip(mCtx, mPrefiltered.Img, prefilteredInfo.Format,
+            MakeView::ViewCubeSingleMip(mCtx, name, mPrefiltered.Img, prefilteredInfo.Format,
                                         VK_IMAGE_ASPECT_COLOR_BIT, mip);
 
         mPrefilteredMipViews.push_back(view);
@@ -173,10 +177,11 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
         .MipLevels = 1,
     };
 
-    mIntegration = MakeTexture::Texture2D(mCtx, integrationInfo, mDeletionQueue);
+    mIntegration = MakeTexture::Texture2D(mCtx, "EnvIntegrationMap", integrationInfo, mDeletionQueue);
 
     // Create lighting uniform buffer:
-    mEnvUBO = MakeBuffer::MappedUniform(ctx, sizeof(mEnvUBOData));
+    mEnvUBO =
+        MakeBuffer::MappedUniform(ctx, "EnvLightUniformBuffer", sizeof(mEnvUBOData));
     mDeletionQueue.push_back(mEnvUBO);
 
     Buffer::UploadToMapped(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
@@ -205,8 +210,10 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
         VkDeviceSize sizeFirst = mFirstBufferLen * sizeof(SHData);
         VkDeviceSize sizeFinal = 1 * sizeof(SHData);
 
-        mFirstReducionBuffer = Buffer::Create(mCtx, sizeFirst, usage);
-        mFinalReductionBuffer = Buffer::Create(mCtx, sizeFinal, usage);
+        mFirstReducionBuffer =
+            Buffer::Create(mCtx, "EnvFirstReductionBuffer", sizeFirst, usage);
+        mFinalReductionBuffer =
+            Buffer::Create(mCtx, "EnvFinalReductionBuffer", sizeFinal, usage);
 
         mDeletionQueue.push_back(mFirstReducionBuffer);
         mDeletionQueue.push_back(mFinalReductionBuffer);
@@ -345,7 +352,7 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
 void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkFormat format)
 {
     // Load equirectangular environment map:
-    auto envMap = TextureLoaders::LoadTexture2D(mCtx, data, format);
+    auto envMap = TextureLoaders::LoadTexture2D(mCtx, "EnvEnvironmentMap", data, format);
 
     DescriptorUpdater(mTexToImgDescriptorSet)
         .WriteImageStorage(0, mCubemap.View)

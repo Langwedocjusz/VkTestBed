@@ -11,7 +11,8 @@ static VkExtent3D FromExtent2D(VkExtent2D extent)
     };
 }
 
-Image MakeImage::Image2D(VulkanContext &ctx, Image2DInfo info)
+Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
+                         Image2DInfo info)
 {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -32,10 +33,10 @@ Image MakeImage::Image2D(VulkanContext &ctx, Image2DInfo info)
     // Multisampling, only relevant for attachments:
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
-    return Image::Create(ctx, imageInfo);
+    return Image::Create(ctx, debugName, imageInfo);
 }
 
-Image MakeImage::Cube(VulkanContext &ctx, Image2DInfo info)
+Image MakeImage::Cube(VulkanContext &ctx, const std::string &debugName, Image2DInfo info)
 {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -54,11 +55,11 @@ Image MakeImage::Cube(VulkanContext &ctx, Image2DInfo info)
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
-    return Image::Create(ctx, imageInfo);
+    return Image::Create(ctx, debugName, imageInfo);
 }
 
-VkImageView MakeView::View2D(VulkanContext &ctx, Image &img, VkFormat format,
-                             VkImageAspectFlags aspectFlags)
+VkImageView MakeView::View2D(VulkanContext &ctx, const std::string &debugName, Image &img,
+                             VkFormat format, VkImageAspectFlags aspectFlags)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -74,10 +75,11 @@ VkImageView MakeView::View2D(VulkanContext &ctx, Image &img, VkFormat format,
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
-    return Image::CreateView(ctx, viewInfo);
+    return Image::CreateView(ctx, debugName, viewInfo);
 }
 
-VkImageView MakeView::ViewCube(VulkanContext &ctx, Image &img, VkFormat format,
+VkImageView MakeView::ViewCube(VulkanContext &ctx, const std::string &debugName,
+                               Image &img, VkFormat format,
                                VkImageAspectFlags aspectFlags)
 {
     VkImageViewCreateInfo viewInfo{};
@@ -94,10 +96,11 @@ VkImageView MakeView::ViewCube(VulkanContext &ctx, Image &img, VkFormat format,
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 6;
 
-    return Image::CreateView(ctx, viewInfo);
+    return Image::CreateView(ctx, debugName, viewInfo);
 }
 
-VkImageView MakeView::ViewCubeSingleMip(VulkanContext &ctx, Image &img, VkFormat format,
+VkImageView MakeView::ViewCubeSingleMip(VulkanContext &ctx, const std::string &debugName,
+                                        Image &img, VkFormat format,
                                         VkImageAspectFlags aspectFlags, uint32_t mip)
 {
     VkImageViewCreateInfo viewInfo{};
@@ -114,40 +117,45 @@ VkImageView MakeView::ViewCubeSingleMip(VulkanContext &ctx, Image &img, VkFormat
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 6;
 
-    return Image::CreateView(ctx, viewInfo);
+    return Image::CreateView(ctx, debugName, viewInfo);
 }
 
-Texture MakeTexture::Texture2D(VulkanContext &ctx, Image2DInfo info)
+Texture MakeTexture::Texture2D(VulkanContext &ctx, const std::string &debugName,
+                               Image2DInfo info)
 {
     Texture res;
 
-    res.Img = MakeImage::Image2D(ctx, info);
-    res.View = MakeView::View2D(ctx, res.Img, info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    res.Img = MakeImage::Image2D(ctx, debugName, info);
+    res.View =
+        MakeView::View2D(ctx, debugName, res.Img, info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
 
     return res;
 }
 
-Texture MakeTexture::Texture2D(VulkanContext &ctx, Image2DInfo info, DeletionQueue &queue)
+Texture MakeTexture::Texture2D(VulkanContext &ctx, const std::string &debugName,
+                               Image2DInfo info, DeletionQueue &queue)
 {
-    auto res = Texture2D(ctx, info);
+    auto res = Texture2D(ctx, debugName, info);
     queue.push_back(res);
     return res;
 }
 
-Texture MakeTexture::TextureCube(VulkanContext &ctx, Image2DInfo info)
+Texture MakeTexture::TextureCube(VulkanContext &ctx, const std::string &debugName,
+                                 Image2DInfo info)
 {
     Texture res;
 
-    res.Img = MakeImage::Cube(ctx, info);
-    res.View = MakeView::ViewCube(ctx, res.Img, info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    res.Img = MakeImage::Cube(ctx, debugName, info);
+    res.View = MakeView::ViewCube(ctx, debugName, res.Img, info.Format,
+                                  VK_IMAGE_ASPECT_COLOR_BIT);
 
     return res;
 }
 
-Texture MakeTexture::TextureCube(VulkanContext &ctx, Image2DInfo info,
-                                 DeletionQueue &queue)
+Texture MakeTexture::TextureCube(VulkanContext &ctx, const std::string &debugName,
+                                 Image2DInfo info, DeletionQueue &queue)
 {
-    auto res = TextureCube(ctx, info);
+    auto res = TextureCube(ctx, debugName, info);
     queue.push_back(res);
     return res;
 }

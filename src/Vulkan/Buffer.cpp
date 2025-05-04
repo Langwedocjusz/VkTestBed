@@ -1,9 +1,11 @@
 #include "Buffer.h"
 
+#include "VkUtils.h"
+
 #include <vulkan/vulkan.h>
 
-Buffer Buffer::Create(VulkanContext &ctx, VkDeviceSize size, VkBufferUsageFlags usage,
-                      VmaAllocationCreateFlags flags)
+Buffer Buffer::Create(VulkanContext &ctx, const std::string &debugName, VkDeviceSize size,
+                      VkBufferUsageFlags usage, VmaAllocationCreateFlags flags)
 {
     Buffer buf;
 
@@ -20,6 +22,8 @@ Buffer Buffer::Create(VulkanContext &ctx, VkDeviceSize size, VkBufferUsageFlags 
 
     vmaCreateBuffer(ctx.Allocator, &bufferInfo, &allocCreateInfo, &buf.Handle,
                     &buf.Allocation, &buf.AllocInfo);
+
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_BUFFER, buf.Handle, debugName);
 
     return buf;
 }

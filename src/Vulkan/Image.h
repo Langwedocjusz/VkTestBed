@@ -2,6 +2,8 @@
 
 #include "VulkanContext.h"
 
+#include <string>
+
 struct ImageUploadInfo {
     const void *Data;
     VkDeviceSize Size;
@@ -9,10 +11,12 @@ struct ImageUploadInfo {
 };
 
 struct Image {
-    static Image Create(VulkanContext &ctx, VkImageCreateInfo &info);
+    static Image Create(VulkanContext &ctx, const std::string &debugName,
+                        VkImageCreateInfo &info);
     static void Destroy(VulkanContext &ctx, Image &img);
 
-    static VkImageView CreateView(VulkanContext &ctx, VkImageViewCreateInfo &info);
+    static VkImageView CreateView(VulkanContext &ctx, const std::string &debugName,
+                                  VkImageViewCreateInfo &info);
 
     static void UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info);
 

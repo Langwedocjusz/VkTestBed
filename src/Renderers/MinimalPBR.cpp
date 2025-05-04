@@ -58,12 +58,12 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0});
     auto normalData = ImageData::SinglePixel(Pixel{128, 128, 255, 0});
 
-    mDefaultAlbedo =
-        TextureLoaders::LoadTexture2D(mCtx, albedoData, VK_FORMAT_R8G8B8A8_SRGB);
-    mDefaultRoughness =
-        TextureLoaders::LoadTexture2D(mCtx, roughnessData, VK_FORMAT_R8G8B8A8_UNORM);
-    mDefaultNormal =
-        TextureLoaders::LoadTexture2D(mCtx, normalData, VK_FORMAT_R8G8B8A8_UNORM);
+    mDefaultAlbedo = TextureLoaders::LoadTexture2D(mCtx, "DefaultAlbedo", albedoData,
+                                                   VK_FORMAT_R8G8B8A8_SRGB);
+    mDefaultRoughness = TextureLoaders::LoadTexture2D(
+        mCtx, "DefaultRoughness", roughnessData, VK_FORMAT_R8G8B8A8_UNORM);
+    mDefaultNormal = TextureLoaders::LoadTexture2D(mCtx, "DefaultNormal", normalData,
+                                                   VK_FORMAT_R8G8B8A8_UNORM);
 
     mMainDeletionQueue.push_back(mDefaultAlbedo);
     mMainDeletionQueue.push_back(mDefaultRoughness);
@@ -277,11 +277,11 @@ void MinimalPbrRenderer::CreateSwapchainResources()
         .MipLevels = 1,
     };
 
-    mRenderTarget = MakeImage::Image2D(mCtx, renderTargetInfo);
+    mRenderTarget = MakeImage::Image2D(mCtx, "RenderTarget", renderTargetInfo);
     mSwapchainDeletionQueue.push_back(mRenderTarget);
 
     // Create the render target view:
-    mRenderTargetView = MakeView::View2D(mCtx, mRenderTarget, mRenderTargetFormat,
+    mRenderTargetView = MakeView::View2D(mCtx, "RenderTargetView", mRenderTarget, mRenderTargetFormat,
                                          VK_IMAGE_ASPECT_COLOR_BIT);
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 
@@ -294,9 +294,9 @@ void MinimalPbrRenderer::CreateSwapchainResources()
         .MipLevels = 1,
     };
 
-    mDepthBuffer = MakeImage::Image2D(mCtx, depthBufferInfo);
+    mDepthBuffer = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);
     mDepthBufferView =
-        MakeView::View2D(mCtx, mDepthBuffer, mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+        MakeView::View2D(mCtx, "DepthBufferView", mDepthBuffer, mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     mSwapchainDeletionQueue.push_back(mDepthBuffer);
     mSwapchainDeletionQueue.push_back(mDepthBufferView);
@@ -327,13 +327,14 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
 
-    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
+    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo,
+                             const std::string &debugName) {
         // Create Vertex buffer:
-        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, geo.VertexData);
+        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
-        drawable.IndexBuffer = MakeBuffer::Index(mCtx, geo.IndexData);
+        drawable.IndexBuffer = MakeBuffer::Index(mCtx, debugName, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         // Update deletion queue:
@@ -355,7 +356,9 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
             {
                 auto &drawable = mDrawables[drawableKey];
 
-                CreateBuffers(drawable, prim.Data);
+                const auto primName = mesh.Name + std::to_string(primIdx);
+
+                CreateBuffers(drawable, prim.Data, primName);
                 drawable.InstanceKey = meshKey;
             }
         }
@@ -373,7 +376,7 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
 
         auto format = imgData.Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 
-        texture = TextureLoaders::LoadTexture2DMipped(mCtx, imgData, format);
+        texture = TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData, format);
 
         mSceneDeletionQueue.push_back(texture);
     }

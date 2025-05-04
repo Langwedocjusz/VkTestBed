@@ -4,6 +4,8 @@
 #include "OpaqueBuffer.h"
 #include "VulkanContext.h"
 
+#include <string>
+
 namespace MakeBuffer
 {
 struct TransferDSTInfo {
@@ -13,13 +15,14 @@ struct TransferDSTInfo {
     const void *Data;
 };
 
-Buffer Staging(VulkanContext &ctx, VkDeviceSize size);
+Buffer Staging(VulkanContext &ctx, const std::string &debugName, VkDeviceSize size);
 
-Buffer MappedUniform(VulkanContext &ctx, VkDeviceSize size);
+Buffer MappedUniform(VulkanContext &ctx, const std::string &debugName, VkDeviceSize size);
 
-Buffer TransferDST(VulkanContext &ctx, TransferDSTInfo info);
+Buffer TransferDST(VulkanContext &ctx, const std::string &debugName,
+                   TransferDSTInfo info);
 
-Buffer Vertex(VulkanContext &ctx, const OpaqueBuffer &buf);
+Buffer Vertex(VulkanContext &ctx, const std::string &debugName, const OpaqueBuffer &buf);
 
-Buffer Index(VulkanContext &ctx, const OpaqueBuffer &buf);
+Buffer Index(VulkanContext &ctx, const std::string &debugName, const OpaqueBuffer &buf);
 } // namespace MakeBuffer

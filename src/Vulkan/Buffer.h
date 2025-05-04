@@ -1,7 +1,10 @@
 #pragma once
 
 #include "VulkanContext.h"
-#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.h>
+
+#include <string>
 
 struct CopyBufferInfo {
     VkBuffer Src;
@@ -11,7 +14,8 @@ struct CopyBufferInfo {
 
 struct Buffer {
   public:
-    static Buffer Create(VulkanContext &ctx, VkDeviceSize size, VkBufferUsageFlags usage,
+    static Buffer Create(VulkanContext &ctx, const std::string &debugName,
+                         VkDeviceSize size, VkBufferUsageFlags usage,
                          VmaAllocationCreateFlags flags = 0);
     static void Destroy(VulkanContext &ctx, Buffer &buf);
 

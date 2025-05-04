@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <iostream>
 #include <ranges>
+#include <string>
 #include <vulkan/vulkan.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
@@ -133,12 +134,12 @@ void HelloRenderer::CreateSwapchainResources()
         .MipLevels = 1,
     };
 
-    mRenderTarget = MakeImage::Image2D(mCtx, renderTargetInfo);
+    mRenderTarget = MakeImage::Image2D(mCtx, "RenderTarget", renderTargetInfo);
     mSwapchainDeletionQueue.push_back(mRenderTarget);
 
     // Create the render target view:
-    mRenderTargetView = MakeView::View2D(mCtx, mRenderTarget, mRenderTargetFormat,
-                                         VK_IMAGE_ASPECT_COLOR_BIT);
+    mRenderTargetView = MakeView::View2D(mCtx, "RenderTargetView", mRenderTarget,
+                                         mRenderTargetFormat, VK_IMAGE_ASPECT_COLOR_BIT);
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 }
 
@@ -155,13 +156,14 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
 
-    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
+    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo,
+                             const std::string &debugName) {
         // Create Vertex buffer:
-        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, geo.VertexData);
+        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
-        drawable.IndexBuffer = MakeBuffer::Index(mCtx, geo.IndexData);
+        drawable.IndexBuffer = MakeBuffer::Index(mCtx, debugName, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         // Update deletion queue:
@@ -183,7 +185,9 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
             {
                 auto &drawable = mDrawables[drawableKey];
 
-                CreateBuffers(drawable, prim.Data);
+                const auto primName = mesh.Name + std::to_string(primIdx);
+
+                CreateBuffers(drawable, prim.Data, primName);
                 drawable.Instances = meshKey;
             }
         }

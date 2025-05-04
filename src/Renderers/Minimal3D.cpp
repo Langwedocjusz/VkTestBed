@@ -36,11 +36,9 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
     mTextureDescriptorAllocator.OnInit(poolCounts);
 
     // Create the default texture:
-    auto &pool = mFrame.CurrentPool();
     auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255});
 
-    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, QueueType::Graphics, pool,
-                                                  imgData, VK_FORMAT_R8G8B8A8_SRGB);
+    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, imgData, VK_FORMAT_R8G8B8A8_SRGB);
     mMainDeletionQueue.push_back(mDefaultImage);
 
     // Create the texture sampler:
@@ -292,17 +290,13 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
 
-    auto &pool = mFrame.CurrentPool();
-
     auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
-        drawable.VertexBuffer =
-            MakeBuffer::Vertex(mCtx, QueueType::Graphics, pool, geo.VertexData);
+        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
-        drawable.IndexBuffer =
-            MakeBuffer::Index(mCtx, QueueType::Graphics, pool, geo.IndexData);
+        drawable.IndexBuffer = MakeBuffer::Index(mCtx, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         mSceneDeletionQueue.push_back(drawable.VertexBuffer);
@@ -341,8 +335,6 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 
 void Minimal3DRenderer::LoadImages(const Scene &scene)
 {
-    auto &pool = mFrame.CurrentPool();
-
     for (auto &[key, imgData] : scene.Images)
     {
         if (mImages.count(key) != 0)
@@ -350,8 +342,8 @@ void Minimal3DRenderer::LoadImages(const Scene &scene)
 
         auto &texture = mImages[key];
 
-        texture = TextureLoaders::LoadTexture2DMipped(mCtx, QueueType::Graphics, pool,
-                                                      imgData, VK_FORMAT_R8G8B8A8_SRGB);
+        texture =
+            TextureLoaders::LoadTexture2DMipped(mCtx, imgData, VK_FORMAT_R8G8B8A8_SRGB);
         mSceneDeletionQueue.push_back(texture);
     }
 }

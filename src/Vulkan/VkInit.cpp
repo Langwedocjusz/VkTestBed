@@ -11,7 +11,7 @@ void vkinit::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     auto ret = vkCreateFence(ctx.Device, &fence_info, nullptr, &fence);
-    
+
     ASSERT(ret == VK_SUCCESS, "Failed to create a fence!");
 }
 
@@ -21,7 +21,7 @@ void vkinit::CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore)
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     auto ret = vkCreateSemaphore(ctx.Device, &semaphore_info, nullptr, &semaphore);
-    
+
     ASSERT(ret == VK_SUCCESS, "Failed to create a semaphore!");
 }
 
@@ -56,7 +56,7 @@ VkCommandBuffer vkinit::CreateCommandBuffer(VulkanContext &ctx, VkCommandPool po
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
     auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, &buffer);
-    
+
     ASSERT(ret == VK_SUCCESS, "Failed to allocate command buffers!");
 
     return buffer;
@@ -74,7 +74,7 @@ void vkinit::AllocateCommandBuffers(VulkanContext &ctx,
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
     auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, buffers.data());
-    
+
     ASSERT(ret == VK_SUCCESS, "Failed to allocate command buffers!");
 }
 

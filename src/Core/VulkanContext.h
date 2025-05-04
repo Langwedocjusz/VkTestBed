@@ -6,7 +6,8 @@
 #include "vk_mem_alloc.h"
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+
+#include <functional>
 
 enum class QueueType
 {
@@ -23,6 +24,8 @@ class VulkanContext {
     void CreateSwapchain(bool firstRun = false);
 
     VkQueue GetQueue(QueueType type);
+
+    void ImmediateSubmitGraphics(std::function<void(VkCommandBuffer)> &&function);
 
   public:
     vkb::Instance Instance;
@@ -53,4 +56,7 @@ class VulkanContext {
 
     // Non-core function pointers:
     PFN_vkSetDebugUtilsObjectNameEXT SetDebugUtilsObjectName = VK_NULL_HANDLE;
+
+  private:
+    VkCommandPool mImmGraphicsCommandPool;
 };

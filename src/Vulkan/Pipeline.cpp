@@ -361,7 +361,7 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     {
         auto ret = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
-            &pipeline.Layout);
+                                          &pipeline.Layout);
 
         ASSERT(ret == VK_SUCCESS, "Failed to create compute pipeline layout!");
     }
@@ -375,8 +375,8 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
     pipelineInfo.stage = mShaderStage;
 
     {
-        auto ret = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
-            &pipeline.Handle);
+        auto ret = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo,
+                                            nullptr, &pipeline.Handle);
 
         ASSERT(ret == VK_SUCCESS, "Failed to create compute pipeline!");
     }

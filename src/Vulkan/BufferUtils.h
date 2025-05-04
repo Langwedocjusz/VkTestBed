@@ -7,8 +7,6 @@
 namespace MakeBuffer
 {
 struct TransferDSTInfo {
-    QueueType Queue;
-    VkCommandPool Pool;
     VkBufferUsageFlags Usage;
     VmaAllocationCreateFlags CreateFlags;
     VkDeviceSize Size;
@@ -21,9 +19,7 @@ Buffer MappedUniform(VulkanContext &ctx, VkDeviceSize size);
 
 Buffer TransferDST(VulkanContext &ctx, TransferDSTInfo info);
 
-Buffer Vertex(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
-              const OpaqueBuffer &buf);
+Buffer Vertex(VulkanContext &ctx, const OpaqueBuffer &buf);
 
-Buffer Index(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
-             const OpaqueBuffer &buf);
+Buffer Index(VulkanContext &ctx, const OpaqueBuffer &buf);
 } // namespace MakeBuffer

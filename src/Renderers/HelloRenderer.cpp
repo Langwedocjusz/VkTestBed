@@ -154,17 +154,14 @@ void HelloRenderer::LoadScene(const Scene &scene)
 void HelloRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
-    auto &pool = mFrame.CurrentPool();
 
     auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo) {
         // Create Vertex buffer:
-        drawable.VertexBuffer =
-            MakeBuffer::Vertex(mCtx, QueueType::Graphics, pool, geo.VertexData);
+        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, geo.VertexData);
         drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
-        drawable.IndexBuffer =
-            MakeBuffer::Index(mCtx, QueueType::Graphics, pool, geo.IndexData);
+        drawable.IndexBuffer = MakeBuffer::Index(mCtx, geo.IndexData);
         drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
 
         // Update deletion queue:

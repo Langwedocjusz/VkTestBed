@@ -35,7 +35,7 @@ void common::SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFe
 
     if (!waitSemaphores.empty())
     {
-        assert(waitSemaphores.size() == waitStages.size());
+        ASSERT(waitSemaphores.size() == waitStages.size());
 
         submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
         submitInfo.pWaitSemaphores = waitSemaphores.data();

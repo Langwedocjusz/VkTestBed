@@ -4,11 +4,9 @@
 #include "ImageUtils.h"
 #include "Texture.h"
 
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <iostream>
-#include <stdexcept>
 
 static std::tuple<VkDeviceSize, VkExtent2D> RepackImgData(const ImageData &data)
 {
@@ -20,8 +18,8 @@ static std::tuple<VkDeviceSize, VkExtent2D> RepackImgData(const ImageData &data)
     return {size, extent};
 }
 
-Image ImageLoaders::LoadImage2D(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
-                                const ImageData &data, VkFormat format)
+Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const ImageData &data,
+                                VkFormat format)
 {
     auto [imageSize, extent] = RepackImgData(data);
 
@@ -36,8 +34,6 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, QueueType queue, VkCommandPo
     Image img = MakeImage::Image2D(ctx, imgInfo);
 
     ImageUploadInfo uploadInfo{
-        .Queue = queue,
-        .Pool = pool,
         .Data = data.Data,
         .Size = imageSize,
         .DstLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -48,8 +44,7 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, QueueType queue, VkCommandPo
     return img;
 }
 
-Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, QueueType queue,
-                                   VkCommandPool pool, const ImageData &data,
+Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, const ImageData &data,
                                    VkFormat format)
 {
     auto [imageSize, extent] = RepackImgData(data);
@@ -66,38 +61,34 @@ Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, QueueType queue,
     Image img = MakeImage::Image2D(ctx, imgInfo);
 
     ImageUploadInfo uploadInfo{
-        .Queue = queue,
-        .Pool = pool,
         .Data = data.Data,
         .Size = imageSize,
         .DstLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
     Image::UploadToImage(ctx, img, uploadInfo);
-    Image::GenerateMips(ctx, queue, pool, img);
+    Image::GenerateMips(ctx, img);
 
     return img;
 }
 
-Texture TextureLoaders::LoadTexture2D(VulkanContext &ctx, QueueType queue,
-                                      VkCommandPool pool, const ImageData &data,
+Texture TextureLoaders::LoadTexture2D(VulkanContext &ctx, const ImageData &data,
                                       VkFormat format)
 {
     Texture res{};
 
-    res.Img = ImageLoaders::LoadImage2D(ctx, queue, pool, data, format);
+    res.Img = ImageLoaders::LoadImage2D(ctx, data, format);
     res.View = MakeView::View2D(ctx, res.Img, format, VK_IMAGE_ASPECT_COLOR_BIT);
 
     return res;
 }
 
-Texture TextureLoaders::LoadTexture2DMipped(VulkanContext &ctx, QueueType queue,
-                                            VkCommandPool pool, const ImageData &data,
+Texture TextureLoaders::LoadTexture2DMipped(VulkanContext &ctx, const ImageData &data,
                                             VkFormat format)
 {
     Texture res{};
 
-    res.Img = ImageLoaders::LoadImage2DMip(ctx, queue, pool, data, format);
+    res.Img = ImageLoaders::LoadImage2DMip(ctx, data, format);
     res.View = MakeView::View2D(ctx, res.Img, format, VK_IMAGE_ASPECT_COLOR_BIT);
 
     return res;

@@ -8,6 +8,8 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
+#include <libassert/assert.hpp>
+
 #include <filesystem>
 #include <optional>
 #include <ranges>
@@ -72,9 +74,9 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
 {
     // Sanity check:
     if (parent != nullptr)
-        assert(!parent->IsLeaf());
+        ASSERT(!parent->IsLeaf());
     else
-        assert(!node.IsLeaf());
+        ASSERT(!node.IsLeaf());
 
     // ImGui context for later:
     ImGuiContext &g = *GImGui;

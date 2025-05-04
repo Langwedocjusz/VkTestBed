@@ -23,24 +23,6 @@ inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handl
     ctx.SetDebugUtilsObjectName(ctx.Device.device, &debugLayoutInfo);
 }
 
-/// Utility that creates a command buffer for single time
-/// command exectuion and submits it at the end of scope.
-class ScopedCommand {
-  public:
-    ScopedCommand(VulkanContext &ctx, QueueType type, VkCommandPool commandPool);
-    ScopedCommand(const ScopedCommand &) = delete;
-
-    ~ScopedCommand();
-
-  public:
-    VkCommandBuffer Buffer;
-
-  private:
-    VulkanContext &ctx;
-    VkQueue mQueue;
-    VkCommandPool mCommandPool;
-};
-
 void BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags = 0);
 void EndRecording(VkCommandBuffer buffer);
 

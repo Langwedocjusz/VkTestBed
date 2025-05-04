@@ -1,7 +1,5 @@
 #include "BufferUtils.h"
 
-#include "VkUtils.h"
-
 Buffer MakeBuffer::Staging(VulkanContext &ctx, VkDeviceSize size)
 {
     auto usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -29,31 +27,28 @@ Buffer MakeBuffer::TransferDST(VulkanContext &ctx, TransferDSTInfo info)
     Buffer stagingBuffer = MakeBuffer::Staging(ctx, info.Size);
     Buffer::Upload(ctx, stagingBuffer, info.Data, info.Size);
 
-    {
-        vkutils::ScopedCommand cmd(ctx, info.Queue, info.Pool);
-
+    // To-do: this should probably be done on transfer queue
+    // if available:
+    ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         CopyBufferInfo cp_info{
             .Src = stagingBuffer.Handle,
             .Dst = buff.Handle,
             .Size = info.Size,
         };
 
-        Buffer::CopyBuffer(cmd.Buffer, cp_info);
-    }
+        Buffer::CopyBuffer(cmd, cp_info);
+    });
 
     Buffer::Destroy(ctx, stagingBuffer);
 
     return buff;
 }
 
-Buffer MakeBuffer::Vertex(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
-                          const OpaqueBuffer &buf)
+Buffer MakeBuffer::Vertex(VulkanContext &ctx, const OpaqueBuffer &buf)
 {
     Buffer res;
 
     TransferDSTInfo info{
-        .Queue = queue,
-        .Pool = pool,
         .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .CreateFlags = 0,
         .Size = buf.Size,
@@ -65,14 +60,11 @@ Buffer MakeBuffer::Vertex(VulkanContext &ctx, QueueType queue, VkCommandPool poo
     return res;
 }
 
-Buffer MakeBuffer::Index(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
-                         const OpaqueBuffer &buf)
+Buffer MakeBuffer::Index(VulkanContext &ctx, const OpaqueBuffer &buf)
 {
     Buffer res;
 
     TransferDSTInfo info{
-        .Queue = queue,
-        .Pool = pool,
         .Usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .CreateFlags = 0,
         .Size = buf.Size,

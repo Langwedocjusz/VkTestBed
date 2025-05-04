@@ -1,9 +1,12 @@
 #include "VulkanContext.h"
 #include "VkBootstrap.h"
 
+#include "VkUtils.h"
+
 #include <libassert/assert.hpp>
 
 #include <format>
+#include <vulkan/vulkan_core.h>
 
 static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
                            VkQueueFamilyProperties &properties)
@@ -108,10 +111,23 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
 
     // Swapchain creation:
     CreateSwapchain(true);
+
+    // Allocate command pools for immediate submit:
+    VkCommandPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = Device.get_queue_index(vkb::QueueType::graphics).value();
+    // To allow resetting individual buffers:
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    auto ret = vkCreateCommandPool(Device, &poolInfo, nullptr, &mImmGraphicsCommandPool);
+
+    ASSERT(ret == VK_SUCCESS, "Failed to create an immediate submit command pool!");
 }
 
 VulkanContext::~VulkanContext()
 {
+    vkDestroyCommandPool(Device, mImmGraphicsCommandPool, nullptr);
+
     Swapchain.destroy_image_views(SwapchainImageViews);
     vkb::destroy_swapchain(Swapchain);
 
@@ -161,4 +177,34 @@ VkQueue VulkanContext::GetQueue(QueueType type)
         PANIC("Queue type not yet supported!");
     }
     }
+}
+
+void VulkanContext::ImmediateSubmitGraphics(
+    std::function<void(VkCommandBuffer)> &&function)
+{
+    VkCommandBuffer buffer;
+
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = mImmGraphicsCommandPool;
+    allocInfo.commandBufferCount = 1;
+
+    vkAllocateCommandBuffers(Device, &allocInfo, &buffer);
+
+    vkutils::BeginRecording(buffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    function(buffer);
+
+    vkutils::EndRecording(buffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &buffer;
+
+    vkQueueSubmit(Queues.Graphics, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(Queues.Graphics);
+
+    vkFreeCommandBuffers(Device, mImmGraphicsCommandPool, 1, &buffer);
 }

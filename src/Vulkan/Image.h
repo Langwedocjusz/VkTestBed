@@ -3,8 +3,6 @@
 #include "VulkanContext.h"
 
 struct ImageUploadInfo {
-    QueueType Queue;
-    VkCommandPool Pool;
     const void *Data;
     VkDeviceSize Size;
     VkImageLayout DstLayout;
@@ -19,8 +17,7 @@ struct Image {
     static void UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info);
 
     static uint32_t CalcNumMips(uint32_t width, uint32_t height);
-    static void GenerateMips(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
-                             Image &img);
+    static void GenerateMips(VulkanContext &ctx, Image &img);
 
     VkImage Handle;
     VkImageCreateInfo Info;

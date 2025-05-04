@@ -21,36 +21,6 @@ void vkutils::EndRecording(VkCommandBuffer buffer)
     ASSERT(ret == VK_SUCCESS, "Failed to record command buffer!");
 }
 
-vkutils::ScopedCommand::ScopedCommand(VulkanContext &ctx, QueueType type,
-                                      VkCommandPool commandPool)
-    : ctx(ctx), mQueue(ctx.GetQueue(type)), mCommandPool(commandPool)
-{
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = commandPool;
-    allocInfo.commandBufferCount = 1;
-
-    vkAllocateCommandBuffers(ctx.Device, &allocInfo, &Buffer);
-
-    BeginRecording(Buffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-}
-
-vkutils::ScopedCommand::~ScopedCommand()
-{
-    EndRecording(Buffer);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &Buffer;
-
-    vkQueueSubmit(mQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(mQueue);
-
-    vkFreeCommandBuffers(ctx.Device, mCommandPool, 1, &Buffer);
-}
-
 void vkutils::BlitImageZeroMip(VkCommandBuffer cmd, const Image &src, const Image &dst)
 {
     VkImageBlit2 blitRegion = {};

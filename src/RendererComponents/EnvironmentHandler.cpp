@@ -123,10 +123,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
     mCubemap = MakeTexture::TextureCube(mCtx, cubemapInfo, mDeletionQueue);
 
     // Immidiately transition to shader read layout:
-    {
-        auto &pool = mFrame.CurrentPool();
-        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
-
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto barrierInfo = barrier::ImageLayoutBarrierInfo{
             .Image = mCubemap.Img.Handle,
             .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -135,8 +132,8 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
                                  mCubemap.Img.Info.mipLevels, 0, 6},
         };
 
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
-    }
+        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+    });
 
     // Create prefiltered map image and view:
     constexpr uint32_t prefilteredSize = 256;
@@ -347,20 +344,15 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
 
 void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkFormat format)
 {
-    auto &pool = mFrame.CurrentPool();
-
     // Load equirectangular environment map:
-    auto envMap =
-        TextureLoaders::LoadTexture2D(mCtx, QueueType::Graphics, pool, data, format);
+    auto envMap = TextureLoaders::LoadTexture2D(mCtx, data, format);
 
     DescriptorUpdater(mTexToImgDescriptorSet)
         .WriteImageStorage(0, mCubemap.View)
         .WriteImageSampler(1, envMap.View, mSampler)
         .Update(mCtx);
 
-    {
-        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
-
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         // Transition cubemap to use as storage image:
         auto barrierInfo = barrier::ImageLayoutBarrierInfo{
             .Image = mCubemap.Img.Handle,
@@ -369,14 +361,14 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkForma
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0,
                                  mCubemap.Img.Info.mipLevels, 0, 6},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
+        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
 
         // Sample equirectangular map to cubemap
         // using a compute pipeline:
-        vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                           mEquiRectToCubePipeline.Handle);
 
-        vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                                 mEquiRectToCubePipeline.Layout, 0, 1,
                                 &mTexToImgDescriptorSet, 0, nullptr);
 
@@ -385,16 +377,16 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkForma
         uint32_t dispCountX = mCubemap.Img.Info.extent.width / localSizeX;
         uint32_t dispCountY = mCubemap.Img.Info.extent.width / localSizeY;
 
-        vkCmdDispatch(cmd.Buffer, dispCountX, dispCountY, 6);
+        vkCmdDispatch(cmd, dispCountX, dispCountY, 6);
 
         // Transition cubemap back to be used as texture:
         barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
-    }
+        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+    });
 
     // Generate mip levels (to use when generating prefiltered map)
-    Image::GenerateMips(mCtx, QueueType::Graphics, pool, mCubemap.Img);
+    Image::GenerateMips(mCtx, mCubemap.Img);
 
     // Clean up the equirectangular map:
     Image::Destroy(mCtx, envMap.Img);
@@ -403,20 +395,16 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkForma
 
 void EnvironmentHandler::CalculateDiffuseIrradiance()
 {
-    auto &pool = mFrame.CurrentPool();
-
     // Do parallel patch-based computation of SH coeficcients
-    {
-        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
-
-        vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                           mIrradianceSHPipeline.Handle);
 
-        vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                                 mIrradianceSHPipeline.Layout, 0, 1,
                                 &mBackgroundDescriptorSet, 0, nullptr);
 
-        vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                                 mIrradianceSHPipeline.Layout, 1, 1,
                                 &mIrradianceDescriptorSet, 0, nullptr);
 
@@ -425,24 +413,21 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
             .ReduceBlock = mReduceBlock,
         };
 
-        vkCmdPushConstants(cmd.Buffer, mIrradianceSHPipeline.Layout,
-                           VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                           sizeof(IrradianceSHPushConstants), &pcData);
+        vkCmdPushConstants(cmd, mIrradianceSHPipeline.Layout, VK_SHADER_STAGE_COMPUTE_BIT,
+                           0, sizeof(IrradianceSHPushConstants), &pcData);
 
         uint32_t localSizeX = 1024;
         uint32_t dispCountX = mFirstBufferLen / localSizeX;
 
-        vkCmdDispatch(cmd.Buffer, dispCountX, 1, 1);
-    }
+        vkCmdDispatch(cmd, dispCountX, 1, 1);
+    });
 
     // Sum-reduce the resulting array:
-    {
-        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
-
-        vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                           mIrradianceReducePipeline.Handle);
 
-        vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                                 mIrradianceReducePipeline.Layout, 0, 1,
                                 &mIrradianceDescriptorSet, 0, nullptr);
 
@@ -450,24 +435,19 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
             .BufferSize = mFirstBufferLen,
         };
 
-        vkCmdPushConstants(cmd.Buffer, mIrradianceSHPipeline.Layout,
-                           VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ReducePushConstants),
-                           &pcData);
+        vkCmdPushConstants(cmd, mIrradianceSHPipeline.Layout, VK_SHADER_STAGE_COMPUTE_BIT,
+                           0, sizeof(ReducePushConstants), &pcData);
 
-        vkCmdDispatch(cmd.Buffer, 1, 1, 1);
-    }
+        vkCmdDispatch(cmd, 1, 1, 1);
+    });
 }
 
 void EnvironmentHandler::GeneratePrefilteredMap()
 {
-    auto &pool = mFrame.CurrentPool();
-
     const auto numMips = mPrefiltered.Img.Info.mipLevels;
 
     // Blit cubemap onto prefiltered map level zero:
-    {
-        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
-
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         // Transition cubemap to transfer source:
         auto srcInfo = barrier::ImageLayoutBarrierInfo{
             .Image = mCubemap.Img.Handle,
@@ -476,7 +456,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0,
                                  mCubemap.Img.Info.mipLevels, 0, 6},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, srcInfo);
+        barrier::ImageLayoutBarrierCoarse(cmd, srcInfo);
 
         // Trasition prefiltered map to transfer destination:
         auto dstInfo = barrier::ImageLayoutBarrierInfo{
@@ -485,15 +465,15 @@ void EnvironmentHandler::GeneratePrefilteredMap()
             .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, dstInfo);
+        barrier::ImageLayoutBarrierCoarse(cmd, dstInfo);
 
         // Issue the blit command:
-        vkutils::BlitImageZeroMip(cmd.Buffer, mCubemap.Img, mPrefiltered.Img);
+        vkutils::BlitImageZeroMip(cmd, mCubemap.Img, mPrefiltered.Img);
 
         // Transition cubemap to be used as a texture:
         srcInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         srcInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, srcInfo);
+        barrier::ImageLayoutBarrierCoarse(cmd, srcInfo);
 
         // Transition whole prefiltered map to use as storage image:
         auto barrierInfo = barrier::ImageLayoutBarrierInfo{
@@ -502,8 +482,8 @@ void EnvironmentHandler::GeneratePrefilteredMap()
             .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, numMips, 0, 6},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
-    }
+        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+    });
 
     // Generate higher mips by integrating cubemap
     // over increasingly larger lobes.
@@ -528,20 +508,20 @@ void EnvironmentHandler::GeneratePrefilteredMap()
                 .WriteImageStorage(1, mPrefilteredMipViews[mip])
                 .Update(mCtx);
 
-            vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
+            mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                  mPrefilteredGenPipeline.Handle);
 
-            vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                              mPrefilteredGenPipeline.Handle);
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                        mPrefilteredGenPipeline.Layout, 0, 1,
+                                        &mPrefilteredDescriptorSet, 0, nullptr);
 
-            vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                    mPrefilteredGenPipeline.Layout, 0, 1,
-                                    &mPrefilteredDescriptorSet, 0, nullptr);
+                vkCmdPushConstants(cmd, mPrefilteredGenPipeline.Layout,
+                                   VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                                   sizeof(PrefilteredPushConstants), &pcData);
 
-            vkCmdPushConstants(cmd.Buffer, mPrefilteredGenPipeline.Layout,
-                               VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                               sizeof(PrefilteredPushConstants), &pcData);
-
-            vkCmdDispatch(cmd.Buffer, resX, resY, 6);
+                vkCmdDispatch(cmd, resX, resY, 6);
+            });
 
             resX = resX / 2;
             resY = resY / 2;
@@ -549,48 +529,45 @@ void EnvironmentHandler::GeneratePrefilteredMap()
     }
 
     // Transition prefiltered map to be used as a texture:
-    {
-        vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
-
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto dstInfo = barrier::ImageLayoutBarrierInfo{
             .Image = mPrefiltered.Img.Handle,
             .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, numMips, 0, 6},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd.Buffer, dstInfo);
-    }
+
+        barrier::ImageLayoutBarrierCoarse(cmd, dstInfo);
+    });
 }
 
 void EnvironmentHandler::GenerateIntegrationMap()
 {
-    auto &pool = mFrame.CurrentPool();
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+        auto barrierInfo = barrier::ImageLayoutBarrierInfo{
+            .Image = mIntegration.Img.Handle,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+        };
+        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
 
-    vkutils::ScopedCommand cmd(mCtx, QueueType::Graphics, pool);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          mIntegrationGenPipeline.Handle);
 
-    auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-        .Image = mIntegration.Img.Handle,
-        .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
-        .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-    };
-    barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                mIntegrationGenPipeline.Layout, 0, 1,
+                                &mIntegrationDescriptorSet, 0, nullptr);
 
-    vkCmdBindPipeline(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                      mIntegrationGenPipeline.Handle);
+        uint32_t localSizeX = 32, localSizeY = 32;
 
-    vkCmdBindDescriptorSets(cmd.Buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                            mIntegrationGenPipeline.Layout, 0, 1,
-                            &mIntegrationDescriptorSet, 0, nullptr);
+        uint32_t dispCountX = mIntegration.Img.Info.extent.width / localSizeX;
+        uint32_t dispCountY = mIntegration.Img.Info.extent.width / localSizeY;
 
-    uint32_t localSizeX = 32, localSizeY = 32;
+        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
 
-    uint32_t dispCountX = mIntegration.Img.Info.extent.width / localSizeX;
-    uint32_t dispCountY = mIntegration.Img.Info.extent.width / localSizeY;
-
-    vkCmdDispatch(cmd.Buffer, dispCountX, dispCountY, 1);
-
-    barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier::ImageLayoutBarrierCoarse(cmd.Buffer, barrierInfo);
+        barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+    });
 }

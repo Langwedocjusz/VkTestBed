@@ -73,12 +73,9 @@ RenderContext::RenderContext(VulkanContext &ctx)
         if (queryRes == VK_SUCCESS)
         {
             // Reset all timestamps preemptively
-            {
-                auto &pool = mFrameInfo.CurrentPool();
-                auto cmd = vkutils::ScopedCommand(mCtx, QueueType::Graphics, pool);
-
-                vkCmdResetQueryPool(cmd.Buffer, mQueryPool, 0, mNumTimestamps);
-            }
+            mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+                vkCmdResetQueryPool(cmd, mQueryPool, 0, mNumTimestamps);
+            });
 
             mMainDeletionQueue.push_back(mQueryPool);
         }

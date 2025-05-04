@@ -2,7 +2,6 @@
 
 #include "DeletionQueue.h"
 #include "Descriptor.h"
-#include "Frame.h"
 #include "Pipeline.h"
 #include "Scene.h"
 #include "Texture.h"
@@ -13,7 +12,7 @@
 
 class EnvironmentHandler {
   public:
-    EnvironmentHandler(VulkanContext &ctx, FrameInfo &info);
+    EnvironmentHandler(VulkanContext &ctx);
     ~EnvironmentHandler();
 
     void RebuildPipelines();
@@ -51,7 +50,6 @@ class EnvironmentHandler {
 
   private:
     VulkanContext &mCtx;
-    FrameInfo &mFrame;
 
     // Descriptor sets exposed to the outside world:
     VkDescriptorSetLayout mLightingDescriptorSetLayout;

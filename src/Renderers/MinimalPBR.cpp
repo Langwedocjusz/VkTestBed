@@ -22,7 +22,7 @@
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        std::unique_ptr<Camera> &camera)
     : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
-      mEnvHandler(ctx, info), mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
+      mEnvHandler(ctx), mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
     // Create the texture sampler:
     mSampler2D = SamplerBuilder("MinimalPbrSampler2D")

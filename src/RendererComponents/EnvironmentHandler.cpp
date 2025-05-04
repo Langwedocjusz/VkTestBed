@@ -14,8 +14,8 @@
 
 #include <format>
 
-EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
-    : mCtx(ctx), mFrame(info), mDescriptorAllocator(ctx), mDeletionQueue(ctx),
+EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
+    : mCtx(ctx), mDescriptorAllocator(ctx), mDeletionQueue(ctx),
       mPipelineDeletionQueue(ctx)
 {
     // Create the texture samplers:

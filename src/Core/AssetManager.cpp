@@ -55,7 +55,7 @@ void AssetManager::OnUpdate()
             mThreadPool.Push([this, &data]() {
                 auto &img = mScene.Images[data.ImageKey];
 
-                img = ImageData::ImportSTB(data.Path, data.Unorm);
+                img = ImageData::ImportSTB(data.Path.string(), data.Unorm);
 
                 mModel.TasksLeft--;
             });
@@ -230,8 +230,6 @@ void AssetManager::PreprocessGltfAssets()
 
             else
             {
-                auto &img = mScene.Images[imgKey];
-
                 const auto m =
                     static_cast<uint8_t>(255.0f * material.pbrData.metallicFactor);
                 const auto r =

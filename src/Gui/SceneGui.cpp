@@ -378,8 +378,8 @@ void SceneGui::MeshesTab()
                     {
                         if (ImGui::Selectable(mat.Name.c_str()))
                         {
-                            auto &mesh = mEditor.GetMesh((*primToChange).Mesh);
-                            auto &prim = mesh.Primitives[(*primToChange).Idx];
+                            auto &originMesh = mEditor.GetMesh((*primToChange).Mesh);
+                            auto &prim = originMesh.Primitives[(*primToChange).Idx];
 
                             prim.Material = id;
                             mEditor.RequestUpdate(Scene::UpdateFlag::MeshMaterials);

@@ -5,6 +5,8 @@
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#include <libassert/assert.hpp>
+
 // SceneGraphNode Implementation:
 
 SceneGraphNode::SceneGraphNode(SceneEditor &editor) : mEditor(editor)
@@ -40,16 +42,14 @@ bool SceneGraphNode::IsLeaf()
 
 SceneKey SceneGraphNode::GetObjectKey()
 {
-    if (!IsLeaf())
-        throw std::logic_error("Only leaf nodes hold object keys!");
+    ASSERT(IsLeaf(), "Only leaf nodes hold object keys!");
 
     return std::get<SceneKey>(mPayload);
 }
 
 SceneGraphNode::ChildrenArray &SceneGraphNode::GetChildren()
 {
-    if (IsLeaf())
-        throw std::logic_error("Leaf nodes have no children!");
+    ASSERT(!IsLeaf(), "Leaf nodes have no children!");
 
     return std::get<ChildrenArray>(mPayload);
 }
@@ -169,21 +169,21 @@ void SceneEditor::OnUpdate()
 
 SceneMesh &SceneEditor::GetMesh(SceneKey key)
 {
-    assert(mScene.Meshes.count(key) != 0);
+    ASSERT(mScene.Meshes.count(key) != 0);
 
     return mScene.Meshes[key];
 }
 
 SceneMaterial &SceneEditor::GetMaterial(SceneKey key)
 {
-    assert(mScene.Materials.count(key) != 0);
+    ASSERT(mScene.Materials.count(key) != 0);
 
     return mScene.Materials[key];
 }
 
 SceneObject &SceneEditor::GetObject(SceneKey key)
 {
-    assert(mScene.Objects.count(key) != 0);
+    ASSERT(mScene.Objects.count(key) != 0);
 
     return mScene.Objects[key];
 }
@@ -203,7 +203,7 @@ void SceneEditor::EraseMesh(SceneKey mesh)
 SceneKey SceneEditor::EmplaceObject(std::optional<SceneKey> mesh)
 {
     if (mesh)
-        assert(mScene.Meshes.count(*mesh) != 0);
+        ASSERT(mScene.Meshes.count(*mesh) != 0);
 
     auto [key, obj] = mScene.EmplaceObject();
 
@@ -303,7 +303,7 @@ void SceneEditor::HandleNodeMove()
 {
     // We assume src and dst are different, since
     // move operation wouldn't be scheduled otherwise.
-    assert(mNodeOpData.SrcParent != mNodeOpData.DstParent);
+    ASSERT(mNodeOpData.SrcParent != mNodeOpData.DstParent);
 
     auto &srcChildren = mNodeOpData.SrcParent->GetChildren();
     auto &dstChildren = mNodeOpData.DstParent->GetChildren();
@@ -387,7 +387,7 @@ static void InstancePrefabImpl(SceneEditor &editor, SceneGraphNode &source,
 
 void SceneEditor::InstancePrefab(size_t prefabId)
 {
-    assert(prefabId < Prefabs.size());
+    ASSERT(prefabId < Prefabs.size());
 
     auto &prefabRoot = Prefabs[prefabId];
     InstancePrefabImpl(*this, prefabRoot, GraphRoot);

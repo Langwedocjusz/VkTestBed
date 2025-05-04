@@ -165,6 +165,7 @@ add_subdirectory(vendor/efsw)
 add_subdirectory(vendor/tracy)
 add_subdirectory(vendor/tinyexr)
 add_subdirectory(vendor/mikktspace)
+add_subdirectory(vendor/libassert)
 
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
@@ -186,3 +187,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE efsw)
 target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
 target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)
 target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
+target_link_libraries(${PROJECT_NAME} PRIVATE libassert::assert)

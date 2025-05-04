@@ -6,6 +6,10 @@
 #define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
+#include <libassert/assert.hpp>
+
+#include <format>
+
 ImageData ImageData::SinglePixel(Pixel p, bool unorm)
 {
     auto data = new Pixel(p);
@@ -32,13 +36,8 @@ ImageData ImageData::ImportSTB(const std::string &path, bool unorm)
     //'STBI_rgb_alpha' forces 4 channels, even if source image has less:
     stbi_uc *pixels = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
-    if (!pixels)
-    {
-        std::string err_msg = "Failed to load texture image!\n";
-        err_msg += "Filepath: " + path;
-
-        throw std::runtime_error(err_msg);
-    }
+    ASSERT(pixels != nullptr,
+           std::format("Failed to load texture image. Filepath: {}", path));
 
     auto res = ImageData();
 
@@ -63,17 +62,8 @@ ImageData ImageData::ImportEXR(const std::string &path)
 
     int ret = LoadEXR(&data, &width, &height, path.c_str(), &err);
 
-    if (ret != TINYEXR_SUCCESS)
-    {
-        std::string msg = "Error when trying to open: " + path + "\n";
-
-        if (err)
-        {
-            msg += std::string(err);
-        }
-
-        throw std::runtime_error(msg);
-    }
+    ASSERT(ret == TINYEXR_SUCCESS,
+           std::format("Error when trying to open image: {}", path));
 
     auto res = ImageData();
 

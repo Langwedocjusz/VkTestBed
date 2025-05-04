@@ -1,6 +1,9 @@
 #include "VulkanContext.h"
 #include "VkBootstrap.h"
-#include <stdexcept>
+
+#include <libassert/assert.hpp>
+
+#include <format>
 
 static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
                            VkQueueFamilyProperties &properties)
@@ -9,11 +12,8 @@ static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
 
     auto queue = ctx.Device.get_queue(type);
 
-    if (!queue.has_value())
-    {
-        auto err_msg = "Failed to get a queue: " + queue.error().message();
-        throw std::runtime_error(err_msg);
-    }
+    ASSERT(queue.has_value(),
+           std::format("Failed to get a queue: {}", queue.error().message()));
 
     auto propVector = ctx.PhysicalDevice.get_queue_families();
     properties = propVector[idx.value()];
@@ -31,8 +31,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     // Retrieve system info
     auto systemInfoRet = vkb::SystemInfo::get_system_info();
 
-    if (!systemInfoRet)
-        throw std::runtime_error(systemInfoRet.error().message());
+    ASSERT(systemInfoRet, systemInfoRet.error().message());
 
     const auto &systemInfo = systemInfoRet.value();
 
@@ -49,8 +48,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                        .use_default_debug_messenger()
                        .build();
 
-    if (!instRet)
-        throw std::runtime_error(instRet.error().message());
+    ASSERT(instRet, instRet.error().message());
 
     Instance = instRet.value();
     Surface = window.CreateSurface(Instance);
@@ -82,15 +80,13 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                              .set_required_features_13(features13)
                              .select();
 
-    if (!physDeviceRet)
-        throw std::runtime_error(physDeviceRet.error().message());
+    ASSERT(physDeviceRet, physDeviceRet.error().message());
 
     PhysicalDevice = physDeviceRet.value();
 
     auto deviceRet = vkb::DeviceBuilder(PhysicalDevice).build();
 
-    if (!deviceRet)
-        throw std::runtime_error(deviceRet.error().message());
+    ASSERT(deviceRet, deviceRet.error().message());
 
     Device = deviceRet.value();
 
@@ -98,8 +94,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     Queues.Graphics =
         CreateQueue(*this, vkb::QueueType::graphics, QueueProperties.Graphics);
 
-    Queues.Present =
-        CreateQueue(*this, vkb::QueueType::present, QueueProperties.Present);
+    Queues.Present = CreateQueue(*this, vkb::QueueType::present, QueueProperties.Present);
 
     // Vma Allocator creation:
     VmaAllocatorCreateInfo allocatorCreateInfo = {};
@@ -142,8 +137,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
                        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
                        .build();
 
-    if (!swapRet)
-        throw std::runtime_error(swapRet.error().message());
+    ASSERT(swapRet, swapRet.error().message());
 
     vkb::destroy_swapchain(Swapchain);
 
@@ -155,19 +149,16 @@ void VulkanContext::CreateSwapchain(bool firstRun)
 
 VkQueue VulkanContext::GetQueue(QueueType type)
 {
-    switch(type)
+    switch (type)
     {
-        case QueueType::Graphics:
-        {
-            return Queues.Graphics;
-        }
-        case QueueType::Present:
-        {
-            return Queues.Present;
-        }
-        default:
-        {
-            throw std::runtime_error("Queue type not yet supported!");
-        }
+    case QueueType::Graphics: {
+        return Queues.Graphics;
+    }
+    case QueueType::Present: {
+        return Queues.Present;
+    }
+    default: {
+        PANIC("Queue type not yet supported!");
+    }
     }
 }

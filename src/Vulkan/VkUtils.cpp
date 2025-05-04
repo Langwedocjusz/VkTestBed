@@ -1,6 +1,7 @@
 #include "VkUtils.h"
 
-#include <stdexcept>
+#include <libassert/assert.hpp>
+#include <vulkan/vulkan_core.h>
 
 void vkutils::BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags)
 {
@@ -8,14 +9,16 @@ void vkutils::BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags f
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = flags;
 
-    if (vkBeginCommandBuffer(buffer, &beginInfo) != VK_SUCCESS)
-        throw std::runtime_error("Failed to begin recording command buffer!");
+    auto ret = vkBeginCommandBuffer(buffer, &beginInfo);
+
+    ASSERT(ret == VK_SUCCESS, "Failed to begin recording command buffer!");
 }
 
 void vkutils::EndRecording(VkCommandBuffer buffer)
 {
-    if (vkEndCommandBuffer(buffer) != VK_SUCCESS)
-        throw std::runtime_error("Failed to record command buffer!");
+    auto ret = vkEndCommandBuffer(buffer);
+
+    ASSERT(ret == VK_SUCCESS, "Failed to record command buffer!");
 }
 
 vkutils::ScopedCommand::ScopedCommand(VulkanContext &ctx, QueueType type,

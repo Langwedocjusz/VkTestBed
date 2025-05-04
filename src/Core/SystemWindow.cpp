@@ -6,8 +6,9 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
+#include <libassert/assert.hpp>
+
 #include <iostream>
-#include <stdexcept>
 
 static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
 {
@@ -55,8 +56,7 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
 
     glfwSetErrorCallback(error_callback);
 
-    if (!glfwInit())
-        throw std::runtime_error("Failed to initialize glfw!");
+    ASSERT(glfwInit(), "Failed to initialize glfw!");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
@@ -65,7 +65,7 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
     if (!mWindow)
     {
         glfwTerminate();
-        throw std::runtime_error("Failed to create a window!");
+        PANIC("Failed to create a window!");
     }
 
     glfwSetWindowUserPointer(mWindow, usr_ptr);
@@ -113,8 +113,7 @@ VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance,
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkResult err = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
 
-    if (err != VK_SUCCESS)
-        throw std::runtime_error("Failed to create a surface!");
+    ASSERT(err == VK_SUCCESS, "Failed to create a surface!");
 
     return surface;
 }

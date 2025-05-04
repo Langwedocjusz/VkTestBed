@@ -14,10 +14,10 @@ void SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFence fenc
                  std::span<VkPipelineStageFlags> waitStages,
                  std::span<VkSemaphore> signalSemaphores);
 
-void SubmitGraphicsQueue(VulkanContext &ctx, std::span<VkCommandBuffer> buffers, FrameData &frame);
-
-void SubmitGraphicsQueue(VulkanContext &ctx, VkCommandBuffer buffer,
+void SubmitGraphicsQueue(VulkanContext &ctx, std::span<VkCommandBuffer> buffers,
                          FrameData &frame);
+
+void SubmitGraphicsQueue(VulkanContext &ctx, VkCommandBuffer buffer, FrameData &frame);
 
 void AcquireNextImage(VulkanContext &ctx, FrameInfo &frame);
 

@@ -6,6 +6,9 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 
+#include <libassert/assert.hpp>
+
+#include <format>
 #include <iostream>
 
 static std::unique_ptr<fastgltf::Asset> GetAsset(const std::filesystem::path &path,
@@ -14,8 +17,8 @@ static std::unique_ptr<fastgltf::Asset> GetAsset(const std::filesystem::path &pa
     fastgltf::Parser parser;
     auto data = fastgltf::GltfDataBuffer::FromPath(path);
 
-    if (data.error() != fastgltf::Error::None)
-        throw std::runtime_error("Failed to load a gltf file: " + path.string());
+    ASSERT(data.error() == fastgltf::Error::None,
+           std::format("Failed to load a gltf file: {}", path.string()));
 
     auto loadOptions = fastgltf::Options::None;
 
@@ -24,8 +27,8 @@ static std::unique_ptr<fastgltf::Asset> GetAsset(const std::filesystem::path &pa
 
     auto load = parser.loadGltf(data.get(), path.parent_path(), loadOptions);
 
-    if (load.error() != fastgltf::Error::None)
-        throw std::runtime_error("Failed to load a gltf file: " + path.string());
+    ASSERT(load.error() == fastgltf::Error::None,
+           std::format("Failed to load a gltf file: {}", path.string()));
 
     auto res = std::make_unique<fastgltf::Asset>();
     *res.get() = std::move(load.get());

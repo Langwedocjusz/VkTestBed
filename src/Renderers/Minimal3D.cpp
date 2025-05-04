@@ -39,8 +39,8 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
     auto &pool = mFrame.CurrentPool();
     auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255});
 
-    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, QueueType::Graphics, pool, imgData,
-                                                  VK_FORMAT_R8G8B8A8_SRGB);
+    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, QueueType::Graphics, pool,
+                                                  imgData, VK_FORMAT_R8G8B8A8_SRGB);
     mMainDeletionQueue.push_back(mDefaultImage);
 
     // Create the texture sampler:

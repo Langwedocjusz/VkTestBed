@@ -13,8 +13,8 @@
 #include <vulkan/vulkan_core.h>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, FrameInfo &info)
-    : mCtx(ctx), mFrame(info), mDescriptorAllocator(ctx),
-      mDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
+    : mCtx(ctx), mFrame(info), mDescriptorAllocator(ctx), mDeletionQueue(ctx),
+      mPipelineDeletionQueue(ctx)
 {
     // Create the texture samplers:
     mSampler = SamplerBuilder("EnvSampler")

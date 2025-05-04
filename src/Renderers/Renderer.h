@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Image.h"
-#include "Frame.h"
 #include "Camera.h"
+#include "Frame.h"
+#include "Image.h"
 #include "Scene.h"
 
 #include <vulkan/vulkan.h>
@@ -11,11 +11,9 @@
 
 class IRenderer {
   public:
-    IRenderer(VulkanContext &ctx, FrameInfo &info,
-              std::unique_ptr<Camera> &camera)
-        : mCtx(ctx), mFrame(info), mCamera(camera),
-          mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx),
-          mPipelineDeletionQueue(ctx)
+    IRenderer(VulkanContext &ctx, FrameInfo &info, std::unique_ptr<Camera> &camera)
+        : mCtx(ctx), mFrame(info), mCamera(camera), mMainDeletionQueue(ctx),
+          mSwapchainDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
     {
     }
 

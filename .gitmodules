@@ -22,3 +22,6 @@
 [submodule "vendor/tracy"]
 	path = vendor/tracy
 	url = https://github.com/wolfpld/tracy
+[submodule "vendor/libassert"]
+	path = vendor/libassert
+	url = https://github.com/jeremy-rifkin/libassert

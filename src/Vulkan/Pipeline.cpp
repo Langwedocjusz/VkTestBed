@@ -2,7 +2,8 @@
 #include "VkUtils.h"
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+
+#include <libassert/assert.hpp>
 
 PipelineBuilder::PipelineBuilder(std::string_view debugName) : mDebugName(debugName)
 {
@@ -203,9 +204,12 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         pipelineLayoutInfo.pushConstantRangeCount = 1;
     }
 
-    if (vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
-                               &pipeline.Layout) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create a pipeline layout!");
+    {
+        auto ret = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
+                                          &pipeline.Layout);
+
+        ASSERT(ret == VK_SUCCESS, "Failed to create a pipeline layout!");
+    }
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline.Layout,
                           mDebugName);
@@ -272,9 +276,12 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     //  Chain into the pipeline create info
     pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
-    if (vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
-                                  &pipeline.Handle) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create a Graphics Pipeline!");
+    {
+        auto ret = vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo,
+                                             nullptr, &pipeline.Handle);
+
+        ASSERT(ret == VK_SUCCESS, "Failed to create a Graphics Pipeline!");
+    }
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);
 
@@ -352,9 +359,12 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
         pipelineLayoutInfo.pushConstantRangeCount = 1;
     }
 
-    if (vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
-                               &pipeline.Layout) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create compute pipeline layout!");
+    {
+        auto ret = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
+            &pipeline.Layout);
+
+        ASSERT(ret == VK_SUCCESS, "Failed to create compute pipeline layout!");
+    }
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline.Layout,
                           mDebugName);
@@ -364,9 +374,12 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
     pipelineInfo.layout = pipeline.Layout;
     pipelineInfo.stage = mShaderStage;
 
-    if (vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
-                                 &pipeline.Handle) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create compute pipeline!");
+    {
+        auto ret = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
+            &pipeline.Handle);
+
+        ASSERT(ret == VK_SUCCESS, "Failed to create compute pipeline!");
+    }
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);
 

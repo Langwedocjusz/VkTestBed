@@ -8,8 +8,10 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-enum class QueueType{
-    Graphics, Present
+enum class QueueType
+{
+    Graphics,
+    Present
 };
 
 class VulkanContext {
@@ -32,7 +34,7 @@ class VulkanContext {
         VkQueue Present = VK_NULL_HANDLE;
     } Queues;
 
-    struct QueueProperties{
+    struct QueueProperties {
         VkQueueFamilyProperties Graphics;
         VkQueueFamilyProperties Present;
     } QueueProperties;

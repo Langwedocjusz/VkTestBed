@@ -1,18 +1,16 @@
 #include "Shader.h"
 
+#include <libassert/assert.hpp>
+
+#include <format>
 #include <fstream>
 #include <iostream>
-#include <stdexcept>
 
 static std::vector<char> ReadFileBinary(const std::string &filename)
 {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-    if (!file)
-    {
-        auto err_msg = "Failed to open file: " + filename;
-        throw std::runtime_error(err_msg);
-    }
+    ASSERT(file, std::format("Failed to open file: {}", filename));
 
     size_t file_size = (size_t)file.tellg();
     std::vector<char> buffer(file_size);
@@ -34,8 +32,9 @@ static VkShaderModule CreateShaderModule(VulkanContext &ctx,
     create_info.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
     VkShaderModule shaderModule;
-    if (vkCreateShaderModule(ctx.Device, &create_info, nullptr, &shaderModule) !=
-        VK_SUCCESS)
+    auto ret = vkCreateShaderModule(ctx.Device, &create_info, nullptr, &shaderModule);
+
+    if (ret != VK_SUCCESS)
     {
         std::cerr << "Failed to create a shader module!\n";
         return VK_NULL_HANDLE; // failed to create shader module
@@ -53,13 +52,11 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::Build(VulkanContext 
 
     else
     {
-        if (!mVertexPath.has_value())
-            throw std::logic_error(
-                "Vertex shader path not provided in non-compute shader.");
-
-        if (!mFragmentPath.has_value())
-            throw std::logic_error(
-                "Fragment shader path not provided in non-compute shader.");
+        ASSERT(mVertexPath.has_value(), 
+            "Vertex shader path not provided in non-compute shader.");
+        
+        ASSERT(mFragmentPath.has_value(), 
+            "Fragment shader path not provided in non-compute shader.");
 
         return BuildGraphics(ctx);
     }
@@ -72,12 +69,10 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
     auto fragCode = ReadFileBinary(mFragmentPath.value());
 
     VkShaderModule vertModule = CreateShaderModule(ctx, vertCode);
-    if (vertModule == VK_NULL_HANDLE)
-        throw std::runtime_error("Failed to create a shader module!");
+    ASSERT(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
     VkShaderModule fragModule = CreateShaderModule(ctx, fragCode);
-    if (fragModule == VK_NULL_HANDLE)
-        throw std::runtime_error("Failed to create a shader module!");
+    ASSERT(fragModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
     VkPipelineShaderStageCreateInfo vertStageInfo = {};
     vertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -100,8 +95,7 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildCompute(
     auto computeCode = ReadFileBinary(mComputePath.value());
 
     VkShaderModule computeModule = CreateShaderModule(ctx, computeCode);
-    if (computeModule == VK_NULL_HANDLE)
-        throw std::runtime_error("Failed to create a shader module!");
+    ASSERT(computeModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
     VkPipelineShaderStageCreateInfo computeStageInfo = {};
     computeStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

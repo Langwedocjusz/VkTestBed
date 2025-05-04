@@ -5,6 +5,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
+#include <libassert/assert.hpp>
+
 #include <array>
 #include <iostream>
 
@@ -43,8 +45,7 @@ VkDescriptorPool iminit::CreateDescriptorPool(VulkanContext &ctx)
 
     auto res = vkCreateDescriptorPool(ctx.Device, &pool_info, nullptr, &pool);
 
-    if (res != VK_SUCCESS)
-        throw std::runtime_error("Failed to create Imgui Descriptor Pool!");
+    ASSERT(res == VK_SUCCESS, "Failed to create Imgui Descriptor Pool!");
 
     return pool;
 }

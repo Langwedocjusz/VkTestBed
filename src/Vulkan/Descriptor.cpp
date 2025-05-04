@@ -4,8 +4,9 @@
 
 #include <vulkan/vulkan.h>
 
+#include <libassert/assert.hpp>
+
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
 
 DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(std::string_view debugName)
     : mDebugName(debugName)
@@ -53,9 +54,9 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildImpl(VulkanContext &ctx)
     layoutInfo.bindingCount = static_cast<uint32_t>(mBindings.size());
     layoutInfo.pBindings = mBindings.data();
 
-    if (vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr, &layout) !=
-        VK_SUCCESS)
-        throw std::runtime_error("Failed to create descriptor set layout!");
+    auto ret = vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr, &layout);
+
+    ASSERT(ret == VK_SUCCESS, "Failed to create descriptor set layout!");
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, layout, mDebugName);
 
@@ -73,8 +74,9 @@ VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
 
-    if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &pool) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create descriptor pool!");
+    auto ret = vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &pool);
+
+    ASSERT(ret == VK_SUCCESS, "Failed to create descriptor pool!");
 
     return pool;
 }
@@ -90,8 +92,9 @@ VkDescriptorSet Descriptor::Allocate(VulkanContext &ctx, VkDescriptorPool pool,
     allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts = &layout;
 
-    if (vkAllocateDescriptorSets(ctx.Device, &allocInfo, &descriptorSet) != VK_SUCCESS)
-        throw std::runtime_error("Failed to allocate descriptor sets!");
+    auto ret = vkAllocateDescriptorSets(ctx.Device, &allocInfo, &descriptorSet);
+
+    ASSERT(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
 
     return descriptorSet;
 }
@@ -107,9 +110,9 @@ std::vector<VkDescriptorSet> Descriptor::Allocate(
     allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
     allocInfo.pSetLayouts = layouts.data();
 
-    if (vkAllocateDescriptorSets(ctx.Device, &allocInfo, descriptorSets.data()) !=
-        VK_SUCCESS)
-        throw std::runtime_error("Failed to allocate descriptor sets!");
+    auto ret = vkAllocateDescriptorSets(ctx.Device, &allocInfo, descriptorSets.data());
+
+    ASSERT(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
 
     return descriptorSets;
 }
@@ -265,8 +268,9 @@ VkDescriptorSet DescriptorAllocator::Allocate(VkDescriptorSetLayout &layout)
         pool = GetPool();
         allocInfo.descriptorPool = pool;
 
-        if (vkAllocateDescriptorSets(mCtx.Device, &allocInfo, &set) != VK_SUCCESS)
-            throw std::runtime_error("Failed to allocate descriptor sets!");
+        auto ret = vkAllocateDescriptorSets(mCtx.Device, &allocInfo, &set);
+
+        ASSERT(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
     }
 
     mReadyPools.push_back(pool);
@@ -296,8 +300,9 @@ std::vector<VkDescriptorSet> DescriptorAllocator::Allocate(
         pool = GetPool();
         allocInfo.descriptorPool = pool;
 
-        if (vkAllocateDescriptorSets(mCtx.Device, &allocInfo, sets.data()) != VK_SUCCESS)
-            throw std::runtime_error("Failed to allocate descriptor sets!");
+        auto ret = vkAllocateDescriptorSets(mCtx.Device, &allocInfo, sets.data());
+
+        ASSERT(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
     }
 
     mReadyPools.push_back(pool);

@@ -3,20 +3,21 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Frame.h"
-#include "HelloRenderer.h"
 #include "ImGuiInit.h"
+#include "ImGuiUtils.h"
 #include "Keycodes.h"
-#include "Minimal3D.h"
-#include "MinimalPBR.h"
 #include "Renderer.h"
 #include "VkInit.h"
 #include "VkUtils.h"
 
-#include <iostream>
-#include <memory>
+#include "HelloRenderer.h"
+#include "Minimal3D.h"
+#include "MinimalPBR.h"
+
 #include <vulkan/vulkan.h>
 
-#include "ImGuiUtils.h"
+#include <iostream>
+#include <memory>
 
 RenderContext::RenderContext(VulkanContext &ctx)
     : mCtx(ctx), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
@@ -162,13 +163,6 @@ void RenderContext::DrawFrame()
     auto &cmd = mFrameInfo.CurrentCmd();
 
     auto &swapchainImage = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
-    auto swapchainExtent = mCtx.Swapchain.extent;
-
-    auto swapchainInfo = vkutils::BlitImageInfo{
-        .ImgHandle = swapchainImage,
-        .Extent = VkExtent3D{swapchainExtent.width, swapchainExtent.height, 1},
-        .NumLayers = 1,
-    };
 
     // I. Reset the command buffer
     vkResetCommandBuffer(cmd, 0);
@@ -210,6 +204,14 @@ void RenderContext::DrawFrame()
         }
 
         // 4. Copy render target to swapchain image
+        auto &swapExt = mCtx.Swapchain.extent;
+
+        auto swapchainInfo = vkutils::BlitImageInfo{
+            .ImgHandle = swapchainImage,
+            .Extent = VkExtent3D{swapExt.width, swapExt.height, 1},
+            .NumLayers = 1,
+        };
+
         vkutils::BlitImageZeroMip(cmd, mRenderer->GetTarget(), swapchainInfo);
 
         // 5. Transition swapchain image to render

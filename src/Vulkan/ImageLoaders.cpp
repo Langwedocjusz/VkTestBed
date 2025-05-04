@@ -48,8 +48,9 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, QueueType queue, VkCommandPo
     return img;
 }
 
-Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, QueueType queue, VkCommandPool pool,
-                                   const ImageData &data, VkFormat format)
+Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, QueueType queue,
+                                   VkCommandPool pool, const ImageData &data,
+                                   VkFormat format)
 {
     auto [imageSize, extent] = RepackImgData(data);
 

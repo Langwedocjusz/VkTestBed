@@ -1,6 +1,9 @@
 #include "Common.h"
 
+#include <libassert/assert.hpp>
+
 #include <array>
+#include <vulkan/vulkan_core.h>
 
 void common::ViewportScissor(VkCommandBuffer buffer, VkExtent2D extent)
 {
@@ -45,14 +48,13 @@ void common::SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFe
         submitInfo.pSignalSemaphores = signalSemaphores.data();
     }
 
-    if (vkQueueSubmit(queue, 1, &submitInfo, fence) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to submit commands to queue!");
-    }
+    auto submitRes = vkQueueSubmit(queue, 1, &submitInfo, fence);
+
+    ASSERT(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
 }
 
-void common::SubmitGraphicsQueue(VulkanContext &ctx,
-                                 std::span<VkCommandBuffer> buffers, FrameData &frame)
+void common::SubmitGraphicsQueue(VulkanContext &ctx, std::span<VkCommandBuffer> buffers,
+                                 FrameData &frame)
 {
     auto queue = ctx.GetQueue(QueueType::Graphics);
 
@@ -89,7 +91,7 @@ void common::AcquireNextImage(VulkanContext &ctx, FrameInfo &frame)
         }
         else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
         {
-            throw std::runtime_error("Failed to acquire swapchain image!");
+            PANIC("Failed to acquire swapchain image!");
         }
     }
 }
@@ -119,6 +121,6 @@ void common::PresentFrame(VulkanContext &ctx, FrameInfo &frame)
     }
     else if (result != VK_SUCCESS)
     {
-        throw std::runtime_error("Failed to present swapchain image!");
+        PANIC("Failed to present swapchain image!");
     }
 }

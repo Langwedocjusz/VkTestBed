@@ -7,6 +7,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <libassert/assert.hpp>
+
 #include <cmath>
 
 uint32_t Image::CalcNumMips(uint32_t width, uint32_t height)
@@ -39,8 +41,9 @@ VkImageView Image::CreateView(VulkanContext &ctx, VkImageViewCreateInfo &info)
 {
     VkImageView imageView;
 
-    if (vkCreateImageView(ctx.Device, &info, nullptr, &imageView) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create image view!");
+    auto ret = vkCreateImageView(ctx.Device, &info, nullptr, &imageView);
+
+    ASSERT(ret == VK_SUCCESS, "Failed to create image view!");
 
     return imageView;
 }

@@ -256,8 +256,11 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         .WriteImageStorage(0, mIntegration.View)
         .Update(mCtx);
 
-    // Build the compute pipeline:
+    // Build the compute pipelines:
     RebuildPipelines();
+
+    // Generate the integration map (it is cubemap independent):
+    GenerateIntegrationMap();
 }
 
 EnvironmentHandler::~EnvironmentHandler()
@@ -339,14 +342,9 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
         const auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
 
         ConvertEquirectToCubemap(data, format);
-        // CalculateDiffuseIrradiance();
-        // GeneratePrefilteredMap();
-        // GenerateIntegrationMap();
+        CalculateDiffuseIrradiance();
+        GeneratePrefilteredMap();
     }
-
-    CalculateDiffuseIrradiance();
-    GeneratePrefilteredMap();
-    GenerateIntegrationMap();
 }
 
 void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkFormat format)

@@ -240,21 +240,6 @@ void SceneGui::AddInstancePopup()
             }
         }
 
-        /*for (auto &[meshKey, mesh] : mEditor.Meshes())
-        {
-            std::string name = mesh.Name + "##" + std::to_string(meshKey);
-
-            if (ImGui::Selectable(name.c_str()))
-            {
-                auto objKey = mEditor.EmplaceObject(meshKey);
-
-                auto &newNode = mEditor.GraphRoot.EmplaceChild(objKey);
-                newNode.Name = mesh.Name;
-
-                mEditor.RequestUpdate(Scene::UpdateFlag::Objects);
-            }
-        }*/
-
         // To-do: maybe move this to the data menu
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
@@ -310,9 +295,11 @@ void SceneGui::MeshesTab()
 
     std::optional<SceneKey> keyToDelete = std::nullopt;
 
+    uint32_t counter = 0;
+
     for (auto &[meshKey, mesh] : mEditor.Meshes())
     {
-        std::string nodeName = mesh.Name + "##" + std::to_string(meshKey);
+        std::string nodeName = std::to_string(counter++) + ". " + mesh.Name;
 
         ImGuiContext &g = *GImGui;
 

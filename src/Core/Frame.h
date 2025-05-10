@@ -15,8 +15,9 @@ struct FrameData {
 struct FrameStats {
     float CPUTime = 0.0f;
     float GPUTime = 0.0f;
-    uint32_t NumDraws = 0;
     uint32_t NumTriangles = 0;
+    uint32_t NumDraws = 0;
+    uint32_t NumBinds = 0;
     uint32_t NumDispatches = 0;
     size_t MemoryBudget = 0;
     size_t MemoryUsage = 0;

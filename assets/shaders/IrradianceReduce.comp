@@ -1,18 +1,10 @@
 #version 450
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+#extension GL_GOOGLE_include_directive : require
 
-struct SHData {
-    vec4 SH_L0;
-    vec4 SH_L1_M_1;
-    vec4 SH_L1_M0;
-    vec4 SH_L1_M1;
-    vec4 SH_L2_M_2;
-    vec4 SH_L2_M_1;
-    vec4 SH_L2_M0;
-    vec4 SH_L2_M1;
-    vec4 SH_L2_M2;
-};
+#include "common/SphericalHarmonics.glsl"
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(std140, set = 0, binding = 0) readonly buffer SHBufferIn {
    SHData inputSH[ ];

@@ -179,7 +179,7 @@ void MinimalPbrRenderer::OnRender()
                                 mMainPipeline.Layout, 2, 1,
                                 mEnvHandler.GetLightingDSPtr(), 0, nullptr);
 
-        uint32_t numDraws = 0, numIdx = 0;
+        uint32_t numDraws = 0, numIdx = 0, numBinds = 2;
 
         for (auto &[_, drawable] : mDrawables)
         {
@@ -211,13 +211,13 @@ void MinimalPbrRenderer::OnRender()
                                    &pcData);
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
 
-                numIdx += drawable.IndexCount;
                 numDraws++;
+                numBinds++;
+                numIdx += drawable.IndexCount;
             }
-        }
 
-        mFrame.Stats.NumDraws = numDraws;
-        mFrame.Stats.NumTriangles = numIdx / 3;
+            numBinds += 3;
+        }
 
         // Draw the background:
         if (mEnvHandler.HdriEnabled())
@@ -246,6 +246,10 @@ void MinimalPbrRenderer::OnRender()
 
             vkCmdDraw(cmd, 3, 1, 0, 0);
         }
+
+        mFrame.Stats.NumTriangles = numIdx / 3;
+        mFrame.Stats.NumDraws = numDraws;
+        mFrame.Stats.NumBinds = numBinds;
     }
     vkCmdEndRendering(cmd);
 }

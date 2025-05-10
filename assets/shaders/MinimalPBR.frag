@@ -1,6 +1,13 @@
 #version 450
 
+#extension GL_GOOGLE_include_directive : require
+
 #define USE_NORMAL_MAPPING
+
+const float PI = 3.1415926535;
+
+#include "common/Pbr.glsl"
+#include "common/SphericalHarmonics.glsl"
 
 layout(location = 0) in vec2 texCoord;
 layout(location = 1) in vec3 vertNormal;
@@ -18,18 +25,6 @@ layout(set = 2, binding = 0) uniform UniformBufferObject {
     int HdriEnabled;
 } EnvUBO;
 
-struct SHData {
-    vec4 SH_L0;
-    vec4 SH_L1_M_1;
-    vec4 SH_L1_M0;
-    vec4 SH_L1_M1;
-    vec4 SH_L2_M_2;
-    vec4 SH_L2_M_1;
-    vec4 SH_L2_M0;
-    vec4 SH_L2_M1;
-    vec4 SH_L2_M2;
-};
-
 layout(std140, set = 2, binding = 1) readonly buffer SHBuffer {
    SHData irradianceMap;
 };
@@ -45,69 +40,6 @@ layout(push_constant) uniform constants {
     mat4 Transform;
 } PushConstants;
 
-const float PI = 3.1415926535;
-
-//PBR functions from: https://google.github.io/filament/Filament.md.html
-
-float D_GGX(float NoH, float roughness)
-{
-    float a = NoH * roughness;
-    float k = roughness / (1.0 - NoH * NoH + a * a);
-    return k * k * (1.0 / PI);
-}
-
-float V_SmithGGXCorrelatedFast(float NoV, float NoL, float roughness)
-{
-    float a = roughness;
-    float GGXV = NoL * (NoV * (1.0 - a) + a);
-    float GGXL = NoV * (NoL * (1.0 - a) + a);
-    return 0.5 / (GGXV + GGXL);
-}
-
-vec3 F_Schlick(float u, vec3 f0)
-{
-    float f = pow(1.0 - u, 5.0);
-    return f + f0 * (1.0 - f);
-}
-
-vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
-{
-    return F0 + (max(vec3(1.0 - roughness), F0) - F0) *
-    pow(1.0 - cosTheta, 5.0);
-}
-
-float Fd_Lambert()
-{
-    return 1.0 / PI;
-}
-
-vec3 BRDF(vec3 n, vec3 v, vec3 l, float perceptualRoughness, vec3 diffuseColor, vec3 f0)
-{
-    vec3 h = normalize(v + l);
-
-    float NoV = abs(dot(n, v)) + 1e-5;
-    float NoL = clamp(dot(n, l), 0.0, 1.0);
-    float NoH = clamp(dot(n, h), 0.0, 1.0);
-    float LoH = clamp(dot(l, h), 0.0, 1.0);
-
-    // perceptually linear roughness to roughness
-    float roughness = perceptualRoughness * perceptualRoughness;
-
-    float D = D_GGX(NoH, roughness);
-    vec3  F = F_Schlick(LoH, f0);
-    float V = V_SmithGGXCorrelatedFast(NoV, NoL, roughness);
-
-    // specular BRDF
-    vec3 Fr = (D * V) * F;
-    Fr = max(vec3(0.0), Fr);
-
-    // diffuse BRDF
-    vec3 Fd = diffuseColor * Fd_Lambert();
-
-    //return max(vec3(0.0), (Fr + Fd) * NoL);
-    return (Fr + Fd) * NoL;
-}
-
 //https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)
 {
@@ -118,38 +50,6 @@ vec3 ACESFilm(vec3 x)
     float e = 0.14f;
 
     return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
-}
-
-vec3 SHReconstruction(SHData data, vec3 dir)
-{
-    float x = dir.x, y = dir.y, z = dir.z;
-
-    float SH_L0     = 0.28209479177;
-    float SH_L1_M_1 = 0.48860251190 * y;
-    float SH_L1_M0  = 0.48860251190 * z;
-    float SH_L1_M1  = 0.48860251190 * x;
-    float SH_L2_M_2 = 1.09254843059 * x*y;
-    float SH_L2_M_1 = 1.09254843059 * y*z;
-    float SH_L2_M0  = 0.31539156525 * (3.0*z*z - 1.0);
-    float SH_L2_M1  = 1.09254843059 * x*z;
-    float SH_L2_M2  = 0.54627421529 * (x*x - y*y);
-
-    vec3 res = vec3(0);
-
-    //float A0 = 1.0, A1 = 1.0, A2 = 1.0;
-    float A0 = 3.141593, A1 = 2.094395, A2 = 0.785398;
-
-    res += A0 * data.SH_L0.rgb * SH_L0;
-    res += A1 * data.SH_L1_M_1.rgb * SH_L1_M_1;
-    res += A1 * data.SH_L1_M0.rgb * SH_L1_M0;
-    res += A1 * data.SH_L1_M1.rgb * SH_L1_M1;
-    res += A2 * data.SH_L2_M_2.rgb * SH_L2_M_2;
-    res += A2 * data.SH_L2_M_1.rgb * SH_L2_M_1;
-    res += A2 * data.SH_L2_M0.rgb * SH_L2_M0;
-    res += A2 * data.SH_L2_M1.rgb * SH_L2_M1;
-    res += A2 * data.SH_L2_M2.rgb * SH_L2_M2;
-
-    return res;
 }
 
 void main()
@@ -198,15 +98,6 @@ void main()
     //Calculate lighting:
     vec4 res = vec4(0,0,0,1);
 
-    if(directional)
-    {
-        res.rgb += BRDF(normal, view, ldir, roughness, diffuse, f0);
-
-        //Backlighting:
-        const vec3 skyCol = vec3(0.0, 0.05, 0.1);
-        res.rgb += skyCol * BRDF(normal, view, -ldir, roughness, diffuse, f0);
-    }
-
     //Specular IBL:s
     vec3 irradiance = SHReconstruction(irradianceMap, normalize(normal));
     vec3 diffuseIBL = diffuse * irradiance;
@@ -222,10 +113,14 @@ void main()
 
     res.rgb = 0.4 * (diffuseIBL + specularIBL);
 
+    if(directional)
+    {
+        res.rgb += BRDF(normal, view, ldir, roughness, diffuse, f0);
+    }
+
     //Do color correction:
     res.rgb = ACESFilm(res.rgb);
     res.rgb = pow(res.rgb, vec3(1.0/2.2));
-
 
     outColor = res;
 }

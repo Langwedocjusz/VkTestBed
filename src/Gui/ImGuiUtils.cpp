@@ -47,6 +47,7 @@ void imutils::DisplayStats(FrameStats &stats)
     ImGui::Text("GPU Time (Graphics): %f [ms]", stats.GPUTime);
     ImGui::Text("Triangles: %i", stats.NumTriangles);
     ImGui::Text("Draws: %i", stats.NumDraws);
+    ImGui::Text("Binds: %i", stats.NumBinds);
     ImGui::Text("Dispatches: %i", stats.NumDispatches);
 
     // To-do: enable this

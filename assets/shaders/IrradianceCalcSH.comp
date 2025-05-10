@@ -1,20 +1,13 @@
 #version 450
 
+#extension GL_GOOGLE_include_directive : require
+
+#include "common/Cubemap.glsl"
+#include "common/SphericalHarmonics.glsl"
+
 layout(set = 0, binding = 0) uniform samplerCube environment;
 
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
-
-struct SHData {
-    vec4 SH_L0;
-    vec4 SH_L1_M_1;
-    vec4 SH_L1_M0;
-    vec4 SH_L1_M1;
-    vec4 SH_L2_M_2;
-    vec4 SH_L2_M_1;
-    vec4 SH_L2_M0;
-    vec4 SH_L2_M1;
-    vec4 SH_L2_M2;
-};
 
 layout(std140, set = 1, binding = 0) writeonly buffer SHBuffer {
    SHData outputSH[ ];
@@ -59,30 +52,6 @@ vec2 GetCoordsCentered(uvec2 texelCoord)
     ts = 2.0 * ts - 1.0;
 
     return ts;
-}
-
-vec3 GetCubemapDir(vec2 ts, uint sideId)
-{
-    vec3 dir;
-
-    #define RIGHT 0
-    #define LEFT 1
-    #define BOTTOM 2
-    #define TOP 3
-    #define FRONT 4
-    #define BACK 5
-
-    switch(sideId)
-    {
-        case TOP:    {dir = vec3(ts.x, -1.0, -ts.y); break;}
-        case BOTTOM: {dir = vec3(ts.x,  1.0, ts.y); break;}
-        case RIGHT:  {dir = vec3( 1.0, -ts.y, -ts.x); break;}
-        case LEFT:   {dir = vec3(-1.0, -ts.y, ts.x); break;}
-        case FRONT:  {dir = vec3(ts.x, -ts.y,  1.0); break;}
-        case BACK:   {dir = vec3(-ts.x, -ts.y, -1.0); break;}
-    }
-
-    return normalize(dir);
 }
 
 void main()

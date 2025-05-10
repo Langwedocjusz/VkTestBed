@@ -1,7 +1,7 @@
 #pragma once
 
-#include <filesystem>
 #include <optional>
+#include <filesystem>
 
 namespace efsw
 {

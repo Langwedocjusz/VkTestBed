@@ -12,6 +12,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <iostream>
+#include <cmath>
 #include <format>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
@@ -24,6 +26,12 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
                    .SetMinFilter(VK_FILTER_LINEAR)
                    .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
                    .Build(mCtx, mDeletionQueue);
+
+    mSamplerClamped = SamplerBuilder("EnvSamplerClamped")
+                          .SetMagFilter(VK_FILTER_LINEAR)
+                          .SetMinFilter(VK_FILTER_LINEAR)
+                          .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+                          .Build(mCtx, mDeletionQueue);
 
     mSamplerMipped = SamplerBuilder("EnvSamplerMipped")
                          .SetMagFilter(VK_FILTER_LINEAR)
@@ -150,16 +158,17 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         .MipLevels = prefilteredMips,
     };
 
-    mPrefiltered = MakeTexture::TextureCube(mCtx, "EnvPrefilteredMap", prefilteredInfo, mDeletionQueue);
+    mPrefiltered = MakeTexture::TextureCube(mCtx, "EnvPrefilteredMap", prefilteredInfo,
+                                            mDeletionQueue);
 
     // Create single mip views for usage in compute:
     for (uint32_t mip = 0; mip < prefilteredMips; mip++)
     {
         const auto name = std::format("EnvPrefilteredViewMip{}", mip);
 
-        auto view =
-            MakeView::ViewCubeSingleMip(mCtx, name, mPrefiltered.Img, prefilteredInfo.Format,
-                                        VK_IMAGE_ASPECT_COLOR_BIT, mip);
+        auto view = MakeView::ViewCubeSingleMip(mCtx, name, mPrefiltered.Img,
+                                                prefilteredInfo.Format,
+                                                VK_IMAGE_ASPECT_COLOR_BIT, mip);
 
         mPrefilteredMipViews.push_back(view);
 
@@ -177,7 +186,8 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         .MipLevels = 1,
     };
 
-    mIntegration = MakeTexture::Texture2D(mCtx, "EnvIntegrationMap", integrationInfo, mDeletionQueue);
+    mIntegration = MakeTexture::Texture2D(mCtx, "EnvIntegrationMap", integrationInfo,
+                                          mDeletionQueue);
 
     // Create lighting uniform buffer:
     mEnvUBO =
@@ -240,7 +250,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         .WriteShaderStorageBuffer(1, mFinalReductionBuffer.Handle,
                                   mFinalReductionBuffer.AllocInfo.size)
         .WriteImageSampler(2, mPrefiltered.View, mSamplerMipped)
-        .WriteImageSampler(3, mIntegration.View, mSampler)
+        .WriteImageSampler(3, mIntegration.View, mSamplerClamped)
         .Update(mCtx);
 
     // Update irradiance descriptor
@@ -327,8 +337,14 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
 {
     auto key = scene.Env.HdriImage;
 
-    mEnvUBOData.HdriEnabled = key.has_value();
-    mEnvUBOData.LightDir = glm::vec4(scene.Env.LightDir, float(scene.Env.DirLightOn));
+    const auto maxPrefilteredLod = static_cast<float>(std::log2(mPrefiltered.Img.Info.extent.width));
+
+    mEnvUBOData = EnvUBOData{
+        .LightDir = scene.Env.LightDir,
+        .LightOn = static_cast<int32_t>(scene.Env.DirLightOn),
+        .HdriEnabled = key.has_value(),
+        .MaxReflectionLod = maxPrefilteredLod,
+    };
 
     Buffer::UploadToMapped(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
 

@@ -3,15 +3,15 @@
 #include <algorithm>
 #include <efsw/efsw.hpp>
 
-#include <set>
-#include <regex>
-#include <format>
-#include <ranges>
-#include <vector>
 #include <cstdlib>
-#include <fstream>
 #include <filesystem>
+#include <format>
+#include <fstream>
 #include <functional>
+#include <ranges>
+#include <regex>
+#include <set>
+#include <vector>
 
 class UpdateListener : public efsw::FileWatchListener {
   public:
@@ -86,21 +86,21 @@ std::optional<std::filesystem::path> ShaderManager::GetDstPath(std::filesystem::
     return mBytecodeDir / relParentPath / filename;
 }
 
-static std::string GetFilename(const std::string& includeLine)
+static std::string GetFilename(const std::string &includeLine)
 {
     const auto first = includeLine.find_first_of('\"');
     const auto last = includeLine.find_last_of('\"');
 
-    return includeLine.substr(first+1, last-first-1);
+    return includeLine.substr(first + 1, last - first - 1);
 }
 
-static std::vector<size_t> GetIncludedFileIds(std::filesystem::path &srcDir,
-                                              const std::vector<std::filesystem::path> &fileList, 
-                                              size_t id)
+static std::vector<size_t> GetIncludedFileIds(
+    std::filesystem::path &srcDir, const std::vector<std::filesystem::path> &fileList,
+    size_t id)
 {
     std::vector<size_t> res;
 
-    const auto& path = fileList.at(id);
+    const auto &path = fileList.at(id);
     std::ifstream file(path);
 
     const std::regex incRegex("[[:blank:]]*#[[:blank:]]*include[[:blank:]]+\".*\"");
@@ -113,7 +113,7 @@ static std::vector<size_t> GetIncludedFileIds(std::filesystem::path &srcDir,
             auto filepath = srcDir / GetFilename(currentLine);
 
             auto iter = std::ranges::find(fileList, filepath);
-            
+
             size_t index = std::distance(fileList.begin(), iter);
 
             if (index != fileList.size())
@@ -126,13 +126,14 @@ static std::vector<size_t> GetIncludedFileIds(std::filesystem::path &srcDir,
     return res;
 }
 
-static std::vector<std::vector<size_t>> GetAdjacencyList(std::filesystem::path &srcDir, const std::vector<std::filesystem::path>& fileList)
+static std::vector<std::vector<size_t>> GetAdjacencyList(
+    std::filesystem::path &srcDir, const std::vector<std::filesystem::path> &fileList)
 {
     const size_t numFiles = fileList.size();
 
     std::vector<std::vector<size_t>> res(numFiles);
 
-    for(size_t i=0; i<numFiles; i++)
+    for (size_t i = 0; i < numFiles; i++)
     {
         res[i] = GetIncludedFileIds(srcDir, fileList, i);
     }
@@ -157,22 +158,22 @@ void ShaderManager::CompileToBytecode()
         }
     }
 
-    // Construct adjacency list out of it, based on the presence of 
+    // Construct adjacency list out of it, based on the presence of
     // include directives:
     auto adjacencyList = GetAdjacencyList(mSourceDir, fileList);
 
     // To-do: Check if graph represented by the adjacency list is acyclic
-    
+
     // Reverse the adjacency list:
     std::vector<std::vector<size_t>> reverseList(adjacencyList.size());
 
-    for (size_t i=0; i<adjacencyList.size(); i++)
+    for (size_t i = 0; i < adjacencyList.size(); i++)
     {
         for (auto elem : adjacencyList[i])
             reverseList[elem].push_back(i);
     }
 
-    // Assume that files that are not included anywhere are the ones 
+    // Assume that files that are not included anywhere are the ones
     // to be compiled:
 
     std::set<size_t> nonHeaderIds;
@@ -182,8 +183,8 @@ void ShaderManager::CompileToBytecode()
         if (sublist.size() == 0)
             nonHeaderIds.insert(idx);
     }
-        
-    // Prune the set of compilable files based on 
+
+    // Prune the set of compilable files based on
     // wether or not they or their included fles
     // have been updated since last run:
 
@@ -240,7 +241,8 @@ void ShaderManager::CompileToBytecode()
         auto srcDir = args.Src.string();
         auto dstDir = args.Dst.string();
 
-        std::string cmd = std::format("glslc --target-env=vulkan1.3 {} -o {}", srcDir, dstDir);
+        std::string cmd =
+            std::format("glslc --target-env=vulkan1.3 {} -o {}", srcDir, dstDir);
 
         // To-do: maybe figure out a nicer way to do this:
         system(cmd.c_str());

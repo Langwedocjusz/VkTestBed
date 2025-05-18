@@ -21,8 +21,8 @@
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
-      mEnvHandler(ctx), mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
+    : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx), mEnvHandler(ctx),
+      mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
     // Create the texture sampler:
     mSampler2D = SamplerBuilder("MinimalPbrSampler2D")
@@ -285,8 +285,8 @@ void MinimalPbrRenderer::CreateSwapchainResources()
     mSwapchainDeletionQueue.push_back(mRenderTarget);
 
     // Create the render target view:
-    mRenderTargetView = MakeView::View2D(mCtx, "RenderTargetView", mRenderTarget, mRenderTargetFormat,
-                                         VK_IMAGE_ASPECT_COLOR_BIT);
+    mRenderTargetView = MakeView::View2D(mCtx, "RenderTargetView", mRenderTarget,
+                                         mRenderTargetFormat, VK_IMAGE_ASPECT_COLOR_BIT);
     mSwapchainDeletionQueue.push_back(mRenderTargetView);
 
     // Create depth buffer:
@@ -299,8 +299,8 @@ void MinimalPbrRenderer::CreateSwapchainResources()
     };
 
     mDepthBuffer = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);
-    mDepthBufferView =
-        MakeView::View2D(mCtx, "DepthBufferView", mDepthBuffer, mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    mDepthBufferView = MakeView::View2D(mCtx, "DepthBufferView", mDepthBuffer,
+                                        mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     mSwapchainDeletionQueue.push_back(mDepthBuffer);
     mSwapchainDeletionQueue.push_back(mDepthBufferView);
@@ -380,7 +380,8 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
 
         auto format = imgData.Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 
-        texture = TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData, format);
+        texture =
+            TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData, format);
 
         mSceneDeletionQueue.push_back(texture);
     }

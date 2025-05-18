@@ -93,7 +93,7 @@ void main()
             vec3 envSample = texture(environment, dir).rgb;
 
             //Ad hoc signal clamping:
-            envSample = clamp(envSample, vec3(0), vec3(1000));
+            envSample = clamp(envSample, vec3(0), vec3(20));
 
             //Calculate spherical harmonics at sample dir:
             float x = dir.x, y = dir.y, z = dir.z;

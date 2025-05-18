@@ -1,6 +1,7 @@
 #version 450
 
 #extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_scalar_block_layout : require
 
 #define USE_NORMAL_MAPPING
 
@@ -20,9 +21,11 @@ layout(set = 1, binding = 0) uniform sampler2D albedo_map;
 layout(set = 1, binding = 1) uniform sampler2D rougness_map;
 layout(set = 1, binding = 2) uniform sampler2D normal_map;
 
-layout(set = 2, binding = 0) uniform UniformBufferObject {
-    vec4 LightDir;
+layout(scalar, set = 2, binding = 0) uniform UniformBufferObject {
+    vec3 LightDir;
+    int DirLightOn;
     int HdriEnabled;
+    float MaxReflectionLod;
 } EnvUBO;
 
 layout(std140, set = 2, binding = 1) readonly buffer SHBuffer {
@@ -92,28 +95,26 @@ void main()
     vec3 diffuse = (1.0 - metallic) * albedo.rgb;
 
     //Read in light direction:
-    bool directional = (EnvUBO.LightDir.w != 0.0);
-    vec3 ldir = EnvUBO.LightDir.xyz;
+    vec3 ldir = EnvUBO.LightDir;
 
     //Calculate lighting:
     vec4 res = vec4(0,0,0,1);
 
     //Specular IBL:s
-    vec3 irradiance = SHReconstruction(irradianceMap, normalize(normal));
+    vec3 irradiance = SH_HemisphereConvolve(irradianceMap, normal);
     vec3 diffuseIBL = diffuse * irradiance;
 
-    const float MAX_REFLECTION_LOD = 4.0;
     vec3 R = reflect(-view, normal);
 
-    vec3 prefilteredColor = textureLod(prefilteredMap, R,  roughness * MAX_REFLECTION_LOD).rgb;
+    vec3 prefilteredColor = textureLod(prefilteredMap, R,  roughness * EnvUBO.MaxReflectionLod).rgb;
 
-    vec3 F        = FresnelSchlickRoughness(max(dot(normal, view), 0.0), f0, roughness);
+    vec3 F        = F_SchlickRoughness(max(dot(normal, view), 0.0), f0, roughness);
     vec2 envBRDF  = texture(integrationMap, vec2(max(dot(normal, view), 0.0), roughness)).rg;
     vec3 specularIBL = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 
     res.rgb = 0.4 * (diffuseIBL + specularIBL);
 
-    if(directional)
+    if(EnvUBO.DirLightOn != 0)
     {
         res.rgb += BRDF(normal, view, ldir, roughness, diffuse, f0);
     }

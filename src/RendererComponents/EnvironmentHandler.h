@@ -115,13 +115,16 @@ class EnvironmentHandler {
     std::vector<VkImageView> mPrefilteredMipViews;
 
     VkSampler mSampler;
+    VkSampler mSamplerClamped;
     VkSampler mSamplerMipped;
 
     // Uniform buffer object with environment info for lighting:
     struct EnvUBOData {
         // Fourth component indicates whether the light is on or not
-        glm::vec4 LightDir = glm::vec4(glm::normalize(glm::vec3(1, -1, 1)), 1);
+        glm::vec3 LightDir = glm::normalize(glm::vec3(1, -1, 1));
+        int32_t LightOn = 1;
         int32_t HdriEnabled = false;
+        float MaxReflectionLod = 0.0f;
     } mEnvUBOData;
 
     Buffer mEnvUBO;

@@ -9,6 +9,7 @@
 #include <fastgltf/types.hpp>
 
 #include <atomic>
+#include <unordered_map>
 
 class SceneEditor;
 
@@ -32,7 +33,9 @@ class AssetManager {
 
     struct ImageTaskData {
         SceneKey ImageKey;
-        std::filesystem::path Path;
+        std::optional<std::filesystem::path> Path;
+        Pixel BaseColor;
+        std::string Name;
         bool Unorm;
     };
 
@@ -70,6 +73,13 @@ class AssetManager {
     struct {
         ImageTaskData Data;
     } mHDRI;
+
+    // Doesn't cache gltf textures loaded with a gltf,
+    // as this will be taken care of by (whole) gltf caching.
+    // Trying to cache at higher granularity would anyway be
+    // inconsistent as some gltf materials lack a path
+    //(single pixel ones).
+    std::unordered_map<std::filesystem::path, SceneKey> mImagePathCache;
 
     ThreadPool mThreadPool;
 };

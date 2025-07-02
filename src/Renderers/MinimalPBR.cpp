@@ -54,9 +54,9 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     }
 
     // Create the default textures:
-    auto albedoData = ImageData::SinglePixel(Pixel{255, 255, 255, 0});
-    auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0});
-    auto normalData = ImageData::SinglePixel(Pixel{128, 128, 255, 0});
+    auto albedoData = ImageData::SinglePixel(Pixel{255, 255, 255, 0}, false);
+    auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0}, true);
+    auto normalData = ImageData::SinglePixel(Pixel{128, 128, 255, 0}, true);
 
     mDefaultAlbedo = TextureLoaders::LoadTexture2D(mCtx, "DefaultAlbedo", albedoData,
                                                    VK_FORMAT_R8G8B8A8_SRGB);
@@ -183,10 +183,10 @@ void MinimalPbrRenderer::OnRender()
 
         for (auto &[_, drawable] : mDrawables)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-            std::array<VkDeviceSize, 1> offsets{0};
+            VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
+            VkDeviceSize vertOffset = 0;
+            vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
-            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
             vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
                                  mGeometryLayout.IndexType);
 
@@ -212,7 +212,6 @@ void MinimalPbrRenderer::OnRender()
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
 
                 numDraws++;
-                numBinds++;
                 numIdx += drawable.IndexCount;
             }
 
@@ -308,6 +307,15 @@ void MinimalPbrRenderer::CreateSwapchainResources()
 
 void MinimalPbrRenderer::LoadScene(const Scene &scene)
 {
+    // To-do: OWNERSHIP!!!!!!
+    if (scene.FullReload())
+    {
+        mDrawables.clear();
+        mInstanceData.clear();
+        mMaterials.clear();
+        mImages.clear();
+    }
+
     if (scene.UpdateMeshes())
         LoadMeshes(scene);
 

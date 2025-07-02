@@ -1,15 +1,20 @@
 #pragma once
 
 #include <array>
+#include <vector>
+
 #include <vulkan/vulkan.h>
 
-struct FrameData {
+struct FrameResources {
     VkFence InFlightFence;
     VkSemaphore ImageAcquiredSemaphore;
-    VkSemaphore RenderCompletedSemaphore;
 
     VkCommandPool CommandPool;
     VkCommandBuffer CommandBuffer;
+};
+
+struct SwapchainResources {
+    VkSemaphore RenderCompletedSemaphore;
 };
 
 struct FrameStats {
@@ -19,14 +24,14 @@ struct FrameStats {
     uint32_t NumDraws = 0;
     uint32_t NumBinds = 0;
     uint32_t NumDispatches = 0;
-    size_t MemoryBudget = 0;
     size_t MemoryUsage = 0;
 };
 
 struct FrameInfo {
-    static constexpr size_t MaxInFlight = 2;
+    static constexpr size_t MaxInFlight = 3;
 
-    std::array<FrameData, MaxInFlight> Data;
+    std::array<FrameResources, MaxInFlight> FrameData;
+    std::vector<SwapchainResources> SwapchainData;
 
     size_t FrameNumber = 0;
     uint32_t Index = 0;
@@ -34,16 +39,21 @@ struct FrameInfo {
 
     FrameStats Stats;
 
-    auto &CurrentData()
+    auto &CurrentFrameData()
     {
-        return Data[Index];
-    }
-    auto &CurrentCmd()
-    {
-        return Data[Index].CommandBuffer;
+        return FrameData[Index];
     }
     auto &CurrentPool()
     {
-        return Data[Index].CommandPool;
+        return FrameData[Index].CommandPool;
+    }
+    auto &CurrentCmd()
+    {
+        return FrameData[Index].CommandBuffer;
+    }
+
+    auto &CurrentSwapchainData()
+    {
+        return SwapchainData[ImageIndex];
     }
 };

@@ -230,7 +230,7 @@ void SceneGui::AddInstancePopup()
         ImGui::Text("Instance:");
         ImGui::Separator();
 
-        for (auto [prefabId, prefab] : enumerate(mEditor.Prefabs))
+        for (auto &[prefabId, prefab] : mEditor.Prefabs())
         {
             std::string name = prefab.Name + "##" + std::to_string(prefabId);
 
@@ -257,11 +257,9 @@ void SceneGui::DataMenu()
     ImGui::Begin("Scene data", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);
 
     auto buttonSize = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
-
     if (ImGui::Button("Full reload", buttonSize))
     {
-        // To-do: handle this
-        // scene.RequestFullUpdate();
+        mEditor.RequestFullReload();
     }
 
     ImGui::BeginTabBar("We");
@@ -385,40 +383,82 @@ void SceneGui::MeshesTab()
 
     if (keyToDelete)
     {
+        // Just to be safe:
+        mSelectedNode = nullptr;
+
         mEditor.EraseMesh(*keyToDelete);
-        // scene.RequestMeshUpdate();
     }
+}
+
+std::string SceneGui::GetMaterialName(std::optional<SceneKey> key,
+                                      std::string_view postfix)
+{
+    if (!key.has_value())
+        return std::format("##{}", postfix);
+
+    const auto &imgStr = mEditor.GetImage(*key).Name;
+
+    return std::format("({}) {} ##{}", *key, imgStr, postfix);
 }
 
 void SceneGui::MaterialsTab()
 {
+    auto KeyImageSelection = [this](std::optional<SceneKey> &key,
+                                    const std::string &keyName) {
+        ImGui::Text("%s", keyName.c_str());
+        ImGui::SameLine();
+
+        auto popupName = std::format("Select {}", keyName);
+        auto selectableText = GetMaterialName(key, keyName);
+
+        if (ImGui::Selectable(selectableText.c_str()))
+        {
+            ImGui::OpenPopup(popupName.c_str());
+        }
+
+        if (ImGui::BeginPopup(popupName.c_str()))
+        {
+            static std::array<char, 255> filterBuf{};
+
+            ImGui::InputText("Filter", &filterBuf[0], 255);
+
+            for (auto &[imgPick, _] : mEditor.Images())
+            {
+                auto imgName =
+                    std::format("({}) ", imgPick) + mEditor.GetImage(imgPick).Name;
+
+                if (imgName.find(std::string(&filterBuf[0])) == std::string::npos)
+                    continue;
+
+                if (ImGui::Selectable(imgName.c_str()))
+                {
+                    key = imgPick;
+                    mEditor.RequestUpdate(Scene::UpdateFlag::Materials);
+                }
+            }
+
+            ImGui::EndPopup();
+        }
+    };
+
     for (auto &[_, mat] : mEditor.Materials())
     {
         if (ImGui::TreeNodeEx(mat.Name.c_str()))
         {
-            // To-do: actual menu component
-            /*for (const auto &[key, value] : mat)
-            {
-                std::string entry;
-                entry += key.Name;
-                entry += ": ";
+            KeyImageSelection(mat.Albedo, "Albedo");
+            KeyImageSelection(mat.Roughness, "Roughness");
+            KeyImageSelection(mat.Normal, "Normal");
 
-                // clang-format off
-                std::visit(
-                    overloaded{
-                        [&entry](Material::ImageSource img) {entry += img.Path.string();},
-                        [&entry](float val) {entry += std::to_string(val);},
-                        [&entry](glm::vec2 v) {entry += std::format("[{}, {}]", v.x,
-            v.y);},
-                        [&entry](glm::vec3 v) {entry += std::format("[{}, {}, {}]", v.x,
-            v.y, v.z);},
-                        [&entry](glm::vec4 v) {entry += std::format("[{}, {}, {}, {}]",
-            v.x, v.y, v.z, v.w);},
-                }, value);
-                // clang-format on
+            ImGui::Text("Alpha Cutoff: ");
+            ImGui::SameLine();
 
-                ImGui::Text("%s", entry.c_str());
-            }*/
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+
+            auto lastCutoff = mat.AlphaCutoff;
+            ImGui::SliderFloat("##AlphaCutoff", &mat.AlphaCutoff, 0.0f, 1.0f);
+
+            if (mat.AlphaCutoff != lastCutoff)
+                mEditor.RequestUpdate(Scene::UpdateFlag::Materials);
 
             ImGui::TreePop();
         }
@@ -455,7 +495,7 @@ void SceneGui::EnvironmentTab()
 
     ImGui::SameLine();
 
-    std::string selText = env.HdriImage ? std::to_string(*env.HdriImage) : "";
+    std::string selText = GetMaterialName(env.HdriImage, "EnvMap");
     selText += "##HDRI";
 
     if (ImGui::Selectable(selText.c_str()))
@@ -477,22 +517,19 @@ void SceneGui::EnvironmentTab()
     }
 
     // Implementation of the popup for hdri selection:
-    SelectHdriPopup();
-}
-
-void SceneGui::SelectHdriPopup()
-{
-    const std::string popupName = "Load hdri...";
-
-    if (mOpenHdriPopup)
     {
-        ImGui::OpenPopup(popupName.c_str());
-        mOpenHdriPopup = false;
+        const std::string popupName = "Load hdri...";
+
+        if (mOpenHdriPopup)
+        {
+            ImGui::OpenPopup(popupName.c_str());
+            mOpenHdriPopup = false;
+        }
+
+        mHdriBrowser.ImGuiLoadPopup(popupName, mHdriStillOpen);
+
+        mHdriStillOpen = true;
     }
-
-    mHdriBrowser.ImGuiLoadPopup(popupName, mHdriStillOpen);
-
-    mHdriStillOpen = true;
 }
 
 void SceneGui::AddProviderPopup()

@@ -16,6 +16,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <libassert/assert.hpp>
+
 #include <iostream>
 #include <memory>
 
@@ -23,24 +25,37 @@ RenderContext::RenderContext(VulkanContext &ctx)
     : mCtx(ctx), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
 {
     // Create per frame command pools/buffers and sync-objects:
-    for (auto &data : mFrameInfo.Data)
+    for (auto &data : mFrameInfo.FrameData)
     {
         data.CommandPool = vkinit::CreateCommandPool(mCtx, vkb::QueueType::graphics);
         data.CommandBuffer = vkinit::CreateCommandBuffer(mCtx, data.CommandPool);
 
         vkinit::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
-        vkinit::CreateSemaphore(mCtx, data.RenderCompletedSemaphore);
         vkinit::CreateSignalledFence(mCtx, data.InFlightFence);
     }
 
+    // Create per swapchain image sync-objects:
+    mFrameInfo.SwapchainData.resize(mCtx.SwapchainImages.size());
+
+    for (auto &data : mFrameInfo.SwapchainData)
+    {
+        vkinit::CreateSemaphore(mCtx, data.RenderCompletedSemaphore);
+        // vkinit::CreateSemaphore(mCtx, data.ImageOwnershipSemaphore);
+    }
+
     // Update the deletion queue:
-    for (auto &data : mFrameInfo.Data)
+    for (auto &data : mFrameInfo.FrameData)
     {
         mMainDeletionQueue.push_back(data.CommandPool);
 
         mMainDeletionQueue.push_back(data.InFlightFence);
         mMainDeletionQueue.push_back(data.ImageAcquiredSemaphore);
+    }
+
+    for (auto &data : mFrameInfo.SwapchainData)
+    {
         mMainDeletionQueue.push_back(data.RenderCompletedSemaphore);
+        // mMainDeletionQueue.push_back(data.ImageOwnershipSemaphore);
     }
 
     // Timing setup based on:
@@ -113,6 +128,17 @@ void RenderContext::OnUpdate(float deltaTime)
     mRenderer->OnUpdate(deltaTime);
 
     mFrameInfo.Stats.CPUTime = 1000.0f * deltaTime;
+
+    // Retrieve info about memory usage:
+    mFrameInfo.Stats.MemoryUsage = 0;
+
+    std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
+    vmaGetHeapBudgets(mCtx.Allocator, &budgets[0]);
+
+    for (uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; i++)
+    {
+        mFrameInfo.Stats.MemoryUsage += budgets[i].usage;
+    }
 }
 
 void RenderContext::OnImGui()
@@ -121,42 +147,76 @@ void RenderContext::OnImGui()
     mCamera->OnImGui();
 
     if (mShowStats)
-    {
-        // To-do: update memory stats
         imutils::DisplayStats(mFrameInfo.Stats);
-    }
 }
 
 void RenderContext::OnRender()
 {
-    auto &frame = mFrameInfo.CurrentData();
+    auto &frameData = mFrameInfo.CurrentFrameData();
 
     // 1. Wait for the in-Flight fence:
-    vkWaitForFences(mCtx.Device, 1, &frame.InFlightFence, VK_TRUE, UINT64_MAX);
+    vkWaitForFences(mCtx.Device, 1, &frameData.InFlightFence, VK_TRUE, UINT64_MAX);
 
     // 2. Try to acquire swapchain image, bail out if that fails:
-    common::AcquireNextImage(mCtx, mFrameInfo);
+    if (mCtx.SwapchainOk)
+    {
+        VkResult result = vkAcquireNextImageKHR(mCtx.Device, mCtx.Swapchain, UINT64_MAX,
+                                                frameData.ImageAcquiredSemaphore,
+                                                VK_NULL_HANDLE, &mFrameInfo.ImageIndex);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            mCtx.SwapchainOk = false;
+        }
+        else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+        {
+            PANIC("Failed to acquire swapchain image!");
+        }
+    }
 
     if (!mCtx.SwapchainOk)
         return;
 
     // 3. Reset the in-Flight fence:
-    vkResetFences(mCtx.Device, 1, &frame.InFlightFence);
+    vkResetFences(mCtx.Device, 1, &frameData.InFlightFence);
 
     // 4. Draw the frame:
     DrawFrame();
 
     // 5. Present the frame to swapchain:
-    common::PresentFrame(mCtx, mFrameInfo);
+    auto queue = mCtx.GetQueue(QueueType::Present);
 
-    // 6. Advance frame index:
+    auto &swapchainData = mFrameInfo.CurrentSwapchainData();
+
+    VkPresentInfoKHR present_info = {};
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = &swapchainData.RenderCompletedSemaphore;
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = &mCtx.Swapchain.swapchain;
+    present_info.pImageIndices = &mFrameInfo.ImageIndex;
+
+    VkResult result = vkQueuePresentKHR(queue, &present_info);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+    {
+        mCtx.SwapchainOk = false;
+        return;
+    }
+    else if (result != VK_SUCCESS)
+    {
+        PANIC("Failed to present swapchain image!");
+    }
+
+    // 6. Update frame number, advance frame index:
     mFrameInfo.FrameNumber++;
-    mFrameInfo.Index = mFrameInfo.FrameNumber % mFrameInfo.MaxInFlight;
+    mFrameInfo.Index = (mFrameInfo.Index + 1) % mFrameInfo.MaxInFlight;
 }
 
 void RenderContext::DrawFrame()
 {
-    auto &frame = mFrameInfo.CurrentData();
+    auto &frame = mFrameInfo.CurrentFrameData();
+    auto &swap = mFrameInfo.CurrentSwapchainData();
     auto &cmd = mFrameInfo.CurrentCmd();
 
     auto &swapchainImage = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
@@ -244,7 +304,13 @@ void RenderContext::DrawFrame()
     vkutils::EndRecording(cmd);
 
     // III. Submit the command buffer
-    common::SubmitGraphicsQueue(mCtx, cmd, frame);
+    auto graphicsQueue = mCtx.GetQueue(QueueType::Graphics);
+
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    common::SubmitQueue(graphicsQueue, &cmd, frame.InFlightFence,
+                        &frame.ImageAcquiredSemaphore, &waitStage,
+                        &swap.RenderCompletedSemaphore);
 
     // IV. Query for timestamp results (previous frame):
     auto ModDecrement = [](uint32_t x, uint32_t n) { return (x != 0) ? x - 1 : n - 1; };

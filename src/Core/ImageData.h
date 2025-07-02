@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 
 struct Pixel {
@@ -13,9 +14,9 @@ struct Pixel {
 /// An owning handle to cpu side image data
 class ImageData {
   public:
-    static ImageData SinglePixel(Pixel p, bool unorm = false);
-    static ImageData ImportSTB(const std::string &path, bool unorm = false);
-    static ImageData ImportEXR(const std::string &path);
+    static ImageData SinglePixel(Pixel p, bool unorm);
+    static ImageData ImportSTB(const std::filesystem::path &path, bool unorm);
+    static ImageData ImportEXR(const std::filesystem::path &path);
 
     ImageData() = default;
     ~ImageData();
@@ -27,6 +28,8 @@ class ImageData {
     ImageData &operator=(ImageData &&) noexcept;
 
   public:
+    std::string Name;
+
     int Width = 0;
     int Height = 0;
     int Channels = 0;

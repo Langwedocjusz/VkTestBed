@@ -21,15 +21,14 @@ ImageData ImageData::SinglePixel(Pixel p, bool unorm)
     res.Channels = 4;
     res.BytesPerChannel = 1;
     res.Unorm = unorm;
-
     res.Data = static_cast<void *>(data);
-
+    res.Name = "SinglePixel";
     res.mType = Type::Pixel;
 
     return res;
 }
 
-ImageData ImageData::ImportSTB(const std::string &path, bool unorm)
+ImageData ImageData::ImportSTB(const std::filesystem::path &path, bool unorm)
 {
     int width, height, channels;
 
@@ -37,7 +36,7 @@ ImageData ImageData::ImportSTB(const std::string &path, bool unorm)
     stbi_uc *pixels = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
     ASSERT(pixels != nullptr,
-           std::format("Failed to load texture image. Filepath: {}", path));
+           std::format("Failed to load texture image. Filepath: {}", path.string()));
 
     auto res = ImageData();
 
@@ -46,15 +45,14 @@ ImageData ImageData::ImportSTB(const std::string &path, bool unorm)
     res.Channels = 4; // hence value of 4 here
     res.BytesPerChannel = 1;
     res.Unorm = unorm;
-
     res.Data = static_cast<void *>(pixels);
-
+    res.Name = path.stem();
     res.mType = Type::Stb;
 
     return res;
 }
 
-ImageData ImageData::ImportEXR(const std::string &path)
+ImageData ImageData::ImportEXR(const std::filesystem::path &path)
 {
     int width, height;
     float *data;
@@ -63,7 +61,7 @@ ImageData ImageData::ImportEXR(const std::string &path)
     int ret = LoadEXR(&data, &width, &height, path.c_str(), &err);
 
     ASSERT(ret == TINYEXR_SUCCESS,
-           std::format("Error when trying to open image: {}", path));
+           std::format("Error when trying to open image: {}", path.string()));
 
     auto res = ImageData();
 
@@ -71,9 +69,8 @@ ImageData ImageData::ImportEXR(const std::string &path)
     res.Height = height;
     res.Channels = 4;
     res.BytesPerChannel = 4;
-
     res.Data = static_cast<void *>(data);
-
+    res.Name = path.stem();
     res.mType = Type::Exr;
 
     return res;
@@ -96,6 +93,7 @@ ImageData &ImageData::operator=(ImageData &&other) noexcept
     BytesPerChannel = other.BytesPerChannel;
     Unorm = other.Unorm;
     Data = other.Data;
+    Name = std::move(other.Name);
     mType = other.mType;
 
     other.Data = nullptr;

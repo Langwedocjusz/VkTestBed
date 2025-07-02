@@ -94,9 +94,6 @@ void main()
     vec3 f0 = metallic * albedo.rgb;
     vec3 diffuse = (1.0 - metallic) * albedo.rgb;
 
-    //Read in light direction:
-    vec3 ldir = EnvUBO.LightDir;
-
     //Calculate lighting:
     vec4 res = vec4(0,0,0,1);
 
@@ -116,6 +113,9 @@ void main()
 
     if(EnvUBO.DirLightOn != 0)
     {
+        //Read in light direction:
+        vec3 ldir = EnvUBO.LightDir;
+
         res.rgb += BRDF(normal, view, ldir, roughness, diffuse, f0);
     }
 

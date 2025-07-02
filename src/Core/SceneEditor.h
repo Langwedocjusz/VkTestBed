@@ -28,15 +28,19 @@ class SceneGraphNode {
 
     ~SceneGraphNode();
 
-    bool IsLeaf();
+    [[nodiscard]] bool IsLeaf() const;
+    [[nodiscard]] SceneKey GetObjectKey() const;
 
-    SceneKey GetObjectKey();
     ChildrenArray &GetChildren();
+    [[nodiscard]] const ChildrenArray &GetChildrenConst() const;
 
     /// Emplaces a non-leaf node as child
     SceneGraphNode &EmplaceChild();
     /// Emplaces a leaf node as child
     SceneGraphNode &EmplaceChild(SceneKey key);
+
+    [[nodiscard]] bool SubTreeContains(SceneKey key) const;
+    void RemoveChildrenWithMesh(Scene &scene, SceneKey mesh);
 
     glm::mat4 GetTransform();
     void UpdateTransforms(Scene &scene, glm::mat4 current = 1.0f);
@@ -64,6 +68,7 @@ class SceneEditor {
     // Functions to manipulate the underlying scene:
     SceneMesh &GetMesh(SceneKey key);
     SceneMaterial &GetMaterial(SceneKey key);
+    ImageData &GetImage(SceneKey key);
     SceneObject &GetObject(SceneKey key);
     Scene::Environment &GetEnv();
 
@@ -81,15 +86,17 @@ class SceneEditor {
     {
         return std::views::all(mScene.Materials);
     }
+    auto Images()
+    {
+        return std::views::all(mScene.Images);
+    }
 
     void LoadModel(const ModelConfig &config);
     void SetHdri(const std::filesystem::path &path);
+    void RequestFullReload();
     void RequestUpdate(Scene::UpdateFlag flag);
 
     // Functions to manipulate the scene-graph:
-    void UpdateTransforms(SceneGraphNode *rootNode);
-    void InstancePrefab(size_t prefabId);
-
     struct NodeOpData {
         SceneGraphNode *SrcParent;
         int64_t ChildId;
@@ -103,13 +110,20 @@ class SceneEditor {
     void ScheduleNodeCopy(NodeOpData data);
     void ScheduleNodeDeletion(NodeOpData data);
 
+    void UpdateTransforms(SceneGraphNode *rootNode);
+
+    std::pair<SceneKey, SceneGraphNode &> EmplacePrefab(
+        std::optional<SceneKey> meshKey = std::nullopt);
+    void InstancePrefab(SceneKey prefabId);
+
+    auto Prefabs()
+    {
+        return std::views::all(mPrefabs);
+    }
+
   public:
     // Root of the scene-graph used by UI to control objects:
     SceneGraphNode GraphRoot;
-
-    // Trees representing mesh hierarchies of imported gltf scenes.
-    // They are grafted onto the main scene-graph when instancing the gltf.
-    std::vector<SceneGraphNode> Prefabs;
 
   private:
     void HandleNodeOp();
@@ -121,6 +135,10 @@ class SceneEditor {
     Scene &mScene;
     AssetManager mAssetManager;
 
+    // Trees representing mesh hierarchies of imported gltf scenes.
+    // They are grafted onto the main scene-graph when instancing the gltf.
+    std::map<SceneKey, SceneGraphNode> mPrefabs;
+
     enum class NodeOp
     {
         None,
@@ -130,4 +148,6 @@ class SceneEditor {
     } mNodeOpType;
 
     NodeOpData mNodeOpData;
+
+    SceneKeyGenerator mPrefabKeyGenerator;
 };

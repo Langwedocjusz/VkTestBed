@@ -36,7 +36,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
     mTextureDescriptorAllocator.OnInit(poolCounts);
 
     // Create the default texture:
-    auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255});
+    auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255}, false);
 
     mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, "DefaultTexture", imgData,
                                                   VK_FORMAT_R8G8B8A8_SRGB);
@@ -154,10 +154,10 @@ void Minimal3DRenderer::OnRender()
 
         for (auto &[_, drawable] : mColoredDrawables)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-            std::array<VkDeviceSize, 1> offsets{0};
+            VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
+            VkDeviceSize vertOffset = 0;
+            vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
-            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
             vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
                                  mColoredLayout.IndexType);
             auto &instances = mInstanceData[drawable.Instances];
@@ -184,10 +184,10 @@ void Minimal3DRenderer::OnRender()
 
         for (auto &[_, drawable] : mTexturedDrawables)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-            std::array<VkDeviceSize, 1> offsets{0};
+            VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
+            VkDeviceSize vertOffset = 0;
+            vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
-            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
             vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
                                  mTexturedLayout.IndexType);
 

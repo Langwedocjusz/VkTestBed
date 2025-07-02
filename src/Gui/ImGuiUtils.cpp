@@ -49,11 +49,7 @@ void imutils::DisplayStats(FrameStats &stats)
     ImGui::Text("Draws: %i", stats.NumDraws);
     ImGui::Text("Binds: %i", stats.NumBinds);
     ImGui::Text("Dispatches: %i", stats.NumDispatches);
-
-    // To-do: enable this
-    // const float memPercent = static_cast<float>(stats.MemoryUsage) /
-    // static_cast<float>(stats.MemoryBudget); ImGui::Text("Memory Usage: %zu, (%f %%)",
-    // stats.MemoryUsage, memPercent);
+    ImGui::Text("Video Memory Usage: %zu mb", stats.MemoryUsage / 1000000);
 
     ImGui::End();
 

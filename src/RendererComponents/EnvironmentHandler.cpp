@@ -12,9 +12,9 @@
 
 #include <vulkan/vulkan.h>
 
-#include <iostream>
 #include <cmath>
 #include <format>
+#include <iostream>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     : mCtx(ctx), mDescriptorAllocator(ctx), mDeletionQueue(ctx),
@@ -337,7 +337,8 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
 {
     auto key = scene.Env.HdriImage;
 
-    const auto maxPrefilteredLod = static_cast<float>(std::log2(mPrefiltered.Img.Info.extent.width));
+    const auto maxPrefilteredLod =
+        static_cast<float>(std::log2(mPrefiltered.Img.Info.extent.width));
 
     mEnvUBOData = EnvUBOData{
         .LightDir = scene.Env.LightDir,

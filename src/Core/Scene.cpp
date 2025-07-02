@@ -50,6 +50,12 @@ std::pair<SceneKey, SceneObject &> Scene::EmplaceObject()
     return {key, Objects[key]};
 }
 
+void Scene::RequestFullReload()
+{
+    mFullReload = true;
+    RequestUpdateAll();
+}
+
 void Scene::RequestUpdateAll()
 {
     mUpdateFlags.SetAll();
@@ -58,6 +64,11 @@ void Scene::RequestUpdateAll()
 void Scene::RequestUpdate(UpdateFlag flag)
 {
     mUpdateFlags.Set(flag);
+}
+
+bool Scene::FullReload() const
+{
+    return mFullReload;
 }
 
 bool Scene::UpdateImages() const
@@ -97,5 +108,6 @@ bool Scene::UpdateRequested() const
 
 void Scene::ClearUpdateFlags()
 {
+    mFullReload = false;
     mUpdateFlags.Clear();
 }

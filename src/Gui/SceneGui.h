@@ -23,9 +23,10 @@ class SceneGui {
     void MaterialsTab();
     void EnvironmentTab();
     void AddProviderPopup();
-    void SelectHdriPopup();
 
     void ObjectPropertiesMenu();
+
+    std::string GetMaterialName(std::optional<SceneKey> key, std::string_view postfix);
 
   private:
     SceneEditor &mEditor;

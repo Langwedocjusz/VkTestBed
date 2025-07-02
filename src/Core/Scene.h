@@ -79,10 +79,12 @@ class Scene {
         Environment,
     };
 
-    void ClearUpdateFlags();
+    void RequestFullReload();
     void RequestUpdateAll();
     void RequestUpdate(UpdateFlag flag);
+    void ClearUpdateFlags();
 
+    [[nodiscard]] bool FullReload() const;
     [[nodiscard]] bool UpdateRequested() const;
     [[nodiscard]] bool UpdateImages() const;
     [[nodiscard]] bool UpdateMeshes() const;
@@ -92,6 +94,7 @@ class Scene {
     [[nodiscard]] bool UpdateEnvironment() const;
 
   private:
+    bool mFullReload = false;
     Bitflags<UpdateFlag> mUpdateFlags;
 
     SceneKeyGenerator mImageKeyGenerator;

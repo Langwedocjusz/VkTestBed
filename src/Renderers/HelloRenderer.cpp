@@ -84,10 +84,10 @@ void HelloRenderer::OnRender()
 
         for (auto &[_, drawable] : mDrawables)
         {
-            std::array<VkBuffer, 1> vertexBuffers{drawable.VertexBuffer.Handle};
-            std::array<VkDeviceSize, 1> offsets{0};
+            VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
+            VkDeviceSize vertOffset = 0;
+            vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
-            vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), offsets.data());
             vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
                                  mGeometryLayout.IndexType);
 

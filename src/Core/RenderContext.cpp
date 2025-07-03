@@ -184,8 +184,6 @@ void RenderContext::OnRender()
     DrawFrame();
 
     // 5. Present the frame to swapchain:
-    auto queue = mCtx.GetQueue(QueueType::Present);
-
     auto &swapchainData = mFrameInfo.CurrentSwapchainData();
 
     VkPresentInfoKHR present_info = {};
@@ -196,7 +194,7 @@ void RenderContext::OnRender()
     present_info.pSwapchains = &mCtx.Swapchain.swapchain;
     present_info.pImageIndices = &mFrameInfo.ImageIndex;
 
-    VkResult result = vkQueuePresentKHR(queue, &present_info);
+    VkResult result = vkQueuePresentKHR(mCtx.Queues.Present, &present_info);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
@@ -304,11 +302,9 @@ void RenderContext::DrawFrame()
     vkutils::EndRecording(cmd);
 
     // III. Submit the command buffer
-    auto graphicsQueue = mCtx.GetQueue(QueueType::Graphics);
-
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    common::SubmitQueue(graphicsQueue, &cmd, frame.InFlightFence,
+    common::SubmitQueue(mCtx.Queues.Graphics, &cmd, frame.InFlightFence,
                         &frame.ImageAcquiredSemaphore, &waitStage,
                         &swap.RenderCompletedSemaphore);
 
@@ -365,13 +361,29 @@ void RenderContext::DestroySwapchainResources()
     mSwapchainDeletionQueue.flush();
 }
 
+void RenderContext::ResizeSwapchan()
+{
+    vkDeviceWaitIdle(mCtx.Device);
+
+    DestroySwapchainResources();
+    mCtx.CreateSwapchain();
+    CreateSwapchainResources();
+
+    mCtx.SwapchainOk = true;
+}
+
 void RenderContext::LoadScene(Scene &scene)
 {
+    vkDeviceWaitIdle(mCtx.Device);
+
     mRenderer->LoadScene(scene);
+    scene.ClearUpdateFlags();
 }
 
 void RenderContext::RebuildPipelines()
 {
+    vkDeviceWaitIdle(mCtx.Device);
+
     mRenderer->RebuildPipelines();
 }
 

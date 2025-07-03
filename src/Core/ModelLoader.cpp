@@ -134,7 +134,7 @@ static VertParsingResult RetrieveVertices(fastgltf::Asset &gltf,
     auto vertCount = GetVertexCount(gltf, primitive);
     auto compCount = vertCount * layout.Stride;
 
-    auto data = new (geo.VertexData.Data.get()) float[compCount];
+    auto data = new (geo.VertexData.Data) float[compCount];
 
     // Retrieve the positions
     fastgltf::Accessor &posAccessor = GetAttributeAccessor(gltf, primitive, "POSITION");
@@ -234,7 +234,7 @@ static void RetrieveIndices(fastgltf::Asset &gltf, fastgltf::Primitive &primitiv
 {
     auto accessor = gltf.accessors[primitive.indicesAccessor.value()];
 
-    auto Indices = new (geo.IndexData.Data.get()) uint32_t[accessor.count];
+    auto Indices = new (geo.IndexData.Data) uint32_t[accessor.count];
     size_t current = 0;
 
     fastgltf::iterateAccessor<std::uint32_t>(gltf, accessor, [&](std::uint32_t idx) {

@@ -24,14 +24,14 @@ GeometryData primitive::HelloTriangle()
 
     const float r3 = std::sqrt(3.0f);
 
-    new (res.VertexData.Data.get()) Vertex[spec.VertCount]
+    new (res.VertexData.Data) Vertex[spec.VertCount]
     {
         {{ 0.0f,-r3/3.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
         {{ 0.5f, r3/6.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
         {{-0.5f, r3/6.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
     };
 
-    new (res.IndexData.Data.get()) uint16_t[spec.IdxCount]{0, 1, 2};
+    new (res.IndexData.Data) uint16_t[spec.IdxCount]{0, 1, 2};
 
     res.Layout = GeometryLayout{
         .VertexLayout = {Vec3, Vec3},
@@ -55,7 +55,7 @@ GeometryData primitive::HelloQuad()
 
     GeometryData res(spec);
 
-    new (res.VertexData.Data.get()) Vertex[spec.VertCount]
+    new (res.VertexData.Data) Vertex[spec.VertCount]
     {
         {{-0.33f, 0.33f, 0.0f}, {1.0f, 0.0f, 0.0f}},
         {{ 0.33f, 0.33f, 0.0f}, {0.0f, 1.0f, 0.0f}},
@@ -63,7 +63,7 @@ GeometryData primitive::HelloQuad()
         {{-0.33f,-0.33f, 0.0f}, {1.0f, 1.0f, 1.0f}},
     };
 
-    new (res.IndexData.Data.get()) uint16_t[spec.IdxCount]{0, 2, 1, 2, 0, 3};
+    new (res.IndexData.Data) uint16_t[spec.IdxCount]{0, 2, 1, 2, 0, 3};
 
     res.Layout = GeometryLayout{
         .VertexLayout = {Vec3, Vec3},
@@ -87,7 +87,7 @@ GeometryData primitive::TexturedQuad()
 
     GeometryData res(spec);
 
-    new (res.VertexData.Data.get()) Vertex[spec.VertCount]
+    new (res.VertexData.Data) Vertex[spec.VertCount]
     {
         {{-0.5f,-0.5f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
         {{ 0.5f,-0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
@@ -95,7 +95,7 @@ GeometryData primitive::TexturedQuad()
         {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
     };
 
-    new (res.IndexData.Data.get()) uint32_t[spec.IdxCount]{0, 1, 2, 2, 3, 0};
+    new (res.IndexData.Data) uint32_t[spec.IdxCount]{0, 1, 2, 2, 3, 0};
 
     res.Layout = GeometryLayout{
         .VertexLayout = {Vec3, Vec2, Vec3},
@@ -119,7 +119,7 @@ GeometryData primitive::ColoredCube()
 
     GeometryData res(spec);
 
-    new (res.VertexData.Data.get()) Vertex[spec.VertCount]
+    new (res.VertexData.Data) Vertex[spec.VertCount]
     {
         //Top
         {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
@@ -153,7 +153,7 @@ GeometryData primitive::ColoredCube()
         {{-0.5f,-0.5f,-0.5f}, {0.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
     };
 
-    new (res.IndexData.Data.get()) uint32_t[spec.IdxCount]
+    new (res.IndexData.Data) uint32_t[spec.IdxCount]
     {
         //Top
         0,1,2, 2,3,0,
@@ -207,7 +207,7 @@ static GeometryData TexturedCubeImpl(bool withTangents)
     //Provide vertex data:
     if (withTangents)
     {
-        new (res.VertexData.Data.get()) VertexT[spec.VertCount]
+        new (res.VertexData.Data) VertexT[spec.VertCount]
         {
             //Top
             {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, glm::vec4(0.0f)},
@@ -244,7 +244,7 @@ static GeometryData TexturedCubeImpl(bool withTangents)
 
     else 
     {
-        new (res.VertexData.Data.get()) Vertex[spec.VertCount]
+        new (res.VertexData.Data) Vertex[spec.VertCount]
         {
             //Top
             {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
@@ -280,7 +280,7 @@ static GeometryData TexturedCubeImpl(bool withTangents)
     }
 
     //Provide index data:
-    new (res.IndexData.Data.get()) uint32_t[spec.IdxCount]
+    new (res.IndexData.Data) uint32_t[spec.IdxCount]
     {
         //Top
         0,1,2, 2,3,0,
@@ -360,8 +360,8 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
 
     GeometryData res(spec);
 
-    auto vertices = new (res.VertexData.Data.get()) Vertex[spec.VertCount];
-    auto indices = new (res.IndexData.Data.get()) uint32_t[spec.IdxCount];
+    auto vertices = new (res.VertexData.Data) Vertex[spec.VertCount];
+    auto indices = new (res.IndexData.Data) uint32_t[spec.IdxCount];
 
     // North pole.
     vertices[0] = Vertex{

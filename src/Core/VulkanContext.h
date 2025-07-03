@@ -22,9 +22,6 @@ class VulkanContext {
     ~VulkanContext();
 
     void CreateSwapchain(bool firstRun = false);
-
-    VkQueue GetQueue(QueueType type);
-
     void ImmediateSubmitGraphics(std::function<void(VkCommandBuffer)> &&function);
 
   public:

@@ -42,8 +42,8 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 
         // This is evil, but we know that underlying OpaqueBuffers
         // have appropriate alignment
-        auto vertFloats = (float *)(geo->VertexData.Data.get());
-        auto indices = (uint32_t *)(geo->IndexData.Data.get());
+        auto vertFloats = (float *)(geo->VertexData.Data);
+        auto indices = (uint32_t *)(geo->IndexData.Data);
 
         auto indexId = 3 * iFace + iVert;
         auto index = indices[indexId];
@@ -62,8 +62,8 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 
         // This is evil, but we know that underlying OpaqueBuffers
         // have appropriate alignment
-        auto vertFloats = (float *)(geo->VertexData.Data.get());
-        auto indices = (uint32_t *)(geo->IndexData.Data.get());
+        auto vertFloats = (float *)(geo->VertexData.Data);
+        auto indices = (uint32_t *)(geo->IndexData.Data);
 
         auto indexId = 3 * iFace + iVert;
         auto index = indices[indexId];
@@ -82,8 +82,8 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 
         // This is evil, but we know that underlying OpaqueBuffers
         // have appropriate alignment
-        auto vertFloats = (float *)(geo->VertexData.Data.get());
-        auto indices = (uint32_t *)(geo->IndexData.Data.get());
+        auto vertFloats = (float *)(geo->VertexData.Data);
+        auto indices = (uint32_t *)(geo->IndexData.Data);
 
         auto indexId = 3 * iFace + iVert;
         auto index = indices[indexId];
@@ -102,8 +102,8 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 
         // This is evil, but we know that underlying OpaqueBuffers
         // have appropriate alignment
-        auto vertFloats = (float *)(geo->VertexData.Data.get());
-        auto indices = (uint32_t *)(geo->IndexData.Data.get());
+        auto vertFloats = (float *)(geo->VertexData.Data);
+        auto indices = (uint32_t *)(geo->IndexData.Data);
 
         auto indexId = 3 * iFace + iVert;
         auto index = indices[indexId];
@@ -129,8 +129,8 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 
             // This is evil, but we know that underlying OpaqueBuffers
             // have appropriate alignment
-            auto vertFloats = (float *)(geo->VertexData.Data.get());
-            auto indices = (uint32_t *)(geo->IndexData.Data.get());
+            auto vertFloats = (float *)(geo->VertexData.Data);
+            auto indices = (uint32_t *)(geo->IndexData.Data);
 
             auto indexId = 3 * iFace + iVert;
             auto index = indices[indexId];

@@ -58,15 +58,13 @@ void iminit::InitGlfwBackend(GLFWwindow *window)
 void iminit::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPool,
                                uint32_t framesInFlight)
 {
-    auto graphicsQueue = ctx.GetQueue(QueueType::Graphics);
-
     ImGui_ImplVulkan_InitInfo init_info = {};
 
     init_info.Instance = ctx.Instance;
     init_info.PhysicalDevice = ctx.PhysicalDevice;
     init_info.Device = ctx.Device;
 
-    init_info.Queue = graphicsQueue;
+    init_info.Queue = ctx.Queues.Graphics;
     init_info.DescriptorPool = descriptorPool;
     init_info.MinImageCount = framesInFlight;
     init_info.ImageCount = framesInFlight;

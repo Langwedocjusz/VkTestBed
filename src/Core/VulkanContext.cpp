@@ -163,22 +163,6 @@ void VulkanContext::CreateSwapchain(bool firstRun)
     SwapchainImageViews = Swapchain.get_image_views().value();
 }
 
-VkQueue VulkanContext::GetQueue(QueueType type)
-{
-    switch (type)
-    {
-    case QueueType::Graphics: {
-        return Queues.Graphics;
-    }
-    case QueueType::Present: {
-        return Queues.Present;
-    }
-    default: {
-        PANIC("Queue type not yet supported!");
-    }
-    }
-}
-
 void VulkanContext::ImmediateSubmitGraphics(
     std::function<void(VkCommandBuffer)> &&function)
 {

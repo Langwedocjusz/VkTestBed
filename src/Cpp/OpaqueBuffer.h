@@ -2,40 +2,51 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <new>
 
-#ifdef _MSC_VER
-template <class T>
-struct MSVCAlignedDeleter {
-    void operator()(T *ptr) const
-    {
-        ptr->~T();
-        _aligned_free(ptr);
-    }
-};
-#endif
-
-struct OpaqueBuffer {
+struct OpaqueBuffer{
     size_t Count = 0;
-    size_t Size = 0;
-
-#ifdef _MSC_VER
-    std::unique_ptr<uint8_t, MSVCAlignedDeleter<uint8_t>> Data;
-#else
-    std::unique_ptr<uint8_t> Data;
-#endif
+    size_t Size = 0;    
+    uint8_t* Data = nullptr;
 
     OpaqueBuffer() = default;
-
-    OpaqueBuffer(size_t count, size_t size, size_t alignment) : Count(count), Size(size)
+    
+    OpaqueBuffer(size_t count, size_t size, size_t alignment) 
+        : Count(count), Size(size)
     {
-#ifdef _MSC_VER
-        auto *ptr = static_cast<uint8_t *>(_aligned_malloc(size, alignment));
-        Data = std::unique_ptr<uint8_t, MSVCAlignedDeleter<uint8_t>>(ptr);
-#else
-        auto *ptr = new (std::align_val_t(alignment)) uint8_t[size];
-        Data = std::unique_ptr<uint8_t>(ptr);
-#endif
+        #ifdef _MSC_VER
+        Data = static_cast<uint8_t *>(_aligned_malloc(size, alignment));
+        #else
+        Data = new (std::align_val_t(alignment)) uint8_t[size];
+        #endif
+    }
+
+    OpaqueBuffer(const OpaqueBuffer &) = delete;
+    OpaqueBuffer &operator=(const OpaqueBuffer &) = delete;
+
+    OpaqueBuffer(OpaqueBuffer &&other) noexcept
+        :Count(other.Count), Size(other.Size), Data(other.Data)
+    {
+        other.Data = nullptr;
+    }
+
+    OpaqueBuffer &operator=(OpaqueBuffer &&other) noexcept
+    {
+        Count = other.Count;
+        Size = other.Size;
+        Data = other.Data;
+
+        other.Data = nullptr;
+
+        return *this;
+    }
+
+    ~OpaqueBuffer()
+    {
+        #ifdef _MSC_VER
+        _aligned_free(Data);
+        #else
+        delete[] Data;
+        #endif
     }
 };

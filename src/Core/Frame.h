@@ -28,7 +28,7 @@ struct FrameStats {
 };
 
 struct FrameInfo {
-    static constexpr size_t MaxInFlight = 3;
+    static constexpr size_t MaxInFlight = 2;
 
     std::array<FrameResources, MaxInFlight> FrameData;
     std::vector<SwapchainResources> SwapchainData;

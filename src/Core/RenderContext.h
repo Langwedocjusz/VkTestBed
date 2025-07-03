@@ -25,15 +25,16 @@ class RenderContext {
     void OnKeyReleased(int keycode);
     void OnMouseMoved(float x, float y);
 
-    void CreateSwapchainResources();
-    void DestroySwapchainResources();
-
+    void ResizeSwapchan();
     void LoadScene(Scene &scene);
     void RebuildPipelines();
 
   private:
     void DrawFrame();
     void DrawUI(VkCommandBuffer cmd);
+
+    void CreateSwapchainResources();
+    void DestroySwapchainResources();
 
   private:
     VulkanContext &mCtx;

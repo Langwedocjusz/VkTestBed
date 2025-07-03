@@ -58,7 +58,7 @@ Buffer MakeBuffer::Vertex(VulkanContext &ctx, const std::string &debugName,
         .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .CreateFlags = 0,
         .Size = buf.Size,
-        .Data = buf.Data.get(),
+        .Data = buf.Data,
     };
 
     res = MakeBuffer::TransferDST(ctx, debugName, info);
@@ -75,7 +75,7 @@ Buffer MakeBuffer::Index(VulkanContext &ctx, const std::string &debugName,
         .Usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .CreateFlags = 0,
         .Size = buf.Size,
-        .Data = buf.Data.get(),
+        .Data = buf.Data,
     };
 
     res = MakeBuffer::TransferDST(ctx, debugName, info);

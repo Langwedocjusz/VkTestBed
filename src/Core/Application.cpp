@@ -20,10 +20,6 @@ Application::Application()
     iminit::InitGlfwBackend(mWindow.Get());
     mRender.InitImGuiVulkanBackend();
 
-    // mShaderManager.CompileToBytecode();
-
-    // mSceneGui.OnInit(mScene);
-
     // First-time scene loading
     mRender.LoadScene(mScene);
     mScene.ClearUpdateFlags();
@@ -45,31 +41,22 @@ void Application::Run()
         mOldTime = currentTime;
 
         // Recreate swapchain and related resources if necessary:
-        if (!mCtx.SwapchainOk)
+        bool handleResize = (!mStillResizing && mResizeRequested);
+        mStillResizing = false;
+
+        if (!mCtx.SwapchainOk || handleResize)
         {
-            vkDeviceWaitIdle(mCtx.Device);
-
-            mRender.DestroySwapchainResources();
-            mCtx.CreateSwapchain();
-            mRender.CreateSwapchainResources();
-
-            mCtx.SwapchainOk = true;
+            mRender.ResizeSwapchan();
+            mResizeRequested = false;
         }
 
         // Reload the scene if necessary:
         if (mScene.UpdateRequested())
-        {
-            vkDeviceWaitIdle(mCtx.Device);
-
             mRender.LoadScene(mScene);
-            mScene.ClearUpdateFlags();
-        }
 
         // Reload shaders if necessary:
         if (mShaderManager.CompilationScheduled())
         {
-            vkDeviceWaitIdle(mCtx.Device);
-
             mShaderManager.CompileToBytecode();
             mRender.RebuildPipelines();
         }
@@ -100,9 +87,11 @@ void Application::Run()
 
 void Application::OnResize(uint32_t width, uint32_t height)
 {
-    mCtx.SwapchainOk = false;
     mCtx.RequestedWidth = width;
     mCtx.RequestedHeight = height;
+
+    mStillResizing = true;
+    mResizeRequested = true;
 }
 
 void Application::OnEvent(Event::EventVariant event)

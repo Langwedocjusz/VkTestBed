@@ -4,10 +4,16 @@ project(VkTestBed)
 
 include(cmake/utils.cmake)
 
+#Some global setup:
+
 if(MSVC)
     msvc_enable_multiprocess_global()
 endif()
 
+#To enable usage of clang-tidy:
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+
+#Setup the main executable:
 add_executable(${PROJECT_NAME})
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
@@ -18,9 +24,6 @@ if(MSVC)
     msvc_startup_project(${PROJECT_NAME})
     msvc_working_directory(${PROJECT_NAME} ${CMAKE_SOURCE_DIR})
 endif()
-
-#To enable usage of clang-tidy:
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 #Sources
 target_sources(${PROJECT_NAME}
@@ -120,10 +123,6 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/VkUtils.cpp
 )
 
-#Implementation files for imgui
-file(GLOB imgui_impl vendor/imgui/backends/imgui_impl_vulkan.cpp vendor/imgui/backends/imgui_impl_glfw.cpp)
-target_sources(${PROJECT_NAME} PRIVATE ${imgui_impl})
-
 #Include directories
 target_include_directories(${PROJECT_NAME}
     PRIVATE
@@ -144,9 +143,14 @@ source_group(src/Gui REGULAR_EXPRESSION "src/Gui/*")
 source_group(src/RendererComponents REGULAR_EXPRESSION "src/RendererComponents/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
 source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
-source_group(imgui_impl FILES ${imgui_impl})
 
-#Compile definitions:
+
+#Setup separate library for imgui backend (to avoid warnings from impl files):
+add_library(ImguiBackend)
+
+file(GLOB imgui_impl vendor/imgui/backends/imgui_impl_vulkan.cpp vendor/imgui/backends/imgui_impl_glfw.cpp)
+target_sources(ImguiBackend PRIVATE ${imgui_impl})
+
 
 #Subdirectory options:
 option(TRACY_ENABLE "" ON )
@@ -171,16 +175,23 @@ add_subdirectory(vendor/libassert)
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(VulkanMemoryAllocator SYSTEM INTERFACE ${_inc})
 
+get_target_property(_inc imgui INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(imgui SYSTEM INTERFACE ${_inc})
+
 get_target_property(_inc fastgltf::fastgltf INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 
 #Link dependencies:
+target_link_libraries(ImguiBackend PRIVATE glfw)
+target_link_libraries(ImguiBackend PRIVATE imgui)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
 target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
+target_link_libraries(${PROJECT_NAME} PRIVATE ImguiBackend)
 target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
 target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
 target_link_libraries(${PROJECT_NAME} PRIVATE efsw)

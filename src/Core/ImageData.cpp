@@ -32,8 +32,13 @@ ImageData ImageData::ImportSTB(const std::filesystem::path &path, bool unorm)
 {
     int width, height, channels;
 
+    //Explicit conversion needed, since on windows path.c_str()
+    //returns wchar_t:
+    std::string pathStr = path.string();
+
     //'STBI_rgb_alpha' forces 4 channels, even if source image has less:
-    stbi_uc *pixels = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    stbi_uc *pixels =
+        stbi_load(pathStr.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
     ASSERT(pixels != nullptr,
            std::format("Failed to load texture image. Filepath: {}", path.string()));
@@ -46,7 +51,7 @@ ImageData ImageData::ImportSTB(const std::filesystem::path &path, bool unorm)
     res.BytesPerChannel = 1;
     res.Unorm = unorm;
     res.Data = static_cast<void *>(pixels);
-    res.Name = path.stem();
+    res.Name = path.stem().string();
     res.mType = Type::Stb;
 
     return res;
@@ -58,7 +63,11 @@ ImageData ImageData::ImportEXR(const std::filesystem::path &path)
     float *data;
     const char *err = nullptr;
 
-    int ret = LoadEXR(&data, &width, &height, path.c_str(), &err);
+    // Explicit conversion needed, since on windows path.c_str()
+    // returns wchar_t:
+    std::string pathStr = path.string();
+
+    int ret = LoadEXR(&data, &width, &height, pathStr.c_str(), &err);
 
     ASSERT(ret == TINYEXR_SUCCESS,
            std::format("Error when trying to open image: {}", path.string()));
@@ -70,7 +79,7 @@ ImageData ImageData::ImportEXR(const std::filesystem::path &path)
     res.Channels = 4;
     res.BytesPerChannel = 4;
     res.Data = static_cast<void *>(data);
-    res.Name = path.stem();
+    res.Name = path.stem().string();
     res.mType = Type::Exr;
 
     return res;

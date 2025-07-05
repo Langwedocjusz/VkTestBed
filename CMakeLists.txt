@@ -183,6 +183,7 @@ target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 
 #Link dependencies:
 target_link_libraries(ImguiBackend PRIVATE glfw)
+target_link_libraries(ImguiBackend PRIVATE Vulkan::Vulkan)
 target_link_libraries(ImguiBackend PRIVATE imgui)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)

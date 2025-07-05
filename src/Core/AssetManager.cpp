@@ -343,7 +343,7 @@ void AssetManager::ProcessGltfHierarchy()
 {
     // Append root of the hierarchy to scene editor prefabs:
     auto [_, root] = mEditor.EmplacePrefab();
-    root.Name = mModel.Config.Filepath.stem();
+    root.Name = mModel.Config.Filepath.stem().string();
 
     // To-do: Currently we assume gltf holds one scene.
     auto &scene = mModel.Gltf->scenes[0];

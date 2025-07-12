@@ -1,3 +1,4 @@
+#include "Pch.h"
 #include "Material.h"
 
 const MaterialKey Material::Albedo = MaterialKey{"Albedo", MaterialValueType::Vec3};

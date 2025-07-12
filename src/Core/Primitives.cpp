@@ -1,4 +1,6 @@
+#include "Pch.h"
 #include "Primitives.h"
+
 #include "GeometryData.h"
 #include "TangentsGenerator.h"
 

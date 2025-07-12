@@ -1,3 +1,4 @@
+#include "Pch.h"
 #include "Barrier.h"
 
 #include <vulkan/vulkan.h>

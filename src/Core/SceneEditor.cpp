@@ -1,4 +1,6 @@
+#include "Pch.h"
 #include "SceneEditor.h"
+
 #include "Primitives.h"
 #include <algorithm>
 #include <memory>

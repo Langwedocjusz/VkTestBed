@@ -1,3 +1,4 @@
+#include "Pch.h"
 #include "Camera.h"
 
 #include "BufferUtils.h"

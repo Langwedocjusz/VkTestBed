@@ -1,3 +1,4 @@
+#include "Pch.h"
 #include "Image.h"
 
 #include "Barrier.h"

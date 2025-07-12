@@ -1,4 +1,6 @@
+#include "Pch.h"
 #include "MinimalPBR.h"
+
 #include "Barrier.h"
 #include "BufferUtils.h"
 #include "Common.h"

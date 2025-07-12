@@ -5,10 +5,6 @@
 #include "Image.h"
 #include "Scene.h"
 
-#include <vulkan/vulkan.h>
-
-#include <memory>
-
 class IRenderer {
   public:
     IRenderer(VulkanContext &ctx, FrameInfo &info, std::unique_ptr<Camera> &camera)

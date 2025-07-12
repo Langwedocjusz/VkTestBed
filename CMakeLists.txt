@@ -200,3 +200,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
 target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)
 target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
 target_link_libraries(${PROJECT_NAME} PRIVATE libassert::assert)
+
+#Precompiled header:
+target_precompile_headers(${PROJECT_NAME} PUBLIC src/Pch.h)

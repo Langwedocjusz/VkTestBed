@@ -1,3 +1,4 @@
+#include "Pch.h"
 #include "TangentsGenerator.h"
 
 #include "mikktspace.h"

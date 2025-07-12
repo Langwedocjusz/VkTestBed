@@ -6,9 +6,6 @@
 #include "Scene.h"
 #include "Texture.h"
 
-#include <vulkan/vulkan.h>
-
-#include <map>
 
 class Minimal3DRenderer : public IRenderer {
   public:

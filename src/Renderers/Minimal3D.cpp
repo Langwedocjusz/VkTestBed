@@ -1,4 +1,6 @@
+#include "Pch.h"
 #include "Minimal3D.h"
+
 #include "Barrier.h"
 #include "BufferUtils.h"
 #include "Common.h"
@@ -10,9 +12,7 @@
 #include "Shader.h"
 #include "VkInit.h"
 
-#include <cstdint>
 #include <ranges>
-#include <vulkan/vulkan.h>
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                                      std::unique_ptr<Camera> &camera)

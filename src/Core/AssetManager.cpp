@@ -1,3 +1,4 @@
+#include "Pch.h"
 #include "AssetManager.h"
 
 #include "CppUtils.h"

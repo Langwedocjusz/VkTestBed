@@ -1,3 +1,4 @@
+#include "Pch.h"
 #include "EnvironmentHandler.h"
 
 #include "Barrier.h"

@@ -9,9 +9,6 @@
 #include "Scene.h"
 #include "Texture.h"
 
-#include <vulkan/vulkan.h>
-
-#include <map>
 
 class MinimalPbrRenderer : public IRenderer {
   public:

@@ -1,3 +1,4 @@
+#include "Pch.h"
 #include "ImageData.h"
 
 #define STB_IMAGE_IMPLEMENTATION

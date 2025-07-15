@@ -7,7 +7,7 @@ int main()
 {
     try
     {
-        Application app;
+        Application app{};
         app.Run();
     }
     catch (std::exception &e)

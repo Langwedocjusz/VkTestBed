@@ -5,25 +5,59 @@
 #include "Event.h"
 #include "ImGuiInit.h"
 #include "Keycodes.h"
+#include "RenderContext.h"
+#include "SceneGui.h"
+#include "ShaderManager.h"
+#include "SystemWindow.h"
+#include "VulkanContext.h"
 
 #include <tracy/Tracy.hpp>
 
-#include <iostream>
+#include <chrono>
 #include <variant>
 
-Application::Application()
+class Application::Impl {
+  public:
+    Impl();
+    ~Impl() = default;
+
+    void Run();
+
+    void OnResize(uint32_t width, uint32_t height);
+    void OnEvent(Event::EventVariant event);
+
+  private:
+    SystemWindow mWindow;
+    VulkanContext mCtx;
+
+    ShaderManager mShaderManager;
+    RenderContext mRender;
+
+    Scene mScene;
+    SceneEditor mSceneEditor;
+    SceneGui mSceneGui;
+
+    float mDeltaTime = 0.0f;
+    std::chrono::time_point<std::chrono::high_resolution_clock> mOldTime;
+
+    bool mCursorCaptured = false;
+    bool mStillResizing = false;
+    bool mResizeRequested = false;
+};
+
+Application::Impl::Impl()
     : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
       mCtx(800, 600, "VkTestBed", mWindow),
       mShaderManager("assets/shaders", "assets/spirv"), mRender(mCtx),
       mSceneEditor(mScene), mSceneGui(mSceneEditor)
 {
     mWindow.SetFramebufferResizeCallback([](void *usr_ptr, int width, int height) {
-        auto app = reinterpret_cast<Application *>(usr_ptr);
+        auto app = reinterpret_cast<Impl *>(usr_ptr);
         app->OnResize(width, height);
     });
 
     mWindow.SetKeyCallback([](void *usr_ptr, int key, int action) {
-        auto app = reinterpret_cast<Application *>(usr_ptr);
+        auto app = reinterpret_cast<Impl *>(usr_ptr);
 
         switch (action)
         {
@@ -46,7 +80,7 @@ Application::Application()
     });
 
     mWindow.SetMouseMovedCallback([](void *usr_ptr, float xPos, float yPos) {
-        auto app = reinterpret_cast<Application *>(usr_ptr);
+        auto app = reinterpret_cast<Impl *>(usr_ptr);
         app->OnEvent(Event::MouseMoved(xPos, yPos));
     });
 
@@ -59,11 +93,7 @@ Application::Application()
     mScene.ClearUpdateFlags();
 }
 
-Application::~Application()
-{
-}
-
-void Application::Run()
+void Application::Impl::Run()
 {
     while (!mWindow.ShouldClose())
     {
@@ -119,7 +149,7 @@ void Application::Run()
     iminit::DestroyImGui();
 }
 
-void Application::OnResize(uint32_t width, uint32_t height)
+void Application::Impl::OnResize(uint32_t width, uint32_t height)
 {
     mCtx.RequestedWidth = width;
     mCtx.RequestedHeight = height;
@@ -128,7 +158,7 @@ void Application::OnResize(uint32_t width, uint32_t height)
     mResizeRequested = true;
 }
 
-void Application::OnEvent(Event::EventVariant event)
+void Application::Impl::OnEvent(Event::EventVariant event)
 {
     // Handle esc being pressed:
     if (std::holds_alternative<Event::KeyPressed>(event))
@@ -157,4 +187,17 @@ void Application::OnEvent(Event::EventVariant event)
                    [this](Event::KeyReleased arg) { mRender.OnKeyReleased(arg.Keycode); },
                    [this](Event::MouseMoved arg) { mRender.OnMouseMoved(arg.X, arg.Y); }},
         event);
+}
+
+Application::Application() : mPImpl(std::make_unique<Impl>())
+{
+}
+
+Application::~Application()
+{
+}
+
+void Application::Run()
+{
+    mPImpl->Run();
 }

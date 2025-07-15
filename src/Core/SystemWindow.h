@@ -9,20 +9,26 @@ struct GLFWwindow;
 
 class SystemWindow {
   public:
-    SystemWindow(uint32_t width, uint32_t height, std::string title,
-                 void *usr_ptr = nullptr);
+    using FramebufferCallbackPtr = void (*)(void *, int, int);
+    using KeyCallbackPtr = void (*)(void *, int, int);
+    using MouseMovedCallbackPtr = void (*)(void *, float, float);
+
+  public:
+    SystemWindow(uint32_t width, uint32_t height, std::string title, void *usr_ptr);
     ~SystemWindow();
 
-    bool ShouldClose();
-
-    void PollEvents();
-    void WaitEvents();
-
-    void CaptureCursor();
-    void FreeCursor();
+    void SetFramebufferResizeCallback(FramebufferCallbackPtr ptr);
+    void SetKeyCallback(KeyCallbackPtr ptr);
+    void SetMouseMovedCallback(MouseMovedCallbackPtr ptr);
 
     VkSurfaceKHR CreateSurface(VkInstance instance,
                                VkAllocationCallbacks *allocator = nullptr);
+
+    bool ShouldClose();
+    void PollEvents();
+    void WaitEvents();
+    void CaptureCursor();
+    void FreeCursor();
 
     // Only used to initialize imgui,
     // may think up a better way in the future

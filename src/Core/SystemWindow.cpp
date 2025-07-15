@@ -1,8 +1,6 @@
 #include "Pch.h"
-#include "SystemWindow.h"
 
-#include "Application.h"
-#include "Event.h"
+#include "SystemWindow.h"
 
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
@@ -11,40 +9,29 @@
 
 #include <iostream>
 
+// Static storage for actuall callback function pointers:
+static SystemWindow::FramebufferCallbackPtr sFramebufferResizeCallback = nullptr;
+static SystemWindow::KeyCallbackPtr sKeyCallback = nullptr;
+static SystemWindow::MouseMovedCallbackPtr sMouseMovedCallback = nullptr;
+
+// Redirection functions that redirect to user callbacks:
 static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
 {
-    auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
-
-    app->OnResize(width, height);
+    auto usr_ptr = glfwGetWindowUserPointer(window);
+    sFramebufferResizeCallback(usr_ptr, width, height);
 }
 
 static void KeyCallback(GLFWwindow *window, int key, int /*scancode*/, int action,
                         int /*mods*/)
 {
-    auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
-
-    switch (action)
-    {
-    case GLFW_PRESS: {
-        app->OnEvent(Event::KeyPressed(key, false));
-        break;
-    }
-    case GLFW_REPEAT: {
-        app->OnEvent(Event::KeyPressed(key, true));
-        break;
-    }
-    case GLFW_RELEASE: {
-        app->OnEvent(Event::KeyReleased(key));
-        break;
-    }
-    }
+    auto usr_ptr = glfwGetWindowUserPointer(window);
+    sKeyCallback(usr_ptr, key, action);
 }
 
 static void MouseMovedCallback(GLFWwindow *window, double xPos, double yPos)
 {
-    auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
-
-    app->OnEvent(Event::MouseMoved(static_cast<float>(xPos), static_cast<float>(yPos)));
+    auto usr_ptr = glfwGetWindowUserPointer(window);
+    sMouseMovedCallback(usr_ptr, static_cast<float>(xPos), static_cast<float>(yPos));
 }
 
 SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
@@ -83,6 +70,32 @@ SystemWindow::~SystemWindow()
     glfwTerminate();
 }
 
+void SystemWindow::SetFramebufferResizeCallback(FramebufferCallbackPtr ptr)
+{
+    sFramebufferResizeCallback = ptr;
+}
+
+void SystemWindow::SetKeyCallback(KeyCallbackPtr ptr)
+{
+    sKeyCallback = ptr;
+}
+
+void SystemWindow::SetMouseMovedCallback(MouseMovedCallbackPtr ptr)
+{
+    sMouseMovedCallback = ptr;
+}
+
+VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance,
+                                         VkAllocationCallbacks *allocator)
+{
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VkResult err = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
+
+    ASSERT(err == VK_SUCCESS, "Failed to create a surface!");
+
+    return surface;
+}
+
 bool SystemWindow::ShouldClose()
 {
     return glfwWindowShouldClose(mWindow);
@@ -106,15 +119,4 @@ void SystemWindow::CaptureCursor()
 void SystemWindow::FreeCursor()
 {
     glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-}
-
-VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance,
-                                         VkAllocationCallbacks *allocator)
-{
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkResult err = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
-
-    ASSERT(err == VK_SUCCESS, "Failed to create a surface!");
-
-    return surface;
 }

@@ -1,5 +1,5 @@
-#include "Pch.h"
 #include "MinimalPBR.h"
+#include "Pch.h"
 
 #include "Barrier.h"
 #include "BufferUtils.h"

@@ -1,5 +1,5 @@
-#include "Pch.h"
 #include "Application.h"
+#include "Pch.h"
 
 #include "CppUtils.h"
 #include "Event.h"
@@ -17,6 +17,39 @@ Application::Application()
       mShaderManager("assets/shaders", "assets/spirv"), mRender(mCtx),
       mSceneEditor(mScene), mSceneGui(mSceneEditor)
 {
+    mWindow.SetFramebufferResizeCallback([](void *usr_ptr, int width, int height) {
+        auto app = reinterpret_cast<Application *>(usr_ptr);
+        app->OnResize(width, height);
+    });
+
+    mWindow.SetKeyCallback([](void *usr_ptr, int key, int action) {
+        auto app = reinterpret_cast<Application *>(usr_ptr);
+
+        switch (action)
+        {
+        case VKTB_PRESS: {
+            app->OnEvent(Event::KeyPressed(key, false));
+            break;
+        }
+        case VKTB_REPEAT: {
+            app->OnEvent(Event::KeyPressed(key, true));
+            break;
+        }
+        case VKTB_RELEASE: {
+            app->OnEvent(Event::KeyReleased(key));
+            break;
+        }
+        default: {
+            break;
+        }
+        }
+    });
+
+    mWindow.SetMouseMovedCallback([](void *usr_ptr, float xPos, float yPos) {
+        auto app = reinterpret_cast<Application *>(usr_ptr);
+        app->OnEvent(Event::MouseMoved(xPos, yPos));
+    });
+
     iminit::InitImGui();
     iminit::InitGlfwBackend(mWindow.Get());
     mRender.InitImGuiVulkanBackend();

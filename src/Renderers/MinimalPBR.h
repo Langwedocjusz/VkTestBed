@@ -9,7 +9,6 @@
 #include "Scene.h"
 #include "Texture.h"
 
-
 class MinimalPbrRenderer : public IRenderer {
   public:
     MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,

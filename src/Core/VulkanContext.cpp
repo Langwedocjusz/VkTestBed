@@ -1,5 +1,5 @@
-#include "Pch.h"
 #include "VulkanContext.h"
+#include "Pch.h"
 
 #include "VkBootstrap.h"
 #include "VkUtils.h"
@@ -42,9 +42,9 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     // Instance creation:
     auto instBuilder = vkb::InstanceBuilder();
 
-    #ifdef USE_VALIDATION_LAYERS
+#ifdef USE_VALIDATION_LAYERS
     instBuilder.request_validation_layers();
-    #endif
+#endif
 
     if (systemInfo.is_extension_available("VK_EXT_debug_utils"))
         instBuilder.enable_extension("VK_EXT_debug_utils");

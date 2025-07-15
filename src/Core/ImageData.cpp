@@ -1,5 +1,5 @@
-#include "Pch.h"
 #include "ImageData.h"
+#include "Pch.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -33,8 +33,8 @@ ImageData ImageData::ImportSTB(const std::filesystem::path &path, bool unorm)
 {
     int width, height, channels;
 
-    //Explicit conversion needed, since on windows path.c_str()
-    //returns wchar_t:
+    // Explicit conversion needed, since on windows path.c_str()
+    // returns wchar_t:
     std::string pathStr = path.string();
 
     //'STBI_rgb_alpha' forces 4 channels, even if source image has less:

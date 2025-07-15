@@ -1,5 +1,5 @@
-#include "Pch.h"
 #include "VkInit.h"
+#include "Pch.h"
 
 #include <vulkan/vulkan.h>
 

@@ -1,5 +1,5 @@
-#include "Pch.h"
 #include "Barrier.h"
+#include "Pch.h"
 
 #include <vulkan/vulkan.h>
 

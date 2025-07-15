@@ -60,6 +60,8 @@ def main():
 
     if no_validation:
         cmake_args.append("-DUSE_VALIDATION_LAYERS=OFF")
+    else:
+        cmake_args.append("-DUSE_VALIDATION_LAYERS=ON")
 
     cmake_args = cmake_args + ["-G", "Ninja"]
 

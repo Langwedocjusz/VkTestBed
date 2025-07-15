@@ -1,5 +1,5 @@
-#include "Pch.h"
 #include "ModelLoader.h"
+#include "Pch.h"
 
 #include "TangentsGenerator.h"
 

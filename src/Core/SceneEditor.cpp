@@ -1,5 +1,5 @@
-#include "Pch.h"
 #include "SceneEditor.h"
+#include "Pch.h"
 
 #include "Primitives.h"
 #include <algorithm>

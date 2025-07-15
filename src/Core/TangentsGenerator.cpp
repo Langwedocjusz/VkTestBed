@@ -1,5 +1,5 @@
-#include "Pch.h"
 #include "TangentsGenerator.h"
+#include "Pch.h"
 
 #include "mikktspace.h"
 

@@ -1,11 +1,11 @@
 #pragma once
 
-//Most frequently used stl headers:
-#include <map>
+// Most frequently used stl headers:
 #include <array>
-#include <vector>
-#include <string>
 #include <functional>
+#include <map>
+#include <string>
+#include <vector>
 
-//Vulkan:
+// Vulkan:
 #include <vulkan/vulkan.h>

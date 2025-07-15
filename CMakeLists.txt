@@ -2,33 +2,93 @@ cmake_minimum_required(VERSION 3.30.2)
 
 project(VkTestBed)
 
-include(cmake/utils.cmake)
+option(USE_VALIDATION_LAYERS "Wether or not to use the Vulkan Validation Layers" ON)
 
-#Some global setup:
+#=Global setup============================================================================
 
+#Enable parallel compilation for MSVC:
 if(MSVC)
-    msvc_enable_multiprocess_global()
+    add_compile_options(/MP)
 endif()
 
-#To enable usage of clang-tidy:
+#Export compile commands to enable usage of clang-tidy:
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
-#Setup the main executable:
+#=Get dependencies=========================================================================
+
+find_package(Vulkan REQUIRED)
+
+add_subdirectory(vendor/glfw)
+add_subdirectory(vendor/vk-bootstrap)
+add_subdirectory(vendor/VulkanMemoryAllocator)
+add_subdirectory(vendor/glm)
+add_subdirectory(vendor/imgui)
+add_subdirectory(vendor/stb_image)
+add_subdirectory(vendor/fastgltf)
+add_subdirectory(vendor/efsw)
+option(TRACY_ENABLE "" ON )
+add_subdirectory(vendor/tracy)
+add_subdirectory(vendor/tinyexr)
+add_subdirectory(vendor/mikktspace)
+add_subdirectory(vendor/libassert)
+
+#Treat some external headers as system, since they trigger warnings...
+get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(VulkanMemoryAllocator SYSTEM INTERFACE ${_inc})
+
+get_target_property(_inc imgui INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(imgui SYSTEM INTERFACE ${_inc})
+
+get_target_property(_inc fastgltf::fastgltf INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
+
+#=Setup library for imgui backend===========================================================
+
+#This is separated to avoid warnings from imgui backend implementation files
+add_library(ImguiBackend)
+
+#Source files:
+file(GLOB imgui_impl vendor/imgui/backends/imgui_impl_vulkan.cpp vendor/imgui/backends/imgui_impl_glfw.cpp)
+target_sources(ImguiBackend PRIVATE ${imgui_impl})
+
+#Link dependencies:
+target_link_libraries(ImguiBackend PRIVATE glfw)
+target_link_libraries(ImguiBackend PRIVATE Vulkan::Vulkan)
+target_link_libraries(ImguiBackend PRIVATE imgui)
+
+#=Setup the main executable=================================================================
+
 add_executable(${PROJECT_NAME})
 
+#Specify C++ standard:
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 
-enable_warnings(${PROJECT_NAME})
+#Compile definitions:
+if(USE_VALIDATION_LAYERS)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_VALIDATION_LAYERS)
+endif(USE_VALIDATION_LAYERS)
 
+#Enable max warnings and warnings as errors:
 if(MSVC)
-    msvc_startup_project(${PROJECT_NAME})
-    msvc_working_directory(${PROJECT_NAME} ${CMAKE_SOURCE_DIR})
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX)
+else()
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-#Sources
+#Output compilation timings with clang:
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(${PROJECT_NAME} PRIVATE -ftime-trace)
+endif()
+
+#Setup starting project and debugger working directory for MSVC:
+if(MSVC)
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
+    set_target_properties(${PROJECT_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+endif()
+
+#Add sources (lso listing headers to make them visible in IDEs):
 target_sources(${PROJECT_NAME}
     PRIVATE
-        #Also listing headers to make them visible in IDEs
         src/Core/Application.h
         src/Core/Application.cpp
         src/Core/AssetManager.h
@@ -123,7 +183,7 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/VkUtils.cpp
 )
 
-#Include directories
+#Setup include directories:
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         src
@@ -135,7 +195,7 @@ target_include_directories(${PROJECT_NAME}
         src/Vulkan
 )
 
-#For filters in IDEs like Visual studio:
+#Add filters for IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")
 source_group(src/Core REGULAR_EXPRESSION "src/Core/*")
 source_group(src/Cpp REGULAR_EXPRESSION "src/Cpp/*")
@@ -144,48 +204,10 @@ source_group(src/RendererComponents REGULAR_EXPRESSION "src/RendererComponents/*
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
 source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 
-
-#Setup separate library for imgui backend (to avoid warnings from impl files):
-add_library(ImguiBackend)
-
-file(GLOB imgui_impl vendor/imgui/backends/imgui_impl_vulkan.cpp vendor/imgui/backends/imgui_impl_glfw.cpp)
-target_sources(ImguiBackend PRIVATE ${imgui_impl})
-
-
-#Subdirectory options:
-option(TRACY_ENABLE "" ON )
-
-#Get dependencies:
-find_package(Vulkan REQUIRED)
-
-add_subdirectory(vendor/glfw)
-add_subdirectory(vendor/vk-bootstrap)
-add_subdirectory(vendor/VulkanMemoryAllocator)
-add_subdirectory(vendor/glm)
-add_subdirectory(vendor/imgui)
-add_subdirectory(vendor/stb_image)
-add_subdirectory(vendor/fastgltf)
-add_subdirectory(vendor/efsw)
-add_subdirectory(vendor/tracy)
-add_subdirectory(vendor/tinyexr)
-add_subdirectory(vendor/mikktspace)
-add_subdirectory(vendor/libassert)
-
-#Treat some external headers as system, since they trigger warnings...
-get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
-target_include_directories(VulkanMemoryAllocator SYSTEM INTERFACE ${_inc})
-
-get_target_property(_inc imgui INTERFACE_INCLUDE_DIRECTORIES)
-target_include_directories(imgui SYSTEM INTERFACE ${_inc})
-
-get_target_property(_inc fastgltf::fastgltf INTERFACE_INCLUDE_DIRECTORIES)
-target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
+#Setup precompiled header:
+target_precompile_headers(${PROJECT_NAME} PUBLIC src/Pch.h)
 
 #Link dependencies:
-target_link_libraries(ImguiBackend PRIVATE glfw)
-target_link_libraries(ImguiBackend PRIVATE Vulkan::Vulkan)
-target_link_libraries(ImguiBackend PRIVATE imgui)
-
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
 target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
@@ -200,6 +222,3 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
 target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)
 target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
 target_link_libraries(${PROJECT_NAME} PRIVATE libassert::assert)
-
-#Precompiled header:
-target_precompile_headers(${PROJECT_NAME} PUBLIC src/Pch.h)

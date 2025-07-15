@@ -42,13 +42,16 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     // Instance creation:
     auto instBuilder = vkb::InstanceBuilder();
 
+    #ifdef USE_VALIDATION_LAYERS
+    instBuilder.request_validation_layers();
+    #endif
+
     if (systemInfo.is_extension_available("VK_EXT_debug_utils"))
         instBuilder.enable_extension("VK_EXT_debug_utils");
 
     auto instRet = instBuilder.set_app_name(appName.c_str())
                        .set_engine_name("No Engine")
                        .require_api_version(1, 3, 0)
-                       .request_validation_layers()
                        .use_default_debug_messenger()
                        .build();
 

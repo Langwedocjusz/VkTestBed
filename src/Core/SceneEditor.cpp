@@ -9,7 +9,7 @@
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 #include <iostream>
 #include <utility>
@@ -49,21 +49,21 @@ bool SceneGraphNode::IsLeaf() const
 
 SceneKey SceneGraphNode::GetObjectKey() const
 {
-    ASSERT(IsLeaf(), "Only leaf nodes hold object keys!");
+    vassert(IsLeaf(), "Only leaf nodes hold object keys!");
 
     return std::get<SceneKey>(mPayload);
 }
 
 SceneGraphNode::ChildrenArray &SceneGraphNode::GetChildren()
 {
-    ASSERT(!IsLeaf(), "Leaf nodes have no children!");
+    vassert(!IsLeaf(), "Leaf nodes have no children!");
 
     return std::get<ChildrenArray>(mPayload);
 }
 
 const SceneGraphNode::ChildrenArray &SceneGraphNode::GetChildrenConst() const
 {
-    ASSERT(!IsLeaf(), "Leaf nodes have no children!");
+    vassert(!IsLeaf(), "Leaf nodes have no children!");
 
     return std::get<ChildrenArray>(mPayload);
 }
@@ -107,7 +107,7 @@ bool SceneGraphNode::SubTreeContains(SceneKey key) const
 
 void SceneGraphNode::RemoveChildrenWithMesh(Scene &scene, SceneKey mesh)
 {
-    ASSERT(IsLeaf() == false);
+    vassert(IsLeaf() == false);
 
     std::erase_if(GetChildren(), [&scene, mesh](const auto &elem) {
         if (elem->IsLeaf())
@@ -225,28 +225,28 @@ void SceneEditor::OnUpdate()
 
 SceneMesh &SceneEditor::GetMesh(SceneKey key)
 {
-    ASSERT(mScene.Meshes.count(key) != 0);
+    vassert(mScene.Meshes.count(key) != 0);
 
     return mScene.Meshes[key];
 }
 
 SceneMaterial &SceneEditor::GetMaterial(SceneKey key)
 {
-    ASSERT(mScene.Materials.count(key) != 0);
+    vassert(mScene.Materials.count(key) != 0);
 
     return mScene.Materials[key];
 }
 
 ImageData &SceneEditor::GetImage(SceneKey key)
 {
-    ASSERT(mScene.Images.count(key) != 0);
+    vassert(mScene.Images.count(key) != 0);
 
     return mScene.Images[key];
 }
 
 SceneObject &SceneEditor::GetObject(SceneKey key)
 {
-    ASSERT(mScene.Objects.count(key) != 0);
+    vassert(mScene.Objects.count(key) != 0);
 
     return mScene.Objects[key];
 }
@@ -276,7 +276,7 @@ void SceneEditor::EraseMesh(SceneKey mesh)
 SceneKey SceneEditor::EmplaceObject(std::optional<SceneKey> mesh)
 {
     if (mesh)
-        ASSERT(mScene.Meshes.count(*mesh) != 0);
+        vassert(mScene.Meshes.count(*mesh) != 0);
 
     auto [key, obj] = mScene.EmplaceObject();
 
@@ -303,7 +303,7 @@ void SceneEditor::EraseObject(SceneKey key)
 
 void SceneEditor::UpdateTransforms(SceneGraphNode *rootNode)
 {
-    ASSERT(rootNode != nullptr);
+    vassert(rootNode != nullptr);
 
     rootNode->UpdateTransforms(mScene);
 
@@ -381,7 +381,7 @@ void SceneEditor::HandleNodeMove()
 {
     // We assume src and dst are different, since
     // move operation wouldn't be scheduled otherwise.
-    ASSERT(mNodeOpData.SrcParent != mNodeOpData.DstParent);
+    vassert(mNodeOpData.SrcParent != mNodeOpData.DstParent);
 
     auto &srcChildren = mNodeOpData.SrcParent->GetChildren();
     auto &dstChildren = mNodeOpData.DstParent->GetChildren();
@@ -439,7 +439,7 @@ std::pair<SceneKey, SceneGraphNode &> SceneEditor::EmplacePrefab(
 {
     auto key = mPrefabKeyGenerator.Get();
 
-    ASSERT(mPrefabs.count(key) == 0);
+    vassert(mPrefabs.count(key) == 0);
 
     if (meshKey)
         mPrefabs.emplace(key, SceneGraphNode(*this, *meshKey));
@@ -480,7 +480,7 @@ static void InstancePrefabImpl(SceneEditor &editor, SceneGraphNode &source,
 
 void SceneEditor::InstancePrefab(SceneKey prefabId)
 {
-    ASSERT(mPrefabs.count(prefabId) != 0);
+    vassert(mPrefabs.count(prefabId) != 0);
 
     auto &prefabRoot = mPrefabs.at(prefabId);
 

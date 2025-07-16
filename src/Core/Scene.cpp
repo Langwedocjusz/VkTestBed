@@ -1,14 +1,14 @@
 #include "Scene.h"
 #include "Pch.h"
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 std::pair<SceneKey, SceneMesh &> Scene::EmplaceMesh()
 {
     std::unique_lock lock(mMutex);
 
     auto key = mMeshKeyGenerator.Get();
-    ASSERT(Meshes.count(key) == 0);
+    vassert(Meshes.count(key) == 0);
 
     Meshes[key] = SceneMesh{};
 
@@ -20,7 +20,7 @@ std::pair<SceneKey, ImageData &> Scene::EmplaceImage()
     std::unique_lock lock(mMutex);
 
     auto key = mImageKeyGenerator.Get();
-    ASSERT(Images.count(key) == 0);
+    vassert(Images.count(key) == 0);
 
     Images[key] = ImageData{};
 
@@ -32,7 +32,7 @@ std::pair<SceneKey, SceneMaterial &> Scene::EmplaceMaterial()
     std::unique_lock lock(mMutex);
 
     auto key = mMaterialKeyGenerator.Get();
-    ASSERT(Materials.count(key) == 0);
+    vassert(Materials.count(key) == 0);
 
     Materials[key] = SceneMaterial{};
 
@@ -44,7 +44,7 @@ std::pair<SceneKey, SceneObject &> Scene::EmplaceObject()
     std::unique_lock lock(mMutex);
 
     auto key = mObjectKeyGenerator.Get();
-    ASSERT(Objects.count(key) == 0);
+    vassert(Objects.count(key) == 0);
 
     Objects[key] = SceneObject{};
 

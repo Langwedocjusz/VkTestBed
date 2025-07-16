@@ -5,7 +5,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 PipelineBuilder::PipelineBuilder(std::string_view debugName) : mDebugName(debugName)
 {
@@ -210,7 +210,7 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         auto ret = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
                                           &pipeline.Layout);
 
-        ASSERT(ret == VK_SUCCESS, "Failed to create a pipeline layout!");
+        vassert(ret == VK_SUCCESS, "Failed to create a pipeline layout!");
     }
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline.Layout,
@@ -282,7 +282,7 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         auto ret = vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo,
                                              nullptr, &pipeline.Handle);
 
-        ASSERT(ret == VK_SUCCESS, "Failed to create a Graphics Pipeline!");
+        vassert(ret == VK_SUCCESS, "Failed to create a Graphics Pipeline!");
     }
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);
@@ -365,7 +365,7 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
         auto ret = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
                                           &pipeline.Layout);
 
-        ASSERT(ret == VK_SUCCESS, "Failed to create compute pipeline layout!");
+        vassert(ret == VK_SUCCESS, "Failed to create compute pipeline layout!");
     }
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline.Layout,
@@ -380,7 +380,7 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
         auto ret = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo,
                                             nullptr, &pipeline.Handle);
 
-        ASSERT(ret == VK_SUCCESS, "Failed to create compute pipeline!");
+        vassert(ret == VK_SUCCESS, "Failed to create compute pipeline!");
     }
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);

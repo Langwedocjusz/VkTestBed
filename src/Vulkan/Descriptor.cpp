@@ -5,7 +5,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 #include <cstdint>
 
@@ -57,7 +57,7 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildImpl(VulkanContext &ctx)
 
     auto ret = vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr, &layout);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to create descriptor set layout!");
+    vassert(ret == VK_SUCCESS, "Failed to create descriptor set layout!");
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, layout, mDebugName);
 
@@ -77,7 +77,7 @@ VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,
 
     auto ret = vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &pool);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to create descriptor pool!");
+    vassert(ret == VK_SUCCESS, "Failed to create descriptor pool!");
 
     return pool;
 }
@@ -95,7 +95,7 @@ VkDescriptorSet Descriptor::Allocate(VulkanContext &ctx, VkDescriptorPool pool,
 
     auto ret = vkAllocateDescriptorSets(ctx.Device, &allocInfo, &descriptorSet);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
+    vassert(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
 
     return descriptorSet;
 }
@@ -113,7 +113,7 @@ std::vector<VkDescriptorSet> Descriptor::Allocate(
 
     auto ret = vkAllocateDescriptorSets(ctx.Device, &allocInfo, descriptorSets.data());
 
-    ASSERT(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
+    vassert(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
 
     return descriptorSets;
 }
@@ -271,7 +271,7 @@ VkDescriptorSet DescriptorAllocator::Allocate(VkDescriptorSetLayout &layout)
 
         auto ret = vkAllocateDescriptorSets(mCtx.Device, &allocInfo, &set);
 
-        ASSERT(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
+        vassert(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
     }
 
     mReadyPools.push_back(pool);
@@ -303,7 +303,7 @@ std::vector<VkDescriptorSet> DescriptorAllocator::Allocate(
 
         auto ret = vkAllocateDescriptorSets(mCtx.Device, &allocInfo, sets.data());
 
-        ASSERT(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
+        vassert(ret == VK_SUCCESS, "Failed to allocate descriptor sets!");
     }
 
     mReadyPools.push_back(pool);

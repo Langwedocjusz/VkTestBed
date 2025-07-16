@@ -9,7 +9,7 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 #include <filesystem>
 #include <optional>
@@ -75,9 +75,9 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
 {
     // Sanity check:
     if (parent != nullptr)
-        ASSERT(!parent->IsLeaf());
+        vassert(!parent->IsLeaf());
     else
-        ASSERT(!node.IsLeaf());
+        vassert(!node.IsLeaf());
 
     // ImGui context for later:
     ImGuiContext &g = *GImGui;

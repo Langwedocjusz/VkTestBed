@@ -4,10 +4,9 @@
 #include "VkBootstrap.h"
 #include "VkUtils.h"
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
-#include <format>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
                            VkQueueFamilyProperties &properties)
@@ -16,8 +15,8 @@ static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
 
     auto queue = ctx.Device.get_queue(type);
 
-    ASSERT(queue.has_value(),
-           std::format("Failed to get a queue: {}", queue.error().message()));
+    if (!queue.has_value())
+        vpanic(queue.error().message());
 
     auto propVector = ctx.PhysicalDevice.get_queue_families();
     properties = propVector[idx.value()];
@@ -35,7 +34,8 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     // Retrieve system info
     auto systemInfoRet = vkb::SystemInfo::get_system_info();
 
-    ASSERT(systemInfoRet, systemInfoRet.error().message());
+    if (!systemInfoRet.has_value())
+        vpanic(systemInfoRet.error().message());
 
     const auto &systemInfo = systemInfoRet.value();
 
@@ -55,7 +55,8 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                        .use_default_debug_messenger()
                        .build();
 
-    ASSERT(instRet, instRet.error().message());
+    if (!instRet.has_value())
+        vpanic(instRet.error().message());
 
     Instance = instRet.value();
     Surface = window.CreateSurface(Instance);
@@ -87,13 +88,15 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                              .set_required_features_13(features13)
                              .select();
 
-    ASSERT(physDeviceRet, physDeviceRet.error().message());
+    if(!physDeviceRet.has_value())   
+        vpanic(physDeviceRet.error().message());
 
     PhysicalDevice = physDeviceRet.value();
 
     auto deviceRet = vkb::DeviceBuilder(PhysicalDevice).build();
 
-    ASSERT(deviceRet, deviceRet.error().message());
+    if (!deviceRet.has_value())
+        vpanic(deviceRet.error().message());
 
     Device = deviceRet.value();
 
@@ -125,7 +128,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
 
     auto ret = vkCreateCommandPool(Device, &poolInfo, nullptr, &mImmGraphicsCommandPool);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to create an immediate submit command pool!");
+    vassert(ret == VK_SUCCESS, "Failed to create an immediate submit command pool!");
 }
 
 VulkanContext::~VulkanContext()
@@ -157,7 +160,8 @@ void VulkanContext::CreateSwapchain(bool firstRun)
                        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
                        .build();
 
-    ASSERT(swapRet, swapRet.error().message());
+    if (!swapRet.has_value())
+        vpanic(swapRet.error().message());
 
     vkb::destroy_swapchain(Swapchain);
 

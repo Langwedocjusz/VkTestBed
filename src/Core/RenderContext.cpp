@@ -17,7 +17,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 #include <iostream>
 #include <memory>
@@ -171,7 +171,7 @@ void RenderContext::OnRender()
         }
         else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
         {
-            PANIC("Failed to acquire swapchain image!");
+            vpanic("Failed to acquire swapchain image!");
         }
     }
 
@@ -204,7 +204,7 @@ void RenderContext::OnRender()
     }
     else if (result != VK_SUCCESS)
     {
-        PANIC("Failed to present swapchain image!");
+        vpanic("Failed to present swapchain image!");
     }
 
     // 6. Update frame number, advance frame index:

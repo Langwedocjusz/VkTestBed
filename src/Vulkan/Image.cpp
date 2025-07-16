@@ -8,7 +8,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 #include <cmath>
 #include <vulkan/vulkan_core.h>
@@ -32,7 +32,7 @@ Image Image::Create(VulkanContext &ctx, const std::string &debugName,
     auto ret = vmaCreateImage(ctx.Allocator, &info, &allocCreateInfo, &img.Handle,
                               &img.Allocation, nullptr);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to create an image!");
+    vassert(ret == VK_SUCCESS, "Failed to create an image!");
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_IMAGE, img.Handle, debugName);
 
@@ -51,7 +51,7 @@ VkImageView Image::CreateView(VulkanContext &ctx, const std::string &debugName,
 
     auto ret = vkCreateImageView(ctx.Device, &info, nullptr, &imageView);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to create image view!");
+    vassert(ret == VK_SUCCESS, "Failed to create image view!");
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_IMAGE_VIEW, imageView, debugName);
 

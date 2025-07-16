@@ -3,7 +3,7 @@
 
 #include "Frame.h"
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 #include <array>
 #include <iostream>
@@ -40,7 +40,7 @@ void common::SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFe
 
     if (!waitSemaphores.empty())
     {
-        ASSERT(waitSemaphores.size() == waitStages.size());
+        vassert(waitSemaphores.size() == waitStages.size());
 
         submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
         submitInfo.pWaitSemaphores = waitSemaphores.data();
@@ -55,7 +55,7 @@ void common::SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFe
 
     auto submitRes = vkQueueSubmit(queue, 1, &submitInfo, fence);
 
-    ASSERT(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
+    vassert(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
 }
 
 void common::SubmitQueue(VkQueue queue, VkCommandBuffer *cmdBuffer, VkFence fence,
@@ -83,5 +83,5 @@ void common::SubmitQueue(VkQueue queue, VkCommandBuffer *cmdBuffer, VkFence fenc
 
     auto submitRes = vkQueueSubmit(queue, 1, &submitInfo, fence);
 
-    ASSERT(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
+    vassert(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
 }

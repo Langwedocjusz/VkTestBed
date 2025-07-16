@@ -12,8 +12,7 @@
 enum class QueueType
 {
     Graphics,
-    Present,
-    Cock
+    Present
 };
 
 class VulkanContext {

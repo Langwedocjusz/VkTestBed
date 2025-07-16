@@ -1,7 +1,7 @@
 #include "VkUtils.h"
 #include "Pch.h"
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 #include <vulkan/vulkan_core.h>
 
 void vkutils::BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags)
@@ -12,14 +12,14 @@ void vkutils::BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags f
 
     auto ret = vkBeginCommandBuffer(buffer, &beginInfo);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to begin recording command buffer!");
+    vassert(ret == VK_SUCCESS, "Failed to begin recording command buffer!");
 }
 
 void vkutils::EndRecording(VkCommandBuffer buffer)
 {
     auto ret = vkEndCommandBuffer(buffer);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to record command buffer!");
+    vassert(ret == VK_SUCCESS, "Failed to record command buffer!");
 }
 
 void vkutils::BlitImageZeroMip(VkCommandBuffer cmd, const Image &src, const Image &dst)

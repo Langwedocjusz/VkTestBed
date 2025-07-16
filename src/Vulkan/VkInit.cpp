@@ -3,7 +3,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 void vkinit::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
 {
@@ -13,7 +13,7 @@ void vkinit::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
 
     auto ret = vkCreateFence(ctx.Device, &fence_info, nullptr, &fence);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to create a fence!");
+    vassert(ret == VK_SUCCESS, "Failed to create a fence!");
 }
 
 void vkinit::CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore)
@@ -23,7 +23,7 @@ void vkinit::CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore)
 
     auto ret = vkCreateSemaphore(ctx.Device, &semaphore_info, nullptr, &semaphore);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to create a semaphore!");
+    vassert(ret == VK_SUCCESS, "Failed to create a semaphore!");
 }
 
 VkCommandPool vkinit::CreateCommandPool(VulkanContext &ctx, vkb::QueueType qtype)
@@ -40,7 +40,7 @@ VkCommandPool vkinit::CreateCommandPool(VulkanContext &ctx, vkb::QueueType qtype
 
     auto ret = vkCreateCommandPool(ctx.Device, &poolInfo, nullptr, &pool);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to create a command pool!");
+    vassert(ret == VK_SUCCESS, "Failed to create a command pool!");
 
     return pool;
 }
@@ -58,7 +58,7 @@ VkCommandBuffer vkinit::CreateCommandBuffer(VulkanContext &ctx, VkCommandPool po
 
     auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, &buffer);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to allocate command buffers!");
+    vassert(ret == VK_SUCCESS, "Failed to allocate command buffers!");
 
     return buffer;
 }
@@ -76,7 +76,7 @@ void vkinit::AllocateCommandBuffers(VulkanContext &ctx,
 
     auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, buffers.data());
 
-    ASSERT(ret == VK_SUCCESS, "Failed to allocate command buffers!");
+    vassert(ret == VK_SUCCESS, "Failed to allocate command buffers!");
 }
 
 VkRenderingAttachmentInfoKHR vkinit::CreateAttachmentInfo(

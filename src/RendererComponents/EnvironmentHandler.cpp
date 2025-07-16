@@ -14,7 +14,6 @@
 #include <vulkan/vulkan.h>
 
 #include <cmath>
-#include <format>
 #include <iostream>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
@@ -165,7 +164,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     // Create single mip views for usage in compute:
     for (uint32_t mip = 0; mip < prefilteredMips; mip++)
     {
-        const auto name = std::format("EnvPrefilteredViewMip{}", mip);
+        const auto name = "EnvPrefilteredViewMip" + std::to_string(mip);
 
         auto view = MakeView::ViewCubeSingleMip(mCtx, name, mPrefiltered.Img,
                                                 prefilteredInfo.Format,

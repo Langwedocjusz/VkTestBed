@@ -6,7 +6,6 @@
 
 #include <cstdlib>
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <functional>
 #include <ranges>
@@ -243,7 +242,7 @@ void ShaderManager::CompileToBytecode()
         auto dstDir = args.Dst.string();
 
         std::string cmd =
-            std::format("glslc --target-env=vulkan1.3 {} -o {}", srcDir, dstDir);
+            "glslc --target-env=vulkan1.3 " + srcDir + " -o " + dstDir;
 
         // To-do: maybe figure out a nicer way to do this:
         system(cmd.c_str());

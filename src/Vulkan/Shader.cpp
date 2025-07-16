@@ -1,9 +1,8 @@
 #include "Shader.h"
 #include "Pch.h"
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
-#include <format>
 #include <fstream>
 #include <iostream>
 
@@ -11,7 +10,10 @@ static std::vector<char> ReadFileBinary(const std::string &filename)
 {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-    ASSERT(file, std::format("Failed to open file: {}", filename));
+    if (!file)
+    {
+        vpanic("Failed to open file: " + filename);
+    }
 
     size_t file_size = (size_t)file.tellg();
     std::vector<char> buffer(file_size);
@@ -53,10 +55,10 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::Build(VulkanContext 
 
     else
     {
-        ASSERT(mVertexPath.has_value(),
+        vassert(mVertexPath.has_value(),
                "Vertex shader path not provided in non-compute shader.");
 
-        ASSERT(mFragmentPath.has_value(),
+        vassert(mFragmentPath.has_value(),
                "Fragment shader path not provided in non-compute shader.");
 
         return BuildGraphics(ctx);
@@ -70,10 +72,10 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
     auto fragCode = ReadFileBinary(mFragmentPath.value());
 
     VkShaderModule vertModule = CreateShaderModule(ctx, vertCode);
-    ASSERT(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
+    vassert(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
     VkShaderModule fragModule = CreateShaderModule(ctx, fragCode);
-    ASSERT(fragModule != VK_NULL_HANDLE, "Failed to create a shader module!");
+    vassert(fragModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
     VkPipelineShaderStageCreateInfo vertStageInfo = {};
     vertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -96,7 +98,7 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildCompute(
     auto computeCode = ReadFileBinary(mComputePath.value());
 
     VkShaderModule computeModule = CreateShaderModule(ctx, computeCode);
-    ASSERT(computeModule != VK_NULL_HANDLE, "Failed to create a shader module!");
+    vassert(computeModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
     VkPipelineShaderStageCreateInfo computeStageInfo = {};
     computeStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

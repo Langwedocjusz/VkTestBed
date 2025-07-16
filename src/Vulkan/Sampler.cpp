@@ -5,7 +5,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 SamplerBuilder::SamplerBuilder(std::string_view debugName) : mDebugName(debugName)
 {
@@ -87,7 +87,7 @@ VkSampler SamplerBuilder::BuildImpl(VulkanContext &ctx)
 
     auto ret = vkCreateSampler(ctx.Device, &samplerInfo, nullptr, &sampler);
 
-    ASSERT(ret == VK_SUCCESS, "Failed to create texture sampler!");
+    vassert(ret == VK_SUCCESS, "Failed to create texture sampler!");
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_SAMPLER, sampler, mDebugName);
 

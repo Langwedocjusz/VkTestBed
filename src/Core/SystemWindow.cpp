@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
-#include <libassert/assert.hpp>
+#include "Assert.h"
 
 #include <iostream>
 
@@ -44,7 +44,7 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
 
     glfwSetErrorCallback(error_callback);
 
-    ASSERT(glfwInit(), "Failed to initialize glfw!");
+    vassert(glfwInit(), "Failed to initialize glfw!");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
@@ -53,7 +53,7 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
     if (!mWindow)
     {
         glfwTerminate();
-        PANIC("Failed to create a window!");
+        vpanic("Failed to create a window!");
     }
 
     glfwSetWindowUserPointer(mWindow, usr_ptr);
@@ -91,7 +91,7 @@ VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance,
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkResult err = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
 
-    ASSERT(err == VK_SUCCESS, "Failed to create a surface!");
+    vassert(err == VK_SUCCESS, "Failed to create a surface!");
 
     return surface;
 }

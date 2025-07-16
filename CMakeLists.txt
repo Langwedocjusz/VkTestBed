@@ -30,7 +30,7 @@ option(TRACY_ENABLE "" ON )
 add_subdirectory(vendor/tracy)
 add_subdirectory(vendor/tinyexr)
 add_subdirectory(vendor/mikktspace)
-add_subdirectory(vendor/libassert)
+add_subdirectory(vendor/cpptrace)
 
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
@@ -126,6 +126,8 @@ target_sources(${PROJECT_NAME}
         src/Core/VmaImpl.cpp
         src/Core/VulkanContext.h
         src/Core/VulkanContext.cpp
+        src/Cpp/Assert.h
+        src/Cpp/Assert.cpp
         src/Cpp/Bitflags.h
         src/Cpp/CppUtils.h
         src/Cpp/OpaqueBuffer.h
@@ -221,4 +223,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE efsw)
 target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
 target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)
 target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
-target_link_libraries(${PROJECT_NAME} PRIVATE libassert::assert)
+target_link_libraries(${PROJECT_NAME} PRIVATE cpptrace::cpptrace)

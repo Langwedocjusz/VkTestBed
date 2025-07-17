@@ -150,12 +150,12 @@ void VulkanContext::CreateSwapchain(bool firstRun)
     if (!firstRun)
         Swapchain.destroy_image_views(SwapchainImageViews);
 
-    // To manually specify format and present mode:
+    // To manually specify format:
     //.set_desired_format(VkSurfaceFormatKHR)
-    //.set_desired_present_mode(VkPresentModeKHR)
     auto swapRet = vkb::SwapchainBuilder(Device)
                        .set_old_swapchain(Swapchain)
                        .set_desired_extent(RequestedWidth, RequestedHeight)
+                       .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
                        // To enable blit from secondary render target:
                        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
                        .build();

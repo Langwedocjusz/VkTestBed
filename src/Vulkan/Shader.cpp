@@ -56,10 +56,10 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::Build(VulkanContext 
     else
     {
         vassert(mVertexPath.has_value(),
-               "Vertex shader path not provided in non-compute shader.");
+                "Vertex shader path not provided in non-compute shader.");
 
         vassert(mFragmentPath.has_value(),
-               "Fragment shader path not provided in non-compute shader.");
+                "Fragment shader path not provided in non-compute shader.");
 
         return BuildGraphics(ctx);
     }

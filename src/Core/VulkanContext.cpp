@@ -88,7 +88,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                              .set_required_features_13(features13)
                              .select();
 
-    if(!physDeviceRet.has_value())   
+    if (!physDeviceRet.has_value())
         vpanic(physDeviceRet.error().message());
 
     PhysicalDevice = physDeviceRet.value();

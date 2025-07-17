@@ -51,6 +51,14 @@ std::pair<SceneKey, SceneObject &> Scene::EmplaceObject()
     return {key, Objects[key]};
 }
 
+std::pair<SceneKey, SceneObject &> Scene::EmplaceObject(const SceneObject &existing)
+{
+    auto [key, obj] = EmplaceObject();
+    obj = existing;
+
+    return {key, obj};
+}
+
 void Scene::RequestFullReload()
 {
     mFullReload = true;

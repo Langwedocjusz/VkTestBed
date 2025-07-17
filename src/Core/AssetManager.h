@@ -2,34 +2,28 @@
 
 #include "ModelConfig.h"
 #include "Scene.h"
+#include "SceneGraph.h"
 #include "ThreadPool.h"
-#include "Timer.h"
 
-// To-do: maybe hermetize this somehow:
-#include <fastgltf/types.hpp>
-
-#include <atomic>
 #include <unordered_map>
-
-class SceneEditor;
 
 class AssetManager {
   public:
-    AssetManager(Scene &scene, SceneEditor &editor);
+    AssetManager(Scene &scene);
+    ~AssetManager();
 
     void OnUpdate();
 
-    void LoadModel(const ModelConfig &config);
+    void LoadModel(const ModelConfig &config, SceneGraphNode &root);
     void LoadHdri(const std::filesystem::path &path);
 
   private:
     void ParseGltf();
     void PreprocessGltfAssets();
-    void ProcessGltfHierarchy();
+    void ProcessGltfHierarchy(SceneGraphNode &root);
 
   private:
     Scene &mScene;
-    SceneEditor &mEditor;
 
     struct ImageTaskData {
         SceneKey ImageKey;
@@ -46,6 +40,9 @@ class AssetManager {
         int64_t GltfPrim;
     };
 
+    struct Model;
+    std::unique_ptr<Model> mModel;
+
     enum class ModelStage
     {
         Idle,
@@ -54,21 +51,7 @@ class AssetManager {
         Loading,
     };
 
-    struct {
-        ModelConfig Config;
-        std::unique_ptr<fastgltf::Asset> Gltf;
-
-        std::vector<ImageTaskData> ImgData;
-        std::vector<PrimitiveTaskData> PrimData;
-
-        std::map<size_t, SceneKey> MeshDict;
-
-        ModelStage Stage = ModelStage::Idle;
-
-        std::atomic_int64_t TasksLeft = 0;
-
-        Timer::Point mStartTime;
-    } mModel;
+    ModelStage mModelStage = ModelStage::Idle;
 
     struct {
         ImageTaskData Data;
@@ -76,8 +59,8 @@ class AssetManager {
 
     // Doesn't cache gltf textures loaded with a gltf,
     // as this will be taken care of by (whole) gltf caching.
-    // Trying to cache at higher granularity would anyway be
-    // inconsistent as some gltf materials lack a path
+    // Trying to cache at higher granularity would be
+    // inconsistent anyway as some gltf materials lack a path
     //(single pixel ones).
     std::unordered_map<std::filesystem::path, SceneKey> mImagePathCache;
 

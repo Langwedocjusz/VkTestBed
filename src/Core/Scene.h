@@ -68,6 +68,7 @@ class Scene {
     std::pair<SceneKey, ImageData &> EmplaceImage();
     std::pair<SceneKey, SceneMaterial &> EmplaceMaterial();
     std::pair<SceneKey, SceneObject &> EmplaceObject();
+    std::pair<SceneKey, SceneObject &> EmplaceObject(const SceneObject &existing);
 
     enum class UpdateFlag
     {

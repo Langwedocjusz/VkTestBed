@@ -1,17 +1,18 @@
 #include "AssetManager.h"
 #include "Pch.h"
 
-#include "CppUtils.h"
+#include "Timer.h"
 #include "ModelConfig.h"
 #include "ModelLoader.h"
-#include "SceneEditor.h"
-#include "glm/gtc/quaternion.hpp"
+
+#include <glm/gtc/quaternion.hpp>
 
 #include <fastgltf/math.hpp>
 #include <fastgltf/types.hpp>
-#include <ranges>
 
 #include <iostream>
+#include <atomic>
+#include <ranges>
 #include <variant>
 
 static uint8_t PixelChannelFromFloat(float x)
@@ -19,43 +20,63 @@ static uint8_t PixelChannelFromFloat(float x)
     return static_cast<uint8_t>(255.0f * x);
 }
 
-AssetManager::AssetManager(Scene &scene, SceneEditor &editor)
-    : mScene(scene), mEditor(editor)
+struct AssetManager::Model {
+    Model(const ModelConfig& config)
+        : Config(config), TasksLeft(0), StartTime(Timer::Get())
+    {
+
+    }
+
+    ModelConfig Config;
+    fastgltf::Asset Gltf;
+    std::vector<ImageTaskData> ImgData;
+    std::vector<PrimitiveTaskData> PrimData;
+    std::map<size_t, SceneKey> MeshDict;
+    std::atomic_int64_t TasksLeft;
+    Timer::Point StartTime;
+};
+
+AssetManager::AssetManager(Scene &scene)
+    : mScene(scene)
 {
 }
 
-void AssetManager::LoadModel(const ModelConfig &config)
+AssetManager::~AssetManager()
+{
+
+}
+
+void AssetManager::LoadModel(const ModelConfig &config, SceneGraphNode &root)
 {
     // 0. If already loading do nothing
     // To-do: actually communicate with the ui about this
-    if (mModel.Stage != ModelStage::Idle)
+    if (mModelStage != ModelStage::Idle)
         return;
 
     // 1. Update the state
-    mModel.Config = config;
-    mModel.Stage = ModelStage::Parsing;
-    mModel.mStartTime = Timer::Get();
+    mModelStage = ModelStage::Parsing;
+    mModel = std::make_unique<Model>(config);
 
     // 2. Launch an async task to parse gltf and emplace new
     // elements in the scene
-    mThreadPool.Push([this]() {
+    mThreadPool.Push([this, &root]() {
         ParseGltf();
         PreprocessGltfAssets();
-        ProcessGltfHierarchy();
+        ProcessGltfHierarchy(root);
 
-        mModel.Stage = ModelStage::Parsed;
+        mModelStage = ModelStage::Parsed;
     });
 }
 
 void AssetManager::OnUpdate()
 {
     // 3. Detect if there is work to be scheduled
-    if (mModel.Stage == ModelStage::Parsed)
+    if (mModelStage == ModelStage::Parsed)
     {
-        mModel.Stage = ModelStage::Loading;
+        mModelStage = ModelStage::Loading;
 
         // 3.1. Schedule image loading:
-        for (auto &data : mModel.ImgData)
+        for (auto &data : mModel->ImgData)
         {
             mThreadPool.Push([this, &data]() {
                 auto &img = mScene.Images[data.ImageKey];
@@ -67,40 +88,34 @@ void AssetManager::OnUpdate()
 
                 img.Name = data.Name;
 
-                mModel.TasksLeft--;
+                mModel->TasksLeft--;
             });
         }
 
         // 3.2. Schedule mesh parsing:
-        for (auto &data : mModel.PrimData)
+        for (auto &data : mModel->PrimData)
         {
             mThreadPool.Push([this, &data]() {
                 auto &mesh = mScene.Meshes[data.SceneMesh];
                 auto &prim = mesh.Primitives[data.ScenePrim];
 
-                auto &srcMesh = mModel.Gltf->meshes[data.GltfMesh];
+                auto &srcMesh = mModel->Gltf.meshes[data.GltfMesh];
                 auto &srcPrimitive = srcMesh.primitives[data.GltfPrim];
 
                 prim.Data =
-                    ModelLoader::LoadPrimitive(*mModel.Gltf, mModel.Config, srcPrimitive);
+                    ModelLoader::LoadPrimitive(mModel->Gltf, mModel->Config, srcPrimitive);
 
-                mModel.TasksLeft--;
+                mModel->TasksLeft--;
             });
         }
     }
 
     // 4. Detect if loading done
-    if (mModel.Stage == ModelStage::Loading)
+    if (mModelStage == ModelStage::Loading)
     {
-        if (mModel.TasksLeft == 0)
+        if (mModel->TasksLeft == 0)
         {
-            mModel.Stage = ModelStage::Idle;
-
-            // Free task-related memory:
-            mModel.Gltf = nullptr;
-            mModel.ImgData.clear();
-            mModel.PrimData.clear();
-            // mModel.MeshDict.clear();
+            mModelStage = ModelStage::Idle;
 
             // Set scene update flags:
             mScene.RequestUpdate(Scene::UpdateFlag::Images);
@@ -109,15 +124,18 @@ void AssetManager::OnUpdate()
             mScene.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
 
             // Print message:
-            auto time = Timer::GetDiffSeconds(mModel.mStartTime);
+            auto time = Timer::GetDiffSeconds(mModel->StartTime);
             std::cout << "Finished loading model (took " << time << " [s])\n";
+
+            // Free task-related memory:
+            mModel.reset(nullptr);
         }
     }
 }
 
 void AssetManager::ParseGltf()
 {
-    mModel.Gltf = ModelLoader::GetGltfWithBuffers(mModel.Config.Filepath);
+    mModel->Gltf = ModelLoader::GetGltfWithBuffers(mModel->Config.Filepath);
 }
 
 void AssetManager::LoadHdri(const std::filesystem::path &path)
@@ -178,14 +196,14 @@ void AssetManager::PreprocessGltfAssets()
 {
     using namespace std::views;
 
-    const std::filesystem::path workingDir = mModel.Config.Filepath.parent_path();
-    const std::string baseName = mModel.Config.Filepath.stem().string();
+    const std::filesystem::path workingDir = mModel->Config.Filepath.parent_path();
+    const std::string baseName = mModel->Config.Filepath.stem().string();
 
     // Gather ids of the mesh materials:
     std::map<size_t, SceneKey> keyMap;
 
     // Loop over all materials in gltf:
-    for (auto [id, material] : enumerate(mModel.Gltf->materials))
+    for (auto [id, material] : enumerate(mModel->Gltf.materials))
     {
         // Create new scene material:
         auto [matKey, mat] = mScene.EmplaceMaterial();
@@ -205,7 +223,7 @@ void AssetManager::PreprocessGltfAssets()
             mat.Albedo = imgKey;
 
             auto &albedoInfo = material.pbrData.baseColorTexture;
-            auto albedoPath = GetTexturePath(*mModel.Gltf, albedoInfo, workingDir);
+            auto albedoPath = GetTexturePath(mModel->Gltf, albedoInfo, workingDir);
 
             auto &fac = material.pbrData.baseColorFactor;
 
@@ -216,7 +234,7 @@ void AssetManager::PreprocessGltfAssets()
                 .A = PixelChannelFromFloat(fac.w()),
             };
 
-            mModel.ImgData.push_back(ImageTaskData{
+            mModel->ImgData.push_back(ImageTaskData{
                 .ImageKey = imgKey,
                 .Path = albedoPath,
                 .BaseColor = baseColor,
@@ -226,13 +244,13 @@ void AssetManager::PreprocessGltfAssets()
         }
 
         // Do the same for roughness/metallic:
-        if (mModel.Config.FetchRoughness)
+        if (mModel->Config.FetchRoughness)
         {
             auto [imgKey, img] = mScene.EmplaceImage();
             mat.Roughness = imgKey;
 
             auto &roughnessInfo = material.pbrData.metallicRoughnessTexture;
-            auto roughnessPath = GetTexturePath(*mModel.Gltf, roughnessInfo, workingDir);
+            auto roughnessPath = GetTexturePath(mModel->Gltf, roughnessInfo, workingDir);
 
             auto baseColor = Pixel{
                 .R = PixelChannelFromFloat(0.0f),
@@ -241,7 +259,7 @@ void AssetManager::PreprocessGltfAssets()
                 .A = PixelChannelFromFloat(0.0f),
             };
 
-            mModel.ImgData.push_back(ImageTaskData{
+            mModel->ImgData.push_back(ImageTaskData{
                 .ImageKey = imgKey,
                 .Path = roughnessPath,
                 .BaseColor = baseColor,
@@ -251,17 +269,17 @@ void AssetManager::PreprocessGltfAssets()
         }
 
         // Do the same for normal map if requested:
-        if (mModel.Config.FetchNormal)
+        if (mModel->Config.FetchNormal)
         {
             auto &normalInfo = material.normalTexture;
-            auto normalPath = GetTexturePath(*mModel.Gltf, normalInfo, workingDir);
+            auto normalPath = GetTexturePath(mModel->Gltf, normalInfo, workingDir);
 
             if (normalPath.has_value())
             {
                 auto [imgKey, img] = mScene.EmplaceImage();
                 mat.Normal = imgKey;
 
-                mModel.ImgData.push_back(ImageTaskData{
+                mModel->ImgData.push_back(ImageTaskData{
                     .ImageKey = imgKey,
                     .Path = normalPath,
                     .BaseColor = Pixel{},
@@ -273,14 +291,14 @@ void AssetManager::PreprocessGltfAssets()
     }
 
     // Iterate all gltf meshes:
-    for (auto [gltfMeshId, gltfMesh] : enumerate(mModel.Gltf->meshes))
+    for (auto [gltfMeshId, gltfMesh] : enumerate(mModel->Gltf.meshes))
     {
         // Create the new mesh:
         auto [meshKey, mesh] = mScene.EmplaceMesh();
         mesh.Name = std::format("{} {}", baseName, gltfMesh.name);
 
         // Update mesh dictionary:
-        mModel.MeshDict[gltfMeshId] = meshKey;
+        mModel->MeshDict[gltfMeshId] = meshKey;
 
         // Retrieve its primitives:
         for (auto [gltfPrimId, gltfPrim] : enumerate(gltfMesh.primitives))
@@ -296,7 +314,7 @@ void AssetManager::PreprocessGltfAssets()
                 newMeshPrim.Material = matId;
             }
 
-            mModel.PrimData.push_back(PrimitiveTaskData{
+            mModel->PrimData.push_back(PrimitiveTaskData{
                 .SceneMesh = meshKey,
                 .ScenePrim = mesh.Primitives.size() - 1,
                 .GltfMesh = gltfMeshId,
@@ -306,8 +324,8 @@ void AssetManager::PreprocessGltfAssets()
     }
 
     // Set the number of tasks to do:
-    mModel.TasksLeft =
-        static_cast<int64_t>(mModel.ImgData.size() + mModel.PrimData.size());
+    mModel->TasksLeft =
+        static_cast<int64_t>(mModel->ImgData.size() + mModel->PrimData.size());
 }
 
 static auto UnpackTransform(fastgltf::Node &node)
@@ -340,24 +358,20 @@ static auto UnpackTransform(fastgltf::Node &node)
     return {translation, rotation, scale};
 }
 
-void AssetManager::ProcessGltfHierarchy()
+void AssetManager::ProcessGltfHierarchy(SceneGraphNode &root)
 {
-    // Append root of the hierarchy to scene editor prefabs:
-    auto [_, root] = mEditor.EmplacePrefab();
-    root.Name = mModel.Config.Filepath.stem().string();
-
     // To-do: Currently we assume gltf holds one scene.
-    auto &scene = mModel.Gltf->scenes[0];
+    auto &scene = mModel->Gltf.scenes[0];
 
     for (auto nodeIdx : scene.nodeIndices)
     {
-        auto &node = mModel.Gltf->nodes[nodeIdx];
+        auto &node = mModel->Gltf.nodes[nodeIdx];
         auto [translation, rotation, scale] = UnpackTransform(node);
 
         // To-do: Only handles first-level nodes that hold meshes
         if (node.meshIndex.has_value())
         {
-            auto meshKey = mModel.MeshDict[*node.meshIndex];
+            auto meshKey = mModel->MeshDict[*node.meshIndex];
 
             auto &prefabNode = root.EmplaceChild(meshKey);
             prefabNode.Translation = translation;

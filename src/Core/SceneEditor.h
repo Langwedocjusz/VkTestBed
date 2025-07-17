@@ -1,63 +1,10 @@
 #pragma once
 
 #include "AssetManager.h"
-#include "Scene.h"
-
-#include <glm/glm.hpp>
+#include "SceneGraph.h"
 
 #include <filesystem>
-#include <memory>
 #include <ranges>
-#include <variant>
-
-class SceneEditor;
-
-class SceneGraphNode {
-  public:
-    using ChildrenArray = std::vector<std::unique_ptr<SceneGraphNode>>;
-
-  public:
-    SceneGraphNode(SceneEditor &editor);
-    SceneGraphNode(SceneEditor &editor, SceneKey key);
-
-    SceneGraphNode(const SceneGraphNode &) = delete;
-    SceneGraphNode &operator=(const SceneGraphNode &) = delete;
-
-    SceneGraphNode(SceneGraphNode &&) noexcept;
-    SceneGraphNode &operator=(SceneGraphNode &&) = delete;
-
-    ~SceneGraphNode();
-
-    [[nodiscard]] bool IsLeaf() const;
-    [[nodiscard]] SceneKey GetObjectKey() const;
-
-    ChildrenArray &GetChildren();
-    [[nodiscard]] const ChildrenArray &GetChildrenConst() const;
-
-    /// Emplaces a non-leaf node as child
-    SceneGraphNode &EmplaceChild();
-    /// Emplaces a leaf node as child
-    SceneGraphNode &EmplaceChild(SceneKey key);
-
-    [[nodiscard]] bool SubTreeContains(SceneKey key) const;
-    void RemoveChildrenWithMesh(Scene &scene, SceneKey mesh);
-
-    glm::mat4 GetTransform();
-    void UpdateTransforms(Scene &scene, glm::mat4 current = 1.0f);
-
-  public:
-    SceneGraphNode *Parent = nullptr;
-
-    glm::vec3 Translation = {0.0f, 0.0f, 0.0f};
-    glm::vec3 Rotation = {0.0f, 0.0f, 0.0f};
-    glm::vec3 Scale = {1.0f, 1.0f, 1.0f};
-
-    std::string Name;
-
-  private:
-    SceneEditor &mEditor;
-    std::variant<ChildrenArray, SceneKey> mPayload;
-};
 
 class SceneEditor {
   public:
@@ -69,27 +16,9 @@ class SceneEditor {
     SceneMesh &GetMesh(SceneKey key);
     SceneMaterial &GetMaterial(SceneKey key);
     ImageData &GetImage(SceneKey key);
-    SceneObject &GetObject(SceneKey key);
     Scene::Environment &GetEnv();
 
     void EraseMesh(SceneKey mesh);
-
-    SceneKey EmplaceObject(std::optional<SceneKey> mesh);
-    SceneKey DuplicateObject(SceneKey obj);
-    void EraseObject(SceneKey key);
-
-    auto Meshes()
-    {
-        return std::views::all(mScene.Meshes);
-    }
-    auto Materials()
-    {
-        return std::views::all(mScene.Materials);
-    }
-    auto Images()
-    {
-        return std::views::all(mScene.Images);
-    }
 
     void LoadModel(const ModelConfig &config);
     void SetHdri(const std::filesystem::path &path);
@@ -116,9 +45,24 @@ class SceneEditor {
         std::optional<SceneKey> meshKey = std::nullopt);
     void InstancePrefab(SceneKey prefabId);
 
+    // Iterators to underlying data:
+
     auto Prefabs()
     {
         return std::views::all(mPrefabs);
+    }
+
+    auto Meshes()
+    {
+        return std::views::all(mScene.Meshes);
+    }
+    auto Materials()
+    {
+        return std::views::all(mScene.Materials);
+    }
+    auto Images()
+    {
+        return std::views::all(mScene.Images);
     }
 
   public:
@@ -130,6 +74,13 @@ class SceneEditor {
     void HandleNodeMove();
     void HandleNodeCopy();
     void HandleNodeDelete();
+
+    SceneObject &GetObject(SceneKey key);
+    SceneKey DuplicateObject(SceneKey obj);
+    SceneKey EmplaceObject(std::optional<SceneKey> mesh);
+
+    void CopyNodeTree(SceneGraphNode &source, SceneGraphNode &target);
+    void InstancePrefabImpl(SceneGraphNode &source, SceneGraphNode &target);
 
   private:
     Scene &mScene;

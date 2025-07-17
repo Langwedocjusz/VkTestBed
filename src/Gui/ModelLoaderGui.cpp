@@ -3,7 +3,6 @@
 
 #include "imgui.h"
 
-#include <fastgltf/types.hpp>
 #include <filesystem>
 
 ModelLoaderGui::ModelLoaderGui(SceneEditor &editor) : mEditor(editor)

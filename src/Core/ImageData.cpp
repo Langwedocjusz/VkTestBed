@@ -40,7 +40,7 @@ ImageData ImageData::ImportSTB(const std::filesystem::path &path, bool unorm)
         stbi_load(pathStr.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
     vassert(pixels != nullptr,
-           "Failed to load texture image. Filepath: " + path.string());
+            "Failed to load texture image. Filepath: " + path.string());
 
     auto res = ImageData();
 
@@ -68,8 +68,7 @@ ImageData ImageData::ImportEXR(const std::filesystem::path &path)
 
     int ret = LoadEXR(&data, &width, &height, pathStr.c_str(), &err);
 
-    vassert(ret == TINYEXR_SUCCESS,
-           "Error when trying to open image: " + path.string());
+    vassert(ret == TINYEXR_SUCCESS, "Error when trying to open image: " + path.string());
 
     auto res = ImageData();
 

@@ -19,7 +19,8 @@ void vassert(bool condition, const std::source_location location)
     }
 }
 
-void vassert(bool condition, std::string_view message, const std::source_location location)
+void vassert(bool condition, std::string_view message,
+             const std::source_location location)
 {
     if (!condition)
     {

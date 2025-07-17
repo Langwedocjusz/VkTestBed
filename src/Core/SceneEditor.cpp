@@ -1,158 +1,12 @@
 #include "SceneEditor.h"
 #include "Pch.h"
 
+#include "Assert.h"
 #include "Primitives.h"
+
 #include <algorithm>
 #include <memory>
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/euler_angles.hpp>
-#include <glm/gtx/quaternion.hpp>
-
-#include "Assert.h"
-
-#include <iostream>
 #include <utility>
-
-// SceneGraphNode Implementation:
-
-SceneGraphNode::SceneGraphNode(SceneEditor &editor) : mEditor(editor)
-{
-    mPayload = ChildrenArray{};
-}
-
-SceneGraphNode::SceneGraphNode(SceneEditor &editor, SceneKey key) : mEditor(editor)
-{
-    mPayload = key;
-}
-
-SceneGraphNode::SceneGraphNode(SceneGraphNode &&other) noexcept
-    : Parent(other.Parent), Translation(other.Translation), Rotation(other.Rotation),
-      Scale(other.Scale), Name(other.Name), mEditor(other.mEditor),
-      mPayload(std::move(other.mPayload))
-{
-}
-
-SceneGraphNode::~SceneGraphNode()
-{
-    if (IsLeaf())
-    {
-        // Remove object, the node pointed to:
-        mEditor.EraseObject(GetObjectKey());
-    }
-}
-
-bool SceneGraphNode::IsLeaf() const
-{
-    return std::holds_alternative<SceneKey>(mPayload);
-}
-
-SceneKey SceneGraphNode::GetObjectKey() const
-{
-    vassert(IsLeaf(), "Only leaf nodes hold object keys!");
-
-    return std::get<SceneKey>(mPayload);
-}
-
-SceneGraphNode::ChildrenArray &SceneGraphNode::GetChildren()
-{
-    vassert(!IsLeaf(), "Leaf nodes have no children!");
-
-    return std::get<ChildrenArray>(mPayload);
-}
-
-const SceneGraphNode::ChildrenArray &SceneGraphNode::GetChildrenConst() const
-{
-    vassert(!IsLeaf(), "Leaf nodes have no children!");
-
-    return std::get<ChildrenArray>(mPayload);
-}
-
-SceneGraphNode &SceneGraphNode::EmplaceChild()
-{
-    GetChildren().push_back(std::make_unique<SceneGraphNode>(mEditor));
-
-    auto &child = *GetChildren().back();
-    child.Parent = this;
-
-    return child;
-}
-
-SceneGraphNode &SceneGraphNode::EmplaceChild(SceneKey key)
-{
-    GetChildren().push_back(std::make_unique<SceneGraphNode>(mEditor, key));
-
-    auto &child = *GetChildren().back();
-    child.Parent = this;
-
-    return child;
-}
-
-bool SceneGraphNode::SubTreeContains(SceneKey key) const
-{
-    if (IsLeaf())
-        return GetObjectKey() == key;
-
-    else
-    {
-        for (auto &child : GetChildrenConst())
-        {
-            if (child->SubTreeContains(key))
-                return true;
-        }
-    }
-
-    return false;
-}
-
-void SceneGraphNode::RemoveChildrenWithMesh(Scene &scene, SceneKey mesh)
-{
-    vassert(IsLeaf() == false);
-
-    std::erase_if(GetChildren(), [&scene, mesh](const auto &elem) {
-        if (elem->IsLeaf())
-        {
-            auto &obj = scene.Objects[elem->GetObjectKey()];
-
-            if (obj.Mesh == mesh)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    });
-
-    for (auto &child : GetChildren())
-    {
-        if (!child->IsLeaf())
-            child->RemoveChildrenWithMesh(scene, mesh);
-    }
-}
-
-glm::mat4 SceneGraphNode::GetTransform()
-{
-    return glm::translate(glm::mat4(1.0f), Translation) *
-           glm::toMat4(glm::quat(Rotation)) * glm::scale(glm::mat4(1.0f), Scale);
-}
-
-void SceneGraphNode::UpdateTransforms(Scene &scene, glm::mat4 current)
-{
-    if (IsLeaf())
-    {
-        auto &obj = scene.Objects[GetObjectKey()];
-
-        obj.Transform = current * GetTransform();
-    }
-
-    else
-    {
-        for (auto &child : GetChildren())
-        {
-            child->UpdateTransforms(scene, current * GetTransform());
-        }
-    }
-}
 
 // NodeOpData Implementation:
 SceneGraphNode &SceneEditor::NodeOpData::GetSourceNode()
@@ -171,7 +25,7 @@ auto SceneEditor::NodeOpData::GetSourceNodeIterator()
 // SceneEditor Implementation:
 
 SceneEditor::SceneEditor(Scene &scene)
-    : GraphRoot(*this), mScene(scene), mAssetManager(scene, *this)
+    : GraphRoot(scene), mScene(scene), mAssetManager(scene)
 {
     // Emplace test material
     auto [imgKey, img] = scene.EmplaceImage();
@@ -288,17 +142,8 @@ SceneKey SceneEditor::EmplaceObject(std::optional<SceneKey> mesh)
 SceneKey SceneEditor::DuplicateObject(SceneKey obj)
 {
     auto &oldObj = GetObject(obj);
-
-    auto [key, newObj] = mScene.EmplaceObject();
-
-    newObj = oldObj;
-
+    auto [key, _] = mScene.EmplaceObject(oldObj);
     return key;
-}
-
-void SceneEditor::EraseObject(SceneKey key)
-{
-    mScene.Objects.erase(key);
 }
 
 void SceneEditor::UpdateTransforms(SceneGraphNode *rootNode)
@@ -312,7 +157,11 @@ void SceneEditor::UpdateTransforms(SceneGraphNode *rootNode)
 
 void SceneEditor::LoadModel(const ModelConfig &config)
 {
-    mAssetManager.LoadModel(config);
+    // Append root of the hierarchy to scene editor prefabs:
+    auto [_, root] = EmplacePrefab();
+    root.Name = config.Filepath.stem().string();
+
+    mAssetManager.LoadModel(config, root);
 }
 
 void SceneEditor::SetHdri(const std::filesystem::path &path)
@@ -393,13 +242,12 @@ void SceneEditor::HandleNodeMove()
     srcChildren.erase(iter);
 }
 
-static void CopyNodeTree(SceneEditor &editor, SceneGraphNode &source,
-                         SceneGraphNode &target)
+void SceneEditor::CopyNodeTree(SceneGraphNode &source, SceneGraphNode &target)
 {
     auto &newNode = [&]() -> SceneGraphNode & {
         if (source.IsLeaf())
         {
-            auto key = editor.DuplicateObject(source.GetObjectKey());
+            auto key = DuplicateObject(source.GetObjectKey());
             return target.EmplaceChild(key);
         }
         else
@@ -415,7 +263,7 @@ static void CopyNodeTree(SceneEditor &editor, SceneGraphNode &source,
     {
         for (auto &child : source.GetChildren())
         {
-            CopyNodeTree(editor, *child, newNode);
+            CopyNodeTree(*child, newNode);
         }
     }
 }
@@ -423,7 +271,7 @@ static void CopyNodeTree(SceneEditor &editor, SceneGraphNode &source,
 void SceneEditor::HandleNodeCopy()
 {
     auto &oldNode = mNodeOpData.GetSourceNode();
-    CopyNodeTree(*this, oldNode, *mNodeOpData.DstParent);
+    CopyNodeTree(oldNode, *mNodeOpData.DstParent);
 }
 
 void SceneEditor::HandleNodeDelete()
@@ -442,21 +290,19 @@ std::pair<SceneKey, SceneGraphNode &> SceneEditor::EmplacePrefab(
     vassert(mPrefabs.count(key) == 0);
 
     if (meshKey)
-        mPrefabs.emplace(key, SceneGraphNode(*this, *meshKey));
+        mPrefabs.emplace(key, SceneGraphNode(mScene, *meshKey));
     else
-        mPrefabs.emplace(key, SceneGraphNode(*this));
+        mPrefabs.emplace(key, SceneGraphNode(mScene));
 
     return {key, mPrefabs.at(key)};
 }
 
-static void InstancePrefabImpl(SceneEditor &editor, SceneGraphNode &source,
-                               SceneGraphNode &target)
+void SceneEditor::InstancePrefabImpl(SceneGraphNode &source, SceneGraphNode &target)
 {
     auto &newNode = [&]() -> SceneGraphNode & {
         if (source.IsLeaf())
         {
-            // auto key = editor.DuplicateObject(source.GetObjectKey());
-            auto key = editor.EmplaceObject(source.GetObjectKey());
+            auto key = EmplaceObject(source.GetObjectKey());
 
             return target.EmplaceChild(key);
         }
@@ -473,7 +319,7 @@ static void InstancePrefabImpl(SceneEditor &editor, SceneGraphNode &source,
     {
         for (auto &child : source.GetChildren())
         {
-            InstancePrefabImpl(editor, *child, newNode);
+            InstancePrefabImpl(*child, newNode);
         }
     }
 }
@@ -484,6 +330,6 @@ void SceneEditor::InstancePrefab(SceneKey prefabId)
 
     auto &prefabRoot = mPrefabs.at(prefabId);
 
-    InstancePrefabImpl(*this, prefabRoot, GraphRoot);
+    InstancePrefabImpl(prefabRoot, GraphRoot);
     UpdateTransforms(&GraphRoot);
 }

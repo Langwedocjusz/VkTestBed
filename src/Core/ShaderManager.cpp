@@ -241,8 +241,7 @@ void ShaderManager::CompileToBytecode()
         auto srcDir = args.Src.string();
         auto dstDir = args.Dst.string();
 
-        std::string cmd =
-            "glslc --target-env=vulkan1.3 " + srcDir + " -o " + dstDir;
+        std::string cmd = "glslc --target-env=vulkan1.3 " + srcDir + " -o " + dstDir;
 
         // To-do: maybe figure out a nicer way to do this:
         system(cmd.c_str());

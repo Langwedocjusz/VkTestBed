@@ -11,14 +11,14 @@
 
 #include <iostream>
 
-static std::unique_ptr<fastgltf::Asset> GetAsset(const std::filesystem::path &path,
-                                                 bool loadBuffers = false)
+static fastgltf::Asset GetAsset(const std::filesystem::path &path,
+                                bool loadBuffers = false)
 {
     fastgltf::Parser parser;
     auto data = fastgltf::GltfDataBuffer::FromPath(path);
 
     vassert(data.error() == fastgltf::Error::None,
-           "Failed to load a gltf file: " + path.string());
+            "Failed to load a gltf file: " + path.string());
 
     auto loadOptions = fastgltf::Options::None;
 
@@ -28,22 +28,17 @@ static std::unique_ptr<fastgltf::Asset> GetAsset(const std::filesystem::path &pa
     auto load = parser.loadGltf(data.get(), path.parent_path(), loadOptions);
 
     vassert(load.error() == fastgltf::Error::None,
-           "Failed to load a gltf file: " + path.string());
+            "Failed to load a gltf file: " + path.string());
 
-    auto res = std::make_unique<fastgltf::Asset>();
-    *res.get() = std::move(load.get());
-
-    return res;
+    return std::move(load.get());
 }
 
-std::unique_ptr<fastgltf::Asset> ModelLoader::GetGltf(
-    const std::filesystem::path &filepath)
+fastgltf::Asset ModelLoader::GetGltf(const std::filesystem::path &filepath)
 {
     return GetAsset(filepath, false);
 }
 
-std::unique_ptr<fastgltf::Asset> ModelLoader::GetGltfWithBuffers(
-    const std::filesystem::path &filepath)
+fastgltf::Asset ModelLoader::GetGltfWithBuffers(const std::filesystem::path &filepath)
 {
     return GetAsset(filepath, true);
 }

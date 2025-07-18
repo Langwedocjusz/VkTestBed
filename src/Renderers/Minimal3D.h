@@ -6,7 +6,7 @@
 #include "Scene.h"
 #include "Texture.h"
 
-class Minimal3DRenderer : public IRenderer {
+class Minimal3DRenderer final : public IRenderer {
   public:
     Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
                       std::unique_ptr<Camera> &camera);
@@ -58,19 +58,14 @@ class Minimal3DRenderer : public IRenderer {
         uint32_t IndexCount;
 
         SceneKey Material;
-        SceneKey Instances;
+
+        std::vector<glm::mat4> Instances;
     };
 
     using DrawableKey = std::pair<SceneKey, size_t>;
 
     std::map<DrawableKey, Drawable> mColoredDrawables;
     std::map<DrawableKey, Drawable> mTexturedDrawables;
-
-    struct InstanceData {
-        glm::mat4 Transform;
-    };
-
-    std::map<SceneKey, std::vector<InstanceData>> mInstanceData;
 
     Texture mDefaultImage;
     std::map<SceneKey, Texture> mImages;

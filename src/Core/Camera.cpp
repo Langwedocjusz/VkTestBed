@@ -86,12 +86,16 @@ void Camera::OnUpdate(float deltatime)
 
 glm::mat4 Camera::ProjPerspective()
 {
-    auto width = static_cast<float>(mCtx.Swapchain.extent.width);
-    auto height = static_cast<float>(mCtx.Swapchain.extent.height);
+    const float fov = 45.0f;
+    const float zmin = 0.01f;
+    const float zmax = 1000.0f;
 
-    float aspect = width / height;
+    const auto width = static_cast<float>(mCtx.Swapchain.extent.width);
+    const auto height = static_cast<float>(mCtx.Swapchain.extent.height);
 
-    return glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+    const float aspect = width / height;
+
+    return glm::perspective(glm::radians(fov), aspect, zmin, zmax);
 }
 
 glm::mat4 Camera::ProjOrthogonal()

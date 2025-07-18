@@ -4,10 +4,13 @@
 #include "VkUtils.h"
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "Assert.h"
 
-PipelineBuilder::PipelineBuilder(std::string_view debugName) : mDebugName(debugName)
+PipelineBuilder::PipelineBuilder(std::string_view debugName)
+    : mDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR}),
+      mDebugName(debugName)
 {
     // Initialize all vulkan structs:
     mVertexInput = {};
@@ -94,6 +97,12 @@ PipelineBuilder &PipelineBuilder::SetCullMode(VkCullModeFlags cullMode,
 {
     mRaster.cullMode = cullMode;
     mRaster.frontFace = frontFace;
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::RequestDynamicState(VkDynamicState state)
+{
+    mDynamicStates.insert(state);
     return *this;
 }
 
@@ -236,13 +245,13 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     viewport_state.scissorCount = 1;
     viewport_state.pScissors = &scissor;
 
-    std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT,
-                                                 VK_DYNAMIC_STATE_SCISSOR};
+    std::vector<VkDynamicState> dynStatesVec(mDynamicStates.begin(),
+                                             mDynamicStates.end());
 
     VkPipelineDynamicStateCreateInfo dynamicInfo = {};
     dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-    dynamicInfo.pDynamicStates = dynamicStates.data();
+    dynamicInfo.dynamicStateCount = static_cast<uint32_t>(dynStatesVec.size());
+    dynamicInfo.pDynamicStates = dynStatesVec.data();
 
     // Pipeline creation
     VkGraphicsPipelineCreateInfo pipelineInfo = {};

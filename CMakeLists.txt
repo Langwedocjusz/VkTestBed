@@ -102,8 +102,6 @@ target_sources(${PROJECT_NAME}
         src/Core/ImageData.h
         src/Core/ImageData.cpp
         src/Core/Keycodes.h
-        src/Core/Material.h
-        src/Core/Material.cpp
         src/Core/ModelConfig.h
         src/Core/ModelLoader.h
         src/Core/ModelLoader.cpp
@@ -150,6 +148,8 @@ target_sources(${PROJECT_NAME}
         src/RendererComponents/EnvironmentHandler.h
         src/RendererComponents/EnvironmentHandler.cpp
         src/Renderers/Renderer.h
+        src/Renderers/RendererFactory.h
+        src/Renderers/RendererFactory.cpp
         src/Renderers/HelloRenderer.h
         src/Renderers/HelloRenderer.cpp
         src/Renderers/Minimal3D.h

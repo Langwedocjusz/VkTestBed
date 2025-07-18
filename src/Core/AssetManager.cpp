@@ -1,17 +1,17 @@
 #include "AssetManager.h"
 #include "Pch.h"
 
-#include "Timer.h"
 #include "ModelConfig.h"
 #include "ModelLoader.h"
+#include "Timer.h"
 
 #include <glm/gtc/quaternion.hpp>
 
 #include <fastgltf/math.hpp>
 #include <fastgltf/types.hpp>
 
-#include <iostream>
 #include <atomic>
+#include <iostream>
 #include <ranges>
 #include <variant>
 
@@ -21,10 +21,9 @@ static uint8_t PixelChannelFromFloat(float x)
 }
 
 struct AssetManager::Model {
-    Model(const ModelConfig& config)
+    Model(const ModelConfig &config)
         : Config(config), TasksLeft(0), StartTime(Timer::Get())
     {
-
     }
 
     ModelConfig Config;
@@ -36,14 +35,12 @@ struct AssetManager::Model {
     Timer::Point StartTime;
 };
 
-AssetManager::AssetManager(Scene &scene)
-    : mScene(scene)
+AssetManager::AssetManager(Scene &scene) : mScene(scene)
 {
 }
 
 AssetManager::~AssetManager()
 {
-
 }
 
 void AssetManager::LoadModel(const ModelConfig &config, SceneGraphNode &root)
@@ -102,8 +99,8 @@ void AssetManager::OnUpdate()
                 auto &srcMesh = mModel->Gltf.meshes[data.GltfMesh];
                 auto &srcPrimitive = srcMesh.primitives[data.GltfPrim];
 
-                prim.Data =
-                    ModelLoader::LoadPrimitive(mModel->Gltf, mModel->Config, srcPrimitive);
+                prim.Data = ModelLoader::LoadPrimitive(mModel->Gltf, mModel->Config,
+                                                       srcPrimitive);
 
                 mModel->TasksLeft--;
             });
@@ -216,6 +213,9 @@ void AssetManager::PreprocessGltfAssets()
         {
             mat.AlphaCutoff = material.alphaCutoff;
         }
+
+        // Load info about double-sidedness:
+        mat.DoubleSided = material.doubleSided;
 
         // Handle albedo:
         {

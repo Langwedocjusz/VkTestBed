@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <iostream>
 #include <ranges>
+#include <vulkan/vulkan_core.h>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        std::unique_ptr<Camera> &camera)
@@ -105,6 +106,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(MaterialPCData))
             .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
@@ -183,8 +185,7 @@ void MinimalPbrRenderer::OnRender()
 
         uint32_t numDraws = 0, numIdx = 0, numBinds = 2;
 
-        for (auto &[_, drawable] : mDrawables)
-        {
+        auto draw = [&](Drawable &drawable, bool doubleSided) {
             VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
             VkDeviceSize vertOffset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
@@ -198,14 +199,13 @@ void MinimalPbrRenderer::OnRender()
                                     mMainPipeline.Layout, 1, 1, &material.DescriptorSet,
                                     0, nullptr);
 
-            auto &instances = mInstanceData[drawable.InstanceKey];
-
-            for (auto &instance : instances)
+            for (auto &transform : drawable.Instances)
             {
                 MaterialPCData pcData{
-                    .AlphaCutoff = material.AlphaCutoff,
                     .ViewPos = mCamera->GetPos(),
-                    .Transform = instance.Transform,
+                    .AlphaCutoff = material.AlphaCutoff,
+                    .Transform = transform,
+                    .DoubleSided = doubleSided,
                 };
 
                 vkCmdPushConstants(cmd, mMainPipeline.Layout,
@@ -218,6 +218,22 @@ void MinimalPbrRenderer::OnRender()
             }
 
             numBinds += 3;
+        };
+
+        // Draw single-sided drawables:
+        vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
+
+        for (auto key : mSingleSidedDrawableKeys)
+        {
+            draw(mDrawables[key], false);
+        }
+
+        // Draw double-sided drawables:
+        vkCmdSetCullMode(cmd, VK_CULL_MODE_NONE);
+
+        for (auto key : mDoubleSidedDrawableKeys)
+        {
+            draw(mDrawables[key], true);
         }
 
         // Draw the background:
@@ -313,7 +329,6 @@ void MinimalPbrRenderer::LoadScene(const Scene &scene)
     if (scene.FullReload())
     {
         mDrawables.clear();
-        mInstanceData.clear();
         mMaterials.clear();
         mImages.clear();
     }
@@ -373,7 +388,6 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
                 const auto primName = mesh.Name + std::to_string(primIdx);
 
                 CreateBuffers(drawable, prim.Data, primName);
-                drawable.InstanceKey = meshKey;
             }
         }
     }
@@ -411,8 +425,9 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
                 mMaterialDescriptorAllocator.Allocate(mMaterialDescriptorSetLayout);
         }
 
-        // Update the alpha cutoff:
+        // Update the alpha cutoff and doublesidedness:
         mat.AlphaCutoff = sceneMat.AlphaCutoff;
+        mat.DoubleSided = sceneMat.DoubleSided;
 
         // Retrieve the textures if available:
         auto GetTexture = [&](std::optional<SceneKey> opt, Texture &def) -> Texture & {
@@ -442,6 +457,9 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 {
     using namespace std::views;
 
+    mSingleSidedDrawableKeys.clear();
+    mDoubleSidedDrawableKeys.clear();
+
     for (const auto &[meshKey, mesh] : scene.Meshes)
     {
         for (const auto [primIdx, prim] : enumerate(mesh.Primitives))
@@ -450,10 +468,18 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 
             if (mDrawables.count(drawableKey) != 0)
             {
+                auto matKey = *prim.Material;
+                auto &mat = mMaterials[matKey];
+
                 auto &drawable = mDrawables[drawableKey];
 
                 if (prim.Material)
-                    drawable.MaterialKey = *prim.Material;
+                    drawable.MaterialKey = matKey;
+
+                if (mat.DoubleSided)
+                    mDoubleSidedDrawableKeys.push_back(drawableKey);
+                else
+                    mSingleSidedDrawableKeys.push_back(drawableKey);
             }
         }
     }
@@ -461,8 +487,10 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 
 void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 {
-    for (auto &[_, instances] : mInstanceData)
-        instances.clear();
+    using namespace std::views;
+
+    for (auto &[_, drawable] : mDrawables)
+        drawable.Instances.clear();
 
     for (const auto &[key, obj] : scene.Objects)
     {
@@ -471,7 +499,10 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 
         auto meshKey = *obj.Mesh;
 
-        auto &instances = mInstanceData[meshKey];
-        instances.push_back(InstanceData{.Transform = obj.Transform});
+        for (const auto [primIdx, _] : enumerate(scene.Meshes.at(meshKey).Primitives))
+        {
+            auto drawableKey = DrawableKey{meshKey, primIdx};
+            mDrawables[drawableKey].Instances.push_back(obj.Transform);
+        }
     }
 }

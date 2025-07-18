@@ -9,7 +9,7 @@
 #include "Scene.h"
 #include "Texture.h"
 
-class MinimalPbrRenderer : public IRenderer {
+class MinimalPbrRenderer final : public IRenderer {
   public:
     MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                        std::unique_ptr<Camera> &camera);
@@ -56,9 +56,10 @@ class MinimalPbrRenderer : public IRenderer {
     };
 
     struct MaterialPCData {
-        float AlphaCutoff;
         glm::vec3 ViewPos;
+        float AlphaCutoff;
         glm::mat4 Transform;
+        int DoubleSided;
     };
 
     Texture mDefaultAlbedo;
@@ -73,6 +74,7 @@ class MinimalPbrRenderer : public IRenderer {
     struct Material {
         VkDescriptorSet DescriptorSet;
         float AlphaCutoff = 0.5f;
+        bool DoubleSided = false;
     };
 
     std::map<SceneKey, Material> mMaterials;
@@ -85,17 +87,17 @@ class MinimalPbrRenderer : public IRenderer {
         uint32_t IndexCount;
 
         SceneKey MaterialKey = 0;
-        SceneKey InstanceKey = 0;
+
+        std::vector<glm::mat4> Instances;
     };
 
+    // Drawables correspond to mesh primitives
+    // so DrawableKey is the pair (MeshKey, PrimitiveId)
     using DrawableKey = std::pair<SceneKey, size_t>;
     std::map<DrawableKey, Drawable> mDrawables;
 
-    struct InstanceData {
-        glm::mat4 Transform;
-    };
-
-    std::map<SceneKey, std::vector<InstanceData>> mInstanceData;
+    std::vector<DrawableKey> mSingleSidedDrawableKeys;
+    std::vector<DrawableKey> mDoubleSidedDrawableKeys;
 
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;

@@ -36,11 +36,12 @@ layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 3) uniform sampler2D integrationMap;
 
 layout(push_constant) uniform constants {
-    float AlphaCutoff;
     float PosX;
     float PosY;
     float PosZ;
+    float AlphaCutoff;
     mat4 Transform;
+    int DoubleSided;
 } PushConstants;
 
 //https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
@@ -89,6 +90,11 @@ void main()
     //Construct view vector:
     vec3 view = vec3(PushConstants.PosX, PushConstants.PosY, PushConstants.PosZ) - fragPos;
     view = normalize(view);
+
+    //Handle two-sided geometry by flipping normals
+    //facing away from view
+    if (PushConstants.DoubleSided == 1 && dot(normal, view) < 0.0)
+        normal = -normal;
 
     //Calculate specular reflectance f0:
     vec3 f0 = metallic * albedo.rgb;

@@ -7,8 +7,10 @@
 #include <vulkan/vulkan.h>
 
 #include <optional>
+#include <set>
 #include <string_view>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 struct Pipeline {
     VkPipeline Handle;
@@ -32,6 +34,8 @@ class PipelineBuilder {
     PipelineBuilder &SetPolygonMode(VkPolygonMode mode);
     PipelineBuilder &SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
 
+    PipelineBuilder &RequestDynamicState(VkDynamicState state);
+
     PipelineBuilder &SetColorFormat(VkFormat format);
     PipelineBuilder &SetDepthFormat(VkFormat format);
 
@@ -51,6 +55,7 @@ class PipelineBuilder {
 
   private:
     std::vector<VkPipelineShaderStageCreateInfo> mShaderStages;
+    std::set<VkDynamicState> mDynamicStates;
 
     VkPipelineVertexInputStateCreateInfo mVertexInput;
     VkPipelineInputAssemblyStateCreateInfo mInputAssembly;

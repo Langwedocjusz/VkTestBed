@@ -7,7 +7,7 @@
 
 #include <map>
 
-class HelloRenderer : public IRenderer {
+class HelloRenderer final : public IRenderer {
   public:
     HelloRenderer(VulkanContext &ctx, FrameInfo &info, std::unique_ptr<Camera> &camera);
     ~HelloRenderer();

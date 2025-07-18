@@ -11,9 +11,7 @@
 #include "VkInit.h"
 #include "VkUtils.h"
 
-#include "HelloRenderer.h"
-#include "Minimal3D.h"
-#include "MinimalPBR.h"
+#include "RendererFactory.h"
 
 #include <vulkan/vulkan.h>
 
@@ -106,8 +104,10 @@ RenderContext::RenderContext(VulkanContext &ctx)
     // Create the camera
     mCamera = std::make_unique<Camera>(mCtx, mFrameInfo);
 
-    // To-do: Move this to some factory function:
-    mRenderer = std::make_unique<MinimalPbrRenderer>(mCtx, mFrameInfo, mCamera);
+    // To-do: make this a member variable, to allow for efficient re-creation
+    auto factory = RendererFactory(mCtx, mFrameInfo, mCamera);
+
+    mRenderer = factory.MakeRenderer(RendererType::MinimalPBR);
 }
 
 void RenderContext::InitImGuiVulkanBackend()

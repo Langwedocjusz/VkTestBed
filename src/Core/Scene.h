@@ -42,6 +42,7 @@ struct SceneMaterial {
     std::optional<SceneKey> Normal = std::nullopt;
 
     float AlphaCutoff = 0.5f;
+    bool DoubleSided = false;
 };
 
 struct SceneObject {

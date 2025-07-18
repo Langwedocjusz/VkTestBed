@@ -160,14 +160,13 @@ void Minimal3DRenderer::OnRender()
 
             vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
                                  mColoredLayout.IndexType);
-            auto &instances = mInstanceData[drawable.Instances];
 
-            for (auto &instance : instances)
+            for (auto &transform : drawable.Instances)
             {
 
                 vkCmdPushConstants(cmd, mColoredPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                                   sizeof(instance.Transform), &instance.Transform);
+                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
+                                   &transform);
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
         }
@@ -197,14 +196,12 @@ void Minimal3DRenderer::OnRender()
                                     mTexturedPipeline.Layout, 1, 1,
                                     &material.DescriptorSet, 0, nullptr);
 
-            auto &instances = mInstanceData[drawable.Instances];
-
-            for (auto &instance : instances)
+            for (auto &transform : drawable.Instances)
             {
 
                 PushConstantData pcData{
                     .AlphaCutoff = glm::vec4(material.AlphaCutoff),
-                    .Transform = instance.Transform,
+                    .Transform = transform,
                 };
 
                 vkCmdPushConstants(cmd, mTexturedPipeline.Layout,
@@ -323,7 +320,6 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
                 auto &drawable = mColoredDrawables[drawableKey];
 
                 CreateBuffers(drawable, prim.Data, primName);
-                drawable.Instances = meshKey;
             }
 
             if (mTexturedLayout.IsCompatible(prim.Data.Layout))
@@ -331,7 +327,6 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
                 auto &drawable = mTexturedDrawables[drawableKey];
 
                 CreateBuffers(drawable, prim.Data, primName);
-                drawable.Instances = meshKey;
             }
         }
     }
@@ -407,8 +402,13 @@ void Minimal3DRenderer::LoadMeshMaterials(const Scene &scene)
 
 void Minimal3DRenderer::LoadObjects(const Scene &scene)
 {
-    for (auto &[_, instances] : mInstanceData)
-        instances.clear();
+    using namespace std::views;
+
+    for (auto &[_, drawable] : mColoredDrawables)
+        drawable.Instances.clear();
+
+    for (auto &[_, drawable] : mTexturedDrawables)
+        drawable.Instances.clear();
 
     for (const auto &[key, obj] : scene.Objects)
     {
@@ -417,7 +417,19 @@ void Minimal3DRenderer::LoadObjects(const Scene &scene)
 
         auto meshKey = *obj.Mesh;
 
-        auto &instances = mInstanceData[meshKey];
-        instances.push_back(InstanceData{.Transform = obj.Transform});
+        for (const auto [primIdx, _] : enumerate(scene.Meshes.at(meshKey).Primitives))
+        {
+            auto drawableKey = DrawableKey{meshKey, primIdx};
+
+            if (mColoredDrawables.count(drawableKey) != 0)
+            {
+                mColoredDrawables[drawableKey].Instances.push_back(obj.Transform);
+            }
+
+            else if (mTexturedDrawables.count(drawableKey) != 0)
+            {
+                mTexturedDrawables[drawableKey].Instances.push_back(obj.Transform);
+            }
+        }
     }
 }

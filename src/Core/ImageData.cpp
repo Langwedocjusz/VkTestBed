@@ -7,7 +7,7 @@
 #define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
-#include "Assert.h"
+#include "Vassert.h"
 
 ImageData ImageData::SinglePixel(Pixel p, bool unorm)
 {

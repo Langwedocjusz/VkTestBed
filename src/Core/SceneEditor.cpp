@@ -1,7 +1,7 @@
 #include "SceneEditor.h"
 #include "Pch.h"
 
-#include "Assert.h"
+#include "Vassert.h"
 #include "Primitives.h"
 
 #include <algorithm>

@@ -4,6 +4,8 @@
 #include "Minimal3D.h"
 #include "MinimalPBR.h"
 
+#include <utility>
+
 std::unique_ptr<IRenderer> RendererFactory::MakeRenderer(RendererType type)
 {
     switch (type)
@@ -15,4 +17,5 @@ std::unique_ptr<IRenderer> RendererFactory::MakeRenderer(RendererType type)
     case RendererType::MinimalPBR:
         return std::make_unique<MinimalPbrRenderer>(mCtx, mInfo, mCamera);
     }
+    std::unreachable();
 }

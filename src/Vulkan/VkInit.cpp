@@ -3,7 +3,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include "Assert.h"
+#include "Vassert.h"
 
 void vkinit::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
 {

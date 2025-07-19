@@ -1,7 +1,7 @@
 #include "Scene.h"
 #include "Pch.h"
 
-#include "Assert.h"
+#include "Vassert.h"
 
 std::pair<SceneKey, SceneMesh &> Scene::EmplaceMesh()
 {

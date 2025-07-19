@@ -7,7 +7,7 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 
-#include "Assert.h"
+#include "Vassert.h"
 
 #include <iostream>
 

@@ -5,7 +5,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include "Assert.h"
+#include "Vassert.h"
 
 SamplerBuilder::SamplerBuilder(std::string_view debugName) : mDebugName(debugName)
 {

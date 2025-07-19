@@ -8,13 +8,11 @@
 #include "ImageUtils.h"
 #include "Pipeline.h"
 #include "Sampler.h"
-#include "Shader.h"
 #include "VkUtils.h"
 
 #include <vulkan/vulkan.h>
 
 #include <cmath>
-#include <iostream>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     : mCtx(ctx), mDescriptorAllocator(ctx), mDeletionQueue(ctx),
@@ -284,51 +282,33 @@ void EnvironmentHandler::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    auto equiToCubeShaderStages =
-        ShaderBuilder().SetComputePath("assets/spirv/EquiToCubeComp.spv").Build(mCtx);
-
     mEquiRectToCubePipeline = ComputePipelineBuilder("EnvEquToCubePipeline")
-                                  .SetShaderStage(equiToCubeShaderStages[0])
+                                  .SetShaderPath("assets/spirv/EquiToCubeComp.spv")
                                   .AddDescriptorSetLayout(mTexToImgDescriptorSetLayout)
                                   .Build(mCtx, mPipelineDeletionQueue);
 
-    auto irrSHShaderStages = ShaderBuilder()
-                                 .SetComputePath("assets/spirv/IrradianceCalcSHComp.spv")
-                                 .Build(mCtx);
-
     mIrradianceSHPipeline = ComputePipelineBuilder("EnvIrradianceSHPipeline")
-                                .SetShaderStage(irrSHShaderStages[0])
+                                .SetShaderPath("assets/spirv/IrradianceCalcSHComp.spv")
                                 .AddDescriptorSetLayout(mBackgroundDescrptorSetLayout)
                                 .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
                                 .SetPushConstantSize(sizeof(IrradianceSHPushConstants))
                                 .Build(mCtx, mPipelineDeletionQueue);
 
-    auto irrReduceShaderStages =
-        ShaderBuilder()
-            .SetComputePath("assets/spirv/IrradianceReduceComp.spv")
-            .Build(mCtx);
-
     mIrradianceReducePipeline =
         ComputePipelineBuilder("EnvIrradianceReducePipeline")
-            .SetShaderStage(irrReduceShaderStages[0])
+            .SetShaderPath("assets/spirv/IrradianceReduceComp.spv")
             .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
             .SetPushConstantSize(sizeof(ReducePushConstants))
             .Build(mCtx, mPipelineDeletionQueue);
 
-    auto prefGenShaderStages =
-        ShaderBuilder().SetComputePath("assets/spirv/PrefilteredGenComp.spv").Build(mCtx);
-
     mPrefilteredGenPipeline = ComputePipelineBuilder("EnvPrefilteredGenPipeline")
-                                  .SetShaderStage(prefGenShaderStages[0])
+                                  .SetShaderPath("assets/spirv/PrefilteredGenComp.spv")
                                   .AddDescriptorSetLayout(mPrefilteredDescriptorSetLayout)
                                   .SetPushConstantSize(sizeof(PrefilteredPushConstants))
                                   .Build(mCtx, mPipelineDeletionQueue);
 
-    auto integrationShaderStages =
-        ShaderBuilder().SetComputePath("assets/spirv/IntegrationGenComp.spv").Build(mCtx);
-
     mIntegrationGenPipeline = ComputePipelineBuilder("EnvIntegrationPipeline")
-                                  .SetShaderStage(integrationShaderStages[0])
+                                  .SetShaderPath("assets/spirv/IntegrationGenComp.spv")
                                   .AddDescriptorSetLayout(mIntegrationDescriptorSetLayout)
                                   .Build(mCtx, mPipelineDeletionQueue);
 }

@@ -11,16 +11,13 @@
 #include "Renderer.h"
 #include "Sampler.h"
 #include "Scene.h"
-#include "Shader.h"
 #include "VkInit.h"
 
 #include <glm/matrix.hpp>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <iostream>
 #include <ranges>
-#include <vulkan/vulkan_core.h>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        std::unique_ptr<Camera> &camera)
@@ -93,15 +90,10 @@ void MinimalPbrRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    // Main PBR pipeline:
-    auto mainShaderStages = ShaderBuilder()
-                                .SetVertexPath("assets/spirv/MinimalPBRVert.spv")
-                                .SetFragmentPath("assets/spirv/MinimalPBRFrag.spv")
-                                .Build(mCtx);
-
     mMainPipeline =
         PipelineBuilder("MinimalPBRMainPipeline")
-            .SetShaderStages(mainShaderStages)
+            .SetShaderPathVertex("assets/spirv/MinimalPBRVert.spv")
+            .SetShaderPathFragment("assets/spirv/MinimalPBRFrag.spv")
             .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -116,17 +108,12 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx, mPipelineDeletionQueue);
 
-    // Background rendering pipeline:
-    auto backgroundShaderStages = ShaderBuilder()
-                                      .SetVertexPath("assets/spirv/BackgroundVert.spv")
-                                      .SetFragmentPath("assets/spirv/BackgroundFrag.spv")
-                                      .Build(mCtx);
-
-    // No vertex format, since we just hardcode the fullscreen triangle in
-    // the vertex shader:
     mBackgroundPipeline =
         PipelineBuilder("MinimalPBRBackgroundPipeline")
-            .SetShaderStages(backgroundShaderStages)
+            .SetShaderPathVertex("assets/spirv/BackgroundVert.spv")
+            .SetShaderPathFragment("assets/spirv/BackgroundFrag.spv")
+            // No vertex format, since we just hardcode the fullscreen triangle in
+            // the vertex shader:
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)

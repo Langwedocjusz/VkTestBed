@@ -21,8 +21,8 @@ class PipelineBuilder {
   public:
     PipelineBuilder(std::string_view debugName);
 
-    PipelineBuilder &SetShaderStages(
-        const std::vector<VkPipelineShaderStageCreateInfo> &stages);
+    PipelineBuilder &SetShaderPathVertex(std::string_view path);
+    PipelineBuilder &SetShaderPathFragment(std::string_view path);
 
     /// If vertex input is not set, vertex data can't be accessed the usual way
     /// in vertex shaders. This is actually the desired behaviour when doing
@@ -54,7 +54,9 @@ class PipelineBuilder {
     void UpdateVertexInput();
 
   private:
-    std::vector<VkPipelineShaderStageCreateInfo> mShaderStages;
+    std::optional<std::string> mVertexPath;
+    std::optional<std::string> mFragmentPath;
+
     std::set<VkDynamicState> mDynamicStates;
 
     VkPipelineVertexInputStateCreateInfo mVertexInput;
@@ -82,7 +84,7 @@ class ComputePipelineBuilder {
   public:
     ComputePipelineBuilder(std::string_view debugName);
 
-    ComputePipelineBuilder &SetShaderStage(VkPipelineShaderStageCreateInfo stage);
+    ComputePipelineBuilder &SetShaderPath(std::string_view path);
     ComputePipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
     ComputePipelineBuilder &SetPushConstantSize(uint32_t size);
 
@@ -93,7 +95,7 @@ class ComputePipelineBuilder {
     Pipeline BuildImpl(VulkanContext &ctx);
 
   private:
-    VkPipelineShaderStageCreateInfo mShaderStage;
+    std::optional<std::string> mShaderPath;
     std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
     std::optional<VkPushConstantRange> mPushConstantRange;
     std::string mDebugName;

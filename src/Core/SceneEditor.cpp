@@ -1,8 +1,8 @@
 #include "SceneEditor.h"
 #include "Pch.h"
 
-#include "Vassert.h"
 #include "Primitives.h"
+#include "Vassert.h"
 
 #include <algorithm>
 #include <memory>

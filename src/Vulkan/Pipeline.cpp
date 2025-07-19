@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 #include "Pch.h"
 
+#include "Shader.h"
 #include "VkUtils.h"
 
 #include <vulkan/vulkan.h>
@@ -52,10 +53,15 @@ PipelineBuilder::PipelineBuilder(std::string_view debugName)
     mMultisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 }
 
-PipelineBuilder &PipelineBuilder::SetShaderStages(
-    const std::vector<VkPipelineShaderStageCreateInfo> &stages)
+PipelineBuilder &PipelineBuilder::SetShaderPathVertex(std::string_view path)
 {
-    mShaderStages = stages;
+    mVertexPath = std::string(path);
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::SetShaderPathFragment(std::string_view path)
+{
+    mFragmentPath = std::string(path);
     return *this;
 }
 
@@ -196,6 +202,12 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
     Pipeline pipeline{};
 
+    // Build the shader stages:
+    auto shaderStages = ShaderBuilder()
+                            .SetVertexPath(*mVertexPath)
+                            .SetFragmentPath(*mFragmentPath)
+                            .Build(ctx);
+
     // Create pipeline layout:
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -256,8 +268,8 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     // Pipeline creation
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = static_cast<uint32_t>(mShaderStages.size());
-    pipelineInfo.pStages = mShaderStages.data();
+    pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+    pipelineInfo.pStages = shaderStages.data();
     pipelineInfo.pVertexInputState = &mVertexInput;
     pipelineInfo.pInputAssemblyState = &mInputAssembly;
     pipelineInfo.pViewportState = &viewport_state;
@@ -281,7 +293,6 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     if (mDepthFormat.has_value())
     {
         pipelineRenderingCreateInfo.depthAttachmentFormat = mDepthFormat.value();
-        // pipelineRenderingCreateInfo.stencilAttachmentFormat = mDepthStencilFormat;
     }
 
     //  Chain into the pipeline create info
@@ -296,7 +307,7 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);
 
-    for (auto &shaderInfo : mShaderStages)
+    for (auto &shaderInfo : shaderStages)
         vkDestroyShaderModule(ctx.Device, shaderInfo.module, nullptr);
 
     return pipeline;
@@ -307,10 +318,9 @@ ComputePipelineBuilder::ComputePipelineBuilder(std::string_view debugName)
 {
 }
 
-ComputePipelineBuilder &ComputePipelineBuilder::SetShaderStage(
-    VkPipelineShaderStageCreateInfo stage)
+ComputePipelineBuilder &ComputePipelineBuilder::SetShaderPath(std::string_view path)
 {
-    mShaderStage = stage;
+    mShaderPath = std::string(path);
     return *this;
 }
 
@@ -352,6 +362,8 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
     Pipeline pipeline{};
 
+    auto shaderStages = ShaderBuilder().SetComputePath(*mShaderPath).Build(ctx);
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
@@ -383,7 +395,7 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.layout = pipeline.Layout;
-    pipelineInfo.stage = mShaderStage;
+    pipelineInfo.stage = shaderStages[0];
 
     {
         auto ret = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo,
@@ -394,7 +406,7 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);
 
-    vkDestroyShaderModule(ctx.Device, mShaderStage.module, nullptr);
+    vkDestroyShaderModule(ctx.Device, shaderStages[0].module, nullptr);
 
     return pipeline;
 }

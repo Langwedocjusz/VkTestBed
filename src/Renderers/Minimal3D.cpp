@@ -9,7 +9,6 @@
 #include "ImageUtils.h"
 #include "Renderer.h"
 #include "Sampler.h"
-#include "Shader.h"
 #include "VkInit.h"
 
 #include <ranges>
@@ -69,15 +68,10 @@ void Minimal3DRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    auto coloredShaderStages =
-        ShaderBuilder()
-            .SetVertexPath("assets/spirv/Minimal3DColoredVert.spv")
-            .SetFragmentPath("assets/spirv/Minimal3DColoredFrag.spv")
-            .Build(mCtx);
-
     mColoredPipeline =
         PipelineBuilder("Minimal3DColoredPipeline")
-            .SetShaderStages(coloredShaderStages)
+            .SetShaderPathVertex("assets/spirv/Minimal3DColoredVert.spv")
+            .SetShaderPathFragment("assets/spirv/Minimal3DColoredFrag.spv")
             .SetVertexInput(mColoredLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -89,15 +83,10 @@ void Minimal3DRenderer::RebuildPipelines()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx, mPipelineDeletionQueue);
 
-    auto textuedShaderStages =
-        ShaderBuilder()
-            .SetVertexPath("assets/spirv/Minimal3DTexturedVert.spv")
-            .SetFragmentPath("assets/spirv/Minimal3DTexturedFrag.spv")
-            .Build(mCtx);
-
     mTexturedPipeline =
         PipelineBuilder("Minimal3DTexturedPipeline")
-            .SetShaderStages(textuedShaderStages)
+            .SetShaderPathVertex("assets/spirv/Minimal3DTexturedVert.spv")
+            .SetShaderPathFragment("assets/spirv/Minimal3DTexturedFrag.spv")
             .SetVertexInput(mTexturedLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)

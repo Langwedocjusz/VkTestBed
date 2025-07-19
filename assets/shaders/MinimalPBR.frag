@@ -93,7 +93,7 @@ void main()
 
     //Handle two-sided geometry by flipping normals
     //facing away from view
-    if (PushConstants.DoubleSided == 1 && dot(normal, view) < 0.0)
+    if (!gl_FrontFacing)
         normal = -normal;
 
     //Calculate specular reflectance f0:

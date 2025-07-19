@@ -4,13 +4,11 @@
 #include "BufferUtils.h"
 #include "ImageUtils.h"
 #include "Renderer.h"
-#include "Shader.h"
 #include "VkInit.h"
 
 #include "Common.h"
 
 #include <cstdint>
-#include <iostream>
 #include <ranges>
 #include <string>
 #include <vulkan/vulkan.h>
@@ -35,14 +33,10 @@ void HelloRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    auto shaderStages = ShaderBuilder()
-                            .SetVertexPath("assets/spirv/HelloTriangleVert.spv")
-                            .SetFragmentPath("assets/spirv/HelloTriangleFrag.spv")
-                            .Build(mCtx);
-
     mGraphicsPipeline =
         PipelineBuilder("HelloRendererPipeline")
-            .SetShaderStages(shaderStages)
+            .SetShaderPathVertex("assets/spirv/HelloTriangleVert.spv")
+            .SetShaderPathFragment("assets/spirv/HelloTriangleFrag.spv")
             .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)

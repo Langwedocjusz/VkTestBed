@@ -2,6 +2,7 @@
 #include "Pch.h"
 
 #include "Primitives.h"
+#include "Scene.h"
 #include "Vassert.h"
 
 #include <algorithm>
@@ -46,8 +47,9 @@ SceneEditor::SceneEditor(Scene &scene)
         prim.Material = matKey;
 
         // Construct prefab:
-        auto [_, root] = EmplacePrefab(meshKey);
-        root.Name = "Test Cube";
+        auto [_, prefab] = EmplacePrefab(meshKey);
+        prefab.Root.Name = "Test Cube";
+        prefab.IsReady = true;
     }
 
     // Add test sphere:
@@ -61,8 +63,9 @@ SceneEditor::SceneEditor(Scene &scene)
         prim.Material = matKey;
 
         // Construct prefab:
-        auto [_, root] = EmplacePrefab(meshKey);
-        root.Name = "Test Sphere";
+        auto [_, prefab] = EmplacePrefab(meshKey);
+        prefab.Root.Name = "Test Sphere";
+        prefab.IsReady = true;
     }
 
     // Request update:
@@ -119,7 +122,7 @@ void SceneEditor::EraseMesh(SceneKey mesh)
     std::erase_if(mPrefabs, [mesh](const auto &item) {
         const auto &[key, value] = item;
 
-        return value.SubTreeContains(mesh);
+        return value.Root.SubTreeContains(mesh);
     });
 
     // mScene.RequestUpdate(Scene::UpdateFlag::Meshes);
@@ -158,10 +161,12 @@ void SceneEditor::UpdateTransforms(SceneGraphNode *rootNode)
 void SceneEditor::LoadModel(const ModelConfig &config)
 {
     // Append root of the hierarchy to scene editor prefabs:
-    auto [_, root] = EmplacePrefab();
+    auto [_, prefab] = EmplacePrefab();
+
+    auto &root = prefab.Root;
     root.Name = config.Filepath.stem().string();
 
-    mAssetManager.LoadModel(config, root);
+    mAssetManager.LoadModel(config, root, prefab.IsReady);
 }
 
 void SceneEditor::SetHdri(const std::filesystem::path &path)
@@ -282,7 +287,7 @@ void SceneEditor::HandleNodeDelete()
     children.erase(it);
 }
 
-std::pair<SceneKey, SceneGraphNode &> SceneEditor::EmplacePrefab(
+std::pair<SceneKey, SceneEditor::Prefab &> SceneEditor::EmplacePrefab(
     std::optional<SceneKey> meshKey)
 {
     auto key = mPrefabKeyGenerator.Get();
@@ -290,9 +295,19 @@ std::pair<SceneKey, SceneGraphNode &> SceneEditor::EmplacePrefab(
     vassert(mPrefabs.count(key) == 0);
 
     if (meshKey)
-        mPrefabs.emplace(key, SceneGraphNode(mScene, *meshKey));
+    {
+        mPrefabs.emplace(key, SceneEditor::Prefab{
+                                  .Root = SceneGraphNode(mScene, *meshKey),
+                                  .IsReady = false,
+                              });
+    }
     else
-        mPrefabs.emplace(key, SceneGraphNode(mScene));
+    {
+        mPrefabs.emplace(key, SceneEditor::Prefab{
+                                  .Root = SceneGraphNode(mScene),
+                                  .IsReady = false,
+                              });
+    }
 
     return {key, mPrefabs.at(key)};
 }
@@ -328,8 +343,8 @@ void SceneEditor::InstancePrefab(SceneKey prefabId)
 {
     vassert(mPrefabs.count(prefabId) != 0);
 
-    auto &prefabRoot = mPrefabs.at(prefabId);
+    auto &prefab = mPrefabs.at(prefabId);
 
-    InstancePrefabImpl(prefabRoot, GraphRoot);
+    InstancePrefabImpl(prefab.Root, GraphRoot);
     UpdateTransforms(&GraphRoot);
 }

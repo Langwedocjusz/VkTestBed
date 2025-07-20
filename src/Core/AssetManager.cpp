@@ -21,12 +21,13 @@ static uint8_t PixelChannelFromFloat(float x)
 }
 
 struct AssetManager::Model {
-    Model(const ModelConfig &config)
-        : Config(config), TasksLeft(0), StartTime(Timer::Get())
+    Model(const ModelConfig &config, bool &isReady)
+        : Config(config), IsReady(isReady), TasksLeft(0), StartTime(Timer::Get())
     {
     }
 
     ModelConfig Config;
+    bool &IsReady;
     fastgltf::Asset Gltf;
     std::vector<ImageTaskData> ImgData;
     std::vector<PrimitiveTaskData> PrimData;
@@ -43,16 +44,16 @@ AssetManager::~AssetManager()
 {
 }
 
-void AssetManager::LoadModel(const ModelConfig &config, SceneGraphNode &root)
+void AssetManager::LoadModel(const ModelConfig &config, SceneGraphNode &root,
+                             bool &isReady)
 {
     // 0. If already loading do nothing
-    // To-do: actually communicate with the ui about this
     if (mModelStage != ModelStage::Idle)
         return;
 
     // 1. Update the state
     mModelStage = ModelStage::Parsing;
-    mModel = std::make_unique<Model>(config);
+    mModel = std::make_unique<Model>(config, isReady);
 
     // 2. Launch an async task to parse gltf and emplace new
     // elements in the scene
@@ -119,6 +120,9 @@ void AssetManager::OnUpdate()
             mScene.RequestUpdate(Scene::UpdateFlag::Meshes);
             mScene.RequestUpdate(Scene::UpdateFlag::Materials);
             mScene.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
+
+            // Mark prefab as ready:
+            mModel->IsReady = true;
 
             // Print message:
             auto time = Timer::GetDiffSeconds(mModel->StartTime);

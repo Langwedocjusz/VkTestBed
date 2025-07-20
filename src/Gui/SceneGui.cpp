@@ -233,7 +233,10 @@ void SceneGui::AddInstancePopup()
 
         for (auto &[prefabId, prefab] : mEditor.Prefabs())
         {
-            std::string name = prefab.Name + "##" + std::to_string(prefabId);
+            if (!prefab.IsReady)
+                continue;
+
+            std::string name = prefab.Root.Name + "##" + std::to_string(prefabId);
 
             if (ImGui::Selectable(name.c_str()))
             {

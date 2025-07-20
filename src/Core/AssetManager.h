@@ -14,7 +14,7 @@ class AssetManager {
 
     void OnUpdate();
 
-    void LoadModel(const ModelConfig &config, SceneGraphNode &root);
+    void LoadModel(const ModelConfig &config, SceneGraphNode &root, bool &isReady);
     void LoadHdri(const std::filesystem::path &path);
 
   private:

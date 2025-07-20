@@ -48,6 +48,8 @@ class EnvironmentHandler {
     void GeneratePrefilteredMap();
     void GenerateIntegrationMap();
 
+    void ResetToBlack();
+
   private:
     VulkanContext &mCtx;
 

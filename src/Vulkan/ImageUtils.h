@@ -4,6 +4,7 @@
 #include "Image.h"
 #include "Texture.h"
 
+#include <optional>
 #include <string>
 
 struct Image2DInfo {
@@ -12,6 +13,7 @@ struct Image2DInfo {
     VkImageTiling Tiling;
     VkImageUsageFlags Usage;
     uint32_t MipLevels;
+    std::optional<VkImageLayout> Layout = std::nullopt;
 };
 
 namespace MakeImage

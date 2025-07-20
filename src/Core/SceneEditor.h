@@ -8,6 +8,21 @@
 
 class SceneEditor {
   public:
+    struct NodeOpData {
+        SceneGraphNode *SrcParent;
+        int64_t ChildId;
+        SceneGraphNode *DstParent;
+
+        SceneGraphNode &GetSourceNode();
+        auto GetSourceNodeIterator();
+    };
+
+    struct Prefab {
+        SceneGraphNode Root;
+        bool IsReady = false;
+    };
+
+  public:
     SceneEditor(Scene &scene);
 
     void OnUpdate();
@@ -26,22 +41,13 @@ class SceneEditor {
     void RequestUpdate(Scene::UpdateFlag flag);
 
     // Functions to manipulate the scene-graph:
-    struct NodeOpData {
-        SceneGraphNode *SrcParent;
-        int64_t ChildId;
-        SceneGraphNode *DstParent;
-
-        SceneGraphNode &GetSourceNode();
-        auto GetSourceNodeIterator();
-    };
-
     void ScheduleNodeMove(NodeOpData data);
     void ScheduleNodeCopy(NodeOpData data);
     void ScheduleNodeDeletion(NodeOpData data);
 
     void UpdateTransforms(SceneGraphNode *rootNode);
 
-    std::pair<SceneKey, SceneGraphNode &> EmplacePrefab(
+    std::pair<SceneKey, Prefab &> EmplacePrefab(
         std::optional<SceneKey> meshKey = std::nullopt);
     void InstancePrefab(SceneKey prefabId);
 
@@ -88,7 +94,7 @@ class SceneEditor {
 
     // Trees representing mesh hierarchies of imported gltf scenes.
     // They are grafted onto the main scene-graph when instancing the gltf.
-    std::map<SceneKey, SceneGraphNode> mPrefabs;
+    std::map<SceneKey, Prefab> mPrefabs;
 
     enum class NodeOp
     {

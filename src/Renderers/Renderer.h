@@ -29,7 +29,7 @@ class IRenderer {
         mSwapchainDeletionQueue.flush();
     }
 
-    [[nodiscard]] const Image &GetTarget() const
+    [[nodiscard]] Image &GetTarget()
     {
         return mRenderTarget;
     }

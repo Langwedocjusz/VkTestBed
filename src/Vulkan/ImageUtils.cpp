@@ -1,4 +1,5 @@
 #include "ImageUtils.h"
+#include "Barrier.h"
 #include "Pch.h"
 
 #include <vulkan/vulkan.h>
@@ -34,7 +35,24 @@ Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
     // Multisampling, only relevant for attachments:
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
-    return Image::Create(ctx, debugName, imageInfo);
+    auto res = Image::Create(ctx, debugName, imageInfo);
+
+    if (info.Layout.has_value())
+    {
+        ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
+                .Image = res.Handle,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = *info.Layout,
+                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, res.Info.mipLevels, 0,
+                                     res.Info.arrayLayers},
+            };
+
+            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        });
+    }
+
+    return res;
 }
 
 Image MakeImage::Cube(VulkanContext &ctx, const std::string &debugName, Image2DInfo info)
@@ -56,7 +74,24 @@ Image MakeImage::Cube(VulkanContext &ctx, const std::string &debugName, Image2DI
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
-    return Image::Create(ctx, debugName, imageInfo);
+    auto res = Image::Create(ctx, debugName, imageInfo);
+
+    if (info.Layout.has_value())
+    {
+        ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
+                .Image = res.Handle,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = *info.Layout,
+                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, res.Info.mipLevels, 0,
+                                     res.Info.arrayLayers},
+            };
+
+            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        });
+    }
+
+    return res;
 }
 
 VkImageView MakeView::View2D(VulkanContext &ctx, const std::string &debugName, Image &img,

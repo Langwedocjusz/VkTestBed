@@ -13,6 +13,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cmath>
+#include <vulkan/vulkan_core.h>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     : mCtx(ctx), mDescriptorAllocator(ctx), mDeletionQueue(ctx),
@@ -126,35 +127,22 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         .Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                  VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = Image::CalcNumMips(cubeSize, cubeSize),
-    };
+        .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
     mCubemap = MakeTexture::TextureCube(mCtx, "EnvCubemap", cubemapInfo, mDeletionQueue);
-
-    // Immidiately transition to shader read layout:
-    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-            .Image = mCubemap.Img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0,
-                                 mCubemap.Img.Info.mipLevels, 0, 6},
-        };
-
-        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
-    });
 
     // Create prefiltered map image and view:
     constexpr uint32_t prefilteredSize = 256;
     const uint32_t prefilteredMips = Image::CalcNumMips(prefilteredSize, prefilteredSize);
 
-    auto prefilteredInfo = Image2DInfo{
-        .Extent = {prefilteredSize, prefilteredSize},
-        .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
-                 VK_IMAGE_USAGE_SAMPLED_BIT,
-        .MipLevels = prefilteredMips,
-    };
+    auto prefilteredInfo =
+        Image2DInfo{.Extent = {prefilteredSize, prefilteredSize},
+                    .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                    .Tiling = VK_IMAGE_TILING_OPTIMAL,
+                    .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                             VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                    .MipLevels = prefilteredMips,
+                    .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
     mPrefiltered = MakeTexture::TextureCube(mCtx, "EnvPrefilteredMap", prefilteredInfo,
                                             mDeletionQueue);
@@ -196,8 +184,6 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
 
     // Shader storage buffer storage for computing irradiance SH:
     {
-        auto usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
         const uint32_t groupsPerLine = (cubeSize / mReduceBlock);
         const uint32_t groupsPerSide = groupsPerLine * groupsPerLine;
 
@@ -218,10 +204,14 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         VkDeviceSize sizeFirst = mFirstBufferLen * sizeof(SHData);
         VkDeviceSize sizeFinal = 1 * sizeof(SHData);
 
+        auto usageFirst = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        auto usageFinal =
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
         mFirstReducionBuffer =
-            Buffer::Create(mCtx, "EnvFirstReductionBuffer", sizeFirst, usage);
+            Buffer::Create(mCtx, "EnvFirstReductionBuffer", sizeFirst, usageFirst);
         mFinalReductionBuffer =
-            Buffer::Create(mCtx, "EnvFinalReductionBuffer", sizeFinal, usage);
+            Buffer::Create(mCtx, "EnvFinalReductionBuffer", sizeFinal, usageFinal);
 
         mDeletionQueue.push_back(mFirstReducionBuffer);
         mDeletionQueue.push_back(mFinalReductionBuffer);
@@ -315,7 +305,7 @@ void EnvironmentHandler::RebuildPipelines()
 
 void EnvironmentHandler::LoadEnvironment(const Scene &scene)
 {
-    auto key = scene.Env.HdriImage;
+    auto currentHdri = scene.Env.HdriImage;
 
     const auto maxPrefilteredLod =
         static_cast<float>(std::log2(mPrefiltered.Img.Info.extent.width));
@@ -323,24 +313,30 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
     mEnvUBOData = EnvUBOData{
         .LightDir = scene.Env.LightDir,
         .LightOn = static_cast<int32_t>(scene.Env.DirLightOn),
-        .HdriEnabled = key.has_value(),
+        .HdriEnabled = currentHdri.has_value(),
         .MaxReflectionLod = maxPrefilteredLod,
     };
 
     Buffer::UploadToMapped(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
 
-    bool updateCubemap = key.has_value() && (key != mLastHdri);
-
-    if (updateCubemap)
+    if (currentHdri != mLastHdri)
     {
-        mLastHdri = key;
+        mLastHdri = currentHdri;
 
-        const auto &data = scene.Images.at(*key);
-        const auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        if (currentHdri.has_value())
+        {
+            const auto &data = scene.Images.at(*currentHdri);
+            const auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
 
-        ConvertEquirectToCubemap(data, format);
-        CalculateDiffuseIrradiance();
-        GeneratePrefilteredMap();
+            ConvertEquirectToCubemap(data, format);
+            CalculateDiffuseIrradiance();
+            GeneratePrefilteredMap();
+        }
+
+        else
+        {
+            ResetToBlack();
+        }
     }
 }
 
@@ -571,5 +567,46 @@ void EnvironmentHandler::GenerateIntegrationMap()
         barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+    });
+}
+
+void EnvironmentHandler::ResetToBlack()
+{
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+        auto clearImage = [&](Image &img) {
+            VkClearColorValue black = {{0.0f, 0.0f, 0.0f, 1.0f}};
+
+            auto range = VkImageSubresourceRange{
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = img.Info.mipLevels,
+                .baseArrayLayer = 0,
+                .layerCount = img.Info.arrayLayers,
+            };
+
+            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
+                .Image = img.Handle,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .SubresourceRange = range,
+            };
+            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+
+            vkCmdClearColorImage(cmd, img.Handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 &black, 1, &range);
+
+            barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        };
+
+        // Clear cubemap and prefiltered map to pure black:
+        clearImage(mCubemap.Img);
+        clearImage(mPrefiltered.Img);
+
+        // Set all SH coefficients to 0:
+        vkCmdFillBuffer(cmd, mFinalReductionBuffer.Handle, 0,
+                        mFinalReductionBuffer.AllocInfo.size,
+                        std::bit_cast<uint32_t>(0.0f));
     });
 }

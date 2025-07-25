@@ -54,8 +54,8 @@ class PipelineBuilder {
     void UpdateVertexInput();
 
   private:
-    std::optional<std::string> mVertexPath;
-    std::optional<std::string> mFragmentPath;
+    std::optional<std::string> mVertexPath = std::nullopt;
+    std::optional<std::string> mFragmentPath = std::nullopt;
 
     std::set<VkDynamicState> mDynamicStates;
 
@@ -67,12 +67,12 @@ class PipelineBuilder {
     VkPipelineColorBlendStateCreateInfo mColorBlend;
     VkPipelineDepthStencilStateCreateInfo mDepthStencil;
 
-    VkFormat mColorFormat;
-    std::optional<VkFormat> mDepthFormat;
+    std::optional<VkFormat> mColorFormat = std::nullopt;
+    std::optional<VkFormat> mDepthFormat = std::nullopt;
 
     std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
 
-    std::optional<VkPushConstantRange> mPushConstantRange;
+    std::optional<VkPushConstantRange> mPushConstantRange = std::nullopt;
 
     VkVertexInputBindingDescription mBindingDescription;
     std::vector<VkVertexInputAttributeDescription> mAttributeDescriptions;

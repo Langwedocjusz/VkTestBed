@@ -64,6 +64,8 @@ add_executable(${PROJECT_NAME})
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 
 #Compile definitions:
+target_compile_definitions(${PROJECT_NAME} PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
+
 if(USE_VALIDATION_LAYERS)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_VALIDATION_LAYERS)
 endif(USE_VALIDATION_LAYERS)
@@ -147,15 +149,17 @@ target_sources(${PROJECT_NAME}
         src/Gui/SceneGui.cpp
         src/RendererComponents/EnvironmentHandler.h
         src/RendererComponents/EnvironmentHandler.cpp
-        src/Renderers/Renderer.h
-        src/Renderers/RendererFactory.h
-        src/Renderers/RendererFactory.cpp
+        src/RendererComponents/ViewHandler.h
+        src/RendererComponents/ViewHandler.cpp
         src/Renderers/HelloRenderer.h
         src/Renderers/HelloRenderer.cpp
         src/Renderers/Minimal3D.h
         src/Renderers/Minimal3D.cpp
         src/Renderers/MinimalPBR.h
         src/Renderers/MinimalPBR.cpp
+        src/Renderers/Renderer.h
+        src/Renderers/RendererFactory.h
+        src/Renderers/RendererFactory.cpp
         src/Vulkan/Buffer.h
         src/Vulkan/Buffer.cpp
         src/Vulkan/BufferUtils.h

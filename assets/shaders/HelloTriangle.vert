@@ -6,7 +6,8 @@ layout(location = 1) in vec3 aColor;
 layout(location = 0) out vec3 fragColor;
 
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 ViewProjection;
+    mat4 CameraViewProjection;
+    mat4 LightViewProjection;
 } Ubo;
 
 layout(push_constant) uniform constants {
@@ -14,7 +15,7 @@ layout(push_constant) uniform constants {
 } PushConstants;
 
 void main() {
-    mat4 MVP = Ubo.ViewProjection * PushConstants.Transform;
+    mat4 MVP = Ubo.CameraViewProjection * PushConstants.Transform;
 
     gl_Position = MVP * vec4(aPosition, 1.0);
     fragColor = aColor;

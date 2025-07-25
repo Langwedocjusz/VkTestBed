@@ -11,7 +11,7 @@ enum class RendererType
 
 class RendererFactory {
   public:
-    RendererFactory(VulkanContext &ctx, FrameInfo &info, std::unique_ptr<Camera> &camera)
+    RendererFactory(VulkanContext &ctx, FrameInfo &info, Camera &camera)
         : mCtx(ctx), mInfo(info), mCamera(camera)
     {
     }
@@ -21,5 +21,5 @@ class RendererFactory {
   private:
     VulkanContext &mCtx;
     FrameInfo &mInfo;
-    std::unique_ptr<Camera> &mCamera;
+    Camera &mCamera;
 };

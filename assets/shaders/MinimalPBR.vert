@@ -10,9 +10,11 @@ layout(location = 1) out vec3 normal;
 layout(location = 2) out vec4 tangent;
 
 layout(location = 3) out vec3 fragPos;
+layout(location = 4) out vec4 lightSpaceFragPos;
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
-    mat4 ViewProjection;
+    mat4 CameraViewProjection;
+    mat4 LightViewProjection;
 } Ubo;
 
 layout(push_constant) uniform constants {
@@ -21,7 +23,7 @@ layout(push_constant) uniform constants {
 } PushConstants;
 
 void main() {
-    mat4 MVP = Ubo.ViewProjection * PushConstants.Transform;
+    mat4 MVP = Ubo.CameraViewProjection * PushConstants.Transform;
 
     mat3 NORMAL = mat3(transpose(inverse(PushConstants.Transform)));
 
@@ -33,6 +35,8 @@ void main() {
         tangent.xyz = normalize(NORMAL * tangent.xyz);
 
     fragPos = vec3(PushConstants.Transform * vec4(aPosition, 1.0));
+
+    lightSpaceFragPos = Ubo.LightViewProjection * vec4(fragPos, 1.0);
 
     gl_Position = MVP * vec4(aPosition, 1.0);
 }

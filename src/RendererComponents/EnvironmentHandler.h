@@ -8,9 +8,17 @@
 #include "VulkanContext.h"
 
 #include <glm/glm.hpp>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 class EnvironmentHandler {
+  public:
+    struct EnvUBOData {
+        int32_t LightOn = 1;
+        glm::vec3 LightDir = glm::normalize(glm::vec3(1, -1, 1));
+        int32_t HdriEnabled = false;
+        float MaxReflectionLod = 0.0f;
+    };
+
   public:
     EnvironmentHandler(VulkanContext &ctx);
     ~EnvironmentHandler();
@@ -22,6 +30,11 @@ class EnvironmentHandler {
     {
         return mEnvUBOData.HdriEnabled;
     }
+
+    [[nodiscard]] EnvUBOData GetUboData() const
+    {
+        return mEnvUBOData;
+    };
 
     [[nodiscard]] VkDescriptorSet *GetBackgroundDSPtr()
     {
@@ -121,14 +134,7 @@ class EnvironmentHandler {
     VkSampler mSamplerMipped;
 
     // Uniform buffer object with environment info for lighting:
-    struct EnvUBOData {
-        // Fourth component indicates whether the light is on or not
-        glm::vec3 LightDir = glm::normalize(glm::vec3(1, -1, 1));
-        int32_t LightOn = 1;
-        int32_t HdriEnabled = false;
-        float MaxReflectionLod = 0.0f;
-    } mEnvUBOData;
-
+    EnvUBOData mEnvUBOData;
     Buffer mEnvUBO;
 
     std::optional<SceneKey> mLastHdri;

@@ -41,6 +41,12 @@ SamplerBuilder &SamplerBuilder::SetMaxLod(float maxLod)
     return *this;
 }
 
+SamplerBuilder &SamplerBuilder::SetBorderColor(VkBorderColor color)
+{
+    mBorderColor = color;
+    return *this;
+}
+
 VkSampler SamplerBuilder::Build(VulkanContext &ctx)
 {
     return BuildImpl(ctx);
@@ -74,7 +80,7 @@ VkSampler SamplerBuilder::BuildImpl(VulkanContext &ctx)
     samplerInfo.anisotropyEnable = VK_TRUE;
     samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
 
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.borderColor = mBorderColor;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
 
     samplerInfo.compareEnable = VK_FALSE;

@@ -284,11 +284,15 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     // Vulkan 1.3 Dynamic Rendering:
     // New info struct:
-    VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfo{};
+    VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo{};
     pipelineRenderingCreateInfo.sType =
         VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-    pipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    pipelineRenderingCreateInfo.pColorAttachmentFormats = &mColorFormat;
+
+    if (mColorFormat.has_value())
+    {
+        pipelineRenderingCreateInfo.colorAttachmentCount = 1;
+        pipelineRenderingCreateInfo.pColorAttachmentFormats = &mColorFormat.value();
+    }
 
     if (mDepthFormat.has_value())
     {

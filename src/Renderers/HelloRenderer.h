@@ -2,6 +2,7 @@
 
 #include "Pipeline.h"
 #include "Renderer.h"
+#include "ViewHandler.h"
 
 #include <vulkan/vulkan.h>
 
@@ -9,7 +10,7 @@
 
 class HelloRenderer final : public IRenderer {
   public:
-    HelloRenderer(VulkanContext &ctx, FrameInfo &info, std::unique_ptr<Camera> &camera);
+    HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera);
     ~HelloRenderer();
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;
@@ -54,6 +55,8 @@ class HelloRenderer final : public IRenderer {
     };
 
     std::map<SceneKey, std::vector<InstanceData>> mInstanceData;
+
+    ViewHandler mViewHandler;
 
     DeletionQueue mSceneDeletionQueue;
 };

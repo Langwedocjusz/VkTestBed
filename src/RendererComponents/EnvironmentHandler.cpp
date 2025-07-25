@@ -10,10 +10,9 @@
 #include "Sampler.h"
 #include "VkUtils.h"
 
-#include <vulkan/vulkan.h>
-
 #include <cmath>
-#include <vulkan/vulkan_core.h>
+#include <glm/gtc/matrix_transform.hpp>
+#include <vulkan/vulkan.h>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     : mCtx(ctx), mDescriptorAllocator(ctx), mDeletionQueue(ctx),
@@ -311,8 +310,8 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
         static_cast<float>(std::log2(mPrefiltered.Img.Info.extent.width));
 
     mEnvUBOData = EnvUBOData{
-        .LightDir = scene.Env.LightDir,
         .LightOn = static_cast<int32_t>(scene.Env.DirLightOn),
+        .LightDir = scene.Env.LightDir,
         .HdriEnabled = currentHdri.has_value(),
         .MaxReflectionLod = maxPrefilteredLod,
     };

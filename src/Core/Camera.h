@@ -1,31 +1,15 @@
 #pragma once
 
 #include "Bitflags.h"
-#include "Buffer.h"
-#include "DeletionQueue.h"
-#include "Frame.h"
-#include "VulkanContext.h"
 
 #include <glm/glm.hpp>
 
 class Camera {
   public:
-    Camera(VulkanContext &ctx, FrameInfo &info);
-    ~Camera();
+    Camera() = default;
 
-    void OnUpdate(float deltatime);
+    void OnUpdate(float deltatime, uint32_t width, uint32_t height);
     void OnImGui();
-
-    [[nodiscard]] VkDescriptorSetLayout DescriptorSetLayout() const
-    {
-        return mDescriptorSetLayout;
-    }
-
-    // To-do: figure out a better way of doing this:
-    [[nodiscard]] VkDescriptorSet *DescriptorSet()
-    {
-        return &mDescriptorSets[mFrame.Index];
-    }
 
     void OnKeyPressed(int keycode, bool repeat);
     void OnKeyReleased(int keycode);
@@ -43,6 +27,16 @@ class Camera {
     [[nodiscard]] glm::mat4 GetView() const
     {
         return mView;
+    }
+
+    [[nodiscard]] glm::mat4 GetViewProj() const
+    {
+        return mViewProj;
+    }
+
+    [[nodiscard]] glm::mat4 GetInvViewProj() const
+    {
+        return mInvViewProj;
     }
 
     enum class Movement : uint8_t
@@ -64,6 +58,8 @@ class Camera {
   private:
     Bitflags<Movement> mMovementFlags;
 
+    uint32_t mWidth, mHeight;
+
     float mSpeed = 1.0f, mSensitivity = 100.0f;
 
     glm::vec3 mPos{0.0f, 0.0f, 0.0f};
@@ -79,21 +75,6 @@ class Camera {
 
     glm::mat4 mProj;
     glm::mat4 mView;
-
-  private:
-    VulkanContext &mCtx;
-    FrameInfo &mFrame;
-
-    VkDescriptorSetLayout mDescriptorSetLayout;
-    VkDescriptorPool mDescriptorPool;
-    std::vector<VkDescriptorSet> mDescriptorSets;
-
-    struct UniformBufferObject {
-        glm::mat4 ViewProjection = glm::mat4(1.0f);
-    };
-    UniformBufferObject mUBOData;
-
-    std::vector<Buffer> mUniformBuffers;
-
-    DeletionQueue mMainDeletionQueue;
+    glm::mat4 mViewProj;
+    glm::mat4 mInvViewProj;
 };

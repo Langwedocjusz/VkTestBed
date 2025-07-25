@@ -14,6 +14,7 @@ layout(location = 0) in vec2 texCoord;
 layout(location = 1) in vec3 vertNormal;
 layout(location = 2) in vec4 vertTangent;
 layout(location = 3) in vec3 fragPos;
+layout(location = 4) in vec4 lightSpaceFragPos;
 
 layout(location = 0) out vec4 outColor;
 
@@ -22,8 +23,8 @@ layout(set = 1, binding = 1) uniform sampler2D rougness_map;
 layout(set = 1, binding = 2) uniform sampler2D normal_map;
 
 layout(scalar, set = 2, binding = 0) uniform UniformBufferObject {
-    vec3 LightDir;
     int DirLightOn;
+    vec3 LightDir;
     int HdriEnabled;
     float MaxReflectionLod;
 } EnvUBO;
@@ -34,6 +35,8 @@ layout(std140, set = 2, binding = 1) readonly buffer SHBuffer {
 
 layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 3) uniform sampler2D integrationMap;
+
+layout(set = 3, binding = 0) uniform sampler2D shadowMap;
 
 layout(push_constant) uniform constants {
     float PosX;
@@ -54,6 +57,53 @@ vec3 ACESFilm(vec3 x)
     float e = 0.14f;
 
     return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
+}
+
+float levels(float value, float divider)
+{
+    return float(int(value/divider) % 2);
+}
+
+float CalculateShadowFactor(vec4 lightCoord, vec2 texOffset)
+{
+    vec3 projCoords = lightCoord.xyz / lightCoord.w;
+    vec2 uv = projCoords.xy * 0.5 + 0.5;
+
+    //if (projCoords.z > 1.0)
+    //    return 1.0;
+
+    float closestDepth = texture(shadowMap, uv + texOffset).r;
+    float currentDepth = projCoords.z;
+
+    const float bias = 0.005;
+    float shadow = currentDepth - bias > closestDepth + bias ? 1.0 : 0.0;
+
+    return 1.0 - shadow;
+}
+
+float FilterPCF(vec4 lightCoord)
+{
+    const float scale = 1.0;
+	ivec2 texDim = textureSize(shadowMap, 0);
+	
+	float dx = scale * 1.0 / float(texDim.x);
+	float dy = scale * 1.0 / float(texDim.y);
+
+	float shadowFactor = 0.0;
+	int count = 0;
+	int range = 1;
+	
+	for (int x = -range; x <= range; x++)
+	{
+		for (int y = -range; y <= range; y++)
+		{
+			shadowFactor += CalculateShadowFactor(lightCoord, vec2(dx*x, dy*y));
+			count++;
+		}
+	
+	}
+
+	return shadowFactor / count;
 }
 
 void main()
@@ -115,14 +165,19 @@ void main()
     vec2 envBRDF  = texture(integrationMap, vec2(max(dot(normal, view), 0.0), roughness)).rg;
     vec3 specularIBL = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 
-    res.rgb = 0.4 * (diffuseIBL + specularIBL);
+    res.rgb = 0.05 * (diffuseIBL + specularIBL);
 
     if(EnvUBO.DirLightOn != 0)
     {
-        //Read in light direction:
-        vec3 ldir = EnvUBO.LightDir;
+        const vec3 lcol = 3.0 * vec3(1.0, 1.0, 0.80);
 
-        res.rgb += BRDF(normal, view, ldir, roughness, diffuse, f0);
+        vec3 dirResponse = BRDF(normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
+        float shadow = FilterPCF(lightSpaceFragPos);
+        //shadow = 1.0;
+
+        res.rgb += shadow * lcol * dirResponse;
+        //res.rgb = vec3(shadow);
+        //res.rgb = vec3(0.1 * lightSpaceFragPos.z);
     }
 
     //Do color correction:

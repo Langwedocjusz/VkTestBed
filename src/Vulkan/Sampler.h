@@ -18,6 +18,7 @@ class SamplerBuilder {
     SamplerBuilder &SetAddressMode(VkSamplerAddressMode adressMode);
     SamplerBuilder &SetMipmapMode(VkSamplerMipmapMode mipmapMode);
     SamplerBuilder &SetMaxLod(float maxLod);
+    SamplerBuilder &SetBorderColor(VkBorderColor color);
 
     VkSampler Build(VulkanContext &ctx);
     VkSampler Build(VulkanContext &ctx, DeletionQueue &queue);
@@ -30,6 +31,7 @@ class SamplerBuilder {
     VkFilter mMinFiler = VK_FILTER_LINEAR;
     VkSamplerAddressMode mAddressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     VkSamplerMipmapMode mMipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    VkBorderColor mBorderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     float mMaxLod = 0.0f;
 
     std::string mDebugName;

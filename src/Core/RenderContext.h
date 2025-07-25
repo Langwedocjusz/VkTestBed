@@ -38,10 +38,9 @@ class RenderContext {
 
   private:
     VulkanContext &mCtx;
-
     FrameInfo mFrameInfo;
 
-    std::unique_ptr<Camera> mCamera;
+    Camera mCamera;
     std::unique_ptr<IRenderer> mRenderer;
 
     VkDescriptorPool mImGuiDescriptorPool;

@@ -5,11 +5,11 @@
 #include "Renderer.h"
 #include "Scene.h"
 #include "Texture.h"
+#include "ViewHandler.h"
 
 class Minimal3DRenderer final : public IRenderer {
   public:
-    Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
-                      std::unique_ptr<Camera> &camera);
+    Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera);
     ~Minimal3DRenderer();
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;
@@ -88,6 +88,9 @@ class Minimal3DRenderer final : public IRenderer {
     };
 
     VkSampler mSampler;
+
+    // Camera and light projection handling:
+    ViewHandler mViewHandler;
 
     DeletionQueue mSceneDeletionQueue;
 };

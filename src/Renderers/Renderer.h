@@ -1,13 +1,14 @@
 #pragma once
 
 #include "Camera.h"
+#include "DeletionQueue.h"
 #include "Frame.h"
 #include "Image.h"
 #include "Scene.h"
 
 class IRenderer {
   public:
-    IRenderer(VulkanContext &ctx, FrameInfo &info, std::unique_ptr<Camera> &camera)
+    IRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
         : mCtx(ctx), mFrame(info), mCamera(camera), mMainDeletionQueue(ctx),
           mSwapchainDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
     {
@@ -45,7 +46,7 @@ class IRenderer {
   protected:
     VulkanContext &mCtx;
     FrameInfo &mFrame;
-    std::unique_ptr<Camera> &mCamera;
+    Camera &mCamera;
 
     Image mRenderTarget;
     VkImageView mRenderTargetView;

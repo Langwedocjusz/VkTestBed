@@ -18,13 +18,15 @@
 
 #include <cstdint>
 #include <ranges>
+#include <vulkan/vulkan_core.h>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
-                                       std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx), mEnvHandler(ctx),
-      mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
+                                       Camera &camera)
+    : IRenderer(ctx, info, camera), mShadowmapDescriptorAllocator(ctx), mMaterialDescriptorAllocator(ctx),
+      mViewHandler(ctx, info), mEnvHandler(ctx), mSceneDeletionQueue(ctx),
+      mMaterialDeletionQueue(ctx)
 {
-    // Create the texture sampler:
+    // Create the texture samplers:
     mSampler2D = SamplerBuilder("MinimalPbrSampler2D")
                      .SetMagFilter(VK_FILTER_LINEAR)
                      .SetMinFilter(VK_FILTER_LINEAR)
@@ -33,7 +35,34 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                      .SetMaxLod(12.0f)
                      .Build(mCtx, mMainDeletionQueue);
 
-    // Create descriptor set layout for sampling textures:
+
+    mSamplerShadowmap = SamplerBuilder("MinimalPbrSamplerShadowmap")
+                            .SetMagFilter(VK_FILTER_NEAREST)
+                            .SetMinFilter(VK_FILTER_NEAREST)
+                            .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER)
+                            .SetBorderColor(VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE)
+                            .Build(mCtx, mMainDeletionQueue);
+
+    // Create descriptor set layout for sampling the shadowmap 
+    // and allocate the corresponding descriptor set:
+
+    mShadowmapDescriptorSetLayout = 
+        DescriptorSetLayoutBuilder("MinimalPBRShadowmapDescriptorLayout")
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .Build(ctx, mMainDeletionQueue);
+
+    {
+        std::vector<VkDescriptorPoolSize> poolCounts{
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+        };
+
+        mShadowmapDescriptorAllocator.OnInit(poolCounts);
+
+        mShadowmapDescriptorSet = 
+            mShadowmapDescriptorAllocator.Allocate(mShadowmapDescriptorSetLayout);
+    }
+
+    // Create descriptor set layout for sampling material textures:
     mMaterialDescriptorSetLayout =
         DescriptorSetLayoutBuilder("MinimalPBRMaterialDescriptorLayout")
             .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -69,6 +98,29 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     mMainDeletionQueue.push_back(mDefaultRoughness);
     mMainDeletionQueue.push_back(mDefaultNormal);
 
+    // Create the shadowmap:
+    const uint32_t shadowRes = 2048;
+
+    Image2DInfo shadowmapInfo{
+        .Extent = {shadowRes, shadowRes},
+        .Format = mDepthFormat,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .MipLevels = 1,
+    };
+
+    mShadowmap = MakeImage::Image2D(mCtx, "Shadowmap", shadowmapInfo);
+    mShadowmapView = MakeView::View2D(mCtx, "ShadowmapView", mShadowmap, mDepthFormat,
+                                      VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    mMainDeletionQueue.push_back(mShadowmap);
+    mMainDeletionQueue.push_back(mShadowmapView);
+
+    //Update the shadowmap descriptor:
+    DescriptorUpdater(mShadowmapDescriptorSet)
+        .WriteImageSampler(0, mShadowmapView, mSamplerShadowmap)
+        .Update(mCtx);
+
     // Build the graphics pipelines:
     RebuildPipelines();
 
@@ -79,6 +131,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 MinimalPbrRenderer::~MinimalPbrRenderer()
 {
     mMaterialDescriptorAllocator.DestroyPools();
+    mShadowmapDescriptorAllocator.DestroyPools();
     mSceneDeletionQueue.flush();
     mMaterialDeletionQueue.flush();
     mSwapchainDeletionQueue.flush();
@@ -89,6 +142,22 @@ MinimalPbrRenderer::~MinimalPbrRenderer()
 void MinimalPbrRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
+
+    mShadowmapPipeline =
+        PipelineBuilder("MinimalPBRShadowmapPipeline")
+            .SetShaderPathVertex("assets/spirv/ShadowmapVert.spv")
+            .SetShaderPathFragment("assets/spirv/ShadowmapFrag.spv")
+            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+            .SetPushConstantSize(sizeof(MaterialPCData))
+            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .EnableDepthTest()
+            .SetDepthFormat(mDepthFormat)
+            .Build(mCtx, mPipelineDeletionQueue);
 
     mMainPipeline =
         PipelineBuilder("MinimalPBRMainPipeline")
@@ -101,9 +170,10 @@ void MinimalPbrRenderer::RebuildPipelines()
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(MaterialPCData))
-            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
+            .AddDescriptorSetLayout(mShadowmapDescriptorSetLayout)
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -130,6 +200,7 @@ void MinimalPbrRenderer::RebuildPipelines()
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
+    mViewHandler.OnUpdate(mCamera.GetViewProj(), mEnvHandler.GetUboData().LightDir);
 }
 
 void MinimalPbrRenderer::OnImGui()
@@ -140,6 +211,106 @@ void MinimalPbrRenderer::OnRender()
 {
     auto &cmd = mFrame.CurrentCmd();
 
+    DrawStats stats{};
+
+    ShadowPass(cmd, stats);
+    MainPass(cmd, stats);
+
+    mFrame.Stats.NumTriangles = stats.NumIdx / 3;
+    mFrame.Stats.NumDraws = stats.NumDraws;
+    mFrame.Stats.NumBinds = stats.NumBinds;
+}
+
+void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool doubleSided, VkPipelineLayout layout, DrawStats &stats)
+{
+    VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
+    VkDeviceSize vertOffset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
+
+    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0, mGeometryLayout.IndexType);
+
+    auto &material = mMaterials.at(drawable.MaterialKey);
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1,
+                            1, &material.DescriptorSet, 0, nullptr);
+
+    for (auto &transform : drawable.Instances)
+    {
+        MaterialPCData pcData{
+            .ViewPos = mCamera.GetPos(),
+            .AlphaCutoff = material.AlphaCutoff,
+            .Transform = transform,
+            .DoubleSided = doubleSided,
+        };
+
+        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                           sizeof(pcData), &pcData);
+        vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+
+        stats.NumDraws++;
+        stats.NumIdx += drawable.IndexCount;
+    }
+
+    stats.NumBinds += 3;
+}
+
+void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
+{
+    auto extent = VkExtent2D(mShadowmap.Info.extent.width, mShadowmap.Info.extent.height);
+
+    auto barrierInfo = barrier::ImageLayoutBarrierInfo{
+        .Image = mShadowmap.Handle,
+        .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .NewLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .SubresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1},
+    };
+    barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+
+    VkClearValue depthClear;
+    depthClear.depthStencil = {1.0f, 0};
+
+    auto depthAttachment = vkinit::CreateAttachmentInfo(
+        mShadowmapView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depthClear);
+
+    VkRenderingInfo renderingInfo =
+        vkinit::CreateRenderingInfoDepthOnly(extent, depthAttachment);
+
+    vkCmdBeginRendering(cmd, &renderingInfo);
+    {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mShadowmapPipeline.Handle);
+        common::ViewportScissor(cmd, extent);
+
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mShadowmapPipeline.Layout, 0, 1, mViewHandler.DescriptorSet(),
+                                0, nullptr);
+
+        stats.NumBinds += 1;
+
+        // Draw single-sided drawables:
+        vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
+
+        for (auto key : mSingleSidedDrawableKeys)
+        {
+            Draw(cmd, mDrawables[key], false, mShadowmapPipeline.Layout, stats);
+        }
+
+        // Draw double-sided drawables:
+        vkCmdSetCullMode(cmd, VK_CULL_MODE_NONE);
+
+        for (auto key : mDoubleSidedDrawableKeys)
+        {
+            Draw(cmd, mDrawables[key], true, mShadowmapPipeline.Layout, stats);
+        }
+    }
+    vkCmdEndRendering(cmd);
+
+    barrierInfo.OldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+}
+
+void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
+{
     barrier::ImageBarrierDepthToRender(cmd, mDepthBuffer.Handle);
 
     VkClearValue clear;
@@ -154,7 +325,7 @@ void MinimalPbrRenderer::OnRender()
     auto depthAttachment = vkinit::CreateAttachmentInfo(
         mDepthBufferView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depthClear);
 
-    VkRenderingInfoKHR renderingInfo =
+    VkRenderingInfo renderingInfo =
         vkinit::CreateRenderingInfo(GetTargetSize(), colorAttachment, depthAttachment);
 
     vkCmdBeginRendering(cmd, &renderingInfo);
@@ -163,56 +334,25 @@ void MinimalPbrRenderer::OnRender()
         common::ViewportScissor(cmd, GetTargetSize());
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mMainPipeline.Layout, 0, 1, mCamera->DescriptorSet(), 0,
-                                nullptr);
+                                mMainPipeline.Layout, 0, 1, mViewHandler.DescriptorSet(),
+                                0, nullptr);
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 mMainPipeline.Layout, 2, 1,
                                 mEnvHandler.GetLightingDSPtr(), 0, nullptr);
 
-        uint32_t numDraws = 0, numIdx = 0, numBinds = 2;
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mMainPipeline.Layout, 3, 1,
+                                &mShadowmapDescriptorSet, 0, nullptr);
 
-        auto draw = [&](Drawable &drawable, bool doubleSided) {
-            VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
-            VkDeviceSize vertOffset = 0;
-            vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
-
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 mGeometryLayout.IndexType);
-
-            auto &material = mMaterials.at(drawable.MaterialKey);
-
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    mMainPipeline.Layout, 1, 1, &material.DescriptorSet,
-                                    0, nullptr);
-
-            for (auto &transform : drawable.Instances)
-            {
-                MaterialPCData pcData{
-                    .ViewPos = mCamera->GetPos(),
-                    .AlphaCutoff = material.AlphaCutoff,
-                    .Transform = transform,
-                    .DoubleSided = doubleSided,
-                };
-
-                vkCmdPushConstants(cmd, mMainPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
-                                   &pcData);
-                vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
-
-                numDraws++;
-                numIdx += drawable.IndexCount;
-            }
-
-            numBinds += 3;
-        };
+        stats.NumBinds += 2;
 
         // Draw single-sided drawables:
         vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
 
         for (auto key : mSingleSidedDrawableKeys)
         {
-            draw(mDrawables[key], false);
+            Draw(cmd, mDrawables[key], false, mMainPipeline.Layout, stats);
         }
 
         // Draw double-sided drawables:
@@ -220,7 +360,7 @@ void MinimalPbrRenderer::OnRender()
 
         for (auto key : mDoubleSidedDrawableKeys)
         {
-            draw(mDrawables[key], true);
+            Draw(cmd, mDrawables[key], true, mMainPipeline.Layout, stats);
         }
 
         // Draw the background:
@@ -234,10 +374,7 @@ void MinimalPbrRenderer::OnRender()
                               mBackgroundPipeline.Handle);
             common::ViewportScissor(cmd, GetTargetSize());
 
-            auto proj = mCamera->GetProj();
-            auto view = mCamera->GetView();
-            auto inv = glm::inverse(proj * view);
-
+            auto inv = mCamera.GetInvViewProj();
             BackgroundPCData pcData{};
 
             pcData.BottomLeft = inv * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f);
@@ -249,11 +386,10 @@ void MinimalPbrRenderer::OnRender()
                                VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData), &pcData);
 
             vkCmdDraw(cmd, 3, 1, 0, 0);
-        }
 
-        mFrame.Stats.NumTriangles = numIdx / 3;
-        mFrame.Stats.NumDraws = numDraws;
-        mFrame.Stats.NumBinds = numBinds;
+            stats.NumBinds += 2;
+            stats.NumDraws += 1;
+        }
     }
     vkCmdEndRendering(cmd);
 }

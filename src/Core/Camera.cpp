@@ -1,69 +1,22 @@
 #include "Camera.h"
 #include "Pch.h"
 
-#include "BufferUtils.h"
-#include "Descriptor.h"
 #include "Keycodes.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/trigonometric.hpp>
+#include <utility>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
 
 #include <optional>
+#include <utility>
 
-Camera::Camera(VulkanContext &ctx, FrameInfo &info)
-    : mCtx(ctx), mFrame(info), mMainDeletionQueue(ctx)
+void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
 {
-    // Create descriptor sets:
-    //  Descriptor layout
-    mDescriptorSetLayout =
-        DescriptorSetLayoutBuilder("CameraDescriptorLayout")
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-            .Build(ctx, mMainDeletionQueue);
+    mWidth = width;
+    mHeight = height;
 
-    // Descriptor pool
-    uint32_t maxSets = mFrame.MaxInFlight;
-
-    std::vector<VkDescriptorPoolSize> poolCounts{
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, maxSets},
-    };
-
-    mDescriptorPool = Descriptor::InitPool(ctx, maxSets, poolCounts);
-    mMainDeletionQueue.push_back(mDescriptorPool);
-
-    // Descriptor sets allocation
-    std::vector<VkDescriptorSetLayout> layouts(mFrame.MaxInFlight, mDescriptorSetLayout);
-
-    mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
-
-    // Create Uniform Buffers:
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-    mUniformBuffers.resize(mFrame.MaxInFlight);
-
-    for (auto &uniformBuffer : mUniformBuffers)
-    {
-        uniformBuffer = MakeBuffer::MappedUniform(ctx, "CameraUniformBuffer", bufferSize);
-        mMainDeletionQueue.push_back(uniformBuffer);
-    }
-
-    // Update descriptor sets:
-    for (size_t i = 0; i < mDescriptorSets.size(); i++)
-    {
-        DescriptorUpdater(mDescriptorSets[i])
-            .WriteUniformBuffer(0, mUniformBuffers[i].Handle, sizeof(UniformBufferObject))
-            .Update(ctx);
-    }
-}
-
-Camera::~Camera()
-{
-    mMainDeletionQueue.flush();
-}
-
-void Camera::OnUpdate(float deltatime)
-{
     ProcessKeyboard(deltatime);
 
     // Vectors are not updated here, since they only change on mouse input
@@ -77,11 +30,8 @@ void Camera::OnUpdate(float deltatime)
     // OpenGL and Vulkan:
     mProj[1][1] *= -1;
 
-    // Upload data to uniform buffer:
-    mUBOData.ViewProjection = mProj * mView;
-
-    auto &uniformBuffer = mUniformBuffers[mFrame.Index];
-    Buffer::UploadToMapped(uniformBuffer, &mUBOData, sizeof(mUBOData));
+    mViewProj = mProj * mView;
+    mInvViewProj = glm::inverse(mViewProj);
 }
 
 glm::mat4 Camera::ProjPerspective()
@@ -90,18 +40,15 @@ glm::mat4 Camera::ProjPerspective()
     const float zmin = 0.01f;
     const float zmax = 1000.0f;
 
-    const auto width = static_cast<float>(mCtx.Swapchain.extent.width);
-    const auto height = static_cast<float>(mCtx.Swapchain.extent.height);
-
-    const float aspect = width / height;
+    const float aspect = static_cast<float>(mWidth) / static_cast<float>(mHeight);
 
     return glm::perspective(glm::radians(fov), aspect, zmin, zmax);
 }
 
 glm::mat4 Camera::ProjOrthogonal()
 {
-    auto width = static_cast<float>(mCtx.Swapchain.extent.width);
-    auto height = static_cast<float>(mCtx.Swapchain.extent.height);
+    auto width = static_cast<float>(mWidth);
+    auto height = static_cast<float>(mHeight);
 
     float sx = 1.0f, sy = 1.0f;
 
@@ -168,9 +115,11 @@ static std::optional<Camera::Movement> KeyToMovement(int keycode)
         return Camera::Movement::Left;
     case VKTB_KEY_D:
         return Camera::Movement::Right;
+    default:
+        return {};
     }
 
-    return {};
+    std::unreachable();
 }
 
 void Camera::OnKeyPressed(int keycode, bool repeat)
@@ -194,11 +143,8 @@ void Camera::OnKeyReleased(int keycode)
 
 void Camera::OnMouseMoved(float x, float y)
 {
-    auto width = static_cast<float>(mCtx.Swapchain.extent.width);
-    auto height = static_cast<float>(mCtx.Swapchain.extent.height);
-
-    float xpos = x / width;
-    float ypos = y / height;
+    float xpos = x / static_cast<float>(mWidth);
+    float ypos = y / static_cast<float>(mHeight);
 
     if (mMouseInit)
     {

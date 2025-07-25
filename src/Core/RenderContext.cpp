@@ -101,9 +101,6 @@ RenderContext::RenderContext(VulkanContext &ctx)
     if (!mTimestampSupported)
         std::cout << "Timestamp queries not supported!\n";
 
-    // Create the camera
-    mCamera = std::make_unique<Camera>(mCtx, mFrameInfo);
-
     // To-do: make this a member variable, to allow for efficient re-creation
     auto factory = RendererFactory(mCtx, mFrameInfo, mCamera);
 
@@ -125,7 +122,8 @@ RenderContext::~RenderContext()
 
 void RenderContext::OnUpdate(float deltaTime)
 {
-    mCamera->OnUpdate(deltaTime);
+    mCamera.OnUpdate(deltaTime, mCtx.Swapchain.extent.width,
+                     mCtx.Swapchain.extent.height);
     mRenderer->OnUpdate(deltaTime);
 
     mFrameInfo.Stats.CPUTime = 1000.0f * deltaTime;
@@ -145,7 +143,7 @@ void RenderContext::OnUpdate(float deltaTime)
 void RenderContext::OnImGui()
 {
     mRenderer->OnImGui();
-    mCamera->OnImGui();
+    mCamera.OnImGui();
 
     if (mShowStats)
         imutils::DisplayStats(mFrameInfo.Stats);
@@ -393,15 +391,15 @@ void RenderContext::OnKeyPressed(int keycode, bool repeat)
     if (keycode == VKTB_KEY_KP_MULTIPLY)
         mShowStats = !mShowStats;
 
-    mCamera->OnKeyPressed(keycode, repeat);
+    mCamera.OnKeyPressed(keycode, repeat);
 }
 
 void RenderContext::OnKeyReleased(int keycode)
 {
-    mCamera->OnKeyReleased(keycode);
+    mCamera.OnKeyReleased(keycode);
 }
 
 void RenderContext::OnMouseMoved(float x, float y)
 {
-    mCamera->OnMouseMoved(x, y);
+    mCamera.OnMouseMoved(x, y);
 }

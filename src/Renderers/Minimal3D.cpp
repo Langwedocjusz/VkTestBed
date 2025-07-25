@@ -13,10 +13,9 @@
 
 #include <ranges>
 
-Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info,
-                                     std::unique_ptr<Camera> &camera)
+Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera), mTextureDescriptorAllocator(ctx),
-      mSceneDeletionQueue(ctx)
+      mViewHandler(ctx, info), mSceneDeletionQueue(ctx)
 {
     // Create descriptor set layout for sampling textures
     mTextureDescriptorSetLayout =
@@ -78,7 +77,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(glm::mat4))
-            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -93,7 +92,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(PushConstantData))
-            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
             .AddDescriptorSetLayout(mTextureDescriptorSetLayout)
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
@@ -138,8 +137,8 @@ void Minimal3DRenderer::OnRender()
 
         // To-do: figure out a better way of doing this:
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mColoredPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
-                                0, nullptr);
+                                mColoredPipeline.Layout, 0, 1,
+                                mViewHandler.DescriptorSet(), 0, nullptr);
 
         for (auto &[_, drawable] : mColoredDrawables)
         {
@@ -167,8 +166,8 @@ void Minimal3DRenderer::OnRender()
 
         // To-do: figure out a better way of doing this:
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mTexturedPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
-                                0, nullptr);
+                                mTexturedPipeline.Layout, 0, 1,
+                                mViewHandler.DescriptorSet(), 0, nullptr);
 
         for (auto &[_, drawable] : mTexturedDrawables)
         {

@@ -8,11 +8,12 @@
 #include "Renderer.h"
 #include "Scene.h"
 #include "Texture.h"
+#include "ViewHandler.h"
+#include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
   public:
-    MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
-                       std::unique_ptr<Camera> &camera);
+    MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera);
     ~MinimalPbrRenderer();
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;
@@ -30,8 +31,17 @@ class MinimalPbrRenderer final : public IRenderer {
     void LoadMeshMaterials(const Scene &scene);
     void LoadObjects(const Scene &scene);
 
+    struct DrawStats {
+        uint32_t NumIdx = 0;
+        uint32_t NumDraws = 0;
+        uint32_t NumBinds = 0;
+    };
+
+    void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
+    void MainPass(VkCommandBuffer cmd, DrawStats &stats);
+
     struct Drawable;
-    void CreateBuffers(VkCommandPool pool, Drawable &drawable, GeometryData &geo);
+    void Draw(VkCommandBuffer cmd, Drawable &drawable, bool doubleSided, VkPipelineLayout layout, DrawStats &stats);
 
   private:
     // Framebuffer related things:
@@ -44,9 +54,19 @@ class MinimalPbrRenderer final : public IRenderer {
 
     // Common resources:
     VkSampler mSampler2D;
+    VkSampler mSamplerShadowmap;
 
-    // Main material pass:
+    // Shadow and main material pass:
+    Pipeline mShadowmapPipeline;
     Pipeline mMainPipeline;
+
+    Image mShadowmap;
+    VkImageView mShadowmapView;
+
+    VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
+    VkDescriptorSet mShadowmapDescriptorSet;
+    //To-do: It's overkill to use the allocator for this
+    DescriptorAllocator mShadowmapDescriptorAllocator;
 
     using enum Vertex::AttributeType;
 
@@ -98,6 +118,9 @@ class MinimalPbrRenderer final : public IRenderer {
 
     std::vector<DrawableKey> mSingleSidedDrawableKeys;
     std::vector<DrawableKey> mDoubleSidedDrawableKeys;
+
+    // Camera and light projection handling:
+    ViewHandler mViewHandler;
 
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;

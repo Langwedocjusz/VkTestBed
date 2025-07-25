@@ -26,4 +26,7 @@ VkRenderingInfoKHR CreateRenderingInfo(VkExtent2D extent,
 VkRenderingInfoKHR CreateRenderingInfo(VkExtent2D extent,
                                        VkRenderingAttachmentInfo &colorAttachment,
                                        VkRenderingAttachmentInfo &depthAttachment);
+
+VkRenderingInfoKHR CreateRenderingInfoDepthOnly(
+    VkExtent2D extent, VkRenderingAttachmentInfo &depthAttachment);
 }; // namespace vkinit

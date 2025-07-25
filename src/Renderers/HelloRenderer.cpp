@@ -13,9 +13,8 @@
 #include <string>
 #include <vulkan/vulkan.h>
 
-HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info,
-                             std::unique_ptr<Camera> &camera)
-    : IRenderer(ctx, info, camera), mSceneDeletionQueue(ctx)
+HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
+    : IRenderer(ctx, info, camera), mViewHandler(ctx, info), mSceneDeletionQueue(ctx)
 {
     RebuildPipelines();
     CreateSwapchainResources();
@@ -43,7 +42,7 @@ void HelloRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(glm::mat4))
-            .AddDescriptorSetLayout(mCamera->DescriptorSetLayout())
+            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
             .Build(mCtx, mPipelineDeletionQueue);
 }
 
@@ -75,8 +74,8 @@ void HelloRenderer::OnRender()
 
         // To-do: figure out a better way of doing this:
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mGraphicsPipeline.Layout, 0, 1, mCamera->DescriptorSet(),
-                                0, nullptr);
+                                mGraphicsPipeline.Layout, 0, 1,
+                                mViewHandler.DescriptorSet(), 0, nullptr);
 
         for (auto &[_, drawable] : mDrawables)
         {

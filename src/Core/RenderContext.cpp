@@ -124,6 +124,7 @@ void RenderContext::OnUpdate(float deltaTime)
 {
     mCamera.OnUpdate(deltaTime, mCtx.Swapchain.extent.width,
                      mCtx.Swapchain.extent.height);
+    
     mRenderer->OnUpdate(deltaTime);
 
     mFrameInfo.Stats.CPUTime = 1000.0f * deltaTime;

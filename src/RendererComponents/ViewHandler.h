@@ -22,7 +22,7 @@ class ViewHandler {
     // To-do: figure out a better way of doing this:
     [[nodiscard]] VkDescriptorSet *DescriptorSet()
     {
-        return &mDescriptorSets[mFrame.Index];
+        return &mDescriptorSets[mFrame.ImageIndex];
     }
 
   private:

@@ -200,7 +200,7 @@ void MinimalPbrRenderer::RebuildPipelines()
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    mViewHandler.OnUpdate(mCamera.GetViewProj(), mEnvHandler.GetUboData().LightDir);
+    
 }
 
 void MinimalPbrRenderer::OnImGui()
@@ -210,6 +210,10 @@ void MinimalPbrRenderer::OnImGui()
 void MinimalPbrRenderer::OnRender()
 {
     auto &cmd = mFrame.CurrentCmd();
+
+    //This is not OnUpdate since, uniform buffers are per-image index
+    //and as such need to be acquired after new image index is set.
+    mViewHandler.OnUpdate(mCamera.GetViewProj(), mEnvHandler.GetUboData().LightDir);
 
     DrawStats stats{};
 

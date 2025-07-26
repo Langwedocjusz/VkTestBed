@@ -19,7 +19,7 @@ ViewHandler::ViewHandler(VulkanContext &ctx, FrameInfo &frame)
             .Build(ctx, mDeletionQueue);
 
     // Descriptor pool
-    uint32_t maxSets = mFrame.MaxInFlight;
+    uint32_t maxSets = ctx.Swapchain.image_count;
 
     std::vector<VkDescriptorPoolSize> poolCounts{
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, maxSets},
@@ -29,14 +29,14 @@ ViewHandler::ViewHandler(VulkanContext &ctx, FrameInfo &frame)
     mDeletionQueue.push_back(mDescriptorPool);
 
     // Descriptor sets allocation
-    std::vector<VkDescriptorSetLayout> layouts(mFrame.MaxInFlight, mDescriptorSetLayout);
+    std::vector<VkDescriptorSetLayout> layouts(maxSets, mDescriptorSetLayout);
 
     mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
 
     // Create Uniform Buffers:
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-    mUniformBuffers.resize(mFrame.MaxInFlight);
+    mUniformBuffers.resize(maxSets);
 
     for (auto &uniformBuffer : mUniformBuffers)
     {
@@ -73,6 +73,6 @@ void ViewHandler::OnUpdate(glm::mat4 camViewProj, glm::vec3 lightDir)
     mUBOData.CameraViewProjection = camViewProj;
     mUBOData.LightViewProjection = proj * view;
 
-    auto &uniformBuffer = mUniformBuffers[mFrame.Index];
+    auto &uniformBuffer = mUniformBuffers[mFrame.ImageIndex];
     Buffer::UploadToMapped(uniformBuffer, &mUBOData, sizeof(mUBOData));
 }

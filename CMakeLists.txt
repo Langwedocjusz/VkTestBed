@@ -147,10 +147,10 @@ target_sources(${PROJECT_NAME}
         src/Gui/ModelLoaderGui.cpp
         src/Gui/SceneGui.h
         src/Gui/SceneGui.cpp
+        src/RendererComponents/DynamicUniformBuffer.h
+        src/RendererComponents/DynamicUniformBuffer.cpp
         src/RendererComponents/EnvironmentHandler.h
         src/RendererComponents/EnvironmentHandler.cpp
-        src/RendererComponents/ViewHandler.h
-        src/RendererComponents/ViewHandler.cpp
         src/Renderers/HelloRenderer.h
         src/Renderers/HelloRenderer.cpp
         src/Renderers/Minimal3D.h

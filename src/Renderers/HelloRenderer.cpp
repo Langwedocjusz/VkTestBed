@@ -12,10 +12,13 @@
 #include <ranges>
 #include <string>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
-    : IRenderer(ctx, info, camera), mViewHandler(ctx, info), mSceneDeletionQueue(ctx)
+    : IRenderer(ctx, info, camera), mDynamicUBO(ctx, info), mSceneDeletionQueue(ctx)
 {
+    mDynamicUBO.OnInit("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT, sizeof(mUBOData));
+
     RebuildPipelines();
     CreateSwapchainResources();
 }
@@ -42,12 +45,13 @@ void HelloRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(glm::mat4))
-            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
+    mUBOData.CameraViewProjection = mCamera.GetViewProj();
 }
 
 void HelloRenderer::OnImGui()
@@ -57,6 +61,10 @@ void HelloRenderer::OnImGui()
 void HelloRenderer::OnRender()
 {
     auto &cmd = mFrame.CurrentCmd();
+
+    //This is not OnUpdate since, uniform buffers are per-image index
+    //and as such need to be acquired after new image index is set.
+    mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
     VkClearValue clear{{{0.0f, 0.0f, 0.0f, 0.0f}}};
 
@@ -75,7 +83,7 @@ void HelloRenderer::OnRender()
         // To-do: figure out a better way of doing this:
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 mGraphicsPipeline.Layout, 0, 1,
-                                mViewHandler.DescriptorSet(), 0, nullptr);
+                                mDynamicUBO.DescriptorSet(), 0, nullptr);
 
         for (auto &[_, drawable] : mDrawables)
         {

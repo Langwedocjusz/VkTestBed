@@ -14,16 +14,18 @@
 #include "VkInit.h"
 
 #include <glm/matrix.hpp>
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
 #include <ranges>
-#include <vulkan/vulkan_core.h>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mShadowmapDescriptorAllocator(ctx), mMaterialDescriptorAllocator(ctx),
-      mViewHandler(ctx, info), mEnvHandler(ctx), mSceneDeletionQueue(ctx),
+      mDynamicUBO(ctx, info), mEnvHandler(ctx), mSceneDeletionQueue(ctx),
       mMaterialDeletionQueue(ctx)
 {
     // Create the texture samplers:
@@ -121,6 +123,9 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         .WriteImageSampler(0, mShadowmapView, mSamplerShadowmap)
         .Update(mCtx);
 
+    //Build dynamic uniform buffers & descriptors:
+    mDynamicUBO.OnInit("MinimalPBRDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT, sizeof(mUBOData));
+
     // Build the graphics pipelines:
     RebuildPipelines();
 
@@ -153,7 +158,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetPushConstantSize(sizeof(MaterialPCData))
-            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
@@ -170,7 +175,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(MaterialPCData))
-            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .AddDescriptorSetLayout(mShadowmapDescriptorSetLayout)
@@ -200,7 +205,19 @@ void MinimalPbrRenderer::RebuildPipelines()
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    
+    // Calculate light view-proj
+    auto lightDir = mEnvHandler.GetUboData().LightDir;
+
+    float near_plane = 0.0f, far_plane = 20.0f;
+    glm::mat4 proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+    glm::mat4 view = glm::lookAt(10.0f * glm::normalize(lightDir), glm::vec3(0.0f), glm::vec3(0, -1, 0));
+
+    // To compensate for change of orientation between
+    // OpenGL and Vulkan:
+    proj[1][1] *= -1;
+
+    mUBOData.CameraViewProjection = mCamera.GetViewProj();
+    mUBOData.LightViewProjection = proj * view;
 }
 
 void MinimalPbrRenderer::OnImGui()
@@ -213,7 +230,7 @@ void MinimalPbrRenderer::OnRender()
 
     //This is not OnUpdate since, uniform buffers are per-image index
     //and as such need to be acquired after new image index is set.
-    mViewHandler.OnUpdate(mCamera.GetViewProj(), mEnvHandler.GetUboData().LightDir);
+    mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
     DrawStats stats{};
 
@@ -285,7 +302,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
         common::ViewportScissor(cmd, extent);
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mShadowmapPipeline.Layout, 0, 1, mViewHandler.DescriptorSet(),
+                                mShadowmapPipeline.Layout, 0, 1, mDynamicUBO.DescriptorSet(),
                                 0, nullptr);
 
         stats.NumBinds += 1;
@@ -338,7 +355,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         common::ViewportScissor(cmd, GetTargetSize());
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mMainPipeline.Layout, 0, 1, mViewHandler.DescriptorSet(),
+                                mMainPipeline.Layout, 0, 1, mDynamicUBO.DescriptorSet(),
                                 0, nullptr);
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,

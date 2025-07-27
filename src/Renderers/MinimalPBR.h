@@ -8,7 +8,7 @@
 #include "Renderer.h"
 #include "Scene.h"
 #include "Texture.h"
-#include "ViewHandler.h"
+#include "DynamicUniformBuffer.h"
 #include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
@@ -120,7 +120,14 @@ class MinimalPbrRenderer final : public IRenderer {
     std::vector<DrawableKey> mDoubleSidedDrawableKeys;
 
     // Camera and light projection handling:
-    ViewHandler mViewHandler;
+    //ViewHandler mViewHandler;
+
+    struct UBOData {
+        glm::mat4 CameraViewProjection = glm::mat4(1.0f);
+        glm::mat4 LightViewProjection = glm::mat4(1.0f);
+    } mUBOData;
+
+    DynamicUniformBuffer mDynamicUBO;
 
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;

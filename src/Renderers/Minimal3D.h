@@ -5,7 +5,7 @@
 #include "Renderer.h"
 #include "Scene.h"
 #include "Texture.h"
-#include "ViewHandler.h"
+#include "DynamicUniformBuffer.h"
 
 class Minimal3DRenderer final : public IRenderer {
   public:
@@ -90,7 +90,11 @@ class Minimal3DRenderer final : public IRenderer {
     VkSampler mSampler;
 
     // Camera and light projection handling:
-    ViewHandler mViewHandler;
+    struct UBOData {
+        glm::mat4 CameraViewProjection = glm::mat4(1.0f);
+    } mUBOData;
+
+    DynamicUniformBuffer mDynamicUBO;
 
     DeletionQueue mSceneDeletionQueue;
 };

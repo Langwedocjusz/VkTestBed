@@ -2,7 +2,7 @@
 
 #include "Pipeline.h"
 #include "Renderer.h"
-#include "ViewHandler.h"
+#include "DynamicUniformBuffer.h"
 
 #include <vulkan/vulkan.h>
 
@@ -56,7 +56,11 @@ class HelloRenderer final : public IRenderer {
 
     std::map<SceneKey, std::vector<InstanceData>> mInstanceData;
 
-    ViewHandler mViewHandler;
+    struct UBOData {
+        glm::mat4 CameraViewProjection = glm::mat4(1.0f);
+    } mUBOData;
+
+    DynamicUniformBuffer mDynamicUBO;
 
     DeletionQueue mSceneDeletionQueue;
 };

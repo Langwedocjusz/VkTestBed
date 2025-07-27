@@ -15,8 +15,10 @@
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera), mTextureDescriptorAllocator(ctx),
-      mViewHandler(ctx, info), mSceneDeletionQueue(ctx)
+      mDynamicUBO(ctx, info), mSceneDeletionQueue(ctx)
 {
+    mDynamicUBO.OnInit("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT, sizeof(mUBOData));
+
     // Create descriptor set layout for sampling textures
     mTextureDescriptorSetLayout =
         DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
@@ -77,7 +79,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(glm::mat4))
-            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -92,7 +94,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(PushConstantData))
-            .AddDescriptorSetLayout(mViewHandler.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mTextureDescriptorSetLayout)
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
@@ -101,6 +103,7 @@ void Minimal3DRenderer::RebuildPipelines()
 
 void Minimal3DRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
+    mUBOData.CameraViewProjection = mCamera.GetViewProj();
 }
 
 void Minimal3DRenderer::OnImGui()
@@ -110,6 +113,10 @@ void Minimal3DRenderer::OnImGui()
 void Minimal3DRenderer::OnRender()
 {
     auto &cmd = mFrame.CurrentCmd();
+
+    //This is not OnUpdate since, uniform buffers are per-image index
+    //and as such need to be acquired after new image index is set.
+    mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
     barrier::ImageBarrierDepthToRender(cmd, mDepthBuffer.Handle);
 
@@ -138,7 +145,7 @@ void Minimal3DRenderer::OnRender()
         // To-do: figure out a better way of doing this:
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 mColoredPipeline.Layout, 0, 1,
-                                mViewHandler.DescriptorSet(), 0, nullptr);
+                                mDynamicUBO.DescriptorSet(), 0, nullptr);
 
         for (auto &[_, drawable] : mColoredDrawables)
         {
@@ -167,7 +174,7 @@ void Minimal3DRenderer::OnRender()
         // To-do: figure out a better way of doing this:
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 mTexturedPipeline.Layout, 0, 1,
-                                mViewHandler.DescriptorSet(), 0, nullptr);
+                                mDynamicUBO.DescriptorSet(), 0, nullptr);
 
         for (auto &[_, drawable] : mTexturedDrawables)
         {

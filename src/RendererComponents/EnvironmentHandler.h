@@ -15,6 +15,7 @@ class EnvironmentHandler {
     struct EnvUBOData {
         int32_t LightOn = 1;
         glm::vec3 LightDir = glm::normalize(glm::vec3(1, -1, 1));
+        glm::vec3 LightColor = glm::vec3(1.0);
         int32_t HdriEnabled = false;
         float MaxReflectionLod = 0.0f;
     };

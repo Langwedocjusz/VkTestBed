@@ -495,7 +495,18 @@ void SceneGui::EnvironmentTab()
         mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
     }
 
-    ImGui::Text("Current light dir: (%f, %f, %f)", newDir.x, newDir.y, newDir.z);
+    glm::vec3 newColor = env.LightColor;
+
+    ImGui::ColorEdit3("Color", &newColor.x);
+
+    if (newColor != env.LightColor)
+    {
+        env.LightColor = newColor;
+        mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
+    }
+
+    //For debug:
+    //ImGui::Text("Current light dir: (%f, %f, %f)", newDir.x, newDir.y, newDir.z);
 
     ImGui::Text("Hdri path:");
 

@@ -312,6 +312,7 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
     mEnvUBOData = EnvUBOData{
         .LightOn = static_cast<int32_t>(scene.Env.DirLightOn),
         .LightDir = scene.Env.LightDir,
+        .LightColor = scene.Env.LightColor,
         .HdriEnabled = currentHdri.has_value(),
         .MaxReflectionLod = maxPrefilteredLod,
     };

@@ -4,6 +4,34 @@
 
 #include <glm/glm.hpp>
 
+struct Frustum{
+    glm::vec4 NearTopLeft;
+    glm::vec4 NearTopRight;
+    glm::vec4 NearBottomLeft;
+    glm::vec4 NearBottomRight;
+    glm::vec4 FarTopLeft;
+    glm::vec4 FarTopRight;
+    glm::vec4 FarBottomLeft;
+    glm::vec4 FarBottomRight;
+
+    [[nodiscard]] std::array<glm::vec4, 8> GetVertices() const
+    {
+        return {NearTopLeft, NearTopRight, NearBottomLeft, NearBottomRight, FarTopLeft, FarTopRight, FarBottomLeft, FarBottomRight};
+    }
+
+    void SetVertices(std::array<glm::vec4, 8> vertices)
+    {
+        NearTopLeft = vertices[0];
+        NearTopRight = vertices[1];
+        NearBottomLeft = vertices[2];
+        NearBottomRight = vertices[3];
+        FarTopLeft = vertices[4];
+        FarTopRight = vertices[5];
+        FarBottomLeft = vertices[6];
+        FarBottomRight = vertices[7];
+    }
+};
+
 class Camera {
   public:
     Camera() = default;
@@ -37,6 +65,11 @@ class Camera {
     [[nodiscard]] glm::mat4 GetInvViewProj() const
     {
         return mInvViewProj;
+    }
+
+    [[nodiscard]] const Frustum &GetFrustum() const
+    {
+        return mFrustum;
     }
 
     enum class Movement : uint8_t
@@ -77,4 +110,6 @@ class Camera {
     glm::mat4 mView;
     glm::mat4 mViewProj;
     glm::mat4 mInvViewProj;
+
+    Frustum mFrustum;
 };

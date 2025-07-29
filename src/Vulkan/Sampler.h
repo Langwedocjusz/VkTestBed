@@ -5,6 +5,7 @@
 
 #include <string>
 #include <string_view>
+#include <optional>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -19,6 +20,7 @@ class SamplerBuilder {
     SamplerBuilder &SetMipmapMode(VkSamplerMipmapMode mipmapMode);
     SamplerBuilder &SetMaxLod(float maxLod);
     SamplerBuilder &SetBorderColor(VkBorderColor color);
+    SamplerBuilder &SetCompareOp(VkCompareOp op);
 
     VkSampler Build(VulkanContext &ctx);
     VkSampler Build(VulkanContext &ctx, DeletionQueue &queue);
@@ -27,6 +29,8 @@ class SamplerBuilder {
     VkSampler BuildImpl(VulkanContext &ctx);
 
   private:
+    std::optional<VkCompareOp> mCompareOp = std::nullopt;
+
     VkFilter mMagFiler = VK_FILTER_LINEAR;
     VkFilter mMinFiler = VK_FILTER_LINEAR;
     VkSamplerAddressMode mAddressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;

@@ -1,4 +1,5 @@
 #include "MinimalPBR.h"
+#include "Camera.h"
 #include "Pch.h"
 
 #include "Barrier.h"
@@ -17,10 +18,15 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <imgui.h>
+
+#include <imgui_impl_vulkan.h>
+#include <limits>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
 #include <ranges>
+#include <vulkan/vulkan_core.h>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
@@ -109,6 +115,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = 1,
+        .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     };
 
     mShadowmap = MakeImage::Image2D(mCtx, "Shadowmap", shadowmapInfo);
@@ -124,13 +131,17 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         .Update(mCtx);
 
     //Build dynamic uniform buffers & descriptors:
-    mDynamicUBO.OnInit("MinimalPBRDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT, sizeof(mUBOData));
+    auto stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    mDynamicUBO.OnInit("MinimalPBRDynamicUBO", stages, sizeof(mUBOData));
 
     // Build the graphics pipelines:
     RebuildPipelines();
 
     // Create swapchain resources:
     CreateSwapchainResources();
+
+    mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(mSampler2D, mShadowmapView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 MinimalPbrRenderer::~MinimalPbrRenderer()
@@ -193,7 +204,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
-            .SetPushConstantSize(sizeof(BackgroundPCData))
+            .SetPushConstantSize(sizeof(FrustumData))
             .AddDescriptorSetLayout(mEnvHandler.GetBackgroundDSLayout())
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
             .SetDepthFormat(mDepthFormat)
@@ -205,23 +216,85 @@ void MinimalPbrRenderer::RebuildPipelines()
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    // Calculate light view-proj
+    auto& camFr = mCamera.GetFrustum();
+
+    mFrustumData.BottomLeft = camFr.FarBottomLeft;
+    mFrustumData.BottomRight = camFr.FarBottomRight;
+    mFrustumData.TopLeft = camFr.FarTopLeft;
+    mFrustumData.TopRight = camFr.FarTopRight;
+
+
+    //Construct worldspace coords for the shadow sampling part of the frustum:
+    auto GetFarVector = [&](glm::vec4 near, glm::vec4 far)
+    {
+        auto normalized = glm::normalize(glm::vec3(far - near));
+        return near + glm::vec4(mShadowDist * normalized, 0.0f);
+    };
+
+    Frustum shadowedFrustum = camFr;
+    shadowedFrustum.FarTopLeft = GetFarVector(camFr.NearTopLeft, camFr.FarTopLeft);
+    shadowedFrustum.FarTopRight = GetFarVector(camFr.NearTopRight, camFr.FarTopRight);
+    shadowedFrustum.FarBottomLeft = GetFarVector(camFr.NearBottomLeft, camFr.FarBottomLeft);
+    shadowedFrustum.FarBottomRight = GetFarVector(camFr.NearBottomRight, camFr.FarBottomRight);
+
+    //Construct light view matrix, looking along the light direction:
     auto lightDir = mEnvHandler.GetUboData().LightDir;
 
-    float near_plane = 0.0f, far_plane = 20.0f;
-    glm::mat4 proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-    glm::mat4 view = glm::lookAt(10.0f * glm::normalize(lightDir), glm::vec3(0.0f), glm::vec3(0, -1, 0));
+    glm::mat4 lightView = glm::lookAt(lightDir, glm::vec3(0.0f), glm::vec3(0, -1, 0));
 
-    // To compensate for change of orientation between
-    // OpenGL and Vulkan:
-    proj[1][1] *= -1;
+    //Transform the shadowed frustum to light view space:
+    auto frustumVertices = shadowedFrustum.GetVertices();
 
+    for (auto& vert : frustumVertices)
+    {
+        vert = lightView * vert;
+    }
+
+    //Find the extents of the frustum in light view space to get ortho projection bounds:
+    float minX = std::numeric_limits<float>::max();
+    float minY = std::numeric_limits<float>::max();
+    float minZ = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::min();
+    float maxY = std::numeric_limits<float>::min();
+    float maxZ = std::numeric_limits<float>::min();
+
+    for (auto& vert : frustumVertices)
+    {
+        minX = std::min(minX, vert.x);
+        minY = std::min(minY, vert.y);
+        minZ = std::min(minZ, vert.z);
+        maxX = std::max(maxX, vert.x);
+        maxY = std::max(maxY, vert.y);
+        maxZ = std::max(maxZ, vert.z);
+    }
+
+    //Adjust with user controlled parameters:
+    maxZ += mAddZ;
+    minZ -= mSubZ;
+
+    glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);   
+
+    //Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
-    mUBOData.LightViewProjection = proj * view;
+    mUBOData.LightViewProjection = lightProj * lightView;
 }
 
 void MinimalPbrRenderer::OnImGui()
 {
+    ImGui::Begin("Renderer settings");
+
+    ImGui::SliderFloat("Directional Factor", &mUBOData.DirectionalFactor, 0.0f, 6.0f);
+    ImGui::SliderFloat("Environment Factor", &mUBOData.EnvironmentFactor, 0.0f, 1.0f);
+
+    ImGui::SliderFloat("Add Z", &mAddZ, 0.0f, 10.0f);
+    ImGui::SliderFloat("Sub Z", &mSubZ, 0.0f, 20.0f);
+    ImGui::SliderFloat("Shadow Dist", &mShadowDist, 1.0f, 40.0f);
+    ImGui::SliderFloat("Shadow Bias Min", &mUBOData.ShadowBiasMin, 0.0f, 0.1f);
+    ImGui::SliderFloat("Shadow Bias Max", &mUBOData.ShadowBiasMax, 0.0f, 0.1f);
+
+    ImGui::Image((ImTextureID)mDebugTextureDescriptorSet, ImVec2(512, 512));
+
+    ImGui::End();
 }
 
 void MinimalPbrRenderer::OnRender()
@@ -258,10 +331,9 @@ void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool doub
     for (auto &transform : drawable.Instances)
     {
         MaterialPCData pcData{
-            .ViewPos = mCamera.GetPos(),
-            .AlphaCutoff = material.AlphaCutoff,
             .Transform = transform,
             .DoubleSided = doubleSided,
+            .AlphaCutoff = material.AlphaCutoff,
         };
 
         vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
@@ -395,16 +467,8 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
                               mBackgroundPipeline.Handle);
             common::ViewportScissor(cmd, GetTargetSize());
 
-            auto inv = mCamera.GetInvViewProj();
-            BackgroundPCData pcData{};
-
-            pcData.BottomLeft = inv * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f);
-            pcData.BottomRight = inv * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-            pcData.TopLeft = inv * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f);
-            pcData.TopRight = inv * glm::vec4(1.0f, -1.0f, 1.0f, 1.0f);
-
             vkCmdPushConstants(cmd, mBackgroundPipeline.Layout,
-                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData), &pcData);
+                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mFrustumData), &mFrustumData);
 
             vkCmdDraw(cmd, 3, 1, 0, 0);
 

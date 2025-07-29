@@ -8,11 +8,13 @@ layout(location = 0) out vec2 texCoord;
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 CameraViewProjection;
     mat4 LightViewProjection;
+    vec4 OtherStuff;
+    vec3 MoreStuff;
 } Ubo;
 
 layout(push_constant) uniform constants {
-    vec4 OtherThings;
     mat4 Transform;
+    vec2 OtherThigns;
 } PushConstants;
 
 void main() {

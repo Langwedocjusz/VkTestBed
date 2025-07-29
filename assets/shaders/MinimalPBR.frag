@@ -18,13 +18,24 @@ layout(location = 4) in vec4 lightSpaceFragPos;
 
 layout(location = 0) out vec4 outColor;
 
+layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
+    mat4 CameraViewProjection;
+    mat4 LightViewProjection;
+    vec3 ViewPos;
+    float DirectionalFactor;
+    float EnvironmentFactor;
+    float ShadowBiasMin;
+    float ShadowBiasMax;
+} DynamicUBO;
+
 layout(set = 1, binding = 0) uniform sampler2D albedo_map;
 layout(set = 1, binding = 1) uniform sampler2D rougness_map;
 layout(set = 1, binding = 2) uniform sampler2D normal_map;
 
-layout(scalar, set = 2, binding = 0) uniform UniformBufferObject {
+layout(scalar, set = 2, binding = 0) uniform EnvUBOBlock {
     int DirLightOn;
     vec3 LightDir;
+    vec3 LightColor;
     int HdriEnabled;
     float MaxReflectionLod;
 } EnvUBO;
@@ -38,13 +49,10 @@ layout(set = 2, binding = 3) uniform sampler2D integrationMap;
 
 layout(set = 3, binding = 0) uniform sampler2D shadowMap;
 
-layout(push_constant) uniform constants {
-    float PosX;
-    float PosY;
-    float PosZ;
-    float AlphaCutoff;
+layout(push_constant) uniform PushConstantsBlock {
     mat4 Transform;
     int DoubleSided;
+    float AlphaCutoff;
 } PushConstants;
 
 //https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
@@ -59,11 +67,6 @@ vec3 ACESFilm(vec3 x)
     return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
 }
 
-float levels(float value, float divider)
-{
-    return float(int(value/divider) % 2);
-}
-
 float CalculateShadowFactor(vec4 lightCoord, vec2 texOffset)
 {
     vec3 projCoords = lightCoord.xyz / lightCoord.w;
@@ -75,8 +78,8 @@ float CalculateShadowFactor(vec4 lightCoord, vec2 texOffset)
     float closestDepth = texture(shadowMap, uv + texOffset).r;
     float currentDepth = projCoords.z;
 
-    const float bias = 0.005;
-    float shadow = currentDepth - bias > closestDepth + bias ? 1.0 : 0.0;
+    float bias = max(DynamicUBO.ShadowBiasMax * (1.0 - dot(vertNormal, EnvUBO.LightDir)), DynamicUBO.ShadowBiasMin);
+    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
 
     return 1.0 - shadow;
 }
@@ -138,8 +141,7 @@ void main()
     #endif
 
     //Construct view vector:
-    vec3 view = vec3(PushConstants.PosX, PushConstants.PosY, PushConstants.PosZ) - fragPos;
-    view = normalize(view);
+    vec3 view = normalize(DynamicUBO.ViewPos - fragPos);
 
     //Handle two-sided geometry by flipping normals
     //facing away from view
@@ -165,19 +167,16 @@ void main()
     vec2 envBRDF  = texture(integrationMap, vec2(max(dot(normal, view), 0.0), roughness)).rg;
     vec3 specularIBL = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 
-    res.rgb = 0.05 * (diffuseIBL + specularIBL);
+    res.rgb = DynamicUBO.EnvironmentFactor * (diffuseIBL + specularIBL);
 
     if(EnvUBO.DirLightOn != 0)
     {
-        const vec3 lcol = 3.0 * vec3(1.0, 1.0, 0.80);
+        const vec3 lcol = DynamicUBO.DirectionalFactor * EnvUBO.LightColor;
 
         vec3 dirResponse = BRDF(normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
         float shadow = FilterPCF(lightSpaceFragPos);
-        //shadow = 1.0;
 
         res.rgb += shadow * lcol * dirResponse;
-        //res.rgb = vec3(shadow);
-        //res.rgb = vec3(0.1 * lightSpaceFragPos.z);
     }
 
     //Do color correction:

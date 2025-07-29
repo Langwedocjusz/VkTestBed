@@ -3,6 +3,7 @@
 #include "Pch.h"
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 static VkExtent3D FromExtent2D(VkExtent2D extent)
 {
@@ -11,6 +12,12 @@ static VkExtent3D FromExtent2D(VkExtent2D extent)
         .height = extent.height,
         .depth = 1,
     };
+}
+
+static bool IsDepthFormat(VkFormat format)
+{
+    //To-do: handle other depth formats:
+    return format == VK_FORMAT_D32_SFLOAT;
 }
 
 Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
@@ -39,13 +46,23 @@ Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
 
     if (info.Layout.has_value())
     {
+        auto subresourceRange = VkImageSubresourceRange{
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = res.Info.mipLevels,
+            .baseArrayLayer = 0,
+            .layerCount = res.Info.arrayLayers,
+        };
+
+        if (IsDepthFormat(info.Format))
+            subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
         ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             auto barrierInfo = barrier::ImageLayoutBarrierInfo{
                 .Image = res.Handle,
                 .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                 .NewLayout = *info.Layout,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, res.Info.mipLevels, 0,
-                                     res.Info.arrayLayers},
+                .SubresourceRange = subresourceRange,
             };
 
             barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);

@@ -76,10 +76,9 @@ class MinimalPbrRenderer final : public IRenderer {
     };
 
     struct MaterialPCData {
-        glm::vec3 ViewPos;
-        float AlphaCutoff;
         glm::mat4 Transform;
         int DoubleSided;
+        float AlphaCutoff;
     };
 
     Texture mDefaultAlbedo;
@@ -119,12 +118,15 @@ class MinimalPbrRenderer final : public IRenderer {
     std::vector<DrawableKey> mSingleSidedDrawableKeys;
     std::vector<DrawableKey> mDoubleSidedDrawableKeys;
 
-    // Camera and light projection handling:
-    //ViewHandler mViewHandler;
-
+    //Dynamic uniform data including camera/lighting:
     struct UBOData {
-        glm::mat4 CameraViewProjection = glm::mat4(1.0f);
-        glm::mat4 LightViewProjection = glm::mat4(1.0f);
+        glm::mat4 CameraViewProjection;
+        glm::mat4 LightViewProjection;
+        glm::vec3 ViewPos;
+        float DirectionalFactor = 3.0f;
+        float EnvironmentFactor = 0.05f;
+        float ShadowBiasMin = 0.001f;
+        float ShadowBiasMax = 0.005f;
     } mUBOData;
 
     DynamicUniformBuffer mDynamicUBO;
@@ -134,12 +136,19 @@ class MinimalPbrRenderer final : public IRenderer {
 
     Pipeline mBackgroundPipeline;
 
-    struct BackgroundPCData {
+    struct FrustumData {
         glm::vec4 TopLeft;
         glm::vec4 TopRight;
         glm::vec4 BottomLeft;
         glm::vec4 BottomRight;
-    };
+    } mFrustumData;
+
+    float mAddZ = 8.0f;
+    float mSubZ = 20.0f;
+
+    VkDescriptorSet mDebugTextureDescriptorSet;
+
+    float mShadowDist = 20.0f;
 
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;

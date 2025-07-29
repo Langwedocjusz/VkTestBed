@@ -100,19 +100,23 @@ RenderContext::RenderContext(VulkanContext &ctx)
 
     if (!mTimestampSupported)
         std::cout << "Timestamp queries not supported!\n";
-
-    // To-do: make this a member variable, to allow for efficient re-creation
-    auto factory = RendererFactory(mCtx, mFrameInfo, mCamera);
-
-    mRenderer = factory.MakeRenderer(RendererType::MinimalPBR);
 }
 
-void RenderContext::InitImGuiVulkanBackend()
+void RenderContext::OnInit()
 {
     mImGuiDescriptorPool = iminit::CreateDescriptorPool(mCtx);
     mMainDeletionQueue.push_back(mImGuiDescriptorPool);
 
     iminit::InitVulkanBackend(mCtx, mImGuiDescriptorPool, mFrameInfo.MaxInFlight);
+
+    //Renderer initialized after imgui backend, since it may need
+    //imgui descriptor pool to allocate descriptors
+    //for debug images.
+
+    // To-do: make this a member variable, to allow for efficient re-creation
+    auto factory = RendererFactory(mCtx, mFrameInfo, mCamera);
+
+    mRenderer = factory.MakeRenderer(RendererType::MinimalPBR);
 }
 
 RenderContext::~RenderContext()

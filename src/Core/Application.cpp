@@ -86,7 +86,7 @@ Application::Impl::Impl()
 
     iminit::InitImGui();
     iminit::InitGlfwBackend(mWindow.Get());
-    mRender.InitImGuiVulkanBackend();
+    mRender.OnInit();
 
     // First-time scene loading
     mRender.LoadScene(mScene);

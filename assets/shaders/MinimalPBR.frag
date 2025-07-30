@@ -47,7 +47,7 @@ layout(std140, set = 2, binding = 1) readonly buffer SHBuffer {
 layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 3) uniform sampler2D integrationMap;
 
-layout(set = 3, binding = 0) uniform sampler2D shadowMap;
+layout(set = 3, binding = 0) uniform sampler2DShadow shadowMap;
 
 layout(push_constant) uniform PushConstantsBlock {
     mat4 Transform;
@@ -67,46 +67,37 @@ vec3 ACESFilm(vec3 x)
     return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
 }
 
-float CalculateShadowFactor(vec4 lightCoord, vec2 texOffset)
+float CalculateShadowFactor(vec4 lightCoord, vec2 offset)
 {
     vec3 projCoords = lightCoord.xyz / lightCoord.w;
-    vec2 uv = projCoords.xy * 0.5 + 0.5;
+    vec2 uv = (projCoords.xy * 0.5 + 0.5) + offset;
 
     //if (projCoords.z > 1.0)
-    //    return 1.0;
-
-    float closestDepth = texture(shadowMap, uv + texOffset).r;
-    float currentDepth = projCoords.z;
+    //    return 1.0;    
 
     float bias = max(DynamicUBO.ShadowBiasMax * (1.0 - dot(vertNormal, EnvUBO.LightDir)), DynamicUBO.ShadowBiasMin);
-    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+    float currentDepth = projCoords.z - bias;
 
-    return 1.0 - shadow;
+    float shadow = texture(shadowMap, vec3(uv, currentDepth));
+
+    return shadow;
 }
 
 float FilterPCF(vec4 lightCoord)
 {
-    const float scale = 1.0;
-	ivec2 texDim = textureSize(shadowMap, 0);
-	
-	float dx = scale * 1.0 / float(texDim.x);
-	float dy = scale * 1.0 / float(texDim.y);
+    vec2 texScale = 1.0 / vec2(textureSize(shadowMap, 0));
 
-	float shadowFactor = 0.0;
-	int count = 0;
-	int range = 1;
-	
-	for (int x = -range; x <= range; x++)
-	{
-		for (int y = -range; y <= range; y++)
-		{
-			shadowFactor += CalculateShadowFactor(lightCoord, vec2(dx*x, dy*y));
-			count++;
-		}
-	
-	}
+    float sum = 0.0;
 
-	return shadowFactor / count;
+    for (float y = -1.5; y <= 1.5; y += 1.0)
+    {
+        for (float x = -1.5; x <= 1.5; x += 1.0)
+        {
+            sum += CalculateShadowFactor(lightCoord, texScale * vec2(x,y));
+        }
+    }
+
+    return sum / 16.0;
 }
 
 void main()
@@ -175,6 +166,7 @@ void main()
 
         vec3 dirResponse = BRDF(normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
         float shadow = FilterPCF(lightSpaceFragPos);
+        shadow = pow(shadow, 2.2);
 
         res.rgb += shadow * lcol * dirResponse;
     }

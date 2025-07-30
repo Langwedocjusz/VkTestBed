@@ -26,7 +26,6 @@
 
 #include <cstdint>
 #include <ranges>
-#include <vulkan/vulkan_core.h>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
@@ -45,10 +44,11 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
 
     mSamplerShadowmap = SamplerBuilder("MinimalPbrSamplerShadowmap")
-                            .SetMagFilter(VK_FILTER_NEAREST)
-                            .SetMinFilter(VK_FILTER_NEAREST)
+                            .SetMagFilter(VK_FILTER_LINEAR)
+                            .SetMinFilter(VK_FILTER_LINEAR)
                             .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER)
                             .SetBorderColor(VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE)
+                            .SetCompareOp(VK_COMPARE_OP_LESS)
                             .Build(mCtx, mMainDeletionQueue);
 
     // Create descriptor set layout for sampling the shadowmap 
@@ -115,7 +115,6 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = 1,
-        .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     };
 
     mShadowmap = MakeImage::Image2D(mCtx, "Shadowmap", shadowmapInfo);

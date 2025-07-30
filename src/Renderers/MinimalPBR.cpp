@@ -19,13 +19,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <imgui.h>
-
 #include <imgui_impl_vulkan.h>
-#include <limits>
+
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
 #include <ranges>
+#include <limits>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
@@ -276,6 +276,7 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     //Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
     mUBOData.LightViewProjection = lightProj * lightView;
+    mUBOData.ViewPos = mCamera.GetPos();
 }
 
 void MinimalPbrRenderer::OnImGui()

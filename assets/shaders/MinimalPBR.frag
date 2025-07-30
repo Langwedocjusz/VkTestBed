@@ -4,6 +4,7 @@
 #extension GL_EXT_scalar_block_layout : require
 
 #define USE_NORMAL_MAPPING
+#define SOFT_SHADOWS
 
 const float PI = 3.1415926535;
 
@@ -137,7 +138,9 @@ void main()
     //Handle two-sided geometry by flipping normals
     //facing away from view
     if (!gl_FrontFacing)
+    {
         normal = -normal;
+    }
 
     //Calculate specular reflectance f0:
     vec3 f0 = metallic * albedo.rgb;
@@ -165,7 +168,13 @@ void main()
         const vec3 lcol = DynamicUBO.DirectionalFactor * EnvUBO.LightColor;
 
         vec3 dirResponse = BRDF(normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
+        
+        #ifdef SOFT_SHADOWS
         float shadow = FilterPCF(lightSpaceFragPos);
+        #else
+        float shadow = CalculateShadowFactor(lightSpaceFragPos, vec2(0));
+        #endif
+
         shadow = pow(shadow, 2.2);
 
         res.rgb += shadow * lcol * dirResponse;

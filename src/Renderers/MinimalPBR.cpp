@@ -330,10 +330,12 @@ void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool doub
 
     for (auto &transform : drawable.Instances)
     {
+        auto transalpha = glm::vec4(material.TranslucentColor, material.AlphaCutoff);
+
         MaterialPCData pcData{
             .Transform = transform,
+            .TranslucentAndAlphaCutoff = transalpha,
             .DoubleSided = doubleSided,
-            .AlphaCutoff = material.AlphaCutoff,
         };
 
         vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
@@ -633,9 +635,12 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
                 mMaterialDescriptorAllocator.Allocate(mMaterialDescriptorSetLayout);
         }
 
-        // Update the alpha cutoff and doublesidedness:
+        // Update the non-image parameters:
         mat.AlphaCutoff = sceneMat.AlphaCutoff;
         mat.DoubleSided = sceneMat.DoubleSided;
+
+        if (sceneMat.TranslucentColor.has_value())
+            mat.TranslucentColor = *sceneMat.TranslucentColor;
 
         // Retrieve the textures if available:
         auto GetTexture = [&](std::optional<SceneKey> opt, Texture &def) -> Texture & {

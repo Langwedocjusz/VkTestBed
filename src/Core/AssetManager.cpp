@@ -221,6 +221,14 @@ void AssetManager::PreprocessGltfAssets()
         // Load info about double-sidedness:
         mat.DoubleSided = material.doubleSided;
 
+        //Load information about translucency/diffuse transmission:
+        if (material.diffuseTransmission)
+        {
+            auto color = material.diffuseTransmission->diffuseTransmissionColorFactor;
+
+            mat.TranslucentColor = glm::vec3(color.x(), color.y(), color.z());
+        }
+
         // Handle albedo:
         {
             auto [imgKey, img] = mScene.EmplaceImage();

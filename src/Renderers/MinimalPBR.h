@@ -77,8 +77,8 @@ class MinimalPbrRenderer final : public IRenderer {
 
     struct MaterialPCData {
         glm::mat4 Transform;
-        int DoubleSided;
-        float AlphaCutoff;
+        glm::vec4 TranslucentAndAlphaCutoff;
+        int32_t DoubleSided;
     };
 
     Texture mDefaultAlbedo;
@@ -94,6 +94,7 @@ class MinimalPbrRenderer final : public IRenderer {
         VkDescriptorSet DescriptorSet;
         float AlphaCutoff = 0.5f;
         bool DoubleSided = false;
+        glm::vec3 TranslucentColor = glm::vec3(0.0f);
     };
 
     std::map<SceneKey, Material> mMaterials;

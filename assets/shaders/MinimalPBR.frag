@@ -5,6 +5,7 @@
 
 #define USE_NORMAL_MAPPING
 #define SOFT_SHADOWS
+#define TRANSLUCENCY
 
 const float PI = 3.1415926535;
 
@@ -52,8 +53,8 @@ layout(set = 3, binding = 0) uniform sampler2DShadow shadowMap;
 
 layout(push_constant) uniform PushConstantsBlock {
     mat4 Transform;
+    vec4 TransAlpha;
     int DoubleSided;
-    float AlphaCutoff;
 } PushConstants;
 
 //https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
@@ -101,13 +102,31 @@ float FilterPCF(vec4 lightCoord)
     return sum / 16.0;
 }
 
+vec3 GetSkyLight(vec3 normal, vec3 view, vec3 diffuse, vec3 f0, float roughness)
+{
+    vec3 irradiance = SH_HemisphereConvolve(irradianceMap, normal);
+    vec3 diffuseIBL = diffuse * irradiance;
+
+    vec3 R = reflect(-view, normal);
+
+    vec3 prefilteredColor = textureLod(prefilteredMap, R,  roughness * EnvUBO.MaxReflectionLod).rgb;
+
+    vec3 F        = F_SchlickRoughness(max(dot(normal, view), 0.0), f0, roughness);
+    vec2 envBRDF  = texture(integrationMap, vec2(max(dot(normal, view), 0.0), roughness)).rg;
+    vec3 specularIBL = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+
+    return DynamicUBO.EnvironmentFactor * (diffuseIBL + specularIBL);
+}
+
 void main()
 {
     //Sample albedo:
     vec4 albedo = texture(albedo_map, texCoord);
 
     //Discard fragment if transparent:
-    if (albedo.a < PushConstants.AlphaCutoff)
+    float alphaCutoff = PushConstants.TransAlpha.a;
+
+    if (albedo.a < alphaCutoff)
         discard;
 
     //Sample roughness:
@@ -149,19 +168,17 @@ void main()
     //Calculate lighting:
     vec4 res = vec4(0,0,0,1);
 
-    //Specular IBL:s
-    vec3 irradiance = SH_HemisphereConvolve(irradianceMap, normal);
-    vec3 diffuseIBL = diffuse * irradiance;
+    res.rgb = GetSkyLight(normal, view, diffuse, f0, roughness);
 
-    vec3 R = reflect(-view, normal);
+    #ifdef TRANSLUCENCY
+    vec3 transCol = PushConstants.TransAlpha.rgb;
 
-    vec3 prefilteredColor = textureLod(prefilteredMap, R,  roughness * EnvUBO.MaxReflectionLod).rgb;
-
-    vec3 F        = F_SchlickRoughness(max(dot(normal, view), 0.0), f0, roughness);
-    vec2 envBRDF  = texture(integrationMap, vec2(max(dot(normal, view), 0.0), roughness)).rg;
-    vec3 specularIBL = prefilteredColor * (F * envBRDF.x + envBRDF.y);
-
-    res.rgb = DynamicUBO.EnvironmentFactor * (diffuseIBL + specularIBL);
+    if(PushConstants.DoubleSided == 1)
+    {
+        vec3 irradiance = SH_HemisphereConvolve(irradianceMap, -normal);
+        res.rgb += DynamicUBO.EnvironmentFactor * transCol * diffuse * irradiance;
+    }
+    #endif
 
     if(EnvUBO.DirLightOn != 0)
     {
@@ -178,6 +195,15 @@ void main()
         shadow = pow(shadow, 2.2);
 
         res.rgb += shadow * lcol * dirResponse;
+
+        #ifdef TRANSLUCENCY
+        if(PushConstants.DoubleSided == 1)
+        {
+            vec3 translucent = BRDF(-normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
+
+            res.rgb += transCol * shadow * lcol * translucent;
+        }
+        #endif
     }
 
     //Do color correction:

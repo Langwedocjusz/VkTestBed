@@ -26,8 +26,8 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
 
 layout(push_constant) uniform constants {
     mat4 Transform;
+    vec4 TransAlpha;
     int DoubleSided;
-    float AlphaCutoff;
 } PushConstants;
 
 void main() {

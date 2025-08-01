@@ -3,6 +3,7 @@
 
 #include "TangentsGenerator.h"
 
+#include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
@@ -14,7 +15,7 @@
 static fastgltf::Asset GetAsset(const std::filesystem::path &path,
                                 bool loadBuffers = false)
 {
-    fastgltf::Parser parser;
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_diffuse_transmission);
     auto data = fastgltf::GltfDataBuffer::FromPath(path);
 
     vassert(data.error() == fastgltf::Error::None,
@@ -52,7 +53,7 @@ static fastgltf::Accessor &GetAttributeAccessor(fastgltf::Asset &gltf,
 
 static size_t GetIndexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitive)
 {
-    auto indexAccessor = gltf.accessors[primitive.indicesAccessor.value()];
+    auto& indexAccessor = gltf.accessors[primitive.indicesAccessor.value()];
     return indexAccessor.count;
 }
 
@@ -227,7 +228,7 @@ static VertParsingResult RetrieveVertices(fastgltf::Asset &gltf,
 static void RetrieveIndices(fastgltf::Asset &gltf, fastgltf::Primitive &primitive,
                             GeometryData &geo)
 {
-    auto accessor = gltf.accessors[primitive.indicesAccessor.value()];
+    auto& accessor = gltf.accessors[primitive.indicesAccessor.value()];
 
     auto Indices = new (geo.IndexData.Data) uint32_t[accessor.count];
     size_t current = 0;

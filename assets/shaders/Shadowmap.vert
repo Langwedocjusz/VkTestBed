@@ -14,7 +14,8 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
 
 layout(push_constant) uniform constants {
     mat4 Transform;
-    vec2 OtherThigns;
+    vec4 TransAlpha;
+    int DoubleSided;
 } PushConstants;
 
 void main() {

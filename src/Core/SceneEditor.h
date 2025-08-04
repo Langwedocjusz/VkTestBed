@@ -28,6 +28,7 @@ class SceneEditor {
     void OnUpdate();
 
     // Functions to manipulate the underlying scene:
+    SceneObject &GetObject(SceneKey key);
     SceneMesh &GetMesh(SceneKey key);
     SceneMaterial &GetMaterial(SceneKey key);
     ImageData &GetImage(SceneKey key);
@@ -81,7 +82,6 @@ class SceneEditor {
     void HandleNodeCopy();
     void HandleNodeDelete();
 
-    SceneObject &GetObject(SceneKey key);
     SceneKey DuplicateObject(SceneKey obj);
     SceneKey EmplaceObject(std::optional<SceneKey> mesh);
 

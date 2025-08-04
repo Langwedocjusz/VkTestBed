@@ -14,9 +14,9 @@
 #include "Scene.h"
 #include "VkInit.h"
 
-#include <glm/matrix.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/matrix.hpp>
 
 #include <imgui.h>
 #include <imgui_impl_vulkan.h>
@@ -24,14 +24,14 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <ranges>
 #include <limits>
+#include <ranges>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
-    : IRenderer(ctx, info, camera), mShadowmapDescriptorAllocator(ctx), mMaterialDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info), mEnvHandler(ctx), mSceneDeletionQueue(ctx),
-      mMaterialDeletionQueue(ctx)
+    : IRenderer(ctx, info, camera), mShadowmapDescriptorAllocator(ctx),
+      mMaterialDescriptorAllocator(ctx), mDynamicUBO(ctx, info), mEnvHandler(ctx),
+      mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
     // Create the texture samplers:
     mSampler2D = SamplerBuilder("MinimalPbrSampler2D")
@@ -42,7 +42,6 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                      .SetMaxLod(12.0f)
                      .Build(mCtx, mMainDeletionQueue);
 
-
     mSamplerShadowmap = SamplerBuilder("MinimalPbrSamplerShadowmap")
                             .SetMagFilter(VK_FILTER_LINEAR)
                             .SetMinFilter(VK_FILTER_LINEAR)
@@ -51,12 +50,13 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetCompareOp(VK_COMPARE_OP_LESS)
                             .Build(mCtx, mMainDeletionQueue);
 
-    // Create descriptor set layout for sampling the shadowmap 
+    // Create descriptor set layout for sampling the shadowmap
     // and allocate the corresponding descriptor set:
 
-    mShadowmapDescriptorSetLayout = 
+    mShadowmapDescriptorSetLayout =
         DescriptorSetLayoutBuilder("MinimalPBRShadowmapDescriptorLayout")
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx, mMainDeletionQueue);
 
     {
@@ -66,7 +66,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
         mShadowmapDescriptorAllocator.OnInit(poolCounts);
 
-        mShadowmapDescriptorSet = 
+        mShadowmapDescriptorSet =
             mShadowmapDescriptorAllocator.Allocate(mShadowmapDescriptorSetLayout);
     }
 
@@ -124,12 +124,12 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     mMainDeletionQueue.push_back(mShadowmap);
     mMainDeletionQueue.push_back(mShadowmapView);
 
-    //Update the shadowmap descriptor:
+    // Update the shadowmap descriptor:
     DescriptorUpdater(mShadowmapDescriptorSet)
         .WriteImageSampler(0, mShadowmapView, mSamplerShadowmap)
         .Update(mCtx);
 
-    //Build dynamic uniform buffers & descriptors:
+    // Build dynamic uniform buffers & descriptors:
     auto stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     mDynamicUBO.OnInit("MinimalPBRDynamicUBO", stages, sizeof(mUBOData));
@@ -140,7 +140,8 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     // Create swapchain resources:
     CreateSwapchainResources();
 
-    mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(mSampler2D, mShadowmapView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
+        mSampler2D, mShadowmapView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 MinimalPbrRenderer::~MinimalPbrRenderer()
@@ -215,17 +216,15 @@ void MinimalPbrRenderer::RebuildPipelines()
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    auto& camFr = mCamera.GetFrustum();
+    auto &camFr = mCamera.GetFrustum();
 
     mFrustumData.BottomLeft = camFr.FarBottomLeft;
     mFrustumData.BottomRight = camFr.FarBottomRight;
     mFrustumData.TopLeft = camFr.FarTopLeft;
     mFrustumData.TopRight = camFr.FarTopRight;
 
-
-    //Construct worldspace coords for the shadow sampling part of the frustum:
-    auto GetFarVector = [&](glm::vec4 near, glm::vec4 far)
-    {
+    // Construct worldspace coords for the shadow sampling part of the frustum:
+    auto GetFarVector = [&](glm::vec4 near, glm::vec4 far) {
         auto normalized = glm::normalize(glm::vec3(far - near));
         return near + glm::vec4(mShadowDist * normalized, 0.0f);
     };
@@ -233,31 +232,33 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     Frustum shadowedFrustum = camFr;
     shadowedFrustum.FarTopLeft = GetFarVector(camFr.NearTopLeft, camFr.FarTopLeft);
     shadowedFrustum.FarTopRight = GetFarVector(camFr.NearTopRight, camFr.FarTopRight);
-    shadowedFrustum.FarBottomLeft = GetFarVector(camFr.NearBottomLeft, camFr.FarBottomLeft);
-    shadowedFrustum.FarBottomRight = GetFarVector(camFr.NearBottomRight, camFr.FarBottomRight);
+    shadowedFrustum.FarBottomLeft =
+        GetFarVector(camFr.NearBottomLeft, camFr.FarBottomLeft);
+    shadowedFrustum.FarBottomRight =
+        GetFarVector(camFr.NearBottomRight, camFr.FarBottomRight);
 
-    //Construct light view matrix, looking along the light direction:
+    // Construct light view matrix, looking along the light direction:
     auto lightDir = mEnvHandler.GetUboData().LightDir;
 
     glm::mat4 lightView = glm::lookAt(lightDir, glm::vec3(0.0f), glm::vec3(0, -1, 0));
 
-    //Transform the shadowed frustum to light view space:
+    // Transform the shadowed frustum to light view space:
     auto frustumVertices = shadowedFrustum.GetVertices();
 
-    for (auto& vert : frustumVertices)
+    for (auto &vert : frustumVertices)
     {
         vert = lightView * vert;
     }
 
-    //Find the extents of the frustum in light view space to get ortho projection bounds:
+    // Find the extents of the frustum in light view space to get ortho projection bounds:
     float minX = std::numeric_limits<float>::max();
     float minY = std::numeric_limits<float>::max();
     float minZ = std::numeric_limits<float>::max();
-    float maxX = std::numeric_limits<float>::min();
-    float maxY = std::numeric_limits<float>::min();
-    float maxZ = std::numeric_limits<float>::min();
+    float maxX = std::numeric_limits<float>::lowest();
+    float maxY = std::numeric_limits<float>::lowest();
+    float maxZ = std::numeric_limits<float>::lowest();
 
-    for (auto& vert : frustumVertices)
+    for (auto &vert : frustumVertices)
     {
         minX = std::min(minX, vert.x);
         minY = std::min(minY, vert.y);
@@ -267,13 +268,13 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
         maxZ = std::max(maxZ, vert.z);
     }
 
-    //Adjust with user controlled parameters:
+    // Adjust with user controlled parameters:
     maxZ += mAddZ;
     minZ -= mSubZ;
 
-    glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);   
+    glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
 
-    //Update light/camera uniform buffer data:
+    // Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
     mUBOData.LightViewProjection = lightProj * lightView;
     mUBOData.ViewPos = mCamera.GetPos();
@@ -301,8 +302,8 @@ void MinimalPbrRenderer::OnRender()
 {
     auto &cmd = mFrame.CurrentCmd();
 
-    //This is not OnUpdate since, uniform buffers are per-image index
-    //and as such need to be acquired after new image index is set.
+    // This is not OnUpdate since, uniform buffers are per-image index
+    // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
     DrawStats stats{};
@@ -315,8 +316,11 @@ void MinimalPbrRenderer::OnRender()
     mFrame.Stats.NumBinds = stats.NumBinds;
 }
 
-void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool doubleSided, VkPipelineLayout layout, DrawStats &stats)
+void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool doubleSided,
+                              bool shadowPass, DrawStats &stats)
 {
+    auto layout = shadowPass ? mShadowmapPipeline.Layout : mMainPipeline.Layout;
+
     VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
     VkDeviceSize vertOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
@@ -325,21 +329,28 @@ void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool doub
 
     auto &material = mMaterials.at(drawable.MaterialKey);
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1,
-                            1, &material.DescriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1,
+                            &material.DescriptorSet, 0, nullptr);
 
-    for (auto &transform : drawable.Instances)
+    for (auto &model : drawable.Instances)
     {
+        // Do frustum culling:
+        auto viewProj =
+            shadowPass ? mUBOData.LightViewProjection : mUBOData.CameraViewProjection;
+
+        if (!drawable.Bbox.InView(viewProj * model))
+            continue;
+
         auto transalpha = glm::vec4(material.TranslucentColor, material.AlphaCutoff);
 
         MaterialPCData pcData{
-            .Transform = transform,
+            .Transform = model,
             .TranslucentAndAlphaCutoff = transalpha,
             .DoubleSided = doubleSided,
         };
 
-        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           sizeof(pcData), &pcData);
+        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
+                           &pcData);
         vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
 
         stats.NumDraws++;
@@ -372,12 +383,13 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
     vkCmdBeginRendering(cmd, &renderingInfo);
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mShadowmapPipeline.Handle);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          mShadowmapPipeline.Handle);
         common::ViewportScissor(cmd, extent);
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mShadowmapPipeline.Layout, 0, 1, mDynamicUBO.DescriptorSet(),
-                                0, nullptr);
+                                mShadowmapPipeline.Layout, 0, 1,
+                                mDynamicUBO.DescriptorSet(), 0, nullptr);
 
         stats.NumBinds += 1;
 
@@ -386,7 +398,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mSingleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], false, mShadowmapPipeline.Layout, stats);
+            Draw(cmd, mDrawables[key], false, true, stats);
         }
 
         // Draw double-sided drawables:
@@ -394,7 +406,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mDoubleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], true, mShadowmapPipeline.Layout, stats);
+            Draw(cmd, mDrawables[key], true, true, stats);
         }
     }
     vkCmdEndRendering(cmd);
@@ -437,8 +449,8 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
                                 mEnvHandler.GetLightingDSPtr(), 0, nullptr);
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mMainPipeline.Layout, 3, 1,
-                                &mShadowmapDescriptorSet, 0, nullptr);
+                                mMainPipeline.Layout, 3, 1, &mShadowmapDescriptorSet, 0,
+                                nullptr);
 
         stats.NumBinds += 2;
 
@@ -447,7 +459,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mSingleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], false, mMainPipeline.Layout, stats);
+            Draw(cmd, mDrawables[key], false, false, stats);
         }
 
         // Draw double-sided drawables:
@@ -455,7 +467,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mDoubleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], true, mMainPipeline.Layout, stats);
+            Draw(cmd, mDrawables[key], true, false, stats);
         }
 
         // Draw the background:
@@ -470,7 +482,8 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
             common::ViewportScissor(cmd, GetTargetSize());
 
             vkCmdPushConstants(cmd, mBackgroundPipeline.Layout,
-                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mFrustumData), &mFrustumData);
+                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mFrustumData),
+                               &mFrustumData);
 
             vkCmdDraw(cmd, 3, 1, 0, 0);
 
@@ -594,6 +607,7 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
             if (mGeometryLayout.IsCompatible(prim.Data.Layout))
             {
                 auto &drawable = mDrawables[drawableKey];
+                drawable.Bbox = prim.Data.BBox;
 
                 const auto primName = mesh.Name + std::to_string(primIdx);
 

@@ -109,9 +109,9 @@ void RenderContext::OnInit()
 
     iminit::InitVulkanBackend(mCtx, mImGuiDescriptorPool, mFrameInfo.MaxInFlight);
 
-    //Renderer initialized after imgui backend, since it may need
-    //imgui descriptor pool to allocate descriptors
-    //for debug images.
+    // Renderer initialized after imgui backend, since it may need
+    // imgui descriptor pool to allocate descriptors
+    // for debug images.
 
     // To-do: make this a member variable, to allow for efficient re-creation
     auto factory = RendererFactory(mCtx, mFrameInfo, mCamera);
@@ -128,7 +128,7 @@ void RenderContext::OnUpdate(float deltaTime)
 {
     mCamera.OnUpdate(deltaTime, mCtx.Swapchain.extent.width,
                      mCtx.Swapchain.extent.height);
-    
+
     mRenderer->OnUpdate(deltaTime);
 
     mFrameInfo.Stats.CPUTime = 1000.0f * deltaTime;

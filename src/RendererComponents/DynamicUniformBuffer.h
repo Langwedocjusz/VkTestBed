@@ -1,21 +1,22 @@
 #pragma once
 
-#include "Frame.h"
 #include "Buffer.h"
-#include "VulkanContext.h"
 #include "DeletionQueue.h"
+#include "Frame.h"
+#include "VulkanContext.h"
 
-//Class meant for uniform buffers with data updated each frame.
-//Behind the scenes it juggles several (swapchain image count) buffers
-//to avoid need for explicit synchronization.
-class DynamicUniformBuffer{
-public:
+// Class meant for uniform buffers with data updated each frame.
+// Behind the scenes it juggles several (swapchain image count) buffers
+// to avoid need for explicit synchronization.
+class DynamicUniformBuffer {
+  public:
     DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame);
     ~DynamicUniformBuffer();
 
-    void OnInit(std::string_view debugName, VkShaderStageFlags stageFlags, VkDeviceSize bufferSize);
+    void OnInit(std::string_view debugName, VkShaderStageFlags stageFlags,
+                VkDeviceSize bufferSize);
 
-    void UpdateData(void* data, VkDeviceSize size);
+    void UpdateData(void *data, VkDeviceSize size);
 
     [[nodiscard]] VkDescriptorSetLayout DescriptorSetLayout() const
     {
@@ -27,7 +28,7 @@ public:
         return &mDescriptorSets[mFrame.ImageIndex];
     }
 
-private:
+  private:
     bool mInitialized = false;
 
     VkDescriptorSetLayout mDescriptorSetLayout;
@@ -36,7 +37,7 @@ private:
 
     std::vector<Buffer> mUniformBuffers;
 
-    VulkanContext& mCtx;
+    VulkanContext &mCtx;
     FrameInfo &mFrame;
     DeletionQueue mDeletionQueue;
 };

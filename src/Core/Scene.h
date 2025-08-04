@@ -43,7 +43,7 @@ struct SceneMaterial {
 
     bool DoubleSided = false;
     float AlphaCutoff = 0.5f;
-    
+
     std::optional<glm::vec3> TranslucentColor;
 };
 

@@ -2,13 +2,13 @@
 
 #include "DeletionQueue.h"
 #include "Descriptor.h"
+#include "DynamicUniformBuffer.h"
 #include "EnvironmentHandler.h"
 #include "GeometryData.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "Texture.h"
-#include "DynamicUniformBuffer.h"
 #include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
@@ -41,7 +41,8 @@ class MinimalPbrRenderer final : public IRenderer {
     void MainPass(VkCommandBuffer cmd, DrawStats &stats);
 
     struct Drawable;
-    void Draw(VkCommandBuffer cmd, Drawable &drawable, bool doubleSided, VkPipelineLayout layout, DrawStats &stats);
+    void Draw(VkCommandBuffer cmd, Drawable &drawable, bool doubleSided, bool shadowPass,
+              DrawStats &stats);
 
   private:
     // Framebuffer related things:
@@ -65,7 +66,7 @@ class MinimalPbrRenderer final : public IRenderer {
 
     VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
     VkDescriptorSet mShadowmapDescriptorSet;
-    //To-do: It's overkill to use the allocator for this
+    // To-do: It's overkill to use the allocator for this
     DescriptorAllocator mShadowmapDescriptorAllocator;
 
     using enum Vertex::AttributeType;
@@ -106,8 +107,8 @@ class MinimalPbrRenderer final : public IRenderer {
         Buffer IndexBuffer;
         uint32_t IndexCount;
 
+        BoundingBox Bbox;
         SceneKey MaterialKey = 0;
-
         std::vector<glm::mat4> Instances;
     };
 
@@ -119,7 +120,7 @@ class MinimalPbrRenderer final : public IRenderer {
     std::vector<DrawableKey> mSingleSidedDrawableKeys;
     std::vector<DrawableKey> mDoubleSidedDrawableKeys;
 
-    //Dynamic uniform data including camera/lighting:
+    // Dynamic uniform data including camera/lighting:
     struct UBOData {
         glm::mat4 CameraViewProjection;
         glm::mat4 LightViewProjection;

@@ -9,8 +9,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
 
-#include <imgui.h>
 #include "Vassert.h"
+#include <imgui.h>
 
 #include <optional>
 #include <utility>
@@ -36,8 +36,7 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
     mViewProj = mProj * mView;
     mInvViewProj = glm::inverse(mViewProj);
 
-    auto GetCorner = [&](glm::vec4 v)
-    {
+    auto GetCorner = [&](glm::vec4 v) {
         auto res = mInvViewProj * v;
         return res / res.w;
     };
@@ -82,18 +81,24 @@ glm::mat4 Camera::ProjOrthogonal()
 
 void Camera::OnImGui()
 {
-    //ImGui::Begin("Camera");
+    // ImGui::Begin("Camera");
     //
-    //ImGui::Text("NearTopLeft: (%f, %f, %f)", mFrustum.NearTopLeft.x, mFrustum.NearTopLeft.y, mFrustum.NearTopLeft.z);
-    //ImGui::Text("NearTopRight: (%f, %f, %f)", mFrustum.NearTopRight.x, mFrustum.NearTopRight.y, mFrustum.NearTopRight.z);
-    //ImGui::Text("NearBottomLeft: (%f, %f, %f)", mFrustum.NearBottomLeft.x, mFrustum.NearBottomLeft.y, mFrustum.NearBottomLeft.z);
-    //ImGui::Text("NearBottomRight: (%f, %f, %f)", mFrustum.NearBottomRight.x, mFrustum.NearBottomRight.y, mFrustum.NearBottomRight.z);
-    //ImGui::Text("FarTopLeft: (%f, %f, %f)", mFrustum.FarTopLeft.x, mFrustum.FarTopLeft.y, mFrustum.FarTopLeft.z);
-    //ImGui::Text("FarTopRight: (%f, %f, %f)", mFrustum.FarTopRight.x, mFrustum.FarTopRight.y, mFrustum.FarTopRight.z);
-    //ImGui::Text("FarBottomLeft: (%f, %f, %f)", mFrustum.FarBottomLeft.x, mFrustum.FarBottomLeft.y, mFrustum.FarBottomLeft.z);
-    //ImGui::Text("FarBottomRight: (%f, %f, %f)", mFrustum.FarBottomRight.x, mFrustum.FarBottomRight.y, mFrustum.FarBottomRight.z);
+    // ImGui::Text("NearTopLeft: (%f, %f, %f)", mFrustum.NearTopLeft.x,
+    // mFrustum.NearTopLeft.y, mFrustum.NearTopLeft.z); ImGui::Text("NearTopRight: (%f,
+    // %f, %f)", mFrustum.NearTopRight.x, mFrustum.NearTopRight.y,
+    // mFrustum.NearTopRight.z); ImGui::Text("NearBottomLeft: (%f, %f, %f)",
+    // mFrustum.NearBottomLeft.x, mFrustum.NearBottomLeft.y, mFrustum.NearBottomLeft.z);
+    // ImGui::Text("NearBottomRight: (%f, %f, %f)", mFrustum.NearBottomRight.x,
+    // mFrustum.NearBottomRight.y, mFrustum.NearBottomRight.z); ImGui::Text("FarTopLeft:
+    // (%f, %f, %f)", mFrustum.FarTopLeft.x, mFrustum.FarTopLeft.y,
+    // mFrustum.FarTopLeft.z); ImGui::Text("FarTopRight: (%f, %f, %f)",
+    // mFrustum.FarTopRight.x, mFrustum.FarTopRight.y, mFrustum.FarTopRight.z);
+    // ImGui::Text("FarBottomLeft: (%f, %f, %f)", mFrustum.FarBottomLeft.x,
+    // mFrustum.FarBottomLeft.y, mFrustum.FarBottomLeft.z); ImGui::Text("FarBottomRight:
+    // (%f, %f, %f)", mFrustum.FarBottomRight.x, mFrustum.FarBottomRight.y,
+    // mFrustum.FarBottomRight.z);
     //
-    //ImGui::End();
+    // ImGui::End();
 }
 
 void Camera::UpdateVectors()

@@ -15,7 +15,7 @@ class RenderContext {
     RenderContext(VulkanContext &ctx);
     ~RenderContext();
 
-    ///Must be called after general imgui intiialization
+    /// Must be called after general imgui intiialization
     void OnInit();
 
     void OnUpdate(float deltaTime);

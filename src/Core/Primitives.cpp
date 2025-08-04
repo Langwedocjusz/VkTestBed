@@ -319,6 +319,8 @@ static GeometryData TexturedCubeImpl(bool withTangents)
         res.Layout.VertexLayout = {Vec3, Vec2, Vec3};
 
     res.Layout.IndexType = VK_INDEX_TYPE_UINT32;
+    res.BBox.Center = glm::vec3(0.0f);
+    res.BBox.Extent = glm::vec3(0.5f);
 
     return res;
 }
@@ -490,6 +492,8 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
 
     res.Layout.VertexLayout = {Vec3, Vec2, Vec3, Vec4};
     res.Layout.IndexType = VK_INDEX_TYPE_UINT32;
+    res.BBox.Center = glm::vec3(0.0f);
+    res.BBox.Extent = glm::vec3(radius);
 
     return res;
 }

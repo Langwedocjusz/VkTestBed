@@ -16,7 +16,7 @@ static VkExtent3D FromExtent2D(VkExtent2D extent)
 
 static bool IsDepthFormat(VkFormat format)
 {
-    //To-do: handle other depth formats:
+    // To-do: handle other depth formats:
     return format == VK_FORMAT_D32_SFLOAT;
 }
 

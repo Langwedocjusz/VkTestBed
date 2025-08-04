@@ -221,7 +221,7 @@ void AssetManager::PreprocessGltfAssets()
         // Load info about double-sidedness:
         mat.DoubleSided = material.doubleSided;
 
-        //Load information about translucency/diffuse transmission:
+        // Load information about translucency/diffuse transmission:
         if (material.diffuseTransmission)
         {
             auto color = material.diffuseTransmission->diffuseTransmissionColorFactor;

@@ -505,8 +505,8 @@ void SceneGui::EnvironmentTab()
         mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
     }
 
-    //For debug:
-    //ImGui::Text("Current light dir: (%f, %f, %f)", newDir.x, newDir.y, newDir.z);
+    // For debug:
+    // ImGui::Text("Current light dir: (%f, %f, %f)", newDir.x, newDir.y, newDir.z);
 
     ImGui::Text("Hdri path:");
 

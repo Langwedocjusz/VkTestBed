@@ -4,7 +4,7 @@
 
 #include <glm/glm.hpp>
 
-struct Frustum{
+struct Frustum {
     glm::vec4 NearTopLeft;
     glm::vec4 NearTopRight;
     glm::vec4 NearBottomLeft;
@@ -16,7 +16,8 @@ struct Frustum{
 
     [[nodiscard]] std::array<glm::vec4, 8> GetVertices() const
     {
-        return {NearTopLeft, NearTopRight, NearBottomLeft, NearBottomRight, FarTopLeft, FarTopRight, FarBottomLeft, FarBottomRight};
+        return {NearTopLeft, NearTopRight, NearBottomLeft, NearBottomRight,
+                FarTopLeft,  FarTopRight,  FarBottomLeft,  FarBottomRight};
     }
 
     void SetVertices(std::array<glm::vec4, 8> vertices)

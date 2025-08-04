@@ -62,8 +62,8 @@ void HelloRenderer::OnRender()
 {
     auto &cmd = mFrame.CurrentCmd();
 
-    //This is not OnUpdate since, uniform buffers are per-image index
-    //and as such need to be acquired after new image index is set.
+    // This is not OnUpdate since, uniform buffers are per-image index
+    // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
     VkClearValue clear{{{0.0f, 0.0f, 0.0f, 0.0f}}};

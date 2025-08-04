@@ -1,6 +1,7 @@
 #include "ModelLoader.h"
 #include "Pch.h"
 
+#include "Scene.h"
 #include "TangentsGenerator.h"
 
 #include <fastgltf/core.hpp>
@@ -11,6 +12,7 @@
 #include "Vassert.h"
 
 #include <iostream>
+#include <limits>
 
 static fastgltf::Asset GetAsset(const std::filesystem::path &path,
                                 bool loadBuffers = false)
@@ -53,7 +55,7 @@ static fastgltf::Accessor &GetAttributeAccessor(fastgltf::Asset &gltf,
 
 static size_t GetIndexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitive)
 {
-    auto& indexAccessor = gltf.accessors[primitive.indicesAccessor.value()];
+    auto &indexAccessor = gltf.accessors[primitive.indicesAccessor.value()];
     return indexAccessor.count;
 }
 
@@ -116,6 +118,7 @@ static GeometryLayout ToGeoLayout(const ModelConfig &config)
 }
 
 struct VertParsingResult {
+    BoundingBox BBox;
     bool GenerateTangents = false;
 };
 
@@ -132,8 +135,11 @@ static VertParsingResult RetrieveVertices(fastgltf::Asset &gltf,
 
     auto data = new (geo.VertexData.Data) float[compCount];
 
-    // Retrieve the positions
+    // Retrieve the positions and calculate bounding box in one go:
     fastgltf::Accessor &posAccessor = GetAttributeAccessor(gltf, primitive, "POSITION");
+
+    auto minCoords = glm::vec3(std::numeric_limits<float>::max());
+    auto maxCoords = glm::vec3(std::numeric_limits<float>::lowest());
 
     fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, posAccessor,
                                                   [&](glm::vec3 v, size_t index) {
@@ -142,7 +148,13 @@ static VertParsingResult RetrieveVertices(fastgltf::Asset &gltf,
                                                       data[idx + 0] = v.x;
                                                       data[idx + 1] = v.y;
                                                       data[idx + 2] = v.z;
+
+                                                      minCoords = glm::min(minCoords, v);
+                                                      maxCoords = glm::max(maxCoords, v);
                                                   });
+
+    res.BBox.Center = 0.5f * (maxCoords + minCoords);
+    res.BBox.Extent = 0.5f * (maxCoords - minCoords);
 
     // Retrieve texture coords
     if (config.LoadTexCoord)
@@ -228,7 +240,7 @@ static VertParsingResult RetrieveVertices(fastgltf::Asset &gltf,
 static void RetrieveIndices(fastgltf::Asset &gltf, fastgltf::Primitive &primitive,
                             GeometryData &geo)
 {
-    auto& accessor = gltf.accessors[primitive.indicesAccessor.value()];
+    auto &accessor = gltf.accessors[primitive.indicesAccessor.value()];
 
     auto Indices = new (geo.IndexData.Data) uint32_t[accessor.count];
     size_t current = 0;
@@ -253,16 +265,17 @@ GeometryData ModelLoader::LoadPrimitive(fastgltf::Asset &gltf, const ModelConfig
     const auto spec = GeometrySpec::BuildS<uint32_t>(vertSize, vertCount, idxCount);
 
     auto geo = GeometryData(spec);
+    geo.Layout = ToGeoLayout(config);
 
     // Retrieve the data:
     auto vertRes = RetrieveVertices(gltf, primitive, config, geo);
+    geo.BBox = vertRes.BBox;
+
     RetrieveIndices(gltf, primitive, geo);
 
     // Generate tangents if necessary:
     if (vertRes.GenerateTangents)
         tangen::GenerateTangents(geo, layout);
-
-    geo.Layout = ToGeoLayout(config);
 
     return geo;
 }

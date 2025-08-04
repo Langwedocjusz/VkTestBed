@@ -2,14 +2,13 @@
 
 #include "Pch.h"
 
-#include "Descriptor.h"
 #include "BufferUtils.h"
+#include "Descriptor.h"
 #include "Vassert.h"
 
 DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame)
     : mCtx(ctx), mFrame(frame), mDeletionQueue(ctx)
 {
-    
 }
 
 DynamicUniformBuffer::~DynamicUniformBuffer()
@@ -17,7 +16,8 @@ DynamicUniformBuffer::~DynamicUniformBuffer()
     mDeletionQueue.flush();
 }
 
-void DynamicUniformBuffer::OnInit(std::string_view debugName, VkShaderStageFlags stageFlags, VkDeviceSize bufferSize)
+void DynamicUniformBuffer::OnInit(std::string_view debugName,
+                                  VkShaderStageFlags stageFlags, VkDeviceSize bufferSize)
 {
     vassert(!mInitialized, "Already initialized!");
 
@@ -50,7 +50,8 @@ void DynamicUniformBuffer::OnInit(std::string_view debugName, VkShaderStageFlags
 
     for (auto &uniformBuffer : mUniformBuffers)
     {
-        uniformBuffer = MakeBuffer::MappedUniform(mCtx, "CameraUniformBuffer", bufferSize);
+        uniformBuffer =
+            MakeBuffer::MappedUniform(mCtx, "CameraUniformBuffer", bufferSize);
         mDeletionQueue.push_back(uniformBuffer);
     }
 
@@ -63,7 +64,7 @@ void DynamicUniformBuffer::OnInit(std::string_view debugName, VkShaderStageFlags
     }
 }
 
-void DynamicUniformBuffer::UpdateData(void* data, VkDeviceSize size)
+void DynamicUniformBuffer::UpdateData(void *data, VkDeviceSize size)
 {
     vassert(mInitialized, "Not initialized yet!");
 

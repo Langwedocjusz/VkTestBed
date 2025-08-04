@@ -3,6 +3,9 @@
 #include "OpaqueBuffer.h"
 #include "VertexLayout.h"
 
+#include <glm/glm.hpp>
+#include <iostream>
+
 struct GeometryLayout {
     Vertex::Layout VertexLayout;
     VkIndexType IndexType;
@@ -31,11 +34,11 @@ struct GeometrySpec {
     static constexpr GeometrySpec BuildS(size_t vertSize, size_t vertCount,
                                          size_t idxCount)
     {
-        static_assert(std::is_same<IdxType, uint16_t>::value ||
-                      std::is_same<IdxType, uint32_t>::value);
+        static_assert(std::is_same_v<IdxType, uint16_t> ||
+                      std::is_same_v<IdxType, uint32_t>);
 
         constexpr auto idxAlignment = []() -> size_t {
-            if constexpr (std::is_same<IdxType, uint16_t>::value)
+            if constexpr (std::is_same_v<IdxType, uint16_t>)
                 return 2;
             else
                 return 4;
@@ -60,6 +63,46 @@ struct GeometrySpec {
     }
 };
 
+struct BoundingBox {
+    glm::vec3 Center;
+    glm::vec3 Extent;
+
+    bool InView(glm::mat4 transform)
+    {
+        std::array<glm::vec3, 8> corners{
+            Center + Extent * glm::vec3(-1, -1, -1),
+            Center + Extent * glm::vec3(-1, -1, 1),
+            Center + Extent * glm::vec3(-1, 1, -1),
+            Center + Extent * glm::vec3(-1, 1, 1),
+            Center + Extent * glm::vec3(1, -1, -1),
+            Center + Extent * glm::vec3(1, -1, 1),
+            Center + Extent * glm::vec3(1, 1, -1),
+            Center + Extent * glm::vec3(1, 1, 1),
+        };
+
+        bool allFront = true;
+        bool allBack = true;
+        bool allLeft = true;
+        bool allRight = true;
+        bool allUp = true;
+        bool allDown = true;
+
+        for (auto corner : corners)
+        {
+            glm::vec4 homogeneous = transform * glm::vec4(corner, 1.0f);
+
+            allFront = allFront && (homogeneous.z > homogeneous.w);
+            allBack = allBack && (homogeneous.z < 0.0f);
+            allLeft = allLeft && (homogeneous.x < -homogeneous.w);
+            allRight = allRight && (homogeneous.x > homogeneous.w);
+            allUp = allUp && (homogeneous.y > homogeneous.w);
+            allDown = allDown && (homogeneous.y < -homogeneous.w);
+        }
+
+        return !(allFront || allBack || allLeft || allRight || allUp || allDown);
+    }
+};
+
 struct GeometryData {
     GeometryData() = default;
 
@@ -69,7 +112,8 @@ struct GeometryData {
     {
     }
 
+    GeometryLayout Layout;
     OpaqueBuffer VertexData;
     OpaqueBuffer IndexData;
-    GeometryLayout Layout;
+    BoundingBox BBox;
 };

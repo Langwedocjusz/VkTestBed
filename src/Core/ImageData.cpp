@@ -17,9 +17,7 @@ ImageData ImageData::SinglePixel(Pixel p, bool unorm)
 
     res.Width = 1;
     res.Height = 1;
-    res.Channels = 4;
-    res.BytesPerChannel = 1;
-    res.Unorm = unorm;
+    res.Format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
     res.Data = static_cast<void *>(data);
     res.Name = "SinglePixel";
     res.mType = Type::Pixel;
@@ -46,9 +44,7 @@ ImageData ImageData::ImportSTB(const std::filesystem::path &path, bool unorm)
 
     res.Width = width;
     res.Height = height;
-    res.Channels = 4; // hence value of 4 here
-    res.BytesPerChannel = 1;
-    res.Unorm = unorm;
+    res.Format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
     res.Data = static_cast<void *>(pixels);
     res.Name = path.stem().string();
     res.mType = Type::Stb;
@@ -74,8 +70,7 @@ ImageData ImageData::ImportEXR(const std::filesystem::path &path)
 
     res.Width = width;
     res.Height = height;
-    res.Channels = 4;
-    res.BytesPerChannel = 4;
+    res.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
     res.Data = static_cast<void *>(data);
     res.Name = path.stem().string();
     res.mType = Type::Exr;
@@ -84,8 +79,7 @@ ImageData ImageData::ImportEXR(const std::filesystem::path &path)
 }
 
 ImageData::ImageData(ImageData &&other) noexcept
-    : Width(other.Width), Height(other.Height), Channels(other.Channels),
-      BytesPerChannel(other.BytesPerChannel), Unorm(other.Unorm), Data(other.Data),
+    : Width(other.Width), Height(other.Height), Format(other.Format), Data(other.Data),
       mType(other.mType)
 {
     other.Data = nullptr;
@@ -96,9 +90,7 @@ ImageData &ImageData::operator=(ImageData &&other) noexcept
 {
     Width = other.Width;
     Height = other.Height;
-    Channels = other.Channels;
-    BytesPerChannel = other.BytesPerChannel;
-    Unorm = other.Unorm;
+    Format = other.Format;
     Data = other.Data;
     Name = std::move(other.Name);
     mType = other.mType;

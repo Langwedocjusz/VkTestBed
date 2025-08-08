@@ -8,6 +8,7 @@
 #include "ImageUtils.h"
 #include "Pipeline.h"
 #include "Sampler.h"
+#include "Vassert.h"
 #include "VkUtils.h"
 
 #include <cmath>
@@ -326,9 +327,8 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
         if (currentHdri.has_value())
         {
             const auto &data = scene.Images.at(*currentHdri);
-            const auto format = VK_FORMAT_R32G32B32A32_SFLOAT;
 
-            ConvertEquirectToCubemap(data, format);
+            ConvertEquirectToCubemap(data);
             CalculateDiffuseIrradiance();
             GeneratePrefilteredMap();
         }
@@ -340,10 +340,12 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
     }
 }
 
-void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data, VkFormat format)
+void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
 {
+    vassert(data.Format == VK_FORMAT_R32G32B32A32_SFLOAT);
+
     // Load equirectangular environment map:
-    auto envMap = TextureLoaders::LoadTexture2D(mCtx, "EnvEnvironmentMap", data, format);
+    auto envMap = TextureLoaders::LoadTexture2D(mCtx, "EnvEnvironmentMap", data);
 
     DescriptorUpdater(mTexToImgDescriptorSet)
         .WriteImageStorage(0, mCubemap.View)

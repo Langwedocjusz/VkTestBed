@@ -12,11 +12,13 @@ const float PI = 3.1415926535;
 #include "common/Pbr.glsl"
 #include "common/SphericalHarmonics.glsl"
 
-layout(location = 0) in vec2 texCoord;
-layout(location = 1) in vec3 vertNormal;
-layout(location = 2) in vec4 vertTangent;
-layout(location = 3) in vec3 fragPos;
-layout(location = 4) in vec4 lightSpaceFragPos;
+layout(location = 0) in VertexData {
+    vec2 TexCoord;
+    vec3 Normal;
+    vec4 Tangent;
+    vec3 FragPos;
+    vec4 LightSpaceFragPos;
+} InData;
 
 layout(location = 0) out vec4 outColor;
 
@@ -33,6 +35,12 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
 layout(set = 1, binding = 0) uniform sampler2D albedo_map;
 layout(set = 1, binding = 1) uniform sampler2D rougness_map;
 layout(set = 1, binding = 2) uniform sampler2D normal_map;
+
+layout(scalar, set = 1, binding = 3) uniform MatUBOBlock {
+    float AlphaCutoff;
+    vec3 TranslucentColor;
+    int DoubleSided;
+} MatUBO;
 
 layout(scalar, set = 2, binding = 0) uniform EnvUBOBlock {
     int DirLightOn;
@@ -77,7 +85,7 @@ float CalculateShadowFactor(vec4 lightCoord, vec2 offset)
     //if (projCoords.z > 1.0)
     //    return 1.0;    
 
-    float bias = max(DynamicUBO.ShadowBiasMax * (1.0 - dot(vertNormal, EnvUBO.LightDir)), DynamicUBO.ShadowBiasMin);
+    float bias = max(DynamicUBO.ShadowBiasMax * (1.0 - dot(InData.Normal, EnvUBO.LightDir)), DynamicUBO.ShadowBiasMin);
     float currentDepth = projCoords.z - bias;
 
     float shadow = texture(shadowMap, vec3(uv, currentDepth));
@@ -121,38 +129,36 @@ vec3 GetSkyLight(vec3 normal, vec3 view, vec3 diffuse, vec3 f0, float roughness)
 void main()
 {
     //Sample albedo:
-    vec4 albedo = texture(albedo_map, texCoord);
+    vec4 albedo = texture(albedo_map, InData.TexCoord);
 
     //Discard fragment if transparent:
-    float alphaCutoff = PushConstants.TransAlpha.a;
-
-    if (albedo.a < alphaCutoff)
+    if (albedo.a < MatUBO.AlphaCutoff)
         discard;
 
     //Sample roughness:
-    vec4 roughnesMetallic = texture(rougness_map, texCoord);
+    vec4 roughnesMetallic = texture(rougness_map, InData.TexCoord);
 
     float roughness = roughnesMetallic.g;
     float metallic = roughnesMetallic.b;
 
     //Do normal mapping or use vertex normal:
     #ifdef USE_NORMAL_MAPPING
-    vec3 texNormal = 2.0 * texture(normal_map, texCoord).xyz - 1.0;
+    vec3 texNormal = 2.0 * texture(normal_map, InData.TexCoord).xyz - 1.0;
 
-    vec3 N = vertNormal;
-    vec3 T = vertTangent.xyz;
-    vec3 B = vertTangent.w * cross(N,T);
+    vec3 N = InData.Normal;
+    vec3 T = InData.Tangent.xyz;
+    vec3 B = InData.Tangent.w * cross(N,T);
 
     mat3 TBN = mat3(T,B,N);
 
     vec3 normal = normalize(TBN * texNormal);
 
     #else
-    vec3 normal = vertNormal;
+    vec3 normal = InData.Normal;
     #endif
 
     //Construct view vector:
-    vec3 view = normalize(DynamicUBO.ViewPos - fragPos);
+    vec3 view = normalize(DynamicUBO.ViewPos - InData.FragPos);
 
     //Handle two-sided geometry by flipping normals
     //facing away from view
@@ -171,12 +177,10 @@ void main()
     res.rgb = GetSkyLight(normal, view, diffuse, f0, roughness);
 
     #ifdef TRANSLUCENCY
-    vec3 transCol = PushConstants.TransAlpha.rgb;
-
-    if(PushConstants.DoubleSided == 1)
+    if(MatUBO.DoubleSided == 1)
     {
         vec3 irradiance = SH_HemisphereConvolve(irradianceMap, -normal);
-        res.rgb += DynamicUBO.EnvironmentFactor * transCol * diffuse * irradiance;
+        res.rgb += DynamicUBO.EnvironmentFactor * MatUBO.TranslucentColor * diffuse * irradiance;
     }
     #endif
 
@@ -186,22 +190,25 @@ void main()
 
         vec3 dirResponse = BRDF(normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
         
-        #ifdef SOFT_SHADOWS
-        float shadow = FilterPCF(lightSpaceFragPos);
-        #else
-        float shadow = CalculateShadowFactor(lightSpaceFragPos, vec2(0));
-        #endif
-
-        shadow = pow(shadow, 2.2);
+        float shadow = 1.0;
+        if (dot(lcol, normal) <= 0.0 || MatUBO.DoubleSided == 1)
+        {
+            #ifdef SOFT_SHADOWS
+            shadow = FilterPCF(InData.LightSpaceFragPos);
+            #else
+            shadow = CalculateShadowFactor(InData.LightSpaceFragPos, vec2(0));
+            #endif
+            shadow = pow(shadow, 2.2);
+        }
 
         res.rgb += shadow * lcol * dirResponse;
 
         #ifdef TRANSLUCENCY
-        if(PushConstants.DoubleSided == 1)
+        if(MatUBO.DoubleSided == 1)
         {
             vec3 translucent = BRDF(-normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
 
-            res.rgb += transCol * shadow * lcol * translucent;
+            res.rgb += MatUBO.TranslucentColor * shadow * lcol * translucent;
         }
         #endif
     }

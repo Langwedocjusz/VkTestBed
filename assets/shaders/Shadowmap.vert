@@ -13,14 +13,10 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
 } Ubo;
 
 layout(push_constant) uniform constants {
-    mat4 Transform;
-    vec4 TransAlpha;
-    int DoubleSided;
+    mat4 LightMVP;
 } PushConstants;
 
 void main() {
-    mat4 MVP = Ubo.LightViewProjection * PushConstants.Transform;
-
     texCoord = aTexCoord;
-    gl_Position = MVP * vec4(aPosition, 1.0);
+    gl_Position = PushConstants.LightMVP * vec4(aPosition, 1.0);
 }

@@ -41,8 +41,7 @@ class MinimalPbrRenderer final : public IRenderer {
     void MainPass(VkCommandBuffer cmd, DrawStats &stats);
 
     struct Drawable;
-    void Draw(VkCommandBuffer cmd, Drawable &drawable, bool doubleSided, bool shadowPass,
-              DrawStats &stats);
+    void Draw(VkCommandBuffer cmd, Drawable &drawable, bool shadowPass, DrawStats &stats);
 
   private:
     // Framebuffer related things:
@@ -76,10 +75,15 @@ class MinimalPbrRenderer final : public IRenderer {
         .IndexType = VK_INDEX_TYPE_UINT32,
     };
 
-    struct MaterialPCData {
-        glm::mat4 Transform;
-        glm::vec4 TranslucentAndAlphaCutoff;
-        int32_t DoubleSided;
+    struct ShadowPCData {
+        glm::mat4 LightMVP;
+    };
+
+    struct MainPCData {
+        glm::mat4 Model;
+        // In principle this could be a mat3, but that somehow
+        // breaks the push constant data layout...
+        glm::mat4 Normal;
     };
 
     Texture mDefaultAlbedo;
@@ -93,9 +97,14 @@ class MinimalPbrRenderer final : public IRenderer {
 
     struct Material {
         VkDescriptorSet DescriptorSet;
-        float AlphaCutoff = 0.5f;
-        bool DoubleSided = false;
-        glm::vec3 TranslucentColor = glm::vec3(0.0f);
+
+        struct {
+            float AlphaCutoff = 0.5f;
+            glm::vec3 TranslucentColor = glm::vec3(0.0f);
+            int32_t DoubleSided = 0;
+        } UboData;
+
+        Buffer UBO;
     };
 
     std::map<SceneKey, Material> mMaterials;

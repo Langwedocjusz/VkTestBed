@@ -56,7 +56,7 @@ class EnvironmentHandler {
     }
 
   private:
-    void ConvertEquirectToCubemap(const ImageData &data, VkFormat format);
+    void ConvertEquirectToCubemap(const ImageData &data);
 
     void CalculateDiffuseIrradiance();
     void GeneratePrefilteredMap();

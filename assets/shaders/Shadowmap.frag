@@ -1,13 +1,19 @@
 #version 450
 
+#extension GL_EXT_scalar_block_layout : require
+
 layout(location = 0) in vec2 texCoord;
 
 layout(set = 1, binding = 0) uniform sampler2D albedo_map;
 
+layout(scalar, set = 1, binding = 3) uniform MatUBOBlock {
+    float AlphaCutoff;
+    vec3 TranslucentColor;
+    int DoubleSided;
+} MatUBO;
+
 layout(push_constant) uniform constants {
     mat4 Transform;
-    vec4 TransAlpha;
-    int DoubleSided;
 } PushConstants;
 
 void main()
@@ -16,8 +22,6 @@ void main()
     vec4 albedo = texture(albedo_map, texCoord);
 
     //Discard fragment if transparent:
-    float alphaCutoff = PushConstants.TransAlpha.a;
-
-    if (albedo.a < alphaCutoff)
+    if (albedo.a < MatUBO.AlphaCutoff)
         discard;
 }

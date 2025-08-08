@@ -38,8 +38,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     // Create the default texture:
     auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255}, false);
 
-    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, "DefaultTexture", imgData,
-                                                  VK_FORMAT_R8G8B8A8_SRGB);
+    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, "DefaultTexture", imgData);
     mMainDeletionQueue.push_back(mDefaultImage);
 
     // Create the texture sampler:
@@ -336,8 +335,8 @@ void Minimal3DRenderer::LoadImages(const Scene &scene)
 
         auto &texture = mImages[key];
 
-        texture = TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData,
-                                                      VK_FORMAT_R8G8B8A8_SRGB);
+        texture = TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData);
+
         mSceneDeletionQueue.push_back(texture);
     }
 }

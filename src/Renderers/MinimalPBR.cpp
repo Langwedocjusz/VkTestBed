@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <limits>
 #include <ranges>
+#include <vulkan/vulkan_core.h>
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
@@ -79,12 +80,15 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
             .AddBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddBinding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx, mMainDeletionQueue);
 
     // Initialize descriptor allocator for materials:
     {
         std::vector<VkDescriptorPoolSize> poolCounts{
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
         };
 
         mMaterialDescriptorAllocator.OnInit(poolCounts);
@@ -95,12 +99,10 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0}, true);
     auto normalData = ImageData::SinglePixel(Pixel{128, 128, 255, 0}, true);
 
-    mDefaultAlbedo = TextureLoaders::LoadTexture2D(mCtx, "DefaultAlbedo", albedoData,
-                                                   VK_FORMAT_R8G8B8A8_SRGB);
-    mDefaultRoughness = TextureLoaders::LoadTexture2D(
-        mCtx, "DefaultRoughness", roughnessData, VK_FORMAT_R8G8B8A8_UNORM);
-    mDefaultNormal = TextureLoaders::LoadTexture2D(mCtx, "DefaultNormal", normalData,
-                                                   VK_FORMAT_R8G8B8A8_UNORM);
+    mDefaultAlbedo = TextureLoaders::LoadTexture2D(mCtx, "DefaultAlbedo", albedoData);
+    mDefaultRoughness =
+        TextureLoaders::LoadTexture2D(mCtx, "DefaultRoughness", roughnessData);
+    mDefaultNormal = TextureLoaders::LoadTexture2D(mCtx, "DefaultNormal", normalData);
 
     mMainDeletionQueue.push_back(mDefaultAlbedo);
     mMainDeletionQueue.push_back(mDefaultRoughness);
@@ -168,7 +170,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(MaterialPCData))
+            .SetPushConstantSize(sizeof(ShadowPCData))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest()
@@ -185,7 +187,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetColorFormat(mRenderTargetFormat)
-            .SetPushConstantSize(sizeof(MaterialPCData))
+            .SetPushConstantSize(sizeof(MainPCData))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
@@ -316,9 +318,27 @@ void MinimalPbrRenderer::OnRender()
     mFrame.Stats.NumBinds = stats.NumBinds;
 }
 
-void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool doubleSided,
-                              bool shadowPass, DrawStats &stats)
+void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool shadowPass,
+                              DrawStats &stats)
 {
+    // Bail immediately if there are no instances to draw:
+    if (drawable.Instances.empty())
+        return;
+
+    auto viewProj =
+        shadowPass ? mUBOData.LightViewProjection : mUBOData.CameraViewProjection;
+
+    // If there is only one instance and its out of view, bail before
+    // issuing per-drawablebind commands:
+    if (drawable.Instances.size() == 1)
+    {
+        if (!drawable.Bbox.InView(viewProj * drawable.Instances[0]))
+        {
+            return;
+        }
+    }
+
+    // Bind all per-drawable resources:
     auto layout = shadowPass ? mShadowmapPipeline.Layout : mMainPipeline.Layout;
 
     VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
@@ -332,25 +352,33 @@ void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool doub
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1,
                             &material.DescriptorSet, 0, nullptr);
 
+    // Push per-instance data and issue draw commands:
     for (auto &model : drawable.Instances)
     {
         // Do frustum culling:
-        auto viewProj =
-            shadowPass ? mUBOData.LightViewProjection : mUBOData.CameraViewProjection;
-
         if (!drawable.Bbox.InView(viewProj * model))
             continue;
 
-        auto transalpha = glm::vec4(material.TranslucentColor, material.AlphaCutoff);
+        if (shadowPass)
+        {
+            ShadowPCData pcData{
+                .LightMVP = mUBOData.LightViewProjection * model,
+            };
 
-        MaterialPCData pcData{
-            .Transform = model,
-            .TranslucentAndAlphaCutoff = transalpha,
-            .DoubleSided = doubleSided,
-        };
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                               sizeof(pcData), &pcData);
+        }
+        else
+        {
+            MainPCData pcData{
+                .Model = model,
+                .Normal = glm::transpose(glm::inverse(model)),
+            };
 
-        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
-                           &pcData);
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                               sizeof(pcData), &pcData);
+        }
+
         vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
 
         stats.NumDraws++;
@@ -398,7 +426,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mSingleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], false, true, stats);
+            Draw(cmd, mDrawables[key], true, stats);
         }
 
         // Draw double-sided drawables:
@@ -406,7 +434,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mDoubleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], true, true, stats);
+            Draw(cmd, mDrawables[key], true, stats);
         }
     }
     vkCmdEndRendering(cmd);
@@ -459,7 +487,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mSingleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], false, false, stats);
+            Draw(cmd, mDrawables[key], false, stats);
         }
 
         // Draw double-sided drawables:
@@ -467,7 +495,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mDoubleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], true, false, stats);
+            Draw(cmd, mDrawables[key], false, stats);
         }
 
         // Draw the background:
@@ -626,10 +654,7 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
 
         auto &texture = mImages[key];
 
-        auto format = imgData.Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
-
-        texture =
-            TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData, format);
+        texture = TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData);
 
         mSceneDeletionQueue.push_back(texture);
     }
@@ -647,14 +672,21 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         {
             mat.DescriptorSet =
                 mMaterialDescriptorAllocator.Allocate(mMaterialDescriptorSetLayout);
+
+            std::string bufName = "Material " + sceneMat.Name + "UBO";
+            mat.UBO = MakeBuffer::MappedUniform(mCtx, bufName, sizeof(mat.UboData));
+
+            mSceneDeletionQueue.push_back(mat.UBO);
         }
 
         // Update the non-image parameters:
-        mat.AlphaCutoff = sceneMat.AlphaCutoff;
-        mat.DoubleSided = sceneMat.DoubleSided;
+        mat.UboData.AlphaCutoff = sceneMat.AlphaCutoff;
+        mat.UboData.DoubleSided = sceneMat.DoubleSided;
 
         if (sceneMat.TranslucentColor.has_value())
-            mat.TranslucentColor = *sceneMat.TranslucentColor;
+            mat.UboData.TranslucentColor = *sceneMat.TranslucentColor;
+
+        Buffer::UploadToMapped(mat.UBO, &mat.UboData, sizeof(mat.UboData));
 
         // Retrieve the textures if available:
         auto GetTexture = [&](std::optional<SceneKey> opt, Texture &def) -> Texture & {
@@ -676,6 +708,7 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
             .WriteImageSampler(0, albedo.View, mSampler2D)
             .WriteImageSampler(1, roughness.View, mSampler2D)
             .WriteImageSampler(2, normal.View, mSampler2D)
+            .WriteUniformBuffer(3, mat.UBO.Handle, sizeof(mat.UboData))
             .Update(mCtx);
     }
 }
@@ -703,7 +736,7 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
                 if (prim.Material)
                     drawable.MaterialKey = matKey;
 
-                if (mat.DoubleSided)
+                if (mat.UboData.DoubleSided)
                     mDoubleSidedDrawableKeys.push_back(drawableKey);
                 else
                     mSingleSidedDrawableKeys.push_back(drawableKey);

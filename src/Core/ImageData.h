@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vulkan/vulkan_core.h>
 
 struct Pixel {
     uint8_t R;
@@ -32,9 +33,7 @@ class ImageData {
 
     int Width = 0;
     int Height = 0;
-    int Channels = 0;
-    int BytesPerChannel = 0;
-    bool Unorm = false;
+    VkFormat Format;
 
     void *Data = nullptr;
 

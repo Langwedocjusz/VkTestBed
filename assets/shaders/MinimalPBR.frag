@@ -191,7 +191,7 @@ void main()
         vec3 dirResponse = BRDF(normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
         
         float shadow = 1.0;
-        if (dot(lcol, normal) <= 0.0 || MatUBO.DoubleSided == 1)
+        if (dirResponse != vec3(0) || (MatUBO.DoubleSided == 1))
         {
             #ifdef SOFT_SHADOWS
             shadow = FilterPCF(InData.LightSpaceFragPos);

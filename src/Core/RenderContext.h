@@ -1,14 +1,13 @@
 #pragma once
 
 #include "Camera.h"
+#include "RendererFactory.h"
 #include "DeletionQueue.h"
 #include "Frame.h"
 #include "Scene.h"
 #include "VulkanContext.h"
 
 #include <memory>
-
-class IRenderer;
 
 class RenderContext {
   public:
@@ -42,6 +41,8 @@ class RenderContext {
     FrameInfo mFrameInfo;
 
     Camera mCamera;
+
+    RendererFactory mFactory;
     std::unique_ptr<IRenderer> mRenderer;
 
     VkDescriptorPool mImGuiDescriptorPool;
@@ -50,9 +51,8 @@ class RenderContext {
 
     bool mTimestampSupported = true;
     float mTimestampPeriod;
-
-    static const size_t mNumTimestamps = 2 * FrameInfo::MaxInFlight;
-    std::array<uint64_t, mNumTimestamps> mTimestamps;
+    std::vector<uint64_t> mTimestamps;
+    uint32_t mPrevImgIdx;
 
     VkQueryPool mQueryPool;
 

@@ -11,8 +11,6 @@
 #include "VkInit.h"
 #include "VkUtils.h"
 
-#include "RendererFactory.h"
-
 #include <vulkan/vulkan.h>
 
 #include "Vassert.h"
@@ -21,7 +19,7 @@
 #include <memory>
 
 RenderContext::RenderContext(VulkanContext &ctx)
-    : mCtx(ctx), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
+    : mCtx(ctx), mFactory(ctx, mFrameInfo, mCamera), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
 {
     // Create per frame command pools/buffers and sync-objects:
     for (auto &data : mFrameInfo.FrameData)
@@ -39,7 +37,6 @@ RenderContext::RenderContext(VulkanContext &ctx)
     for (auto &data : mFrameInfo.SwapchainData)
     {
         vkinit::CreateSemaphore(mCtx, data.RenderCompletedSemaphore);
-        // vkinit::CreateSemaphore(mCtx, data.ImageOwnershipSemaphore);
     }
 
     // Update the deletion queue:
@@ -54,7 +51,6 @@ RenderContext::RenderContext(VulkanContext &ctx)
     for (auto &data : mFrameInfo.SwapchainData)
     {
         mMainDeletionQueue.push_back(data.RenderCompletedSemaphore);
-        // mMainDeletionQueue.push_back(data.ImageOwnershipSemaphore);
     }
 
     // Timing setup based on:
@@ -75,11 +71,14 @@ RenderContext::RenderContext(VulkanContext &ctx)
 
     if (mTimestampSupported)
     {
+        //Allocate memory for timestamps (2 stamps per swapchain image):
+        mTimestamps.resize(2 * mCtx.SwapchainImages.size());
+
         // Create the query pool:
         VkQueryPoolCreateInfo queryPoolInfo{};
         queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
         queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
-        queryPoolInfo.queryCount = static_cast<uint32_t>(mNumTimestamps);
+        queryPoolInfo.queryCount = static_cast<uint32_t>(mTimestamps.size());
 
         auto queryRes =
             vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr, &mQueryPool);
@@ -88,7 +87,7 @@ RenderContext::RenderContext(VulkanContext &ctx)
         {
             // Reset all timestamps preemptively
             mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-                vkCmdResetQueryPool(cmd, mQueryPool, 0, mNumTimestamps);
+                vkCmdResetQueryPool(cmd, mQueryPool, 0, mTimestamps.size());
             });
 
             mMainDeletionQueue.push_back(mQueryPool);
@@ -113,10 +112,7 @@ void RenderContext::OnInit()
     // imgui descriptor pool to allocate descriptors
     // for debug images.
 
-    // To-do: make this a member variable, to allow for efficient re-creation
-    auto factory = RendererFactory(mCtx, mFrameInfo, mCamera);
-
-    mRenderer = factory.MakeRenderer(RendererType::MinimalPBR);
+    mRenderer = mFactory.MakeRenderer(RendererType::MinimalPBR);
 }
 
 RenderContext::~RenderContext()
@@ -164,6 +160,7 @@ void RenderContext::OnRender()
     // 2. Try to acquire swapchain image, bail out if that fails:
     if (mCtx.SwapchainOk)
     {
+        mPrevImgIdx = mFrameInfo.ImageIndex;
         VkResult result = vkAcquireNextImageKHR(mCtx.Device, mCtx.Swapchain, UINT64_MAX,
                                                 frameData.ImageAcquiredSemaphore,
                                                 VK_NULL_HANDLE, &mFrameInfo.ImageIndex);
@@ -313,10 +310,7 @@ void RenderContext::DrawFrame()
                         &swap.RenderCompletedSemaphore);
 
     // IV. Query for timestamp results (previous frame):
-    auto ModDecrement = [](uint32_t x, uint32_t n) { return (x != 0) ? x - 1 : n - 1; };
-
-    auto prevFrameIdx = ModDecrement(mFrameInfo.Index, FrameInfo::MaxInFlight);
-    auto queryIdx = 2 * prevFrameIdx;
+    auto queryIdx = 2 * mPrevImgIdx;
 
     auto queryRes = vkGetQueryPoolResults(mCtx.Device, mQueryPool,
                                           queryIdx,               // first query

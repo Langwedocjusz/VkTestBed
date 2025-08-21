@@ -8,18 +8,19 @@
 #include "ImGuiUtils.h"
 #include "Keycodes.h"
 #include "Renderer.h"
+#include "Vassert.h"
 #include "VkInit.h"
 #include "VkUtils.h"
-
-#include <vulkan/vulkan.h>
-
-#include "Vassert.h"
 
 #include <iostream>
 #include <memory>
 
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+
 RenderContext::RenderContext(VulkanContext &ctx)
-    : mCtx(ctx), mFactory(ctx, mFrameInfo, mCamera), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
+    : mCtx(ctx), mFactory(ctx, mFrameInfo, mCamera), mMainDeletionQueue(ctx),
+      mSwapchainDeletionQueue(ctx)
 {
     // Create per frame command pools/buffers and sync-objects:
     for (auto &data : mFrameInfo.FrameData)
@@ -53,13 +54,11 @@ RenderContext::RenderContext(VulkanContext &ctx)
         mMainDeletionQueue.push_back(data.RenderCompletedSemaphore);
     }
 
-    // Timing setup based on:
-    // https://docs.vulkan.org/samples/latest/samples/api/timestamp_queries/README.html
     // Check for timestamp support:
     auto &limits = mCtx.PhysicalDevice.properties.limits;
 
     mTimestampPeriod = limits.timestampPeriod;
-    mTimestampSupported = (mTimestampPeriod != 0.0);
+    mTimestampSupported = (mTimestampPeriod != 0.0f);
 
     if (!limits.timestampComputeAndGraphics)
     {
@@ -69,36 +68,41 @@ RenderContext::RenderContext(VulkanContext &ctx)
         }
     }
 
+    // Setup timestamp queries if possible:
     if (mTimestampSupported)
     {
-        //Allocate memory for timestamps (2 stamps per swapchain image):
-        mTimestamps.resize(2 * mCtx.SwapchainImages.size());
+        // Allocate memory for timestamps:
+        mTimestamps.resize(mFrameInfo.MaxInFlight);
+        mTimestampFirstRun.resize(mFrameInfo.MaxInFlight, true);
 
-        // Create the query pool:
-        VkQueryPoolCreateInfo queryPoolInfo{};
-        queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-        queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
-        queryPoolInfo.queryCount = static_cast<uint32_t>(mTimestamps.size());
-
-        auto queryRes =
-            vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr, &mQueryPool);
-
-        if (queryRes == VK_SUCCESS)
+        for (auto &res : mFrameInfo.FrameData)
         {
+            // Create the query pool:
+            res.QueryPool = VkQueryPool{};
+            VkQueryPool &pool = *res.QueryPool;
+
+            VkQueryPoolCreateInfo queryPoolInfo{};
+            queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+            queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+            queryPoolInfo.queryCount = mTimestampsPerFrame;
+
+            auto queryRes =
+                vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr, &pool);
+
+            vassert(queryRes == VK_SUCCESS, "Failed to create query pool!");
+            mMainDeletionQueue.push_back(pool);
+
             // Reset all timestamps preemptively
             mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-                vkCmdResetQueryPool(cmd, mQueryPool, 0, mTimestamps.size());
+                vkCmdResetQueryPool(cmd, pool, 0, mTimestampsPerFrame);
             });
-
-            mMainDeletionQueue.push_back(mQueryPool);
         }
-
-        else
-            mTimestampSupported = false;
     }
 
-    if (!mTimestampSupported)
+    else
+    {
         std::cout << "Timestamp queries not supported!\n";
+    }
 }
 
 void RenderContext::OnInit()
@@ -113,6 +117,8 @@ void RenderContext::OnInit()
     // for debug images.
 
     mRenderer = mFactory.MakeRenderer(RendererType::MinimalPBR);
+
+    CreateSwapchainResources();
 }
 
 RenderContext::~RenderContext()
@@ -122,11 +128,12 @@ RenderContext::~RenderContext()
 
 void RenderContext::OnUpdate(float deltaTime)
 {
+    // Call subsystem updates:
     mCamera.OnUpdate(deltaTime, mCtx.Swapchain.extent.width,
                      mCtx.Swapchain.extent.height);
-
     mRenderer->OnUpdate(deltaTime);
 
+    // Update statistics:
     mFrameInfo.Stats.CPUTime = 1000.0f * deltaTime;
 
     // Retrieve info about memory usage:
@@ -160,7 +167,6 @@ void RenderContext::OnRender()
     // 2. Try to acquire swapchain image, bail out if that fails:
     if (mCtx.SwapchainOk)
     {
-        mPrevImgIdx = mFrameInfo.ImageIndex;
         VkResult result = vkAcquireNextImageKHR(mCtx.Device, mCtx.Swapchain, UINT64_MAX,
                                                 frameData.ImageAcquiredSemaphore,
                                                 VK_NULL_HANDLE, &mFrameInfo.ImageIndex);
@@ -218,7 +224,40 @@ void RenderContext::DrawFrame()
     auto &swap = mFrameInfo.CurrentSwapchainData();
     auto &cmd = mFrameInfo.CurrentCmd();
 
+    auto &timestamps = mTimestamps[mFrameInfo.Index];
     auto &swapchainImage = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
+
+    // Detect first run:
+    bool firstRun = mTimestampFirstRun[mFrameInfo.ImageIndex];
+    mTimestampFirstRun[mFrameInfo.ImageIndex] = false;
+
+    // Query for timestamp results from the previous run of this frame:
+    if (!firstRun && mTimestampSupported)
+    {
+        auto queryRes = vkGetQueryPoolResults(
+            mCtx.Device, *frame.QueryPool,
+            0,                                     // first query
+            timestamps.size(),                     // query count
+            timestamps.size() * sizeof(Timestamp), // data size
+            &timestamps[0],                        // data
+            sizeof(Timestamp),                     // stride
+            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+
+        vassert(queryRes == VK_SUCCESS || queryRes == VK_NOT_READY);
+    }
+
+    // Check if the timestamps are ready, display results if so:
+    bool timestampsReady =
+        (timestamps[0].Availability != 0) && (timestamps[1].Availability != 0);
+
+    if (timestampsReady)
+    {
+        auto diff = static_cast<float>(timestamps[1].Value - timestamps[0].Value);
+        mFrameInfo.Stats.GPUTime = diff * mTimestampPeriod / 1e6f;
+    }
+
+    // Decide if new timestamps can be written:
+    bool writeTimestamps = firstRun || timestampsReady;
 
     // I. Reset the command buffer
     vkResetCommandBuffer(cmd, 0);
@@ -226,9 +265,12 @@ void RenderContext::DrawFrame()
     // II. Record the command buffer
     vkutils::BeginRecording(cmd);
     {
-        vkCmdResetQueryPool(cmd, mQueryPool, 2 * mFrameInfo.Index, 2);
-        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, mQueryPool,
-                            2 * mFrameInfo.Index);
+        if (writeTimestamps)
+        {
+            vkCmdResetQueryPool(cmd, *frame.QueryPool, 0, 1);
+            vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, *frame.QueryPool,
+                                0);
+        }
 
         // 1. Transition render target to rendering:
         barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTarget().Handle);
@@ -236,28 +278,9 @@ void RenderContext::DrawFrame()
         // 2. Render to image:
         mRenderer->OnRender();
 
-        // 3. Transition render target and swapchain image for copy
-        {
-            auto info = barrier::ImageLayoutBarrierInfo{
-                .Image = mRenderer->GetTarget().Handle,
-                .OldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-            };
-
-            barrier::ImageLayoutBarrierCoarse(cmd, info);
-        }
-
-        {
-            auto info = barrier::ImageLayoutBarrierInfo{
-                .Image = swapchainImage,
-                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-            };
-
-            barrier::ImageLayoutBarrierCoarse(cmd, info);
-        }
+        // 3. Transition render target and swapchain image for copy:
+        barrier::ImageBarrierColorToTransfer(cmd, mRenderer->GetTarget().Handle);
+        barrier::ImageBarrierSwapchainToTransfer(cmd, swapchainImage);
 
         // 4. Copy render target to swapchain image
         auto &swapExt = mCtx.Swapchain.extent;
@@ -270,35 +293,21 @@ void RenderContext::DrawFrame()
 
         vkutils::BlitImageZeroMip(cmd, mRenderer->GetTarget(), swapchainInfo);
 
-        // 5. Transition swapchain image to render
-        {
-            auto info = barrier::ImageLayoutBarrierInfo{
-                .Image = swapchainImage,
-                .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                .NewLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-            };
-
-            barrier::ImageLayoutBarrierCoarse(cmd, info);
-        }
+        // 5. Transition swapchain image to render:
+        barrier::ImageBarrierSwapchainToRender(cmd, swapchainImage);
 
         // 6. Draw the ui on top (in native res)
         DrawUI(cmd);
 
         // 7. Transition swapchain image to presentation:
+        barrier::ImageBarrierSwapchainToPresent(cmd, swapchainImage);
+
+        if (writeTimestamps)
         {
-            auto info = barrier::ImageLayoutBarrierInfo{
-                .Image = swapchainImage,
-                .OldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                .NewLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-            };
-
-            barrier::ImageLayoutBarrierCoarse(cmd, info);
+            vkCmdResetQueryPool(cmd, *frame.QueryPool, 1, 1);
+            vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                                *frame.QueryPool, 1);
         }
-
-        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, mQueryPool,
-                            2 * mFrameInfo.Index + 1);
     }
     vkutils::EndRecording(cmd);
 
@@ -308,23 +317,6 @@ void RenderContext::DrawFrame()
     common::SubmitQueue(mCtx.Queues.Graphics, &cmd, frame.InFlightFence,
                         &frame.ImageAcquiredSemaphore, &waitStage,
                         &swap.RenderCompletedSemaphore);
-
-    // IV. Query for timestamp results (previous frame):
-    auto queryIdx = 2 * mPrevImgIdx;
-
-    auto queryRes = vkGetQueryPoolResults(mCtx.Device, mQueryPool,
-                                          queryIdx,               // first query
-                                          2,                      // query count
-                                          2 * sizeof(uint64_t),   // data size
-                                          &mTimestamps[queryIdx], // data
-                                          sizeof(uint64_t),       // stride
-                                          VK_QUERY_RESULT_64_BIT);
-
-    if (queryRes == VK_SUCCESS)
-    {
-        auto diff = static_cast<float>(mTimestamps[queryIdx + 1] - mTimestamps[queryIdx]);
-        mFrameInfo.Stats.GPUTime = diff * mTimestampPeriod / 1000000.0f;
-    }
 }
 
 void RenderContext::DrawUI(VkCommandBuffer cmd)
@@ -350,6 +342,20 @@ void RenderContext::DrawUI(VkCommandBuffer cmd)
 
 void RenderContext::CreateSwapchainResources()
 {
+    //Transition all swapchain images to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd){
+        for (auto& img : mCtx.SwapchainImages)
+        {
+            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
+                .Image = img,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+            };
+            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        }
+    });
+
     mRenderer->CreateSwapchainResources();
 }
 

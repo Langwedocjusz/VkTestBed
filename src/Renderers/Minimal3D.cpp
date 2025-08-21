@@ -117,8 +117,6 @@ void Minimal3DRenderer::OnRender()
     // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
-    barrier::ImageBarrierDepthToRender(cmd, mDepthBuffer.Handle);
-
     VkClearValue clear;
     clear.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
 
@@ -233,6 +231,7 @@ void Minimal3DRenderer::CreateSwapchainResources()
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = drawUsage,
         .MipLevels = 1,
+        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
 
     mRenderTarget = MakeImage::Image2D(mCtx, "RenderTarget", renderTargetInfo);
@@ -250,6 +249,7 @@ void Minimal3DRenderer::CreateSwapchainResources()
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .MipLevels = 1,
+        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
 
     mDepthBuffer = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);

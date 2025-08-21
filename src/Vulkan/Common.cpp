@@ -1,12 +1,7 @@
 #include "Common.h"
 #include "Pch.h"
 
-#include "Frame.h"
-
 #include "Vassert.h"
-
-#include <array>
-#include <iostream>
 
 #include <vulkan/vulkan.h>
 

@@ -117,6 +117,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = 1,
+        .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
     mShadowmap = MakeImage::Image2D(mCtx, "Shadowmap", shadowmapInfo);
@@ -138,9 +139,6 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
     // Build the graphics pipelines:
     RebuildPipelines();
-
-    // Create swapchain resources:
-    CreateSwapchainResources();
 
     mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
         mSampler2D, mShadowmapView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -392,13 +390,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 {
     auto extent = VkExtent2D(mShadowmap.Info.extent.width, mShadowmap.Info.extent.height);
 
-    auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-        .Image = mShadowmap.Handle,
-        .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .NewLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-        .SubresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1},
-    };
-    barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+    barrier::ImageBarrierDepthToRender(cmd, mShadowmap.Handle);
 
     VkClearValue depthClear;
     depthClear.depthStencil = {1.0f, 0};
@@ -439,15 +431,11 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
     }
     vkCmdEndRendering(cmd);
 
-    barrierInfo.OldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+    barrier::ImageBarrierDepthToSample(cmd, mShadowmap.Handle);
 }
 
 void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 {
-    barrier::ImageBarrierDepthToRender(cmd, mDepthBuffer.Handle);
-
     VkClearValue clear;
     clear.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
 
@@ -547,6 +535,7 @@ void MinimalPbrRenderer::CreateSwapchainResources()
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = drawUsage,
         .MipLevels = 1,
+        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
 
     mRenderTarget = MakeImage::Image2D(mCtx, "RenderTarget", renderTargetInfo);
@@ -564,6 +553,7 @@ void MinimalPbrRenderer::CreateSwapchainResources()
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .MipLevels = 1,
+        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
 
     mDepthBuffer = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);

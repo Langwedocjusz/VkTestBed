@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Camera.h"
-#include "RendererFactory.h"
 #include "DeletionQueue.h"
 #include "Frame.h"
+#include "RendererFactory.h"
 #include "Scene.h"
 #include "VulkanContext.h"
 
@@ -49,12 +49,17 @@ class RenderContext {
 
     bool mShowStats = false;
 
-    bool mTimestampSupported = true;
+    bool mTimestampSupported;
     float mTimestampPeriod;
-    std::vector<uint64_t> mTimestamps;
-    uint32_t mPrevImgIdx;
 
-    VkQueryPool mQueryPool;
+    struct Timestamp {
+        uint64_t Value = 0;
+        uint64_t Availability = 0;
+    };
+
+    static constexpr size_t mTimestampsPerFrame = 2;
+    std::vector<std::array<Timestamp, mTimestampsPerFrame>> mTimestamps;
+    std::vector<bool> mTimestampFirstRun;
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;

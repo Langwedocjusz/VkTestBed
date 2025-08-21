@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -11,6 +12,8 @@ struct FrameResources {
 
     VkCommandPool CommandPool;
     VkCommandBuffer CommandBuffer;
+
+    std::optional<VkQueryPool> QueryPool;
 };
 
 struct SwapchainResources {

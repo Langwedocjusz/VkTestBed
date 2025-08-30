@@ -6,14 +6,19 @@
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-SceneGraphNode::SceneGraphNode(Scene &scene) : mScene(scene)
+SceneGraphNode::SceneGraphNode(Scene *scene) : mScene(scene)
 {
     mPayload = ChildrenArray{};
 }
 
-SceneGraphNode::SceneGraphNode(Scene &scene, SceneKey key) : mScene(scene)
+SceneGraphNode::SceneGraphNode(Scene *scene, SceneKey objKey) : mScene(scene)
 {
-    mPayload = key;
+    mPayload = objKey;
+}
+
+SceneGraphNode::SceneGraphNode(SceneKey meshKey)
+{
+    mPayload = meshKey;
 }
 
 SceneGraphNode::SceneGraphNode(SceneGraphNode &&other) noexcept
@@ -25,10 +30,10 @@ SceneGraphNode::SceneGraphNode(SceneGraphNode &&other) noexcept
 
 SceneGraphNode::~SceneGraphNode()
 {
-    if (IsLeaf())
+    if (mScene && IsLeaf())
     {
         // Remove object, the node pointed to:
-        mScene.Objects.erase(GetObjectKey());
+        mScene->Objects.erase(GetObjectKey());
     }
 }
 

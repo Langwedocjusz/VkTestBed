@@ -28,6 +28,21 @@
 #include <ranges>
 #include <vulkan/vulkan_core.h>
 
+void MinimalPbrRenderer::DestroyDrawable(const MinimalPbrRenderer::Drawable &drawable)
+{
+    auto &vertexBuffer = drawable.VertexBuffer;
+    auto &indexBuffer = drawable.IndexBuffer;
+
+    vmaDestroyBuffer(mCtx.Allocator, vertexBuffer.Handle, vertexBuffer.Allocation);
+    vmaDestroyBuffer(mCtx.Allocator, indexBuffer.Handle, indexBuffer.Allocation);
+}
+
+void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
+{
+    vkDestroyImageView(mCtx.Device, texture.View, nullptr);
+    vmaDestroyImage(mCtx.Allocator, texture.Img.Handle, texture.Img.Allocation);
+}
+
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mShadowmapDescriptorAllocator(ctx),
@@ -148,6 +163,13 @@ MinimalPbrRenderer::~MinimalPbrRenderer()
 {
     mMaterialDescriptorAllocator.DestroyPools();
     mShadowmapDescriptorAllocator.DestroyPools();
+
+    for (auto &[_, drawable] : mDrawables)
+        DestroyDrawable(drawable);
+
+    for (auto &[_, img] : mImages)
+        DestroyTexture(img);
+
     mSceneDeletionQueue.flush();
     mMaterialDeletionQueue.flush();
     mSwapchainDeletionQueue.flush();
@@ -566,12 +588,19 @@ void MinimalPbrRenderer::CreateSwapchainResources()
 
 void MinimalPbrRenderer::LoadScene(const Scene &scene)
 {
-    // To-do: OWNERSHIP!!!!!!
     if (scene.FullReload())
     {
+        for (auto &[_, drawable] : mDrawables)
+            DestroyDrawable(drawable);
+
+        for (auto &[_, texture] : mImages)
+            DestroyTexture(texture);
+
         mDrawables.clear();
         mMaterials.clear();
         mImages.clear();
+
+        mMaterialDescriptorAllocator.DestroyPools();
     }
 
     if (scene.UpdateMeshes())
@@ -597,21 +626,6 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
 
-    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo,
-                             const std::string &debugName) {
-        // Create Vertex buffer:
-        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData);
-        drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
-
-        // Create Index buffer:
-        drawable.IndexBuffer = MakeBuffer::Index(mCtx, debugName, geo.IndexData);
-        drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
-
-        // Update deletion queue:
-        mSceneDeletionQueue.push_back(drawable.VertexBuffer);
-        mSceneDeletionQueue.push_back(drawable.IndexBuffer);
-    };
-
     for (const auto &[meshKey, mesh] : scene.Meshes)
     {
         for (const auto [primIdx, prim] : enumerate(mesh.Primitives))
@@ -624,15 +638,37 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
 
             if (mGeometryLayout.IsCompatible(prim.Data.Layout))
             {
+                auto &geo = prim.Data;
                 auto &drawable = mDrawables[drawableKey];
+
+                const auto debugName = mesh.Name + std::to_string(primIdx);
+
+                // Create Vertex buffer:
+                drawable.VertexBuffer =
+                    MakeBuffer::Vertex(mCtx, debugName, geo.VertexData);
+                drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
+
+                // Create Index buffer:
+                drawable.IndexBuffer = MakeBuffer::Index(mCtx, debugName, geo.IndexData);
+                drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
+
                 drawable.Bbox = prim.Data.BBox;
-
-                const auto primName = mesh.Name + std::to_string(primIdx);
-
-                CreateBuffers(drawable, prim.Data, primName);
             }
         }
     }
+
+    // Prune orphaned drawables:
+    std::erase_if(mDrawables, [&](const auto &item) {
+        auto &drawable = item.second;
+
+        auto meshKey = item.first.first;
+        bool erase = scene.Meshes.count(meshKey) == 0;
+
+        if (erase)
+            DestroyDrawable(drawable);
+
+        return erase;
+    });
 }
 
 void MinimalPbrRenderer::LoadImages(const Scene &scene)
@@ -645,9 +681,20 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
         auto &texture = mImages[key];
 
         texture = TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData);
-
-        mSceneDeletionQueue.push_back(texture);
     }
+
+    // Prune orphaned images:
+    std::erase_if(mImages, [&](const auto &item) {
+        auto &key = item.first;
+        auto &img = item.second;
+
+        bool erase = scene.Images.count(key) == 0;
+
+        if (erase)
+            DestroyTexture(img);
+
+        return erase;
+    });
 }
 
 void MinimalPbrRenderer::LoadMaterials(const Scene &scene)

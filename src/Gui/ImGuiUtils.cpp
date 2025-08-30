@@ -50,7 +50,10 @@ void imutils::DisplayStats(FrameStats &stats)
     ImGui::Text("Draws: %i", stats.NumDraws);
     ImGui::Text("Binds: %i", stats.NumBinds);
     ImGui::Text("Dispatches: %i", stats.NumDispatches);
-    ImGui::Text("Video Memory Usage: %zu mb", stats.MemoryUsage / 1000000);
+
+    auto usageMB = stats.MemoryUsage / 1000000;
+    auto allocMB = stats.MemoryAllocation / 1000000;
+    ImGui::Text("VRAM Usage/Aloc: %zu / %zu [MB]", usageMB, allocMB);
 
     ImGui::End();
 

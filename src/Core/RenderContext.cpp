@@ -138,13 +138,18 @@ void RenderContext::OnUpdate(float deltaTime)
 
     // Retrieve info about memory usage:
     mFrameInfo.Stats.MemoryUsage = 0;
+    mFrameInfo.Stats.MemoryAllocation = 0;
 
     std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
     vmaGetHeapBudgets(mCtx.Allocator, &budgets[0]);
 
     for (uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; i++)
     {
-        mFrameInfo.Stats.MemoryUsage += budgets[i].usage;
+        auto implicit = budgets[i].usage - budgets[i].statistics.blockBytes;
+        auto objects = budgets[i].statistics.allocationBytes;
+
+        mFrameInfo.Stats.MemoryUsage += implicit + objects;
+        mFrameInfo.Stats.MemoryAllocation += budgets[i].usage;
     }
 }
 
@@ -342,9 +347,9 @@ void RenderContext::DrawUI(VkCommandBuffer cmd)
 
 void RenderContext::CreateSwapchainResources()
 {
-    //Transition all swapchain images to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
-    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd){
-        for (auto& img : mCtx.SwapchainImages)
+    // Transition all swapchain images to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+        for (auto &img : mCtx.SwapchainImages)
         {
             auto barrierInfo = barrier::ImageLayoutBarrierInfo{
                 .Image = img,

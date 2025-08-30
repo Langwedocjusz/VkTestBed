@@ -12,8 +12,14 @@ class SceneGraphNode {
     using ChildrenArray = std::vector<std::unique_ptr<SceneGraphNode>>;
 
   public:
-    SceneGraphNode(Scene &scene);
-    SceneGraphNode(Scene &scene, SceneKey key);
+    // Create node meant as part of the scene graph:
+    SceneGraphNode(Scene *scene);
+    // Create node meant as leaf of the scene graph:
+    SceneGraphNode(Scene *scene, SceneKey objKey);
+    // Create node meant as prefab root:
+    SceneGraphNode() = default;
+    // Create node meant as prefab holding only one object:
+    SceneGraphNode(SceneKey meshKey);
 
     SceneGraphNode(const SceneGraphNode &) = delete;
     SceneGraphNode &operator=(const SceneGraphNode &) = delete;
@@ -50,6 +56,6 @@ class SceneGraphNode {
     std::string Name;
 
   private:
-    Scene &mScene;
+    Scene *mScene = nullptr;
     std::variant<ChildrenArray, SceneKey> mPayload;
 };

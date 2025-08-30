@@ -26,7 +26,7 @@ auto SceneEditor::NodeOpData::GetSourceNodeIterator()
 // SceneEditor Implementation:
 
 SceneEditor::SceneEditor(Scene &scene)
-    : GraphRoot(scene), mScene(scene), mAssetManager(scene)
+    : GraphRoot(&scene), mScene(scene), mAssetManager(scene)
 {
     // Emplace test material
     auto [imgKey, img] = scene.EmplaceImage();
@@ -116,18 +116,19 @@ Scene::Environment &SceneEditor::GetEnv()
 void SceneEditor::EraseMesh(SceneKey mesh)
 {
     mScene.Meshes.erase(mesh);
-
     GraphRoot.RemoveChildrenWithMesh(mScene, mesh);
 
+    // To-do: Instead of outright removing this prefab
+    // it should probably only remove the nodes associaded
+    // with mesh being erased.
     std::erase_if(mPrefabs, [mesh](const auto &item) {
-        const auto &[key, value] = item;
+        const auto &[_, prefab] = item;
 
-        return value.Root.SubTreeContains(mesh);
+        return prefab.Root.SubTreeContains(mesh);
     });
 
-    // mScene.RequestUpdate(Scene::UpdateFlag::Meshes);
+    mScene.RequestUpdate(Scene::UpdateFlag::Meshes);
     mScene.RequestUpdate(Scene::UpdateFlag::Objects);
-    // mScene.RequestUpdateAll();
 }
 
 SceneKey SceneEditor::EmplaceObject(std::optional<SceneKey> mesh)
@@ -297,14 +298,14 @@ std::pair<SceneKey, SceneEditor::Prefab &> SceneEditor::EmplacePrefab(
     if (meshKey)
     {
         mPrefabs.emplace(key, SceneEditor::Prefab{
-                                  .Root = SceneGraphNode(mScene, *meshKey),
+                                  .Root = SceneGraphNode(*meshKey),
                                   .IsReady = false,
                               });
     }
     else
     {
         mPrefabs.emplace(key, SceneEditor::Prefab{
-                                  .Root = SceneGraphNode(mScene),
+                                  .Root = SceneGraphNode(),
                                   .IsReady = false,
                               });
     }

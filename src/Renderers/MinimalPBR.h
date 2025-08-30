@@ -43,6 +43,9 @@ class MinimalPbrRenderer final : public IRenderer {
     struct Drawable;
     void Draw(VkCommandBuffer cmd, Drawable &drawable, bool shadowPass, DrawStats &stats);
 
+    void DestroyDrawable(const Drawable &drawable);
+    void DestroyTexture(const Texture &texture);
+
   private:
     // Framebuffer related things:
     const float mInternalResolutionScale = 1.0f;
@@ -124,6 +127,7 @@ class MinimalPbrRenderer final : public IRenderer {
     // Drawables correspond to mesh primitives
     // so DrawableKey is the pair (MeshKey, PrimitiveId)
     using DrawableKey = std::pair<SceneKey, size_t>;
+
     std::map<DrawableKey, Drawable> mDrawables;
 
     std::vector<DrawableKey> mSingleSidedDrawableKeys;
@@ -156,10 +160,9 @@ class MinimalPbrRenderer final : public IRenderer {
 
     float mAddZ = 8.0f;
     float mSubZ = 20.0f;
+    float mShadowDist = 20.0f;
 
     VkDescriptorSet mDebugTextureDescriptorSet;
-
-    float mShadowDist = 20.0f;
 
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;

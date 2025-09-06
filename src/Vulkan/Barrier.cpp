@@ -2,7 +2,6 @@
 #include "Pch.h"
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 void barrier::ImageBarrier(VkCommandBuffer cmd, VkImageMemoryBarrier2 barrier)
 {

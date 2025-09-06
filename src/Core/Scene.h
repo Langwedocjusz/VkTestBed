@@ -64,7 +64,8 @@ class Scene {
         glm::vec3 LightDir = glm::vec3(-0.71f, -0.08f, 0.7f);
         glm::vec3 LightColor = glm::vec3(1.0f, 1.0f, 0.8f);
 
-        std::optional<SceneKey> HdriImage;
+        mutable bool ReloadImage = false;
+        std::optional<ImageData> HdriImage;
     } Env;
 
   public:

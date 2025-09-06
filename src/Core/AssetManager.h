@@ -3,9 +3,8 @@
 #include "ModelConfig.h"
 #include "Scene.h"
 #include "SceneGraph.h"
-#include "ThreadPool.h"
 
-#include <unordered_map>
+class ThreadPool;
 
 class AssetManager {
   public:
@@ -17,14 +16,14 @@ class AssetManager {
     void LoadModel(const ModelConfig &config, SceneGraphNode &root, bool &isReady);
     void LoadHdri(const std::filesystem::path &path);
 
+    void ClearCachedHDRI();
+
   private:
     void ParseGltf();
     void PreprocessGltfAssets();
     void ProcessGltfHierarchy(SceneGraphNode &root);
 
   private:
-    Scene &mScene;
-
     struct ImageTaskData {
         SceneKey ImageKey;
         std::optional<std::filesystem::path> Path;
@@ -39,6 +38,9 @@ class AssetManager {
         int64_t GltfMesh;
         int64_t GltfPrim;
     };
+
+  private:
+    Scene &mScene;
 
     struct Model;
     std::unique_ptr<Model> mModel;
@@ -55,14 +57,8 @@ class AssetManager {
 
     struct {
         ImageTaskData Data;
+        std::optional<std::filesystem::path> LastPath;
     } mHDRI;
 
-    // Doesn't cache gltf textures loaded with a gltf,
-    // as this will be taken care of by (whole) gltf caching.
-    // Trying to cache at higher granularity would be
-    // inconsistent anyway as some gltf materials lack a path
-    //(single pixel ones).
-    std::unordered_map<std::filesystem::path, SceneKey> mImagePathCache;
-
-    ThreadPool mThreadPool;
+    std::unique_ptr<ThreadPool> mThreadPool;
 };

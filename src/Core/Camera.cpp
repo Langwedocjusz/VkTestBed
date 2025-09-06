@@ -26,7 +26,6 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
     // which is handled on event.
 
     mView = glm::lookAt(mPos, mPos + mFront, mUp);
-
     mProj = ProjPerspective();
 
     // To compensate for change of orientation between
@@ -50,6 +49,15 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
         .FarTopRight = GetCorner(glm::vec4(1.0f, -1.0f, 1.0f, 1.0f)),
         .FarBottomLeft = GetCorner(glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f)),
         .FarBottomRight = GetCorner(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)),
+    };
+
+    // Not doing the final division makes
+    // the cubemap coordinates more stable:
+    mFrustumBack = FrustumBack{
+        .TopLeft = mInvViewProj * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
+        .TopRight = mInvViewProj * glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
+        .BottomLeft = mInvViewProj * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
+        .BottomRight = mInvViewProj * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
     };
 }
 

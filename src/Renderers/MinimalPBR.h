@@ -9,7 +9,6 @@
 #include "Renderer.h"
 #include "Scene.h"
 #include "Texture.h"
-#include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
   public:
@@ -150,13 +149,6 @@ class MinimalPbrRenderer final : public IRenderer {
     EnvironmentHandler mEnvHandler;
 
     Pipeline mBackgroundPipeline;
-
-    struct FrustumData {
-        glm::vec4 TopLeft;
-        glm::vec4 TopRight;
-        glm::vec4 BottomLeft;
-        glm::vec4 BottomRight;
-    } mFrustumData;
 
     float mAddZ = 8.0f;
     float mSubZ = 20.0f;

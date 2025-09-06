@@ -3,6 +3,7 @@
 
 #include "ModelConfig.h"
 #include "ModelLoader.h"
+#include "ThreadPool.h"
 #include "Timer.h"
 
 #include <glm/gtc/quaternion.hpp>
@@ -38,6 +39,7 @@ struct AssetManager::Model {
 
 AssetManager::AssetManager(Scene &scene) : mScene(scene)
 {
+    mThreadPool = std::make_unique<ThreadPool>();
 }
 
 AssetManager::~AssetManager()
@@ -57,7 +59,7 @@ void AssetManager::LoadModel(const ModelConfig &config, SceneGraphNode &root,
 
     // 2. Launch an async task to parse gltf and emplace new
     // elements in the scene
-    mThreadPool.Push([this, &root]() {
+    mThreadPool->Push([this, &root]() {
         ParseGltf();
         PreprocessGltfAssets();
         ProcessGltfHierarchy(root);
@@ -76,11 +78,11 @@ void AssetManager::OnUpdate()
         // 3.1. Schedule image loading:
         for (auto &data : mModel->ImgData)
         {
-            mThreadPool.Push([this, &data]() {
+            mThreadPool->Push([this, &data]() {
                 auto &img = mScene.Images[data.ImageKey];
 
                 if (data.Path)
-                    img = ImageData::ImportSTB(*data.Path, data.Unorm);
+                    img = ImageData::ImportSTB(data.Path->c_str(), data.Unorm);
                 else
                     img = ImageData::SinglePixel(data.BaseColor, data.Unorm);
 
@@ -93,7 +95,7 @@ void AssetManager::OnUpdate()
         // 3.2. Schedule mesh parsing:
         for (auto &data : mModel->PrimData)
         {
-            mThreadPool.Push([this, &data]() {
+            mThreadPool->Push([this, &data]() {
                 auto &mesh = mScene.Meshes[data.SceneMesh];
                 auto &prim = mesh.Primitives[data.ScenePrim];
 
@@ -141,26 +143,22 @@ void AssetManager::ParseGltf()
 
 void AssetManager::LoadHdri(const std::filesystem::path &path)
 {
-    mThreadPool.Push([this, path]() {
-        if (mImagePathCache.count(path) != 0)
+    mThreadPool->Push([this, path]() {
+        if (mHDRI.LastPath != path)
         {
-            mScene.Env.HdriImage = mImagePathCache[path];
-            mScene.RequestUpdate(Scene::UpdateFlag::Environment);
-        }
-
-        else
-        {
-            auto [imgKey, img] = mScene.EmplaceImage();
-
-            img = ImageData::ImportEXR(path);
-            mImagePathCache[path] = imgKey;
-
-            mScene.Env.HdriImage = imgKey;
+            mHDRI.LastPath = path;
+            mScene.Env.HdriImage = ImageData::ImportEXR(path.c_str());
+            mScene.Env.ReloadImage = true;
 
             mScene.RequestUpdate(Scene::UpdateFlag::Images);
             mScene.RequestUpdate(Scene::UpdateFlag::Environment);
         }
     });
+}
+
+void AssetManager::ClearCachedHDRI()
+{
+    mHDRI.LastPath = std::nullopt;
 }
 
 // Templated, because it handles several types

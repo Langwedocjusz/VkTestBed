@@ -2,6 +2,8 @@
 
 #include "Renderer.h"
 
+#include <memory>
+
 enum class RendererType
 {
     Hello,

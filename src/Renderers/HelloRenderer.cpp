@@ -12,7 +12,6 @@
 #include <ranges>
 #include <string>
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera), mDynamicUBO(ctx, info), mSceneDeletionQueue(ctx)

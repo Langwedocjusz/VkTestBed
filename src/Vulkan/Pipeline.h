@@ -10,7 +10,6 @@
 #include <set>
 #include <string_view>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 struct Pipeline {
     VkPipeline Handle;

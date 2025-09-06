@@ -1,9 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <filesystem>
 #include <string>
-#include <vulkan/vulkan_core.h>
 
 struct Pixel {
     uint8_t R;
@@ -16,8 +14,10 @@ struct Pixel {
 class ImageData {
   public:
     static ImageData SinglePixel(Pixel p, bool unorm);
-    static ImageData ImportSTB(const std::filesystem::path &path, bool unorm);
-    static ImageData ImportEXR(const std::filesystem::path &path);
+    // Uses c_str as that is what is passed to the underlying libraries anyway
+    // and using filesystem::path measurably bloats the compile time.
+    static ImageData ImportSTB(const char *path, bool unorm);
+    static ImageData ImportEXR(const char *path);
 
     ImageData() = default;
     ~ImageData();

@@ -8,7 +8,6 @@
 #include <string_view>
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 class SamplerBuilder {
   public:

@@ -2,12 +2,10 @@
 #include "Pch.h"
 
 #include "Shader.h"
+#include "Vassert.h"
 #include "VkUtils.h"
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
-
-#include "Vassert.h"
 
 PipelineBuilder::PipelineBuilder(std::string_view debugName)
     : mDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR}),

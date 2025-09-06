@@ -16,7 +16,6 @@
 #include <memory>
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 RenderContext::RenderContext(VulkanContext &ctx)
     : mCtx(ctx), mFactory(ctx, mFrameInfo, mCamera), mMainDeletionQueue(ctx),

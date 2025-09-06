@@ -21,7 +21,9 @@ class SceneGui {
 
     void MeshesTab();
     void MaterialsTab();
+    void ImagesTab();
     void EnvironmentTab();
+
     void AddProviderPopup();
 
     void ObjectPropertiesMenu();

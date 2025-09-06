@@ -3,7 +3,6 @@
 #include "Pch.h"
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 static VkExtent3D FromExtent2D(VkExtent2D extent)
 {

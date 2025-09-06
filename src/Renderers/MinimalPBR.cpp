@@ -21,12 +21,12 @@
 #include <imgui.h>
 #include <imgui_impl_vulkan.h>
 
+#include <iostream>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
 #include <limits>
 #include <ranges>
-#include <vulkan/vulkan_core.h>
 
 void MinimalPbrRenderer::DestroyDrawable(const MinimalPbrRenderer::Drawable &drawable)
 {
@@ -110,7 +110,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     }
 
     // Create the default textures:
-    auto albedoData = ImageData::SinglePixel(Pixel{255, 255, 255, 0}, false);
+    auto albedoData = ImageData::SinglePixel(Pixel{255, 255, 255, 255}, false);
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0}, true);
     auto normalData = ImageData::SinglePixel(Pixel{128, 128, 255, 0}, true);
 
@@ -226,7 +226,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
-            .SetPushConstantSize(sizeof(FrustumData))
+            .SetPushConstantSize(sizeof(FrustumBack))
             .AddDescriptorSetLayout(mEnvHandler.GetBackgroundDSLayout())
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
             .SetDepthFormat(mDepthFormat)
@@ -239,11 +239,6 @@ void MinimalPbrRenderer::RebuildPipelines()
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
     auto &camFr = mCamera.GetFrustum();
-
-    mFrustumData.BottomLeft = camFr.FarBottomLeft;
-    mFrustumData.BottomRight = camFr.FarBottomRight;
-    mFrustumData.TopLeft = camFr.FarTopLeft;
-    mFrustumData.TopRight = camFr.FarTopRight;
 
     // Construct worldspace coords for the shadow sampling part of the frustum:
     auto GetFarVector = [&](glm::vec4 near, glm::vec4 far) {
@@ -520,8 +515,8 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
             common::ViewportScissor(cmd, GetTargetSize());
 
             vkCmdPushConstants(cmd, mBackgroundPipeline.Layout,
-                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mFrustumData),
-                               &mFrustumData);
+                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(FrustumBack),
+                               &mCamera.GetFrustumBack());
 
             vkCmdDraw(cmd, 3, 1, 0, 0);
 
@@ -702,9 +697,9 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
     for (auto &[key, sceneMat] : scene.Materials)
     {
         const bool firstLoad = mMaterials.count(key) == 0;
-
         auto &mat = mMaterials[key];
 
+        // Only allocate new descriptor set on first load:
         if (firstLoad)
         {
             mat.DescriptorSet =

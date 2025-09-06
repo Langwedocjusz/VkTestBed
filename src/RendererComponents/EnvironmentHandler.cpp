@@ -305,8 +305,6 @@ void EnvironmentHandler::RebuildPipelines()
 
 void EnvironmentHandler::LoadEnvironment(const Scene &scene)
 {
-    auto currentHdri = scene.Env.HdriImage;
-
     const auto maxPrefilteredLod =
         static_cast<float>(std::log2(mPrefiltered.Img.Info.extent.width));
 
@@ -314,21 +312,17 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
         .LightOn = static_cast<int32_t>(scene.Env.DirLightOn),
         .LightDir = scene.Env.LightDir,
         .LightColor = scene.Env.LightColor,
-        .HdriEnabled = currentHdri.has_value(),
+        .HdriEnabled = scene.Env.HdriImage.has_value(),
         .MaxReflectionLod = maxPrefilteredLod,
     };
 
     Buffer::UploadToMapped(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
 
-    if (currentHdri != mLastHdri)
+    if (scene.Env.ReloadImage)
     {
-        mLastHdri = currentHdri;
-
-        if (currentHdri.has_value())
+        if (mEnvUBOData.HdriEnabled)
         {
-            const auto &data = scene.Images.at(*currentHdri);
-
-            ConvertEquirectToCubemap(data);
+            ConvertEquirectToCubemap(*scene.Env.HdriImage);
             CalculateDiffuseIrradiance();
             GeneratePrefilteredMap();
         }
@@ -338,6 +332,8 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
             ResetToBlack();
         }
     }
+
+    scene.Env.ReloadImage = false;
 }
 
 void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)

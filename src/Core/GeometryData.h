@@ -4,7 +4,6 @@
 #include "VertexLayout.h"
 
 #include <glm/glm.hpp>
-#include <iostream>
 
 struct GeometryLayout {
     Vertex::Layout VertexLayout;

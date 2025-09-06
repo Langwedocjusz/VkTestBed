@@ -1,13 +1,15 @@
 #include "ImageData.h"
 #include "Pch.h"
 
+#include "Vassert.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 #define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
-#include "Vassert.h"
+#include <filesystem>
 
 ImageData ImageData::SinglePixel(Pixel p, bool unorm)
 {
@@ -25,20 +27,15 @@ ImageData ImageData::SinglePixel(Pixel p, bool unorm)
     return res;
 }
 
-ImageData ImageData::ImportSTB(const std::filesystem::path &path, bool unorm)
+ImageData ImageData::ImportSTB(const char *path, bool unorm)
 {
     int width, height, channels;
 
-    // Explicit conversion needed, since on windows path.c_str()
-    // returns wchar_t:
-    std::string pathStr = path.string();
-
     //'STBI_rgb_alpha' forces 4 channels, even if source image has less:
-    stbi_uc *pixels =
-        stbi_load(pathStr.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    stbi_uc *pixels = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
 
     vassert(pixels != nullptr,
-            "Failed to load texture image. Filepath: " + path.string());
+            "Failed to load texture image. Filepath: " + std::string(path));
 
     auto res = ImageData();
 
@@ -46,25 +43,22 @@ ImageData ImageData::ImportSTB(const std::filesystem::path &path, bool unorm)
     res.Height = height;
     res.Format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
     res.Data = static_cast<void *>(pixels);
-    res.Name = path.stem().string();
+    res.Name = std::filesystem::path(path).stem().string();
     res.mType = Type::Stb;
 
     return res;
 }
 
-ImageData ImageData::ImportEXR(const std::filesystem::path &path)
+ImageData ImageData::ImportEXR(const char *path)
 {
     int width, height;
     float *data;
     const char *err = nullptr;
 
-    // Explicit conversion needed, since on windows path.c_str()
-    // returns wchar_t:
-    std::string pathStr = path.string();
+    int ret = LoadEXR(&data, &width, &height, path, &err);
 
-    int ret = LoadEXR(&data, &width, &height, pathStr.c_str(), &err);
-
-    vassert(ret == TINYEXR_SUCCESS, "Error when trying to open image: " + path.string());
+    vassert(ret == TINYEXR_SUCCESS,
+            "Error when trying to open image: " + std::string(path));
 
     auto res = ImageData();
 
@@ -72,7 +66,7 @@ ImageData ImageData::ImportEXR(const std::filesystem::path &path)
     res.Height = height;
     res.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
     res.Data = static_cast<void *>(data);
-    res.Name = path.stem().string();
+    res.Name = std::filesystem::path(path).stem().string();
     res.mType = Type::Exr;
 
     return res;

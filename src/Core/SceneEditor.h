@@ -35,6 +35,8 @@ class SceneEditor {
     Scene::Environment &GetEnv();
 
     void EraseMesh(SceneKey mesh);
+    void EraseImage(SceneKey img);
+    void ClearCachedHDRI();
 
     void LoadModel(const ModelConfig &config);
     void SetHdri(const std::filesystem::path &path);

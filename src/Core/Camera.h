@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 
+// For calculating collisions in worldspace:
 struct Frustum {
     glm::vec4 NearTopLeft;
     glm::vec4 NearTopRight;
@@ -31,6 +32,14 @@ struct Frustum {
         FarBottomLeft = vertices[6];
         FarBottomRight = vertices[7];
     }
+};
+
+// For getting cubemap coordinates for background:
+struct FrustumBack {
+    glm::vec4 TopLeft;
+    glm::vec4 TopRight;
+    glm::vec4 BottomLeft;
+    glm::vec4 BottomRight;
 };
 
 class Camera {
@@ -73,6 +82,11 @@ class Camera {
         return mFrustum;
     }
 
+    [[nodiscard]] const FrustumBack &GetFrustumBack() const
+    {
+        return mFrustumBack;
+    }
+
     enum class Movement : uint8_t
     {
         Forward,
@@ -113,4 +127,5 @@ class Camera {
     glm::mat4 mInvViewProj;
 
     Frustum mFrustum;
+    FrustumBack mFrustumBack;
 };

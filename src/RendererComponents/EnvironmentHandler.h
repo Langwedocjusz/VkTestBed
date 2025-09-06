@@ -138,7 +138,7 @@ class EnvironmentHandler {
     EnvUBOData mEnvUBOData;
     Buffer mEnvUBO;
 
-    std::optional<SceneKey> mLastHdri;
+    // std::optional<SceneKey> mLastHdri;
     DescriptorAllocator mDescriptorAllocator;
     DeletionQueue mDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;

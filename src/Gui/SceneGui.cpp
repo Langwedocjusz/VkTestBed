@@ -280,6 +280,12 @@ void SceneGui::DataMenu()
         ImGui::EndTabItem();
     }
 
+    if (ImGui::BeginTabItem("Images"))
+    {
+        ImagesTab();
+        ImGui::EndTabItem();
+    }
+
     if (ImGui::BeginTabItem("Environment"))
     {
         EnvironmentTab();
@@ -469,6 +475,37 @@ void SceneGui::MaterialsTab()
     }
 }
 
+void SceneGui::ImagesTab()
+{
+    std::optional<SceneKey> imgToErase = std::nullopt;
+
+    for (auto &[imgKey, img] : mEditor.Images())
+    {
+        ImGuiContext &g = *GImGui;
+
+        ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
+        closeButtonPos.x +=
+            ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
+
+        auto nodeOpen = ImGui::TreeNodeEx(img.Name.c_str());
+
+        if (imutils::CloseButton(img.Name.c_str(), closeButtonPos))
+        {
+            imgToErase = imgKey;
+        }
+
+        if (nodeOpen)
+        {
+            ImGui::TreePop();
+        }
+    }
+
+    if (imgToErase)
+    {
+        mEditor.EraseImage(*imgToErase);
+    }
+}
+
 void SceneGui::EnvironmentTab()
 {
     auto &env = mEditor.GetEnv();
@@ -512,8 +549,7 @@ void SceneGui::EnvironmentTab()
 
     ImGui::SameLine();
 
-    std::string selText = GetMaterialName(env.HdriImage, "EnvMap");
-    selText += "##HDRI";
+    std::string selText = env.HdriImage->Name + "##HDRI";
 
     if (ImGui::Selectable(selText.c_str()))
     {
@@ -525,11 +561,15 @@ void SceneGui::EnvironmentTab()
     if (ImGui::Button("Clear hdri", size))
     {
         env.HdriImage = std::nullopt;
+        env.ReloadImage = true;
+
+        mEditor.ClearCachedHDRI();
         mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
     }
 
     if (ImGui::Button("Reload", size))
     {
+        env.ReloadImage = true;
         mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
     }
 

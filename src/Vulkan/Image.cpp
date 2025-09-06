@@ -4,14 +4,12 @@
 #include "Barrier.h"
 #include "Buffer.h"
 #include "BufferUtils.h"
+#include "Vassert.h"
 #include "VkUtils.h"
 
 #include <vulkan/vulkan.h>
 
-#include "Vassert.h"
-
 #include <cmath>
-#include <vulkan/vulkan_core.h>
 
 uint32_t Image::CalcNumMips(uint32_t width, uint32_t height)
 {

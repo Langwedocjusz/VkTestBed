@@ -131,6 +131,31 @@ void SceneEditor::EraseMesh(SceneKey mesh)
     mScene.RequestUpdate(Scene::UpdateFlag::Objects);
 }
 
+void SceneEditor::EraseImage(SceneKey img)
+{
+    mScene.Images.erase(img);
+
+    auto ResetImageRef = [img](std::optional<SceneKey> &opt) {
+        if (opt == img)
+            opt = std::nullopt;
+    };
+
+    for (auto &[_, mat] : mScene.Materials)
+    {
+        ResetImageRef(mat.Albedo);
+        ResetImageRef(mat.Roughness);
+        ResetImageRef(mat.Normal);
+    }
+
+    mScene.RequestUpdate(Scene::UpdateFlag::Images);
+    mScene.RequestUpdate(Scene::UpdateFlag::Materials);
+}
+
+void SceneEditor::ClearCachedHDRI()
+{
+    mAssetManager.ClearCachedHDRI();
+}
+
 SceneKey SceneEditor::EmplaceObject(std::optional<SceneKey> mesh)
 {
     if (mesh)

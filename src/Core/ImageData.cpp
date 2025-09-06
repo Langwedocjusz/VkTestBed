@@ -117,3 +117,38 @@ ImageData::~ImageData()
     }
     }
 }
+
+bool ImageData::IsSinglePixel() const
+{
+    return mType == Type::Pixel;
+}
+
+glm::vec4 ImageData::GetPixelData() const
+{
+    vassert(mType == Type::Pixel);
+
+    auto ptr = static_cast<Pixel *>(Data);
+
+    return glm::vec4{
+        static_cast<float>(ptr->R) / 255.0f,
+        static_cast<float>(ptr->G) / 255.0f,
+        static_cast<float>(ptr->B) / 255.0f,
+        static_cast<float>(ptr->A) / 255.0f,
+    };
+}
+
+void ImageData::UpdatePixelData(glm::vec4 v)
+{
+    vassert(mType == Type::Pixel);
+
+    auto ptr = static_cast<Pixel *>(Data);
+
+    *ptr = Pixel{
+        .R = static_cast<uint8_t>(255.0f * v.x),
+        .G = static_cast<uint8_t>(255.0f * v.y),
+        .B = static_cast<uint8_t>(255.0f * v.z),
+        .A = static_cast<uint8_t>(255.0f * v.w),
+    };
+
+    IsUpToDate = false;
+}

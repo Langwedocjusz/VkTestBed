@@ -28,13 +28,19 @@ auto SceneEditor::NodeOpData::GetSourceNodeIterator()
 SceneEditor::SceneEditor(Scene &scene)
     : GraphRoot(&scene), mScene(scene), mAssetManager(scene)
 {
-    // Emplace test material
-    auto [imgKey, img] = scene.EmplaceImage();
-    img = ImageData::SinglePixel(Pixel{.R = 255, .G = 255, .B = 255, .A = 255}, false);
+    // Emplace test material and underlying images:
+    auto [albedoKey, albedo] = scene.EmplaceImage();
+    albedo = ImageData::SinglePixel(Pixel{.R = 255, .G = 255, .B = 255, .A = 255}, false);
+    albedo.Name = "Test Albedo";
+
+    auto [roughnessKey, roughness] = scene.EmplaceImage();
+    roughness = ImageData::SinglePixel(Pixel{.R = 0, .G = 255, .B = 255, .A = 0}, false);
+    roughness.Name = "Test Roughness";
 
     auto [matKey, mat] = scene.EmplaceMaterial();
-    mat.Name = "Pure white";
-    mat.Albedo = imgKey;
+    mat.Name = "Test Material";
+    mat.Albedo = albedoKey;
+    mat.Roughness = roughnessKey;
 
     // Add test cube:
     {

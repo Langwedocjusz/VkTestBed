@@ -670,12 +670,20 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
 {
     for (auto &[key, imgData] : scene.Images)
     {
-        if (mImages.count(key) != 0)
+        const bool alreadyLoaded = mImages.count(key) != 0;
+
+        if (alreadyLoaded && imgData.IsUpToDate)
             continue;
 
         auto &texture = mImages[key];
 
+        if (alreadyLoaded)
+        {
+            DestroyTexture(texture);
+        }
+
         texture = TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData);
+        imgData.IsUpToDate = true;
     }
 
     // Prune orphaned images:

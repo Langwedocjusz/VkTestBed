@@ -1,4 +1,5 @@
 #include "SceneGui.h"
+#include "ImageData.h"
 #include "Pch.h"
 
 #include "ImGuiUtils.h"
@@ -496,6 +497,25 @@ void SceneGui::ImagesTab()
 
         if (nodeOpen)
         {
+            if (img.IsSinglePixel())
+            {
+                glm::vec4 value = img.GetPixelData();
+
+                const std::string text = "PixelData##Image" + std::to_string(imgKey);
+
+                if (ImGui::ColorEdit4(text.c_str(), glm::value_ptr(value)))
+                {
+                    img.UpdatePixelData(value);
+
+                    // Images and materials both need to be flagged
+                    // since otherwise renderer ends up with
+                    // descriptor pointing to non-existent texture.
+                    // To-do: think about solving this renderer-side
+                    mEditor.RequestUpdate(Scene::UpdateFlag::Images);
+                    mEditor.RequestUpdate(Scene::UpdateFlag::Materials);
+                }
+            }
+
             ImGui::TreePop();
         }
     }

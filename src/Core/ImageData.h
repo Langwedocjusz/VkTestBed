@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string>
 
+#include <glm/glm.hpp>
+
 struct Pixel {
     uint8_t R;
     uint8_t G;
@@ -28,6 +30,11 @@ class ImageData {
     ImageData(ImageData &&) noexcept;
     ImageData &operator=(ImageData &&) noexcept;
 
+    [[nodiscard]] bool IsSinglePixel() const;
+
+    [[nodiscard]] glm::vec4 GetPixelData() const;
+    void UpdatePixelData(glm::vec4 v);
+
   public:
     std::string Name;
 
@@ -36,6 +43,8 @@ class ImageData {
     VkFormat Format;
 
     void *Data = nullptr;
+
+    mutable bool IsUpToDate = false;
 
   private:
     // Strategy of freeing memory depends on what library was used

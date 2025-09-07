@@ -3,14 +3,76 @@
 
 #include "imgui_internal.h"
 
-bool imutils::CloseButton(const std::string &name, ImVec2 pos)
+bool imutils::CloseButton(const char *name, ImVec2 pos)
 {
     ImGuiWindow *window = ImGui::GetCurrentWindow();
-    ImGuiID windowId = window->GetID(name.c_str());
+    ImGuiID windowId = window->GetID(name);
 
     ImGuiID id = ImGui::GetIDWithSeed("#CLOSE", nullptr, windowId);
 
     return ImGui::CloseButton(id, pos);
+}
+
+imutils::NodeDeletableState imutils::TreeNodeExDeletable(const char *name,
+                                                         ImGuiTreeNodeFlags flags)
+{
+    NodeDeletableState res;
+
+    ImGuiContext &g = *GImGui;
+
+    ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
+    closeButtonPos.x +=
+        ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
+
+    res.IsOpen = ImGui::TreeNodeEx(name, flags);
+
+    if (imutils::CloseButton(name, closeButtonPos))
+    {
+        res.IsDeleted = true;
+    }
+
+    return res;
+}
+
+imutils::NodeCopyDeletableState imutils::TreeNodeExDeleteCopyAble(
+    std::string &name, ImGuiTreeNodeFlags flags)
+{
+    NodeCopyDeletableState res;
+
+    ImGuiContext &g = *GImGui;
+
+    ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
+    closeButtonPos.x +=
+        ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
+
+    ImVec2 plusButtonPos = closeButtonPos; //= ImGui::GetCursorScreenPos();
+    plusButtonPos.x -= g.Style.FramePadding.x + g.FontSize;
+    plusButtonPos.y -= g.Style.FramePadding.y;
+
+    res.IsOpen = ImGui::TreeNodeEx(name.c_str(), flags);
+
+    if (ImGui::IsItemClicked())
+    {
+        res.IsClicked = true;
+    }
+
+    if (imutils::CloseButton(name.c_str(), closeButtonPos))
+    {
+        res.IsDeleted = true;
+    }
+
+    ImGui::SetCursorScreenPos(plusButtonPos);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+
+    std::string copyButtonName = "+##" + name;
+    if (ImGui::Button(copyButtonName.c_str()))
+    {
+        res.IsCopied = true;
+    }
+
+    ImGui::PopStyleColor();
+
+    return res;
 }
 
 void imutils::DisplayStats(FrameStats &stats)

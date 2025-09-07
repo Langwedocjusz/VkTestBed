@@ -80,12 +80,7 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
     else
         vassert(!node.IsLeaf());
 
-    // ImGui context for later:
-    ImGuiContext &g = *GImGui;
-
     // Assemble node name and flags:
-    std::string nodeName = node.Name + "##" + std::to_string(childId);
-
     int32_t flags = ImGuiTreeNodeFlags_AllowOverlap;
     flags |= ImGuiTreeNodeFlags_OpenOnDoubleClick;
     flags |= ImGuiTreeNodeFlags_OpenOnArrow;
@@ -96,16 +91,14 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
     if (mSelectedNode == &node)
         flags |= ImGuiTreeNodeFlags_Selected;
 
-    // Calculate position for the delete button (must happen before node is drawn):
-    ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
-    closeButtonPos.x +=
-        ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
+    std::string nodeName = node.Name + "##" + std::to_string(childId);
 
     // Draw the tree node:
-    const bool nodeOpen = ImGui::TreeNodeEx(nodeName.c_str(), flags);
+    auto nodeState =
+        imutils::TreeNodeExDeleteCopyAble(nodeName, flags);
 
     // Handle associated drag/drop/clicked events:
-    if (ImGui::IsItemClicked())
+    if (nodeState.IsClicked)
     {
         mSelectedNode = &node;
     }
@@ -127,8 +120,7 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
         ImGui::EndDragDropTarget();
     }
 
-    // Delete button:
-    if (imutils::CloseButton(nodeName, closeButtonPos))
+    if (nodeState.IsDeleted)
     {
         // Reset selection if necessary:
         if (&node == mSelectedNode)
@@ -144,37 +136,19 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
         mEditor.ScheduleNodeDeletion(opData);
     }
 
-    // Copy button:
+    if (nodeState.IsCopied)
     {
-        ImGui::SameLine();
+        auto opData = SceneEditor::NodeOpData{
+            .SrcParent = parent,
+            .ChildId = childId,
+            .DstParent = parent,
+        };
 
-        // Copy button:
-        std::string copyButtonName = "+##" + nodeName;
-
-        ImVec2 plusButtonPos = ImGui::GetCursorScreenPos();
-        plusButtonPos.x = closeButtonPos.x - g.Style.FramePadding.x - g.FontSize;
-        plusButtonPos.y -= g.Style.FramePadding.y;
-
-        ImGui::SetCursorScreenPos(plusButtonPos);
-
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-
-        if (ImGui::Button(copyButtonName.c_str()))
-        {
-            auto opData = SceneEditor::NodeOpData{
-                .SrcParent = parent,
-                .ChildId = childId,
-                .DstParent = parent,
-            };
-
-            mEditor.ScheduleNodeCopy(opData);
-        }
-
-        ImGui::PopStyleColor();
+        mEditor.ScheduleNodeCopy(opData);
     }
 
     // Recurse to also draw children nodes:
-    if (nodeOpen)
+    if (nodeState.IsOpen)
     {
         if (!node.IsLeaf())
         {
@@ -310,20 +284,14 @@ void SceneGui::MeshesTab()
     {
         std::string nodeName = std::to_string(counter++) + ". " + mesh.Name;
 
-        ImGuiContext &g = *GImGui;
+        auto nodeState = imutils::TreeNodeExDeletable(nodeName.c_str());
 
-        ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
-        closeButtonPos.x +=
-            ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
-
-        bool nodeOpen = ImGui::TreeNodeEx(nodeName.c_str());
-
-        if (imutils::CloseButton(nodeName, closeButtonPos))
+        if (nodeState.IsDeleted)
         {
             keyToDelete = meshKey;
         }
 
-        if (nodeOpen)
+        if (nodeState.IsOpen)
         {
             //// Display vertex layout:
             // std::string vertLayout = "Vertex Layout: ";
@@ -482,20 +450,14 @@ void SceneGui::ImagesTab()
 
     for (auto &[imgKey, img] : mEditor.Images())
     {
-        ImGuiContext &g = *GImGui;
+        auto nodeState = imutils::TreeNodeExDeletable(img.Name.c_str());
 
-        ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
-        closeButtonPos.x +=
-            ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
-
-        auto nodeOpen = ImGui::TreeNodeEx(img.Name.c_str());
-
-        if (imutils::CloseButton(img.Name.c_str(), closeButtonPos))
+        if (nodeState.IsDeleted)
         {
             imgToErase = imgKey;
         }
 
-        if (nodeOpen)
+        if (nodeState.IsOpen)
         {
             if (img.IsSinglePixel())
             {

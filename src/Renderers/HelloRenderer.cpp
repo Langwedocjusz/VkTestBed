@@ -57,7 +57,7 @@ void HelloRenderer::OnImGui()
 {
 }
 
-void HelloRenderer::OnRender()
+void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj)
 {
     auto &cmd = mFrame.CurrentCmd();
 

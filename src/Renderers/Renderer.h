@@ -18,7 +18,7 @@ class IRenderer {
 
     virtual void OnUpdate([[maybe_unused]] float deltaTime) = 0;
     virtual void OnImGui() = 0;
-    virtual void OnRender() = 0;
+    virtual void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) = 0;
 
     virtual void CreateSwapchainResources() = 0;
     virtual void RebuildPipelines() = 0;

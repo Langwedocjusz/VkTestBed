@@ -27,7 +27,7 @@ PipelineBuilder::PipelineBuilder(std::string_view debugName)
     mColorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     mDepthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 
-    // Disable depht testing by default:
+    // Disable depth and stencil testing by default:
     mDepthStencil.depthTestEnable = VK_FALSE;
     mDepthStencil.stencilTestEnable = VK_FALSE;
 
@@ -113,14 +113,38 @@ PipelineBuilder &PipelineBuilder::RequestDynamicState(VkDynamicState state)
 PipelineBuilder &PipelineBuilder::EnableDepthTest(VkCompareOp compareOp)
 {
     mDepthStencil.depthTestEnable = VK_TRUE;
-    mDepthStencil.depthWriteEnable = VK_TRUE;
     mDepthStencil.depthCompareOp = compareOp;
+    mDepthStencil.depthWriteEnable = VK_TRUE;
+
+    // Hardcoded for now:
     mDepthStencil.depthBoundsTestEnable = VK_FALSE;
-    mDepthStencil.minDepthBounds = 0.0f; // Optional
-    mDepthStencil.maxDepthBounds = 1.0f; // Optional
-    mDepthStencil.stencilTestEnable = VK_FALSE;
-    mDepthStencil.front = {}; // Optional
-    mDepthStencil.back = {};  // Optional
+    mDepthStencil.minDepthBounds = 0.0f;
+    mDepthStencil.maxDepthBounds = 1.0f;
+
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::EnableDepthTestNoWrite(VkCompareOp compareOp)
+{
+    mDepthStencil.depthTestEnable = VK_TRUE;
+    mDepthStencil.depthCompareOp = compareOp;
+    mDepthStencil.depthWriteEnable = VK_FALSE;
+
+    // Hardcoded for now:
+    mDepthStencil.depthBoundsTestEnable = VK_FALSE;
+    mDepthStencil.minDepthBounds = 0.0f;
+    mDepthStencil.maxDepthBounds = 1.0f;
+
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::EnableStencilTest(VkStencilOpState front,
+                                                    VkStencilOpState back)
+{
+    mDepthStencil.stencilTestEnable = VK_TRUE;
+    mDepthStencil.front = front;
+    mDepthStencil.back = back;
+
     return *this;
 }
 
@@ -133,6 +157,12 @@ PipelineBuilder &PipelineBuilder::SetColorFormat(VkFormat format)
 PipelineBuilder &PipelineBuilder::SetDepthFormat(VkFormat format)
 {
     mDepthFormat = format;
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::SetStencilFormat(VkFormat format)
+{
+    mStencilFormat = format;
     return *this;
 }
 
@@ -295,6 +325,16 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     if (mDepthFormat.has_value())
     {
         pipelineRenderingCreateInfo.depthAttachmentFormat = mDepthFormat.value();
+    }
+
+    if (mStencilFormat.has_value())
+    {
+        pipelineRenderingCreateInfo.stencilAttachmentFormat = mStencilFormat.value();
+    }
+
+    if (mDepthFormat.has_value() && mStencilFormat.has_value())
+    {
+        vassert(*mDepthFormat == *mStencilFormat);
     }
 
     //  Chain into the pipeline create info

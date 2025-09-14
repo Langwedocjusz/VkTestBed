@@ -21,12 +21,13 @@
 #include <imgui.h>
 #include <imgui_impl_vulkan.h>
 
-#include <iostream>
+#include <utility>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
 #include <limits>
 #include <ranges>
+#include <vulkan/vulkan_core.h>
 
 void MinimalPbrRenderer::DestroyDrawable(const MinimalPbrRenderer::Drawable &drawable)
 {
@@ -45,8 +46,8 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
-    : IRenderer(ctx, info, camera), mShadowmapDescriptorAllocator(ctx),
-      mMaterialDescriptorAllocator(ctx), mDynamicUBO(ctx, info), mEnvHandler(ctx),
+    : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
+      mDynamicUBO(ctx, info), mShadowmapDescriptorAllocator(ctx), mEnvHandler(ctx),
       mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
     // Create the texture samplers:
@@ -128,7 +129,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
     Image2DInfo shadowmapInfo{
         .Extent = {shadowRes, shadowRes},
-        .Format = mDepthFormat,
+        .Format = mShadowmapFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = 1,
@@ -136,7 +137,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     };
 
     mShadowmap = MakeImage::Image2D(mCtx, "Shadowmap", shadowmapInfo);
-    mShadowmapView = MakeView::View2D(mCtx, "ShadowmapView", mShadowmap, mDepthFormat,
+    mShadowmapView = MakeView::View2D(mCtx, "ShadowmapView", mShadowmap, mShadowmapFormat,
                                       VK_IMAGE_ASPECT_DEPTH_BIT);
 
     mMainDeletionQueue.push_back(mShadowmap);
@@ -194,7 +195,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest()
-            .SetDepthFormat(mDepthFormat)
+            .SetDepthFormat(mShadowmapFormat)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mMainPipeline =
@@ -213,7 +214,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .AddDescriptorSetLayout(mShadowmapDescriptorSetLayout)
             .EnableDepthTest()
-            .SetDepthFormat(mDepthFormat)
+            .SetDepthFormat(mDepthStencilFormat)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mBackgroundPipeline =
@@ -229,11 +230,66 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPushConstantSize(sizeof(FrustumBack))
             .AddDescriptorSetLayout(mEnvHandler.GetBackgroundDSLayout())
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
-            .SetDepthFormat(mDepthFormat)
+            .SetDepthFormat(mDepthStencilFormat)
             .Build(mCtx, mPipelineDeletionQueue);
 
     // Rebuild env handler pipelines as well:
     mEnvHandler.RebuildPipelines();
+
+    VkStencilOpState stencilWriteState{
+        .failOp = VK_STENCIL_OP_REPLACE,
+        .passOp = VK_STENCIL_OP_REPLACE,
+        .depthFailOp = VK_STENCIL_OP_REPLACE,
+        .compareOp = VK_COMPARE_OP_ALWAYS,
+        .compareMask = ~0u,
+        .writeMask = ~0u,
+        .reference = 1,
+    };
+
+    mStencilPipeline =
+        PipelineBuilder("MinimalPBRStencilPipeline")
+            .SetShaderPathVertex("assets/spirv/StencilVert.spv")
+            .SetShaderPathFragment("assets/spirv/StencilFrag.spv")
+            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .EnableStencilTest(stencilWriteState, stencilWriteState)
+            .SetStencilFormat(mDepthStencilFormat)
+            .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
+            .SetDepthFormat(mDepthStencilFormat)
+            .SetPushConstantSize(sizeof(OutlinePCData))
+            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .Build(mCtx, mPipelineDeletionQueue);
+
+    VkStencilOpState stencilOutlineState{
+        .failOp = VK_STENCIL_OP_KEEP,
+        .passOp = VK_STENCIL_OP_REPLACE,
+        .depthFailOp = VK_STENCIL_OP_KEEP,
+        .compareOp = VK_COMPARE_OP_NOT_EQUAL,
+        .compareMask = ~0u,
+        .writeMask = 0u,
+        .reference = 1,
+    };
+
+    mOutlinePipeline =
+        PipelineBuilder("MinimalPBRStencilPipeline")
+            .SetShaderPathVertex("assets/spirv/OutlineVert.spv")
+            .SetShaderPathFragment("assets/spirv/OutlineFrag.spv")
+            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .SetColorFormat(mRenderTargetFormat)
+            .EnableStencilTest(stencilOutlineState, stencilOutlineState)
+            .SetStencilFormat(mDepthStencilFormat)
+            .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
+            .SetDepthFormat(mDepthStencilFormat)
+            .SetPushConstantSize(sizeof(OutlinePCData))
+            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
@@ -315,7 +371,7 @@ void MinimalPbrRenderer::OnImGui()
     ImGui::End();
 }
 
-void MinimalPbrRenderer::OnRender()
+void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj)
 {
     auto &cmd = mFrame.CurrentCmd();
 
@@ -328,13 +384,16 @@ void MinimalPbrRenderer::OnRender()
     ShadowPass(cmd, stats);
     MainPass(cmd, stats);
 
+    if (highlightedObj.has_value())
+        OutlinePass(cmd, *highlightedObj);
+
     mFrame.Stats.NumTriangles = stats.NumIdx / 3;
     mFrame.Stats.NumDraws = stats.NumDraws;
     mFrame.Stats.NumBinds = stats.NumBinds;
 }
 
-void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool shadowPass,
-                              DrawStats &stats)
+void MinimalPbrRenderer::DrawAllInstances(VkCommandBuffer cmd, Drawable &drawable,
+                                          bool shadowPass, DrawStats &stats)
 {
     // Bail immediately if there are no instances to draw:
     if (drawable.Instances.empty())
@@ -344,7 +403,7 @@ void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool shad
         shadowPass ? mUBOData.LightViewProjection : mUBOData.CameraViewProjection;
 
     // If there is only one instance and its out of view, bail before
-    // issuing per-drawablebind commands:
+    // issuing per-drawable bind commands:
     if (drawable.Instances.size() == 1)
     {
         if (!drawable.Bbox.InView(viewProj * drawable.Instances[0]))
@@ -403,6 +462,42 @@ void MinimalPbrRenderer::Draw(VkCommandBuffer cmd, Drawable &drawable, bool shad
     stats.NumBinds += 3;
 }
 
+void MinimalPbrRenderer::DrawSingleInstanceOutline(VkCommandBuffer cmd,
+                                                   DrawableKey drawableKey,
+                                                   size_t instanceId,
+                                                   VkPipelineLayout layout)
+{
+    auto &drawable = mDrawables[drawableKey];
+    auto &model = drawable.Instances.at(instanceId);
+
+    // Do frustum culling:
+    if (!drawable.Bbox.InView(mUBOData.CameraViewProjection * model))
+        return;
+
+    // Bind all per-drawable resources:
+    VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
+    VkDeviceSize vertOffset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
+
+    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0, mGeometryLayout.IndexType);
+
+    auto &material = mMaterials.at(drawable.MaterialKey);
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1,
+                            &material.DescriptorSet, 0, nullptr);
+
+    // Push per-instance data and issue draw commands:
+    OutlinePCData pcData{
+        .Model = model,
+    };
+
+    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
+                       &pcData);
+
+    // Draw:
+    vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+}
+
 void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 {
     auto extent = VkExtent2D(mShadowmap.Info.extent.width, mShadowmap.Info.extent.height);
@@ -413,7 +508,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
     depthClear.depthStencil = {1.0f, 0};
 
     auto depthAttachment = vkinit::CreateAttachmentInfo(
-        mShadowmapView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depthClear);
+        mShadowmapView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, depthClear);
 
     VkRenderingInfo renderingInfo =
         vkinit::CreateRenderingInfoDepthOnly(extent, depthAttachment);
@@ -435,7 +530,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mSingleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], true, stats);
+            DrawAllInstances(cmd, mDrawables[key], true, stats);
         }
 
         // Draw double-sided drawables:
@@ -443,7 +538,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mDoubleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], true, stats);
+            DrawAllInstances(cmd, mDrawables[key], true, stats);
         }
     }
     vkCmdEndRendering(cmd);
@@ -463,10 +558,11 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     depthClear.depthStencil = {1.0f, 0};
 
     auto depthAttachment = vkinit::CreateAttachmentInfo(
-        mDepthBufferView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depthClear);
+        mDepthStencilBufferView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        depthClear);
 
     VkRenderingInfo renderingInfo =
-        vkinit::CreateRenderingInfo(GetTargetSize(), colorAttachment, depthAttachment);
+        vkinit::CreateRenderingInfo(GetTargetSize(), colorAttachment, depthAttachment, true);
 
     vkCmdBeginRendering(cmd, &renderingInfo);
     {
@@ -492,7 +588,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mSingleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], false, stats);
+            DrawAllInstances(cmd, mDrawables[key], false, stats);
         }
 
         // Draw double-sided drawables:
@@ -500,7 +596,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
         for (auto key : mDoubleSidedDrawableKeys)
         {
-            Draw(cmd, mDrawables[key], false, stats);
+            DrawAllInstances(cmd, mDrawables[key], false, stats);
         }
 
         // Draw the background:
@@ -525,6 +621,81 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         }
     }
     vkCmdEndRendering(cmd);
+}
+
+void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedObj)
+{
+    // Update selected drawables list if necessary:
+    if (highlightedObj != mLastHighlightedObjKey)
+    {
+        mSelectedDrawableKeys.clear();
+
+        for (auto &[key, list] : mObjectCache)
+        {
+            if (key == highlightedObj)
+            {
+                for (auto value : list)
+                    mSelectedDrawableKeys.push_back(value);
+            }
+        }
+
+        mLastHighlightedObjKey = highlightedObj;
+    }
+
+    // Draw to stencil:
+    {
+        auto stencilAttachment = vkinit::CreateAttachmentInfo(
+            mDepthStencilBufferView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+        VkRenderingInfo renderingInfo =
+            vkinit::CreateRenderingInfoDepthStencil(GetTargetSize(), stencilAttachment);
+
+        vkCmdBeginRendering(cmd, &renderingInfo);
+
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mStencilPipeline.Handle);
+        common::ViewportScissor(cmd, GetTargetSize());
+
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mStencilPipeline.Layout, 0, 1,
+                                mDynamicUBO.DescriptorSet(), 0, nullptr);
+
+        for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
+        {
+            DrawSingleInstanceOutline(cmd, drawableKey, instanceId,
+                                      mStencilPipeline.Layout);
+        }
+
+        vkCmdEndRendering(cmd);
+    }
+
+    // Draw outline:
+    {
+        auto colorAttachment = vkinit::CreateAttachmentInfo(
+            mRenderTargetView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        auto stencilAttachment = vkinit::CreateAttachmentInfo(
+            mDepthStencilBufferView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+        VkRenderingInfo renderingInfo = vkinit::CreateRenderingInfo(
+            GetTargetSize(), colorAttachment, stencilAttachment, true);
+
+        vkCmdBeginRendering(cmd, &renderingInfo);
+
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mOutlinePipeline.Handle);
+        common::ViewportScissor(cmd, GetTargetSize());
+
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mOutlinePipeline.Layout, 0, 1,
+                                mDynamicUBO.DescriptorSet(), 0, nullptr);
+
+        for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
+        {
+            DrawSingleInstanceOutline(cmd, drawableKey, instanceId,
+                                      mOutlinePipeline.Layout);
+        }
+
+        vkCmdEndRendering(cmd);
+    }
 }
 
 void MinimalPbrRenderer::CreateSwapchainResources()
@@ -566,19 +737,20 @@ void MinimalPbrRenderer::CreateSwapchainResources()
     // Create depth buffer:
     Image2DInfo depthBufferInfo{
         .Extent = drawExtent,
-        .Format = mDepthFormat,
+        .Format = mDepthStencilFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .MipLevels = 1,
-        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
 
-    mDepthBuffer = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);
-    mDepthBufferView = MakeView::View2D(mCtx, "DepthBufferView", mDepthBuffer,
-                                        mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    mDepthStencilBuffer = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);
+    mDepthStencilBufferView = MakeView::View2D(
+        mCtx, "DepthBufferView", mDepthStencilBuffer, mDepthStencilFormat,
+        VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
-    mSwapchainDeletionQueue.push_back(mDepthBuffer);
-    mSwapchainDeletionQueue.push_back(mDepthBufferView);
+    mSwapchainDeletionQueue.push_back(mDepthStencilBuffer);
+    mSwapchainDeletionQueue.push_back(mDepthStencilBufferView);
 }
 
 void MinimalPbrRenderer::LoadScene(const Scene &scene)
@@ -789,10 +961,13 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 {
     using namespace std::views;
 
+    // Load all object transforms and build object index cache:
+    mObjectCache.clear();
+
     for (auto &[_, drawable] : mDrawables)
         drawable.Instances.clear();
 
-    for (const auto &[key, obj] : scene.Objects)
+    for (const auto &[objKey, obj] : scene.Objects)
     {
         if (!obj.Mesh.has_value())
             continue;
@@ -802,7 +977,18 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
         for (const auto [primIdx, _] : enumerate(scene.Meshes.at(meshKey).Primitives))
         {
             auto drawableKey = DrawableKey{meshKey, primIdx};
-            mDrawables[drawableKey].Instances.push_back(obj.Transform);
+
+            if (mDrawables.count(drawableKey) == 0)
+            {
+                continue;
+            }
+
+            auto &drawable = mDrawables[drawableKey];
+
+            auto& list = mObjectCache[objKey];
+            list.emplace_back(drawableKey, drawable.Instances.size());
+
+            drawable.Instances.push_back(obj.Transform);
         }
     }
 }

@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <vulkan/vulkan_core.h>
 
 struct Image2DInfo {
     VkExtent2D Extent;

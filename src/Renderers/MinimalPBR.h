@@ -9,6 +9,7 @@
 #include "Renderer.h"
 #include "Scene.h"
 #include "Texture.h"
+#include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
   public:
@@ -17,64 +18,17 @@ class MinimalPbrRenderer final : public IRenderer {
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;
     void OnImGui() override;
-    void OnRender() override;
+    void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) override;
 
     void CreateSwapchainResources() override;
     void RebuildPipelines() override;
     void LoadScene(const Scene &scene) override;
 
   private:
-    void LoadMeshes(const Scene &scene);
-    void LoadImages(const Scene &scene);
-    void LoadMaterials(const Scene &scene);
-    void LoadMeshMaterials(const Scene &scene);
-    void LoadObjects(const Scene &scene);
-
     struct DrawStats {
         uint32_t NumIdx = 0;
         uint32_t NumDraws = 0;
         uint32_t NumBinds = 0;
-    };
-
-    void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
-    void MainPass(VkCommandBuffer cmd, DrawStats &stats);
-
-    struct Drawable;
-    void Draw(VkCommandBuffer cmd, Drawable &drawable, bool shadowPass, DrawStats &stats);
-
-    void DestroyDrawable(const Drawable &drawable);
-    void DestroyTexture(const Texture &texture);
-
-  private:
-    // Framebuffer related things:
-    const float mInternalResolutionScale = 1.0f;
-    const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
-
-    const VkFormat mDepthFormat = VK_FORMAT_D32_SFLOAT;
-    Image mDepthBuffer;
-    VkImageView mDepthBufferView;
-
-    // Common resources:
-    VkSampler mSampler2D;
-    VkSampler mSamplerShadowmap;
-
-    // Shadow and main material pass:
-    Pipeline mShadowmapPipeline;
-    Pipeline mMainPipeline;
-
-    Image mShadowmap;
-    VkImageView mShadowmapView;
-
-    VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
-    VkDescriptorSet mShadowmapDescriptorSet;
-    // To-do: It's overkill to use the allocator for this
-    DescriptorAllocator mShadowmapDescriptorAllocator;
-
-    using enum Vertex::AttributeType;
-
-    GeometryLayout mGeometryLayout{
-        .VertexLayout = {Vec3, Vec2, Vec3, Vec4},
-        .IndexType = VK_INDEX_TYPE_UINT32,
     };
 
     struct ShadowPCData {
@@ -88,14 +42,9 @@ class MinimalPbrRenderer final : public IRenderer {
         glm::mat4 Normal;
     };
 
-    Texture mDefaultAlbedo;
-    Texture mDefaultRoughness;
-    Texture mDefaultNormal;
-
-    std::map<SceneKey, Texture> mImages;
-
-    VkDescriptorSetLayout mMaterialDescriptorSetLayout;
-    DescriptorAllocator mMaterialDescriptorAllocator;
+    struct OutlinePCData {
+        glm::mat4 Model;
+    };
 
     struct Material {
         VkDescriptorSet DescriptorSet;
@@ -108,8 +57,6 @@ class MinimalPbrRenderer final : public IRenderer {
 
         Buffer UBO;
     };
-
-    std::map<SceneKey, Material> mMaterials;
 
     struct Drawable {
         Buffer VertexBuffer;
@@ -127,12 +74,84 @@ class MinimalPbrRenderer final : public IRenderer {
     // so DrawableKey is the pair (MeshKey, PrimitiveId)
     using DrawableKey = std::pair<SceneKey, size_t>;
 
+  private:
+    void LoadMeshes(const Scene &scene);
+    void LoadImages(const Scene &scene);
+    void LoadMaterials(const Scene &scene);
+    void LoadMeshMaterials(const Scene &scene);
+    void LoadObjects(const Scene &scene);
+
+    void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
+    void MainPass(VkCommandBuffer cmd, DrawStats &stats);
+    void OutlinePass(VkCommandBuffer cmd, SceneKey highlightedObj);
+
+    void DrawAllInstances(VkCommandBuffer cmd, Drawable &drawable, bool shadowPass,
+                          DrawStats &stats);
+    void DrawSingleInstanceOutline(VkCommandBuffer cmd, DrawableKey drawableKey,
+                                   size_t instanceId, VkPipelineLayout layout);
+
+    void DestroyDrawable(const Drawable &drawable);
+    void DestroyTexture(const Texture &texture);
+
+  private:
+    // Framebuffer:
+    const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    const VkFormat mDepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+    const VkFormat mShadowmapFormat = VK_FORMAT_D32_SFLOAT;
+
+    Image mDepthStencilBuffer;
+    VkImageView mDepthStencilBufferView;
+
+    // Common resources:
+    VkSampler mSampler2D;
+
+    // Graphics pipelines:
+    Pipeline mShadowmapPipeline;
+    Pipeline mMainPipeline;
+    Pipeline mBackgroundPipeline;
+    Pipeline mStencilPipeline;
+    Pipeline mOutlinePipeline;
+
+    // Images for materials:
+    Texture mDefaultAlbedo;
+    Texture mDefaultRoughness;
+    Texture mDefaultNormal;
+    std::map<SceneKey, Texture> mImages;
+
+    // Descriptors for materials:s
+    VkDescriptorSetLayout mMaterialDescriptorSetLayout;
+    DescriptorAllocator mMaterialDescriptorAllocator;
+    std::map<SceneKey, Material> mMaterials;
+
+    // Drawables:
+    using enum Vertex::AttributeType;
+
+    GeometryLayout mGeometryLayout{
+        .VertexLayout = {Vec3, Vec2, Vec3, Vec4},
+        .IndexType = VK_INDEX_TYPE_UINT32,
+    };
+
     std::map<DrawableKey, Drawable> mDrawables;
 
+    // Drawable keys separated by wheter the underlying material is double sided:
     std::vector<DrawableKey> mSingleSidedDrawableKeys;
     std::vector<DrawableKey> mDoubleSidedDrawableKeys;
 
-    // Dynamic uniform data including camera/lighting:
+    // Drawables whose outline should be drawn:
+    std::optional<SceneKey> mLastHighlightedObjKey = std::nullopt;
+    // size_t in pair is transform id:
+    std::vector<std::pair<DrawableKey, size_t>> mSelectedDrawableKeys;
+
+    // Index cache for retrieving drawables and transform ids based on object id:
+    std::map<SceneKey, std::vector<std::pair<DrawableKey, size_t>>> mObjectCache;
+
+    // Some renderer settings:
+    const float mInternalResolutionScale = 1.0f;
+    float mAddZ = 8.0f;
+    float mSubZ = 20.0f;
+    float mShadowDist = 20.0f;
+
+    // Dynamic uniform data including camera/lighting and more renderer settings:
     struct UBOData {
         glm::mat4 CameraViewProjection;
         glm::mat4 LightViewProjection;
@@ -145,15 +164,20 @@ class MinimalPbrRenderer final : public IRenderer {
 
     DynamicUniformBuffer mDynamicUBO;
 
+    // Shadow map:
+    Image mShadowmap;
+    VkImageView mShadowmapView;
+    VkSampler mSamplerShadowmap;
+
+    VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
+    VkDescriptorSet mShadowmapDescriptorSet;
+    // To-do: It's overkill to use the allocator for this
+    DescriptorAllocator mShadowmapDescriptorAllocator;
+
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;
 
-    Pipeline mBackgroundPipeline;
-
-    float mAddZ = 8.0f;
-    float mSubZ = 20.0f;
-    float mShadowDist = 20.0f;
-
+    // Descriptor set for sending shadow map view to imgui:
     VkDescriptorSet mDebugTextureDescriptorSet;
 
     // Deletion queues:

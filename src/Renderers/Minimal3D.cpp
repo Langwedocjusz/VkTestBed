@@ -109,7 +109,7 @@ void Minimal3DRenderer::OnImGui()
 {
 }
 
-void Minimal3DRenderer::OnRender()
+void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj)
 {
     auto &cmd = mFrame.CurrentCmd();
 

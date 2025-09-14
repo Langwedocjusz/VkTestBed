@@ -8,6 +8,7 @@ class SceneGui {
     SceneGui(SceneEditor &editor);
 
     void OnImGui();
+    [[nodiscard]] std::optional<SceneKey> GetSelection() const;
 
   private:
     void SceneHierarchyMenu();

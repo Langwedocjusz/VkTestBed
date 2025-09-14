@@ -37,8 +37,11 @@ class PipelineBuilder {
 
     PipelineBuilder &SetColorFormat(VkFormat format);
     PipelineBuilder &SetDepthFormat(VkFormat format);
+    PipelineBuilder &SetStencilFormat(VkFormat format);
 
     PipelineBuilder &EnableDepthTest(VkCompareOp compareOp = VK_COMPARE_OP_LESS);
+    PipelineBuilder &EnableDepthTestNoWrite(VkCompareOp compareOp = VK_COMPARE_OP_LESS);
+    PipelineBuilder &EnableStencilTest(VkStencilOpState front, VkStencilOpState back);
     PipelineBuilder &EnableBlending();
 
     PipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
@@ -68,6 +71,7 @@ class PipelineBuilder {
 
     std::optional<VkFormat> mColorFormat = std::nullopt;
     std::optional<VkFormat> mDepthFormat = std::nullopt;
+    std::optional<VkFormat> mStencilFormat = std::nullopt;
 
     std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
 

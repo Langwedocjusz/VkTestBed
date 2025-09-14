@@ -15,7 +15,7 @@ class HelloRenderer final : public IRenderer {
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;
     void OnImGui() override;
-    void OnRender() override;
+    void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) override;
 
     void CreateSwapchainResources() override;
     void RebuildPipelines() override;

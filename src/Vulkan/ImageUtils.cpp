@@ -3,6 +3,9 @@
 #include "Pch.h"
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+
+#include <set>
 
 static VkExtent3D FromExtent2D(VkExtent2D extent)
 {
@@ -13,10 +16,31 @@ static VkExtent3D FromExtent2D(VkExtent2D extent)
     };
 }
 
-static bool IsDepthFormat(VkFormat format)
+static VkImageAspectFlags GetDefaultAspect(VkFormat format)
 {
-    // To-do: handle other depth formats:
-    return format == VK_FORMAT_D32_SFLOAT;
+    const std::set<VkFormat> depthStencilFormats{
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT,
+        VK_FORMAT_D16_UNORM_S8_UINT,
+    };
+
+    const std::set<VkFormat> depthFormats{
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D16_UNORM,
+    };
+
+    const std::set<VkFormat> stencilFormats{
+        VK_FORMAT_D24_UNORM_S8_UINT,
+    };
+
+    if (depthStencilFormats.find(format) != depthStencilFormats.end())
+        return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    else if (depthFormats.find(format) != depthFormats.end())
+        return VK_IMAGE_ASPECT_DEPTH_BIT;
+    else if (stencilFormats.find(format) != stencilFormats.end())
+        return VK_IMAGE_ASPECT_STENCIL_BIT;
+
+    return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
 Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
@@ -46,15 +70,12 @@ Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
     if (info.Layout.has_value())
     {
         auto subresourceRange = VkImageSubresourceRange{
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .aspectMask = GetDefaultAspect(info.Format),
             .baseMipLevel = 0,
             .levelCount = res.Info.mipLevels,
             .baseArrayLayer = 0,
             .layerCount = res.Info.arrayLayers,
         };
-
-        if (IsDepthFormat(info.Format))
-            subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
         ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             auto barrierInfo = barrier::ImageLayoutBarrierInfo{

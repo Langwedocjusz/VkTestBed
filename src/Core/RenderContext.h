@@ -19,7 +19,7 @@ class RenderContext {
 
     void OnUpdate(float deltaTime);
     void OnImGui();
-    void OnRender();
+    void OnRender(std::optional<SceneKey> highlightedObj);
 
     void OnKeyPressed(int keycode, bool repeat);
     void OnKeyReleased(int keycode);
@@ -30,7 +30,7 @@ class RenderContext {
     void RebuildPipelines();
 
   private:
-    void DrawFrame();
+    void DrawFrame(std::optional<SceneKey> highlightedObj);
     void DrawUI(VkCommandBuffer cmd);
 
     void CreateSwapchainResources();

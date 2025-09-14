@@ -44,6 +44,19 @@ void SceneGui::OnImGui()
     ObjectPropertiesMenu();
 }
 
+std::optional<SceneKey> SceneGui::GetSelection() const
+{
+    if (mSelectedNode)
+    {
+        if (mSelectedNode->IsLeaf())
+        {
+            return mSelectedNode->GetObjectKey();
+        }
+    }
+
+    return std::nullopt;
+}
+
 void SceneGui::SceneHierarchyMenu()
 {
     ImGui::Begin("Scene hierarchy", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);
@@ -94,8 +107,7 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
     std::string nodeName = node.Name + "##" + std::to_string(childId);
 
     // Draw the tree node:
-    auto nodeState =
-        imutils::TreeNodeExDeleteCopyAble(nodeName, flags);
+    auto nodeState = imutils::TreeNodeExDeleteCopyAble(nodeName, flags);
 
     // Handle associated drag/drop/clicked events:
     if (nodeState.IsClicked)

@@ -139,7 +139,7 @@ void Application::Impl::Run()
         iminit::FinalizeGuiFrame();
 
         // Render things:
-        mRender.OnRender();
+        mRender.OnRender(mSceneGui.GetSelection());
 
         // Tracy profiler:
         FrameMark;

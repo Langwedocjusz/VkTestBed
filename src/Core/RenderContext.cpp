@@ -161,7 +161,7 @@ void RenderContext::OnImGui()
         imutils::DisplayStats(mFrameInfo.Stats);
 }
 
-void RenderContext::OnRender()
+void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj)
 {
     auto &frameData = mFrameInfo.CurrentFrameData();
 
@@ -192,7 +192,7 @@ void RenderContext::OnRender()
     vkResetFences(mCtx.Device, 1, &frameData.InFlightFence);
 
     // 4. Draw the frame:
-    DrawFrame();
+    DrawFrame(highlightedObj);
 
     // 5. Present the frame to swapchain:
     auto &swapchainData = mFrameInfo.CurrentSwapchainData();
@@ -222,7 +222,7 @@ void RenderContext::OnRender()
     mFrameInfo.Index = (mFrameInfo.Index + 1) % mFrameInfo.MaxInFlight;
 }
 
-void RenderContext::DrawFrame()
+void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 {
     auto &frame = mFrameInfo.CurrentFrameData();
     auto &swap = mFrameInfo.CurrentSwapchainData();
@@ -280,7 +280,7 @@ void RenderContext::DrawFrame()
         barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTarget().Handle);
 
         // 2. Render to image:
-        mRenderer->OnRender();
+        mRenderer->OnRender(highlightedObj);
 
         // 3. Transition render target and swapchain image for copy:
         barrier::ImageBarrierColorToTransfer(cmd, mRenderer->GetTarget().Handle);

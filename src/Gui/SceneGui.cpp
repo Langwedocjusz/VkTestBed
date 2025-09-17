@@ -543,7 +543,8 @@ void SceneGui::EnvironmentTab()
 
     ImGui::SameLine();
 
-    std::string selText = env.HdriImage->Name + "##HDRI";
+    std::string selText =
+        env.HdriImage.has_value() ? env.HdriImage->Name + "##HDRI" : "##HDRI";
 
     if (ImGui::Selectable(selText.c_str()))
     {

@@ -232,8 +232,8 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     auto &swapchainImage = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
 
     // Detect first run:
-    bool firstRun = mTimestampFirstRun[mFrameInfo.ImageIndex];
-    mTimestampFirstRun[mFrameInfo.ImageIndex] = false;
+    bool firstRun = mTimestampFirstRun[mFrameInfo.Index];
+    mTimestampFirstRun[mFrameInfo.Index] = false;
 
     // Query for timestamp results from the previous run of this frame:
     if (!firstRun && mTimestampSupported)

@@ -1,7 +1,6 @@
 #include "Application.h"
 #include "Pch.h"
 
-#include "CppUtils.h"
 #include "Event.h"
 #include "ImGuiInit.h"
 #include "Keycodes.h"
@@ -51,37 +50,9 @@ Application::Impl::Impl()
       mShaderManager("assets/shaders", "assets/spirv"), mRender(mCtx),
       mSceneEditor(mScene), mSceneGui(mSceneEditor)
 {
-    mWindow.SetFramebufferResizeCallback([](void *usr_ptr, int width, int height) {
-        auto app = reinterpret_cast<Impl *>(usr_ptr);
-        app->OnResize(width, height);
-    });
-
-    mWindow.SetKeyCallback([](void *usr_ptr, int key, int action) {
-        auto app = reinterpret_cast<Impl *>(usr_ptr);
-
-        switch (action)
-        {
-        case VKTB_PRESS: {
-            app->OnEvent(Event::KeyPressed(key, false));
-            break;
-        }
-        case VKTB_REPEAT: {
-            app->OnEvent(Event::KeyPressed(key, true));
-            break;
-        }
-        case VKTB_RELEASE: {
-            app->OnEvent(Event::KeyReleased(key));
-            break;
-        }
-        default: {
-            break;
-        }
-        }
-    });
-
-    mWindow.SetMouseMovedCallback([](void *usr_ptr, float xPos, float yPos) {
-        auto app = reinterpret_cast<Impl *>(usr_ptr);
-        app->OnEvent(Event::MouseMoved(xPos, yPos));
+    mWindow.SetEventCallback([](void *usrPtr, Event::EventVariant event) {
+        auto app = reinterpret_cast<Impl *>(usrPtr);
+        app->OnEvent(event);
     });
 
     iminit::InitImGui();
@@ -160,10 +131,12 @@ void Application::Impl::OnResize(uint32_t width, uint32_t height)
 
 void Application::Impl::OnEvent(Event::EventVariant event)
 {
-    // Handle esc being pressed:
-    if (std::holds_alternative<Event::KeyPressed>(event))
+    // Toggle cursor capture state on escape being pressed:
+    if (std::holds_alternative<Event::Key>(event))
     {
-        if (std::get<Event::KeyPressed>(event).Keycode == VKTB_KEY_ESCAPE)
+        auto keyEvent = std::get<Event::Key>(event);
+
+        if (keyEvent.Keycode == VKTB_KEY_ESCAPE && keyEvent.Action == VKTB_PRESS)
         {
             mCursorCaptured = !mCursorCaptured;
 
@@ -174,19 +147,36 @@ void Application::Impl::OnEvent(Event::EventVariant event)
         }
     }
 
-    // If cursor not caputured, early bail - use Imgui event handling
-    if (!mCursorCaptured)
-        return;
+    // If cursor caputured - propagate to rendered event handling:
+    if (mCursorCaptured)
+    {
+        if (std::holds_alternative<Event::Key>(event))
+        {
+            auto e = std::get<Event::Key>(event);
 
-    // If not, do event handling
-    // To-do: prevent events from propagating to imgui in this case:
-    std::visit(
-        overloaded{[this](Event::KeyPressed arg) {
-                       mRender.OnKeyPressed(arg.Keycode, arg.Repeat);
-                   },
-                   [this](Event::KeyReleased arg) { mRender.OnKeyReleased(arg.Keycode); },
-                   [this](Event::MouseMoved arg) { mRender.OnMouseMoved(arg.X, arg.Y); }},
-        event);
+            if (e.Action == VKTB_PRESS || e.Action == VKTB_REPEAT)
+            {
+                bool repeat = e.Action == VKTB_REPEAT;
+                mRender.OnKeyPressed(e.Keycode, repeat);
+            }
+            else if (e.Action == VKTB_RELEASE)
+            {
+                mRender.OnKeyReleased(e.Keycode);
+            }
+        }
+
+        else if (std::holds_alternative<Event::CursorPos>(event))
+        {
+            auto e = std::get<Event::CursorPos>(event);
+            mRender.OnMouseMoved(e.XPos, e.YPos);
+        }
+    }
+
+    // If cursor not captured - use imgui event handling:
+    else
+    {
+        iminit::ImGuiHandleEvent(event);
+    }
 }
 
 Application::Application() : mPImpl(std::make_unique<Impl>())

@@ -236,11 +236,11 @@ void DescriptorUpdater::Update(VulkanContext &ctx)
                            writes.data(), 0, nullptr);
 }
 
-DescriptorAllocator::DescriptorAllocator(VulkanContext &ctx) : mCtx(ctx)
+DynamicDescriptorAllocator::DynamicDescriptorAllocator(VulkanContext &ctx) : mCtx(ctx)
 {
 }
 
-void DescriptorAllocator::OnInit(std::span<VkDescriptorPoolSize> sizes)
+void DynamicDescriptorAllocator::OnInit(std::span<VkDescriptorPoolSize> sizes)
 {
     mCountsPerSet.assign(sizes.begin(), sizes.end());
 
@@ -248,7 +248,7 @@ void DescriptorAllocator::OnInit(std::span<VkDescriptorPoolSize> sizes)
     GrowSetsPerPool();
 }
 
-VkDescriptorSet DescriptorAllocator::Allocate(VkDescriptorSetLayout &layout)
+VkDescriptorSet DynamicDescriptorAllocator::Allocate(VkDescriptorSetLayout &layout)
 {
     VkDescriptorPool pool = GetPool();
 
@@ -279,7 +279,7 @@ VkDescriptorSet DescriptorAllocator::Allocate(VkDescriptorSetLayout &layout)
     return set;
 }
 
-std::vector<VkDescriptorSet> DescriptorAllocator::Allocate(
+std::vector<VkDescriptorSet> DynamicDescriptorAllocator::Allocate(
     std::span<VkDescriptorSetLayout> layouts)
 {
     VkDescriptorPool pool = GetPool();
@@ -311,7 +311,7 @@ std::vector<VkDescriptorSet> DescriptorAllocator::Allocate(
     return sets;
 }
 
-VkDescriptorPool DescriptorAllocator::GetPool()
+VkDescriptorPool DynamicDescriptorAllocator::GetPool()
 {
     VkDescriptorPool pool;
 
@@ -330,7 +330,7 @@ VkDescriptorPool DescriptorAllocator::GetPool()
     return pool;
 }
 
-VkDescriptorPool DescriptorAllocator::CreatePool()
+VkDescriptorPool DynamicDescriptorAllocator::CreatePool()
 {
     std::vector<VkDescriptorPoolSize> poolSizes = mCountsPerSet;
 
@@ -350,7 +350,7 @@ VkDescriptorPool DescriptorAllocator::CreatePool()
     return newPool;
 }
 
-void DescriptorAllocator::GrowSetsPerPool()
+void DynamicDescriptorAllocator::GrowSetsPerPool()
 {
     constexpr double growthFactor = 1.5f;
     constexpr uint32_t maxSetsPerPool = 4096;
@@ -359,7 +359,7 @@ void DescriptorAllocator::GrowSetsPerPool()
     mSetsPerPool = std::min(mSetsPerPool, maxSetsPerPool);
 }
 
-void DescriptorAllocator::ResetPools()
+void DynamicDescriptorAllocator::ResetPools()
 {
     for (auto pool : mReadyPools)
         vkResetDescriptorPool(mCtx.Device, pool, 0);
@@ -373,7 +373,7 @@ void DescriptorAllocator::ResetPools()
     mFullPools.clear();
 }
 
-void DescriptorAllocator::DestroyPools()
+void DynamicDescriptorAllocator::DestroyPools()
 {
     for (auto pool : mReadyPools)
         vkDestroyDescriptorPool(mCtx.Device, pool, nullptr);

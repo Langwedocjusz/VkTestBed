@@ -84,9 +84,9 @@ class DescriptorUpdater {
 
 // Based on growable descriptor allocator from:
 // https://vkguide.dev/docs/new_chapter_4/descriptor_abstractions/
-class DescriptorAllocator {
+class DynamicDescriptorAllocator {
   public:
-    DescriptorAllocator(VulkanContext &ctx);
+    DynamicDescriptorAllocator(VulkanContext &ctx);
     void OnInit(std::span<VkDescriptorPoolSize> sizes);
 
     VkDescriptorSet Allocate(VkDescriptorSetLayout &layout);

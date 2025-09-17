@@ -47,8 +47,8 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info), mShadowmapDescriptorAllocator(ctx), mEnvHandler(ctx),
-      mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
+      mDynamicUBO(ctx, info), mEnvHandler(ctx), mSceneDeletionQueue(ctx),
+      mMaterialDeletionQueue(ctx)
 {
     // Create the texture samplers:
     mSampler2D = SamplerBuilder("MinimalPbrSampler2D")
@@ -67,6 +67,16 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                             .SetCompareOp(VK_COMPARE_OP_LESS)
                             .Build(mCtx, mMainDeletionQueue);
 
+    // Create static descriptor pool:
+    {
+        std::vector<VkDescriptorPoolSize> poolCounts{
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+        };
+
+        mStaticDescriptorPool = Descriptor::InitPool(mCtx, 1, poolCounts);
+        mMainDeletionQueue.push_back(mStaticDescriptorPool);
+    }
+
     // Create descriptor set layout for sampling the shadowmap
     // and allocate the corresponding descriptor set:
 
@@ -76,16 +86,8 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx, mMainDeletionQueue);
 
-    {
-        std::vector<VkDescriptorPoolSize> poolCounts{
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
-        };
-
-        mShadowmapDescriptorAllocator.OnInit(poolCounts);
-
-        mShadowmapDescriptorSet =
-            mShadowmapDescriptorAllocator.Allocate(mShadowmapDescriptorSetLayout);
-    }
+    mShadowmapDescriptorSet =
+        Descriptor::Allocate(mCtx, mStaticDescriptorPool, mShadowmapDescriptorSetLayout);
 
     // Create descriptor set layout for sampling material textures:
     mMaterialDescriptorSetLayout =
@@ -163,7 +165,6 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 MinimalPbrRenderer::~MinimalPbrRenderer()
 {
     mMaterialDescriptorAllocator.DestroyPools();
-    mShadowmapDescriptorAllocator.DestroyPools();
 
     for (auto &[_, drawable] : mDrawables)
         DestroyDrawable(drawable);
@@ -468,6 +469,7 @@ void MinimalPbrRenderer::DrawSingleInstanceOutline(VkCommandBuffer cmd,
                                                    VkPipelineLayout layout)
 {
     auto &drawable = mDrawables[drawableKey];
+    auto &material = mMaterials.at(drawable.MaterialKey);
     auto &model = drawable.Instances.at(instanceId);
 
     // Do frustum culling:
@@ -480,13 +482,10 @@ void MinimalPbrRenderer::DrawSingleInstanceOutline(VkCommandBuffer cmd,
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
     vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0, mGeometryLayout.IndexType);
-
-    auto &material = mMaterials.at(drawable.MaterialKey);
-
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1,
                             &material.DescriptorSet, 0, nullptr);
 
-    // Push per-instance data and issue draw commands:
+    // Push per-instance data:
     OutlinePCData pcData{
         .Model = model,
     };
@@ -561,8 +560,8 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         mDepthStencilBufferView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         depthClear);
 
-    VkRenderingInfo renderingInfo =
-        vkinit::CreateRenderingInfo(GetTargetSize(), colorAttachment, depthAttachment, true);
+    VkRenderingInfo renderingInfo = vkinit::CreateRenderingInfo(
+        GetTargetSize(), colorAttachment, depthAttachment, true);
 
     vkCmdBeginRendering(cmd, &renderingInfo);
     {
@@ -985,7 +984,7 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 
             auto &drawable = mDrawables[drawableKey];
 
-            auto& list = mObjectCache[objKey];
+            auto &list = mObjectCache[objKey];
             list.emplace_back(drawableKey, drawable.Instances.size());
 
             drawable.Instances.push_back(obj.Transform);

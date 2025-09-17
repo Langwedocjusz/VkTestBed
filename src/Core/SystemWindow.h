@@ -1,25 +1,22 @@
 #pragma once
 
+#include "Event.h"
+
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <string>
 
 struct GLFWwindow;
 
 class SystemWindow {
   public:
-    using FramebufferCallbackPtr = void (*)(void *, int, int);
-    using KeyCallbackPtr = void (*)(void *, int, int);
-    using MouseMovedCallbackPtr = void (*)(void *, float, float);
+    using EventHandlerFn = void (*)(void *, Event::EventVariant);
 
   public:
-    SystemWindow(uint32_t width, uint32_t height, std::string title, void *usr_ptr);
+    SystemWindow(uint32_t width, uint32_t height, const char *title, void *usr_ptr);
     ~SystemWindow();
 
-    void SetFramebufferResizeCallback(FramebufferCallbackPtr ptr);
-    void SetKeyCallback(KeyCallbackPtr ptr);
-    void SetMouseMovedCallback(MouseMovedCallbackPtr ptr);
+    void SetEventCallback(EventHandlerFn callback);
 
     VkSurfaceKHR CreateSurface(VkInstance instance,
                                VkAllocationCallbacks *allocator = nullptr);

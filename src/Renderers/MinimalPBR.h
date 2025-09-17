@@ -104,6 +104,7 @@ class MinimalPbrRenderer final : public IRenderer {
 
     // Common resources:
     VkSampler mSampler2D;
+    VkDescriptorPool mStaticDescriptorPool;
 
     // Graphics pipelines:
     Pipeline mShadowmapPipeline;
@@ -120,7 +121,7 @@ class MinimalPbrRenderer final : public IRenderer {
 
     // Descriptors for materials:s
     VkDescriptorSetLayout mMaterialDescriptorSetLayout;
-    DescriptorAllocator mMaterialDescriptorAllocator;
+    DynamicDescriptorAllocator mMaterialDescriptorAllocator;
     std::map<SceneKey, Material> mMaterials;
 
     // Drawables:
@@ -171,8 +172,6 @@ class MinimalPbrRenderer final : public IRenderer {
 
     VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
     VkDescriptorSet mShadowmapDescriptorSet;
-    // To-do: It's overkill to use the allocator for this
-    DescriptorAllocator mShadowmapDescriptorAllocator;
 
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;

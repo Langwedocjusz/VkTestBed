@@ -1,15 +1,19 @@
 #include "ImGuiInit.h"
 #include "Pch.h"
 
+#include "CppUtils.h"
+#include "Vassert.h"
 #include "VulkanContext.h"
+
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
-#include "Vassert.h"
-
 #include <array>
 #include <iostream>
+
+// Storage for window handle:
+static GLFWwindow *sWindow = nullptr;
 
 static void ImGuiStyleCustom();
 [[maybe_unused]] static void check_vk_result(VkResult err);
@@ -53,7 +57,8 @@ VkDescriptorPool iminit::CreateDescriptorPool(VulkanContext &ctx)
 
 void iminit::InitGlfwBackend(GLFWwindow *window)
 {
-    ImGui_ImplGlfw_InitForVulkan(window, true);
+    ImGui_ImplGlfw_InitForVulkan(window, false);
+    sWindow = window;
 }
 
 void iminit::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPool,
@@ -113,6 +118,25 @@ void iminit::RecordImguiToCommandBuffer(VkCommandBuffer cmd)
 
     if (draw_data)
         ImGui_ImplVulkan_RenderDrawData(draw_data, cmd);
+}
+
+void iminit::ImGuiHandleEvent(Event::EventVariant event)
+{
+    // clang-format off
+    std::visit(overloaded{
+        []([[maybe_unused]] Event::FramebufferResize arg) {},
+        [](Event::Focus arg) {ImGui_ImplGlfw_WindowFocusCallback(sWindow, arg.Focused);},
+        [](Event::CursorEnter arg) {ImGui_ImplGlfw_CursorEnterCallback(sWindow, arg.Entered);},
+        [](Event::CursorPos arg) {ImGui_ImplGlfw_CursorPosCallback(sWindow, arg.XPos, arg.YPos);},
+        [](Event::MouseButton arg) {ImGui_ImplGlfw_MouseButtonCallback(sWindow, arg.Button, arg.Action, arg.Mods);},
+        [](Event::Scroll arg) {ImGui_ImplGlfw_ScrollCallback(sWindow, arg.XOffset, arg.YOffset);},
+        [](Event::Key arg) {ImGui_ImplGlfw_KeyCallback(sWindow, arg.Keycode, arg.Scancode, arg.Action,arg.Mods);},
+        [](Event::Char arg) {ImGui_ImplGlfw_CharCallback(sWindow, arg.Codepoint); }
+    }, event);
+    // clang-format on
+
+    // Currently not handled:
+    // ImGui_ImplGlfw_MonitorCallbac;
 }
 
 static void ImGuiStyleCustom()

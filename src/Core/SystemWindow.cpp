@@ -9,46 +9,88 @@
 
 #include <iostream>
 
-// Static storage for actuall callback function pointers:
-static SystemWindow::FramebufferCallbackPtr sFramebufferResizeCallback = nullptr;
-static SystemWindow::KeyCallbackPtr sKeyCallback = nullptr;
-static SystemWindow::MouseMovedCallbackPtr sMouseMovedCallback = nullptr;
+static SystemWindow::EventHandlerFn sEventCallback = nullptr;
 
-// Redirection functions that redirect to user callbacks:
+// Redirection functions that forward to user callback:
 static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
 {
-    auto usr_ptr = glfwGetWindowUserPointer(window);
-    sFramebufferResizeCallback(usr_ptr, width, height);
+    auto usrPtr = glfwGetWindowUserPointer(window);
+    auto event = Event::FramebufferResize{.Width = width, .Height = height};
+
+    sEventCallback(usrPtr, event);
 }
 
-static void KeyCallback(GLFWwindow *window, int key, int /*scancode*/, int action,
-                        int /*mods*/)
+static void FocusCallback(GLFWwindow *window, int focused)
 {
-    auto usr_ptr = glfwGetWindowUserPointer(window);
-    sKeyCallback(usr_ptr, key, action);
+    auto usrPtr = glfwGetWindowUserPointer(window);
+    auto event = Event::Focus{.Focused = focused};
+
+    sEventCallback(usrPtr, event);
 }
 
-static void MouseMovedCallback(GLFWwindow *window, double xPos, double yPos)
+static void CursorEnterCallback(GLFWwindow *window, int entered)
 {
-    auto usr_ptr = glfwGetWindowUserPointer(window);
-    sMouseMovedCallback(usr_ptr, static_cast<float>(xPos), static_cast<float>(yPos));
+    auto usrPtr = glfwGetWindowUserPointer(window);
+    auto event = Event::CursorEnter{.Entered = entered};
+
+    sEventCallback(usrPtr, event);
 }
 
-SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
-                           void *usr_ptr)
+static void CursorPosCallback(GLFWwindow *window, double xpos, double ypos)
 {
-    auto error_callback = [](int error, const char *description) {
+    auto usrPtr = glfwGetWindowUserPointer(window);
+    auto event = Event::CursorPos{.XPos = xpos, .YPos = ypos};
+
+    sEventCallback(usrPtr, event);
+}
+
+static void MouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
+{
+    auto usrPtr = glfwGetWindowUserPointer(window);
+    auto event = Event::MouseButton{.Button = button, .Action = action, .Mods = mods};
+
+    sEventCallback(usrPtr, event);
+}
+
+static void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset)
+{
+    auto usrPtr = glfwGetWindowUserPointer(window);
+    auto event = Event::Scroll{.XOffset = xoffset, .YOffset = yoffset};
+
+    sEventCallback(usrPtr, event);
+}
+
+static void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+    auto usrPtr = glfwGetWindowUserPointer(window);
+    auto event =
+        Event::Key{.Keycode = key, .Scancode = scancode, .Action = action, .Mods = mods};
+
+    sEventCallback(usrPtr, event);
+}
+
+static void CharCallback(GLFWwindow *window, unsigned int codepoint)
+{
+    auto usrPtr = glfwGetWindowUserPointer(window);
+    auto event = Event::Char{.Codepoint = codepoint};
+
+    sEventCallback(usrPtr, event);
+}
+
+SystemWindow::SystemWindow(uint32_t width, uint32_t height, const char *title,
+                           void *usrPtr)
+{
+    auto ErrorCallback = [](int error, const char *description) {
         (void)error;
         std::cerr << "Glfw Error: " << description << '\n';
     };
-
-    glfwSetErrorCallback(error_callback);
+    glfwSetErrorCallback(ErrorCallback);
 
     vassert(glfwInit(), "Failed to initialize glfw!");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    mWindow = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
+    mWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
 
     if (!mWindow)
     {
@@ -56,12 +98,19 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
         vpanic("Failed to create a window!");
     }
 
-    glfwSetWindowUserPointer(mWindow, usr_ptr);
+    glfwSetWindowUserPointer(mWindow, usrPtr);
 
     glfwSetFramebufferSizeCallback(mWindow, FramebufferResizeCallback);
-
+    glfwSetWindowFocusCallback(mWindow, FocusCallback);
+    glfwSetCursorEnterCallback(mWindow, CursorEnterCallback);
+    glfwSetCursorPosCallback(mWindow, CursorPosCallback);
+    glfwSetMouseButtonCallback(mWindow, MouseButtonCallback);
+    glfwSetScrollCallback(mWindow, ScrollCallback);
     glfwSetKeyCallback(mWindow, KeyCallback);
-    glfwSetCursorPosCallback(mWindow, MouseMovedCallback);
+    glfwSetCharCallback(mWindow, CharCallback);
+
+    // Monitor callback currenly not supported:
+    // glfwSetMonitorCallback(callback);
 }
 
 SystemWindow::~SystemWindow()
@@ -70,19 +119,9 @@ SystemWindow::~SystemWindow()
     glfwTerminate();
 }
 
-void SystemWindow::SetFramebufferResizeCallback(FramebufferCallbackPtr ptr)
+void SystemWindow::SetEventCallback(EventHandlerFn callback)
 {
-    sFramebufferResizeCallback = ptr;
-}
-
-void SystemWindow::SetKeyCallback(KeyCallbackPtr ptr)
-{
-    sKeyCallback = ptr;
-}
-
-void SystemWindow::SetMouseMovedCallback(MouseMovedCallbackPtr ptr)
-{
-    sMouseMovedCallback = ptr;
+    sEventCallback = callback;
 }
 
 VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance,

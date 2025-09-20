@@ -18,6 +18,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 find_package(Vulkan REQUIRED)
 
+option(IMGUI_BACKEND_GLFW "" ON )
+option(IMGUI_BACKEND_VULKAN "" ON )
+option(TRACY_ENABLE "" ON )
+
 add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/vk-bootstrap)
 add_subdirectory(vendor/VulkanMemoryAllocator)
@@ -26,7 +30,6 @@ add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/stb_image)
 add_subdirectory(vendor/fastgltf)
 add_subdirectory(vendor/efsw)
-option(TRACY_ENABLE "" ON )
 add_subdirectory(vendor/tracy)
 add_subdirectory(vendor/tinyexr)
 add_subdirectory(vendor/mikktspace)
@@ -36,25 +39,12 @@ add_subdirectory(vendor/cpptrace)
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(VulkanMemoryAllocator SYSTEM INTERFACE ${_inc})
 
-get_target_property(_inc imgui INTERFACE_INCLUDE_DIRECTORIES)
-target_include_directories(imgui SYSTEM INTERFACE ${_inc})
-
 get_target_property(_inc fastgltf::fastgltf INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 
-#=Setup library for imgui backend===========================================================
-
-#This is separated to avoid warnings from imgui backend implementation files
-add_library(ImguiBackend)
-
-#Source files:
-file(GLOB imgui_impl vendor/imgui/backends/imgui_impl_vulkan.cpp vendor/imgui/backends/imgui_impl_glfw.cpp)
-target_sources(ImguiBackend PRIVATE ${imgui_impl})
-
-#Link dependencies:
-target_link_libraries(ImguiBackend PRIVATE glfw)
-target_link_libraries(ImguiBackend PRIVATE Vulkan::Vulkan)
-target_link_libraries(ImguiBackend PRIVATE imgui)
+#Some additional linking for dependencies:
+target_link_libraries(imgui PRIVATE glfw)
+target_link_libraries(imgui PRIVATE Vulkan::Vulkan)
 
 #=Setup the main executable=================================================================
 
@@ -222,7 +212,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
-target_link_libraries(${PROJECT_NAME} PRIVATE ImguiBackend)
 target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
 target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
 target_link_libraries(${PROJECT_NAME} PRIVATE efsw)

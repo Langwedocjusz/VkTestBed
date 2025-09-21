@@ -15,7 +15,7 @@
 // Storage for window handle:
 static GLFWwindow *sWindow = nullptr;
 
-static void ImGuiStyleCustom();
+static void ResetStyle();
 [[maybe_unused]] static void check_vk_result(VkResult err);
 
 void iminit::InitImGui()
@@ -30,7 +30,7 @@ void iminit::InitImGui()
     io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto/Roboto-Regular.ttf", 16.0f);
 
     ImGui::StyleColorsDark();
-    ImGuiStyleCustom();
+    ResetStyle();
 }
 
 VkDescriptorPool iminit::CreateDescriptorPool(VulkanContext &ctx)
@@ -139,9 +139,20 @@ void iminit::ImGuiHandleEvent(Event::EventVariant event)
     // ImGui_ImplGlfw_MonitorCallbac;
 }
 
-static void ImGuiStyleCustom()
+void iminit::ScaleStyle(float scaleFactor)
+{
+    ResetStyle();
+        
+    ImGuiStyle &style = ImGui::GetStyle();
+    style.ScaleAllSizes(scaleFactor);
+    style.FontScaleDpi = scaleFactor;
+}
+
+static void ResetStyle()
 {
     auto &style = ImGui::GetStyle();
+
+    style = ImGuiStyle();
 
     style.WindowRounding = 2.0f;
     style.ChildRounding = 2.0f;

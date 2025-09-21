@@ -8,6 +8,7 @@ struct GLFWwindow;
 namespace iminit
 {
 void InitImGui();
+void ScaleStyle(float scaleFactor);
 void InitGlfwBackend(GLFWwindow *window);
 
 VkDescriptorPool CreateDescriptorPool(VulkanContext &ctx);

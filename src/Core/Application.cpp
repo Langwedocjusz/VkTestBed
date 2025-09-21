@@ -131,11 +131,12 @@ void Application::Impl::OnResize(uint32_t width, uint32_t height)
 
 void Application::Impl::OnEvent(Event::EventVariant event)
 {
-    // Toggle cursor capture state on escape being pressed:
+    // Handle some key combinations before propagating further:
     if (std::holds_alternative<Event::Key>(event))
     {
         auto keyEvent = std::get<Event::Key>(event);
 
+        // Toggle cursor capture state on escape being pressed:
         if (keyEvent.Keycode == VKTB_KEY_ESCAPE && keyEvent.Action == VKTB_PRESS)
         {
             mCursorCaptured = !mCursorCaptured;
@@ -144,6 +145,40 @@ void Application::Impl::OnEvent(Event::EventVariant event)
                 mWindow.CaptureCursor();
             else
                 mWindow.FreeCursor();
+        }
+
+        //Hold ctrl pressed state
+        //To do: implement better solution (buffer for whole keyboard..)
+        static bool ctrlPressed = false;
+
+        if (keyEvent.Keycode == VKTB_KEY_LEFT_CONTROL)
+        {
+            if (keyEvent.Action == VKTB_PRESS)
+                ctrlPressed = true;
+            else if (keyEvent.Action == VKTB_RELEASE)
+                ctrlPressed = false;
+        } 
+        
+        
+        bool scaleUI = false;
+        const float scaleStep = 0.05f;
+        static float scaleFac = 1.0f;
+
+        if (ctrlPressed && keyEvent.Keycode == VKTB_KEY_EQUAL)
+        {
+            scaleFac += scaleStep;
+            scaleUI = true;
+        }
+
+        if (ctrlPressed && keyEvent.Keycode == VKTB_KEY_MINUS)
+        {
+            scaleFac = std::max(scaleStep, scaleFac - scaleStep);
+            scaleUI = true;
+        }
+
+        if (scaleUI)
+        {
+            iminit::ScaleStyle(scaleFac);
         }
     }
 

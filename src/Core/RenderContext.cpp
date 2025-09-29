@@ -4,18 +4,23 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Frame.h"
+#include "ImageData.h"
+#include "ImageUtils.h"
 #include "ImGuiInit.h"
 #include "ImGuiUtils.h"
 #include "Keycodes.h"
 #include "Renderer.h"
+#include "Scene.h"
 #include "Vassert.h"
 #include "VkInit.h"
 #include "VkUtils.h"
+#include "VulkanContext.h"
 
 #include <iostream>
 #include <memory>
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 RenderContext::RenderContext(VulkanContext &ctx)
     : mCtx(ctx), mFactory(ctx, mFrameInfo, mCamera), mMainDeletionQueue(ctx),
@@ -102,6 +107,52 @@ RenderContext::RenderContext(VulkanContext &ctx)
     {
         std::cout << "Timestamp queries not supported!\n";
     }
+
+    // Setup framebuffer for object picking:
+    VkImageUsageFlags drawUsage{};
+    drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    Image2DInfo renderTargetInfo{
+        .Extent = VkExtent2D{1, 1},
+        .Format = IRenderer::PickingTargetFormat,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage = drawUsage,
+        .MipLevels = 1,
+        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    };
+
+    mPicking.Target = MakeImage::Image2D(mCtx, "PickingTarget", renderTargetInfo);
+    mPicking.TargetView =
+        MakeView::View2D(mCtx, "PickingTargetView", mPicking.Target, IRenderer::PickingTargetFormat,
+                         VK_IMAGE_ASPECT_COLOR_BIT);
+
+    mMainDeletionQueue.push_back(mPicking.Target);
+    mMainDeletionQueue.push_back(mPicking.TargetView);
+
+    Image2DInfo depthBufferInfo{
+        .Extent = VkExtent2D{1, 1},
+        .Format = IRenderer::PickingDepthFormat,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .MipLevels = 1,
+        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+    };
+
+    mPicking.Depth = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);
+    mPicking.DepthView = MakeView::View2D(mCtx, "DepthBufferView", mPicking.Depth,
+                                          IRenderer::PickingDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    mMainDeletionQueue.push_back(mPicking.Depth);
+    mMainDeletionQueue.push_back(mPicking.DepthView);
+
+    auto usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    auto flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
+                 VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+    mPicking.ReadbackBuffer =
+        Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel), usage, flags);
+    mMainDeletionQueue.push_back(mPicking.ReadbackBuffer);
 }
 
 void RenderContext::OnInit()
@@ -369,7 +420,7 @@ void RenderContext::DestroySwapchainResources()
     mSwapchainDeletionQueue.flush();
 }
 
-void RenderContext::ResizeSwapchan()
+void RenderContext::ResizeSwapchain()
 {
     vkDeviceWaitIdle(mCtx.Device);
 
@@ -411,4 +462,73 @@ void RenderContext::OnKeyReleased(int keycode)
 void RenderContext::OnMouseMoved(float x, float y)
 {
     mCamera.OnMouseMoved(x, y);
+}
+
+SceneKey RenderContext::PickObjectId(float x, float y)
+{
+    vkDeviceWaitIdle(mCtx.Device);
+
+    mCtx.ImmediateSubmitGraphics([&, x, y](VkCommandBuffer cmd) {
+        auto info = barrier::ImageLayoutBarrierInfo{
+            .Image = mPicking.Target.Handle,
+            .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .NewLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+        };
+        barrier::ImageLayoutBarrierCoarse(cmd, info);
+
+        // Bind target and transitions layouts:
+        VkClearValue clear;
+        clear.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+
+        auto colorAttachment = vkinit::CreateAttachmentInfo(
+            mPicking.TargetView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, clear);
+
+        VkClearValue depthClear;
+        depthClear.depthStencil = {1.0f, 0};
+
+        auto depthAttachment = vkinit::CreateAttachmentInfo(
+            mPicking.DepthView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depthClear);
+
+        VkRenderingInfo renderingInfo = vkinit::CreateRenderingInfo(
+            VkExtent2D{1, 1}, colorAttachment, depthAttachment);
+
+        // Draw objects:
+        vkCmdBeginRendering(cmd, &renderingInfo);
+        mRenderer->RenderObjectId(cmd, x, y);
+        vkCmdEndRendering(cmd);
+
+        // Copy from target image to cpu visible buffer:
+        info.OldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        info.NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier::ImageLayoutBarrierCoarse(cmd, info);
+
+        VkBufferImageCopy region{};
+        region.bufferOffset = 0;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+        region.imageOffset = {0, 0, 0};
+        region.imageExtent = mPicking.Target.Info.extent;
+
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+
+        vkCmdCopyImageToBuffer(cmd, mPicking.Target.Handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, mPicking.ReadbackBuffer.Handle, 1, &region);
+    });
+
+    //Unpack copied data after submission:
+    const auto pixel = static_cast<const Pixel*>(mPicking.ReadbackBuffer.AllocInfo.pMappedData);
+    uint32_t R = pixel->R, G = pixel->G, B = pixel->B, A = pixel->A;
+
+    uint32_t res = 0;
+    res = res | R << 0;
+    res = res | G << 8;
+    res = res | B << 16;
+    res = res | A << 24;
+
+    //printf("Got ID: %u (from R: %u G: %u B: %u A: %u) \n", res, R, G, B, A);
+
+    return static_cast<SceneKey>(res);
 }

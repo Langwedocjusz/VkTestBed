@@ -25,9 +25,10 @@ class RenderContext {
     void OnKeyReleased(int keycode);
     void OnMouseMoved(float x, float y);
 
-    void ResizeSwapchan();
+    void ResizeSwapchain();
     void LoadScene(Scene &scene);
     void RebuildPipelines();
+    SceneKey PickObjectId(float x, float y);
 
   private:
     void DrawFrame(std::optional<SceneKey> highlightedObj);
@@ -60,6 +61,16 @@ class RenderContext {
     static constexpr size_t mTimestampsPerFrame = 2;
     std::vector<std::array<Timestamp, mTimestampsPerFrame>> mTimestamps;
     std::vector<bool> mTimestampFirstRun;
+
+    // Framebuffer for object picking:
+    struct {
+        Image Target;
+        VkImageView TargetView;
+        Image Depth;
+        VkImageView DepthView;
+
+        Buffer ReadbackBuffer;
+    } mPicking;
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;

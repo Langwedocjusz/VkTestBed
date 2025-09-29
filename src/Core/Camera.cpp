@@ -2,14 +2,15 @@
 #include "Pch.h"
 
 #include "Keycodes.h"
+#include "Vassert.h"
+
+#include "glm/ext/matrix_clip_space.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/trigonometric.hpp>
-#include <utility>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
 
-#include "Vassert.h"
 #include <imgui.h>
 
 #include <optional>
@@ -63,13 +64,9 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
 
 glm::mat4 Camera::ProjPerspective()
 {
-    const float fov = 45.0f;
-    const float zmin = 0.01f;
-    const float zmax = 1000.0f;
-
     const float aspect = static_cast<float>(mWidth) / static_cast<float>(mHeight);
 
-    return glm::perspective(glm::radians(fov), aspect, zmin, zmax);
+    return glm::perspective(mFovRadians, aspect, mZMin, mZMax);
 }
 
 glm::mat4 Camera::ProjOrthogonal()
@@ -85,6 +82,33 @@ glm::mat4 Camera::ProjOrthogonal()
         sy = height / width;
 
     return glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
+}
+
+glm::mat4 Camera::GetViewProjRestrictedRange(float xmin, float xmax, float ymin,
+                                             float ymax) const
+{
+    // Default perspective camera near plane:
+    const float aspect = static_cast<float>(mWidth) / static_cast<float>(mHeight);
+
+    const float camTop = glm::tan(0.5f * mFovRadians) * mZMin;
+    const float camBottom = -camTop;
+    const float camRight = aspect * camTop;
+    const float camLeft = -camRight;
+
+    // Rectangle covering provided limits:
+    auto lerp = [](float x, float y, float t) { return (1.0f - t) * x + t * y; };
+
+    float left = lerp(camLeft, camRight, xmin);
+    float right = lerp(camLeft, camRight, xmax);
+    float bottom = lerp(camBottom, camTop, ymin);
+    float top = lerp(camBottom, camTop, ymax);
+
+    // Construct projection for given frustum:
+    //auto proj = glm::frustumLH_ZO(left, right, bottom, top, mZMin, mZMax);
+    auto proj = glm::frustum(left, right, bottom, top, mZMin, mZMax);
+    proj[1][1] *= -1.0f;
+
+    return proj * mView;
 }
 
 void Camera::OnImGui()

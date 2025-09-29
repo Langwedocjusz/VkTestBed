@@ -57,6 +57,32 @@ std::optional<SceneKey> SceneGui::GetSelection() const
     return std::nullopt;
 }
 
+static void GetLeafById(SceneKey id, SceneGraphNode *&result, SceneGraphNode *node)
+{
+    if (node->IsLeaf())
+    {
+        if (node->GetObjectKey() == id)
+        {
+            result = node;
+        }
+    }
+    else
+    {
+        for (auto &child : node->GetChildren())
+        {
+            GetLeafById(id, result, child.get());
+        }
+    }
+}
+
+void SceneGui::SetSelection(SceneKey objKey)
+{
+    if (objKey == 0)
+        mSelectedNode = nullptr;
+    else
+        GetLeafById(objKey, mSelectedNode, &mEditor.GraphRoot);
+}
+
 void SceneGui::SceneHierarchyMenu()
 {
     ImGui::Begin("Scene hierarchy", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);

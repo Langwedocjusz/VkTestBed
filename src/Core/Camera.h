@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Bitflags.h"
+#include "glm/trigonometric.hpp"
 
 #include <glm/glm.hpp>
 
@@ -87,6 +88,11 @@ class Camera {
         return mFrustumBack;
     }
 
+    /// Get perspective projection covering a fiven rectangle of the near plane.
+    /// Rectangle coords are meant to be normalized to [0,1].
+    [[nodiscard]] glm::mat4 GetViewProjRestrictedRange(float xmin, float xmax, float ymin,
+                                                       float ymax) const;
+
     enum class Movement : uint8_t
     {
         Forward,
@@ -107,6 +113,7 @@ class Camera {
     Bitflags<Movement> mMovementFlags;
 
     uint32_t mWidth, mHeight;
+    float mZMin = 0.01f, mZMax = 1000.0f, mFovRadians = glm::radians(45.0f);
 
     float mSpeed = 1.0f, mSensitivity = 100.0f;
 

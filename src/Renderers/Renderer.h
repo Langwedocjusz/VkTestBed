@@ -6,6 +6,8 @@
 #include "Image.h"
 #include "Scene.h"
 
+#include <vulkan/vulkan.h>
+
 class IRenderer {
   public:
     IRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
@@ -23,6 +25,10 @@ class IRenderer {
     virtual void CreateSwapchainResources() = 0;
     virtual void RebuildPipelines() = 0;
     virtual void LoadScene(const Scene &scene) = 0;
+    virtual void RenderObjectId(VkCommandBuffer cmd, float x, float y) = 0;
+
+    static constexpr VkFormat PickingTargetFormat = VK_FORMAT_R8G8B8A8_UINT;
+    static constexpr VkFormat PickingDepthFormat = VK_FORMAT_D32_SFLOAT;
 
   public:
     void DestroySwapchainResources()

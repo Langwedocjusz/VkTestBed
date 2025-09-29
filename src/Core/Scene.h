@@ -21,7 +21,7 @@ class SceneKeyGenerator {
     }
 
   private:
-    SceneKey mCurrent = 0;
+    SceneKey mCurrent = 1;
 };
 
 struct ScenePrimitive {

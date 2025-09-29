@@ -19,6 +19,7 @@ class Minimal3DRenderer final : public IRenderer {
     void CreateSwapchainResources() override;
     void RebuildPipelines() override;
     void LoadScene(const Scene &scene) override;
+    void RenderObjectId(VkCommandBuffer cmd, float x, float y) override;
 
   private:
     void LoadMeshes(const Scene &scene);

@@ -278,6 +278,13 @@ void Minimal3DRenderer::LoadScene(const Scene &scene)
         LoadObjects(scene);
 }
 
+void Minimal3DRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
+{
+    (void)cmd;
+    (void)x;
+    (void)y;
+}
+
 void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;

@@ -155,6 +155,13 @@ void HelloRenderer::LoadScene(const Scene &scene)
         LoadObjects(scene);
 }
 
+void HelloRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
+{
+    (void)cmd;
+    (void)x;
+    (void)y;
+}
+
 void HelloRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;

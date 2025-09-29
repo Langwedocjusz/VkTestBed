@@ -142,7 +142,7 @@ void iminit::ImGuiHandleEvent(Event::EventVariant event)
 void iminit::ScaleStyle(float scaleFactor)
 {
     ResetStyle();
-        
+
     ImGuiStyle &style = ImGui::GetStyle();
     style.ScaleAllSizes(scaleFactor);
     style.FontScaleDpi = scaleFactor;

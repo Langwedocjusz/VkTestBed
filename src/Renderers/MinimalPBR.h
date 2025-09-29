@@ -23,27 +23,13 @@ class MinimalPbrRenderer final : public IRenderer {
     void CreateSwapchainResources() override;
     void RebuildPipelines() override;
     void LoadScene(const Scene &scene) override;
+    void RenderObjectId(VkCommandBuffer cmd, float x, float y) override;
 
   private:
     struct DrawStats {
         uint32_t NumIdx = 0;
         uint32_t NumDraws = 0;
         uint32_t NumBinds = 0;
-    };
-
-    struct ShadowPCData {
-        glm::mat4 LightMVP;
-    };
-
-    struct MainPCData {
-        glm::mat4 Model;
-        // In principle this could be a mat3, but that somehow
-        // breaks the push constant data layout...
-        glm::mat4 Normal;
-    };
-
-    struct OutlinePCData {
-        glm::mat4 Model;
     };
 
     struct Material {
@@ -58,6 +44,11 @@ class MinimalPbrRenderer final : public IRenderer {
         Buffer UBO;
     };
 
+    struct Instance {
+        SceneKey ObjectId;
+        glm::mat4 Transform;
+    };
+
     struct Drawable {
         Buffer VertexBuffer;
         uint32_t VertexCount;
@@ -67,12 +58,22 @@ class MinimalPbrRenderer final : public IRenderer {
 
         BoundingBox Bbox;
         SceneKey MaterialKey = 0;
-        std::vector<glm::mat4> Instances;
+        std::vector<Instance> Instances;
     };
 
     // Drawables correspond to mesh primitives
     // so DrawableKey is the pair (MeshKey, PrimitiveId)
     using DrawableKey = std::pair<SceneKey, size_t>;
+
+    using PCSetFunction = std::function<void(Instance &)>;
+
+    struct DrawSettings {
+        glm::mat4 ViewProj;
+        VkPipelineLayout Layout;
+        void *PCData;
+        size_t PCSize;
+        PCSetFunction PCSetFn;
+    };
 
   private:
     void LoadMeshes(const Scene &scene);
@@ -85,7 +86,7 @@ class MinimalPbrRenderer final : public IRenderer {
     void MainPass(VkCommandBuffer cmd, DrawStats &stats);
     void OutlinePass(VkCommandBuffer cmd, SceneKey highlightedObj);
 
-    void DrawAllInstances(VkCommandBuffer cmd, Drawable &drawable, bool shadowPass,
+    void DrawAllInstances(VkCommandBuffer cmd, Drawable &drawable, DrawSettings &settings,
                           DrawStats &stats);
     void DrawSingleInstanceOutline(VkCommandBuffer cmd, DrawableKey drawableKey,
                                    size_t instanceId, VkPipelineLayout layout);
@@ -95,9 +96,9 @@ class MinimalPbrRenderer final : public IRenderer {
 
   private:
     // Framebuffer:
-    const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
-    const VkFormat mDepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-    const VkFormat mShadowmapFormat = VK_FORMAT_D32_SFLOAT;
+    static constexpr VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    static constexpr VkFormat mDepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+    static constexpr VkFormat mShadowmapFormat = VK_FORMAT_D32_SFLOAT;
 
     Image mDepthStencilBuffer;
     VkImageView mDepthStencilBufferView;
@@ -112,6 +113,28 @@ class MinimalPbrRenderer final : public IRenderer {
     Pipeline mBackgroundPipeline;
     Pipeline mStencilPipeline;
     Pipeline mOutlinePipeline;
+    Pipeline mObjectIdPipeline;
+
+    // Push-constant structs for all pipelines:
+    struct {
+        glm::mat4 LightMVP;
+    } mShadowPCData;
+
+    struct {
+        glm::mat4 Model;
+        // In principle this could be a mat3, but that somehow
+        // breaks the push constant data layout...
+        glm::mat4 Normal;
+    } mMainPCData;
+
+    struct {
+        glm::mat4 Model;
+    } mOutlinePCData;
+
+     struct {
+         glm::mat4 Model;
+         uint32_t ObjectId;
+     } mObjectIdPCData;
 
     // Images for materials:
     Texture mDefaultAlbedo;

@@ -10,7 +10,10 @@
 #include "SystemWindow.h"
 #include "VulkanContext.h"
 
+#include <optional>
 #include <tracy/Tracy.hpp>
+
+#include "imgui.h"
 
 #include <chrono>
 #include <variant>
@@ -38,6 +41,8 @@ class Application::Impl {
 
     float mDeltaTime = 0.0f;
     std::chrono::time_point<std::chrono::high_resolution_clock> mOldTime;
+
+    std::optional<ImVec2> mPickRequested = std::nullopt;
 
     bool mCursorCaptured = false;
     bool mStillResizing = false;
@@ -81,7 +86,7 @@ void Application::Impl::Run()
 
         if (!mCtx.SwapchainOk || handleResize)
         {
-            mRender.ResizeSwapchan();
+            mRender.ResizeSwapchain();
             mResizeRequested = false;
         }
 
@@ -94,6 +99,16 @@ void Application::Impl::Run()
         {
             mShaderManager.CompileToBytecode();
             mRender.RebuildPipelines();
+        }
+
+        // Handle object picking if requested:
+        if (mPickRequested.has_value())
+        {
+            auto pos = *mPickRequested;
+            mPickRequested = std::nullopt;
+
+            auto pickedId = mRender.PickObjectId(pos.x, pos.y);
+            mSceneGui.SetSelection(pickedId);
         }
 
         // Poll system events:
@@ -147,8 +162,8 @@ void Application::Impl::OnEvent(Event::EventVariant event)
                 mWindow.FreeCursor();
         }
 
-        //Hold ctrl pressed state
-        //To do: implement better solution (buffer for whole keyboard..)
+        // Hold ctrl pressed state
+        // To do: implement better solution (buffer for whole keyboard..)
         static bool ctrlPressed = false;
 
         if (keyEvent.Keycode == VKTB_KEY_LEFT_CONTROL)
@@ -157,9 +172,8 @@ void Application::Impl::OnEvent(Event::EventVariant event)
                 ctrlPressed = true;
             else if (keyEvent.Action == VKTB_RELEASE)
                 ctrlPressed = false;
-        } 
-        
-        
+        }
+
         bool scaleUI = false;
         const float scaleStep = 0.05f;
         static float scaleFac = 1.0f;
@@ -203,7 +217,7 @@ void Application::Impl::OnEvent(Event::EventVariant event)
         else if (std::holds_alternative<Event::CursorPos>(event))
         {
             auto e = std::get<Event::CursorPos>(event);
-            mRender.OnMouseMoved(e.XPos, e.YPos);
+            mRender.OnMouseMoved(static_cast<float>(e.XPos), static_cast<float>(e.YPos));
         }
     }
 
@@ -211,6 +225,25 @@ void Application::Impl::OnEvent(Event::EventVariant event)
     else
     {
         iminit::ImGuiHandleEvent(event);
+
+        // Detect if background was clicked
+        // To-do: encapsulate this somehow
+        if (std::holds_alternative<Event::MouseButton>(event))
+        {
+            auto mbEvent = std::get<Event::MouseButton>(event);
+
+            if (mbEvent.Button == VKTB_MOUSE_BUTTON_LEFT && mbEvent.Action == VKTB_PRESS)
+            {
+                if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
+                {
+                    // To-do: when input buffers are implemented maybe fetch
+                    // mouse pos from there, instead of calling to imgui
+                    mPickRequested = ImGui::GetMousePos();
+                    // printf("Background clicked, with cursor at: (%f, %f)\n", pos.x,
+                    //        pos.y);
+                }
+            }
+        }
     }
 }
 

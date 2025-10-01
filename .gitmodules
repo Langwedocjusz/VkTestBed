@@ -25,3 +25,6 @@
 [submodule "vendor/cpptrace"]
 	path = vendor/cpptrace
 	url = https://github.com/jeremy-rifkin/cpptrace
+[submodule "vendor/ImGuizmo"]
+	path = vendor/ImGuizmo
+	url = https://github.com/Langwedocjusz/ImGuizmo

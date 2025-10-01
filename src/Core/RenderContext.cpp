@@ -4,10 +4,10 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Frame.h"
-#include "ImageData.h"
-#include "ImageUtils.h"
 #include "ImGuiInit.h"
 #include "ImGuiUtils.h"
+#include "ImageData.h"
+#include "ImageUtils.h"
 #include "Keycodes.h"
 #include "Renderer.h"
 #include "Scene.h"
@@ -22,9 +22,9 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-RenderContext::RenderContext(VulkanContext &ctx)
-    : mCtx(ctx), mFactory(ctx, mFrameInfo, mCamera), mMainDeletionQueue(ctx),
-      mSwapchainDeletionQueue(ctx)
+RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
+    : mCtx(ctx), mCamera(camera), mFactory(ctx, mFrameInfo, mCamera),
+      mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
 {
     // Create per frame command pools/buffers and sync-objects:
     for (auto &data : mFrameInfo.FrameData)
@@ -124,8 +124,8 @@ RenderContext::RenderContext(VulkanContext &ctx)
 
     mPicking.Target = MakeImage::Image2D(mCtx, "PickingTarget", renderTargetInfo);
     mPicking.TargetView =
-        MakeView::View2D(mCtx, "PickingTargetView", mPicking.Target, IRenderer::PickingTargetFormat,
-                         VK_IMAGE_ASPECT_COLOR_BIT);
+        MakeView::View2D(mCtx, "PickingTargetView", mPicking.Target,
+                         IRenderer::PickingTargetFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 
     mMainDeletionQueue.push_back(mPicking.Target);
     mMainDeletionQueue.push_back(mPicking.TargetView);
@@ -140,15 +140,16 @@ RenderContext::RenderContext(VulkanContext &ctx)
     };
 
     mPicking.Depth = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);
-    mPicking.DepthView = MakeView::View2D(mCtx, "DepthBufferView", mPicking.Depth,
-                                          IRenderer::PickingDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    mPicking.DepthView =
+        MakeView::View2D(mCtx, "DepthBufferView", mPicking.Depth,
+                         IRenderer::PickingDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     mMainDeletionQueue.push_back(mPicking.Depth);
     mMainDeletionQueue.push_back(mPicking.DepthView);
 
     auto usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    auto flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
-                 VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    auto flags =
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     mPicking.ReadbackBuffer =
         Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel), usage, flags);
@@ -178,9 +179,7 @@ RenderContext::~RenderContext()
 
 void RenderContext::OnUpdate(float deltaTime)
 {
-    // Call subsystem updates:
-    mCamera.OnUpdate(deltaTime, mCtx.Swapchain.extent.width,
-                     mCtx.Swapchain.extent.height);
+    // Call renderer update:
     mRenderer->OnUpdate(deltaTime);
 
     // Update statistics:
@@ -206,7 +205,6 @@ void RenderContext::OnUpdate(float deltaTime)
 void RenderContext::OnImGui()
 {
     mRenderer->OnImGui();
-    mCamera.OnImGui();
 
     if (mShowStats)
         imutils::DisplayStats(mFrameInfo.Stats);
@@ -446,22 +444,15 @@ void RenderContext::RebuildPipelines()
     mRenderer->RebuildPipelines();
 }
 
-void RenderContext::OnKeyPressed(int keycode, bool repeat)
+void RenderContext::OnEvent(Event::EventVariant event)
 {
-    if (keycode == VKTB_KEY_KP_MULTIPLY)
-        mShowStats = !mShowStats;
+    if (std::holds_alternative<Event::Key>(event))
+    {
+        auto e = std::get<Event::Key>(event);
 
-    mCamera.OnKeyPressed(keycode, repeat);
-}
-
-void RenderContext::OnKeyReleased(int keycode)
-{
-    mCamera.OnKeyReleased(keycode);
-}
-
-void RenderContext::OnMouseMoved(float x, float y)
-{
-    mCamera.OnMouseMoved(x, y);
+        if (e.Keycode == VKTB_KEY_KP_MULTIPLY && e.Action == VKTB_PRESS)
+            mShowStats = !mShowStats;
+    }
 }
 
 SceneKey RenderContext::PickObjectId(float x, float y)
@@ -515,11 +506,14 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         region.imageSubresource.baseArrayLayer = 0;
         region.imageSubresource.layerCount = 1;
 
-        vkCmdCopyImageToBuffer(cmd, mPicking.Target.Handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, mPicking.ReadbackBuffer.Handle, 1, &region);
+        vkCmdCopyImageToBuffer(cmd, mPicking.Target.Handle,
+                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                               mPicking.ReadbackBuffer.Handle, 1, &region);
     });
 
-    //Unpack copied data after submission:
-    const auto pixel = static_cast<const Pixel*>(mPicking.ReadbackBuffer.AllocInfo.pMappedData);
+    // Unpack copied data after submission:
+    const auto pixel =
+        static_cast<const Pixel *>(mPicking.ReadbackBuffer.AllocInfo.pMappedData);
     uint32_t R = pixel->R, G = pixel->G, B = pixel->B, A = pixel->A;
 
     uint32_t res = 0;
@@ -528,7 +522,7 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     res = res | B << 16;
     res = res | A << 24;
 
-    //printf("Got ID: %u (from R: %u G: %u B: %u A: %u) \n", res, R, G, B, A);
+    // printf("Got ID: %u (from R: %u G: %u B: %u A: %u) \n", res, R, G, B, A);
 
     return static_cast<SceneKey>(res);
 }

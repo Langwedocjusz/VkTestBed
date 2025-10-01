@@ -25,12 +25,14 @@ imutils::NodeDeletableState imutils::TreeNodeExDeletable(const char *name,
         ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
 
     res.IsOpen = ImGui::TreeNodeEx(name, flags);
+    auto data = g.LastItemData;
 
     if (imutils::CloseButton(name, closeButtonPos))
     {
         res.IsDeleted = true;
     }
 
+    g.LastItemData = data;
     return res;
 }
 
@@ -50,6 +52,7 @@ imutils::NodeCopyDeletableState imutils::TreeNodeExDeleteCopyAble(
     plusButtonPos.y -= g.Style.FramePadding.y;
 
     res.IsOpen = ImGui::TreeNodeEx(name.c_str(), flags);
+    auto data = g.LastItemData;
 
     if (ImGui::IsItemClicked())
     {
@@ -72,6 +75,7 @@ imutils::NodeCopyDeletableState imutils::TreeNodeExDeleteCopyAble(
 
     ImGui::PopStyleColor();
 
+    g.LastItemData = data;
     return res;
 }
 

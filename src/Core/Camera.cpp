@@ -62,6 +62,30 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
     };
 }
 
+void Camera::OnEvent(Event::EventVariant event)
+{
+    if (std::holds_alternative<Event::Key>(event))
+    {
+        auto e = std::get<Event::Key>(event);
+
+        if (e.Action == VKTB_PRESS || e.Action == VKTB_REPEAT)
+        {
+            bool repeat = e.Action == VKTB_REPEAT;
+            OnKeyPressed(e.Keycode, repeat);
+        }
+        else if (e.Action == VKTB_RELEASE)
+        {
+            OnKeyReleased(e.Keycode);
+        }
+    }
+
+    else if (std::holds_alternative<Event::CursorPos>(event))
+    {
+        auto e = std::get<Event::CursorPos>(event);
+        OnMouseMoved(static_cast<float>(e.XPos), static_cast<float>(e.YPos));
+    }
+}
+
 glm::mat4 Camera::ProjPerspective()
 {
     const float aspect = static_cast<float>(mWidth) / static_cast<float>(mHeight);
@@ -104,7 +128,7 @@ glm::mat4 Camera::GetViewProjRestrictedRange(float xmin, float xmax, float ymin,
     float top = lerp(camBottom, camTop, ymax);
 
     // Construct projection for given frustum:
-    //auto proj = glm::frustumLH_ZO(left, right, bottom, top, mZMin, mZMax);
+    // auto proj = glm::frustumLH_ZO(left, right, bottom, top, mZMin, mZMax);
     auto proj = glm::frustum(left, right, bottom, top, mZMin, mZMax);
     proj[1][1] *= -1.0f;
 

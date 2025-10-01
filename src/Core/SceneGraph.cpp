@@ -131,6 +131,18 @@ glm::mat4 SceneGraphNode::GetTransform()
            glm::toMat4(glm::quat(Rotation)) * glm::scale(glm::mat4(1.0f), Scale);
 }
 
+glm::mat4 SceneGraphNode::GetAggregateTransform(glm::mat4 current)
+{
+    if (Parent)
+    {
+        return Parent->GetAggregateTransform(GetTransform() * current);
+    }
+    else
+    {
+        return GetTransform() * current;
+    }
+}
+
 void SceneGraphNode::UpdateTransforms(Scene &scene, glm::mat4 current)
 {
     if (IsLeaf())

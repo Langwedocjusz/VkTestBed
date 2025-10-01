@@ -27,6 +27,7 @@ add_subdirectory(vendor/vk-bootstrap)
 add_subdirectory(vendor/VulkanMemoryAllocator)
 add_subdirectory(vendor/glm)
 add_subdirectory(vendor/imgui)
+add_subdirectory(vendor/ImGuizmo)
 add_subdirectory(vendor/stb_image)
 add_subdirectory(vendor/fastgltf)
 add_subdirectory(vendor/efsw)
@@ -45,6 +46,7 @@ target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 #Some additional linking for dependencies:
 target_link_libraries(imgui PRIVATE glfw)
 target_link_libraries(imgui PRIVATE Vulkan::Vulkan)
+target_link_libraries(ImGuizmo PRIVATE imgui)
 
 #=Setup the main executable=================================================================
 
@@ -212,6 +214,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
+target_link_libraries(${PROJECT_NAME} PRIVATE ImGuizmo)
 target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
 target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
 target_link_libraries(${PROJECT_NAME} PRIVATE efsw)

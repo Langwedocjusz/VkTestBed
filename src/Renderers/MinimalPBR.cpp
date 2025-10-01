@@ -23,10 +23,10 @@
 
 #include <vulkan/vulkan.h>
 
-#include <utility>
 #include <cstdint>
 #include <limits>
 #include <ranges>
+#include <utility>
 
 void MinimalPbrRenderer::DestroyDrawable(const MinimalPbrRenderer::Drawable &drawable)
 {
@@ -726,23 +726,24 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     float xmin = x * pixel_dx * mInternalResolutionScale;
     float ymin = y * pixel_dy * mInternalResolutionScale;
 
-    //float xmax = xmin + 64.0f * pixel_dx;
-    //float ymax = ymin + 64.0f * pixel_dy;
+    // float xmax = xmin + 64.0f * pixel_dx;
+    // float ymax = ymin + 64.0f * pixel_dy;
 
     float xmax = xmin + pixel_dx;
     float ymax = ymin + pixel_dy;
 
-    //xmin -= 64.0f * pixel_dx;
-    //ymin -= 64.0f * pixel_dy;
+    // xmin -= 64.0f * pixel_dx;
+    // ymin -= 64.0f * pixel_dy;
 
     glm::mat4 viewProj = mCamera.GetViewProjRestrictedRange(xmin, xmax, ymin, ymax);
 
     // Draw all drawables, outputting their object id as fragment color:
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mObjectIdPipeline.Handle);
-    common::ViewportScissor(cmd, VkExtent2D{1,1});
+    common::ViewportScissor(cmd, VkExtent2D{1, 1});
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mObjectIdPipeline.Layout, 0,
-                            1, mDynamicUBO.DescriptorSet(), 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            mObjectIdPipeline.Layout, 0, 1, mDynamicUBO.DescriptorSet(),
+                            0, nullptr);
 
     DrawSettings drawSettings{
         .ViewProj = viewProj,
@@ -759,7 +760,7 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     // Draw single-sided drawables:
     vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
 
-    //To-do solve this more cleanly:
+    // To-do solve this more cleanly:
     DrawStats stats;
 
     for (auto key : mSingleSidedDrawableKeys)

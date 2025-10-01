@@ -2,6 +2,7 @@
 
 #include "Camera.h"
 #include "DeletionQueue.h"
+#include "Event.h"
 #include "Frame.h"
 #include "RendererFactory.h"
 #include "Scene.h"
@@ -11,7 +12,7 @@
 
 class RenderContext {
   public:
-    RenderContext(VulkanContext &ctx);
+    RenderContext(VulkanContext &ctx, Camera &camera);
     ~RenderContext();
 
     /// Must be called after general imgui intiialization
@@ -20,10 +21,7 @@ class RenderContext {
     void OnUpdate(float deltaTime);
     void OnImGui();
     void OnRender(std::optional<SceneKey> highlightedObj);
-
-    void OnKeyPressed(int keycode, bool repeat);
-    void OnKeyReleased(int keycode);
-    void OnMouseMoved(float x, float y);
+    void OnEvent(Event::EventVariant event);
 
     void ResizeSwapchain();
     void LoadScene(Scene &scene);
@@ -41,7 +39,7 @@ class RenderContext {
     VulkanContext &mCtx;
     FrameInfo mFrameInfo;
 
-    Camera mCamera;
+    Camera &mCamera;
 
     RendererFactory mFactory;
     std::unique_ptr<IRenderer> mRenderer;

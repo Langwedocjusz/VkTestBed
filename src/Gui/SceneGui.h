@@ -1,11 +1,12 @@
 #pragma once
 
+#include "Camera.h"
 #include "ModelLoaderGui.h"
 #include "SceneEditor.h"
 
 class SceneGui {
   public:
-    SceneGui(SceneEditor &editor);
+    SceneGui(SceneEditor &editor, const Camera &camera);
 
     void OnImGui();
     [[nodiscard]] std::optional<SceneKey> GetSelection() const;
@@ -34,6 +35,8 @@ class SceneGui {
 
   private:
     SceneEditor &mEditor;
+    const Camera &mCamera;
+
     SceneGraphNode *mSelectedNode = nullptr;
 
     struct DragPayload {

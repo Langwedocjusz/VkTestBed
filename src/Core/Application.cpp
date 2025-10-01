@@ -32,12 +32,14 @@ class Application::Impl {
     SystemWindow mWindow;
     VulkanContext mCtx;
 
-    ShaderManager mShaderManager;
+    Camera mCamera;
     RenderContext mRender;
 
     Scene mScene;
     SceneEditor mSceneEditor;
     SceneGui mSceneGui;
+
+    ShaderManager mShaderManager;
 
     float mDeltaTime = 0.0f;
     std::chrono::time_point<std::chrono::high_resolution_clock> mOldTime;
@@ -51,9 +53,8 @@ class Application::Impl {
 
 Application::Impl::Impl()
     : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
-      mCtx(800, 600, "VkTestBed", mWindow),
-      mShaderManager("assets/shaders", "assets/spirv"), mRender(mCtx),
-      mSceneEditor(mScene), mSceneGui(mSceneEditor)
+      mCtx(800, 600, "VkTestBed", mWindow), mRender(mCtx, mCamera), mSceneEditor(mScene),
+      mSceneGui(mSceneEditor, mCamera), mShaderManager("assets/shaders", "assets/spirv")
 {
     mWindow.SetEventCallback([](void *usrPtr, Event::EventVariant event) {
         auto app = reinterpret_cast<Impl *>(usrPtr);
@@ -115,13 +116,17 @@ void Application::Impl::Run()
         mWindow.PollEvents();
 
         // Update Renderer and Scene Editor
-        mRender.OnUpdate(mDeltaTime / 1000.0f);
+        auto deltaSeconds = mDeltaTime / 1000.0f;
+
+        mCamera.OnUpdate(deltaSeconds, mCtx.Swapchain.extent.width,
+                         mCtx.Swapchain.extent.height);
+        mRender.OnUpdate(deltaSeconds);
         mSceneEditor.OnUpdate();
 
         // Collect imgui calls
         iminit::BeginGuiFrame();
-        mSceneGui.OnImGui();
         mRender.OnImGui();
+        mSceneGui.OnImGui();
         iminit::FinalizeGuiFrame();
 
         // Render things:
@@ -199,26 +204,8 @@ void Application::Impl::OnEvent(Event::EventVariant event)
     // If cursor caputured - propagate to rendered event handling:
     if (mCursorCaptured)
     {
-        if (std::holds_alternative<Event::Key>(event))
-        {
-            auto e = std::get<Event::Key>(event);
-
-            if (e.Action == VKTB_PRESS || e.Action == VKTB_REPEAT)
-            {
-                bool repeat = e.Action == VKTB_REPEAT;
-                mRender.OnKeyPressed(e.Keycode, repeat);
-            }
-            else if (e.Action == VKTB_RELEASE)
-            {
-                mRender.OnKeyReleased(e.Keycode);
-            }
-        }
-
-        else if (std::holds_alternative<Event::CursorPos>(event))
-        {
-            auto e = std::get<Event::CursorPos>(event);
-            mRender.OnMouseMoved(static_cast<float>(e.XPos), static_cast<float>(e.YPos));
-        }
+        mCamera.OnEvent(event);
+        mRender.OnEvent(event);
     }
 
     // If cursor not captured - use imgui event handling:
@@ -234,6 +221,9 @@ void Application::Impl::OnEvent(Event::EventVariant event)
 
             if (mbEvent.Button == VKTB_MOUSE_BUTTON_LEFT && mbEvent.Action == VKTB_PRESS)
             {
+                // To-do: also detect when gizmo is used.
+                // Otherwise its frustratingly easy to select other objects while using
+                // it.
                 if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
                 {
                     // To-do: when input buffers are implemented maybe fetch

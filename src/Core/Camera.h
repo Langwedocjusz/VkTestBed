@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Bitflags.h"
+#include "Event.h"
 #include "glm/trigonometric.hpp"
 
 #include <glm/glm.hpp>
@@ -49,10 +50,7 @@ class Camera {
 
     void OnUpdate(float deltatime, uint32_t width, uint32_t height);
     void OnImGui();
-
-    void OnKeyPressed(int keycode, bool repeat);
-    void OnKeyReleased(int keycode);
-    void OnMouseMoved(float x, float y);
+    void OnEvent(Event::EventVariant event);
 
     [[nodiscard]] glm::vec3 GetPos() const
     {
@@ -104,6 +102,10 @@ class Camera {
   private:
     glm::mat4 ProjPerspective();
     glm::mat4 ProjOrthogonal();
+
+    void OnKeyPressed(int keycode, bool repeat);
+    void OnKeyReleased(int keycode);
+    void OnMouseMoved(float x, float y);
 
     void ProcessKeyboard(float deltatime);
     void ProcessMouse(float xoffset, float yoffset);

@@ -131,10 +131,10 @@ class MinimalPbrRenderer final : public IRenderer {
         glm::mat4 Model;
     } mOutlinePCData;
 
-     struct {
-         glm::mat4 Model;
-         uint32_t ObjectId;
-     } mObjectIdPCData;
+    struct {
+        glm::mat4 Model;
+        uint32_t ObjectId;
+    } mObjectIdPCData;
 
     // Images for materials:
     Texture mDefaultAlbedo;

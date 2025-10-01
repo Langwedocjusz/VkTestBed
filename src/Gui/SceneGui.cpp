@@ -8,6 +8,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 
+#include <ImGuizmo.h>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "Vassert.h"
@@ -19,7 +20,8 @@
 
 static const char *PAYLOAD_STRING = "SCENE_INSTANCE_PAYLOAD";
 
-SceneGui::SceneGui(SceneEditor &editor) : mEditor(editor), mModelLoader(editor)
+SceneGui::SceneGui(SceneEditor &editor, const Camera &camera)
+    : mEditor(editor), mCamera(camera), mModelLoader(editor)
 {
     auto path = std::filesystem::current_path() / "assets/cubemaps";
 
@@ -670,6 +672,41 @@ void SceneGui::ObjectPropertiesMenu()
             }
 
             ImGui::TreePop();
+        }
+
+        if (mSelectedNode->IsLeaf())
+        {
+            ImGuiIO &io = ImGui::GetIO();
+            ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+
+            auto &obj = mEditor.GetObject(mSelectedNode->GetObjectKey());
+
+            glm::mat4 objAggregate = obj.Transform;
+            glm::mat4 parentAggregate = mSelectedNode->Parent->GetAggregateTransform();
+
+            auto view = mCamera.GetView();
+            auto proj = mCamera.GetProj();
+            auto op = ImGuizmo::OPERATION::TRANSLATE;
+            auto mode = ImGuizmo::MODE::WORLD;
+
+            // As usual - Vulkan y orientation:
+            proj[1][1] *= -1.0f;
+
+            glm::mat4 delta;
+            {
+                auto copy = objAggregate;
+                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), op, mode,
+                                     glm::value_ptr(copy), glm::value_ptr(delta));
+            }
+
+            // To-do: think about avoiding this sort of unstable matrix math (inverse)
+            glm::mat4 deltaNode = glm::inverse(parentAggregate) * delta * objAggregate;
+            // To-do: handle rotation and scale as well:
+            glm::vec3 translation{deltaNode[3][0], deltaNode[3][1], deltaNode[3][2]};
+
+            mSelectedNode->Translation = translation;
+            // To-do: optimization, same as above
+            mEditor.UpdateTransforms(&mEditor.GraphRoot);
         }
     }
 

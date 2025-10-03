@@ -9,7 +9,10 @@
 #include "imgui_internal.h"
 
 #include <ImGuizmo.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include "Vassert.h"
 
@@ -19,6 +22,8 @@
 #include <string>
 
 static const char *PAYLOAD_STRING = "SCENE_INSTANCE_PAYLOAD";
+
+static ImGuizmo::OPERATION sGizmoOp = ImGuizmo::OPERATION::TRANSLATE;
 
 SceneGui::SceneGui(SceneEditor &editor, const Camera &camera)
     : mEditor(editor), mCamera(camera), mModelLoader(editor)
@@ -82,7 +87,37 @@ void SceneGui::SetSelection(SceneKey objKey)
     if (objKey == 0)
         mSelectedNode = nullptr;
     else
-        GetLeafById(objKey, mSelectedNode, &mEditor.GraphRoot);
+    {
+        SceneGraphNode *selectedNode;
+        GetLeafById(objKey, selectedNode, &mEditor.GraphRoot);
+
+        if (selectedNode == mSelectedNode)
+            mSelectedNode = nullptr;
+        else
+            mSelectedNode = selectedNode;
+    }
+}
+
+void SceneGui::RequestGizmoRotate()
+{
+    if (mSelectedNode == nullptr)
+        return;
+
+    if (sGizmoOp == ImGuizmo::OPERATION::ROTATE)
+        sGizmoOp = ImGuizmo::OPERATION::TRANSLATE;
+    else
+        sGizmoOp = ImGuizmo::OPERATION::ROTATE;
+}
+
+void SceneGui::RequestGizmoScale()
+{
+    if (mSelectedNode == nullptr)
+        return;
+
+    if (sGizmoOp == ImGuizmo::OPERATION::SCALE)
+        sGizmoOp = ImGuizmo::OPERATION::TRANSLATE;
+    else
+        sGizmoOp = ImGuizmo::OPERATION::SCALE;
 }
 
 void SceneGui::SceneHierarchyMenu()
@@ -686,7 +721,6 @@ void SceneGui::ObjectPropertiesMenu()
 
             auto view = mCamera.GetView();
             auto proj = mCamera.GetProj();
-            auto op = ImGuizmo::OPERATION::TRANSLATE;
             auto mode = ImGuizmo::MODE::WORLD;
 
             // As usual - Vulkan y orientation:
@@ -695,16 +729,25 @@ void SceneGui::ObjectPropertiesMenu()
             glm::mat4 delta;
             {
                 auto copy = objAggregate;
-                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), op, mode,
-                                     glm::value_ptr(copy), glm::value_ptr(delta));
+                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), sGizmoOp,
+                                     mode, glm::value_ptr(copy), glm::value_ptr(delta));
             }
 
-            // To-do: think about avoiding this sort of unstable matrix math (inverse)
+            // To-do: think about avoiding this sort of unstable matrix math (inverse and
+            // decomppse) Currently using scale on rotated objects is completely broken
             glm::mat4 deltaNode = glm::inverse(parentAggregate) * delta * objAggregate;
-            // To-do: handle rotation and scale as well:
-            glm::vec3 translation{deltaNode[3][0], deltaNode[3][1], deltaNode[3][2]};
+
+            glm::vec3 scale;
+            glm::quat rotation;
+            glm::vec3 translation;
+            glm::vec3 skew;
+            glm::vec4 perspective;
+            glm::decompose(deltaNode, scale, rotation, translation, skew, perspective);
 
             mSelectedNode->Translation = translation;
+            mSelectedNode->Rotation = glm::eulerAngles(rotation);
+            mSelectedNode->Scale = scale;
+
             // To-do: optimization, same as above
             mEditor.UpdateTransforms(&mEditor.GraphRoot);
         }

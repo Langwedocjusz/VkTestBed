@@ -9,8 +9,12 @@ class SceneGui {
     SceneGui(SceneEditor &editor, const Camera &camera);
 
     void OnImGui();
-    [[nodiscard]] std::optional<SceneKey> GetSelection() const;
+
     void SetSelection(SceneKey objKey);
+    [[nodiscard]] std::optional<SceneKey> GetSelection() const;
+
+    void RequestGizmoRotate();
+    void RequestGizmoScale();
 
   private:
     void SceneHierarchyMenu();

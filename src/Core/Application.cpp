@@ -201,36 +201,43 @@ void Application::Impl::OnEvent(Event::EventVariant event)
         }
     }
 
-    // If cursor caputured - propagate to rendered event handling:
+    // If cursor caputured - propagate to camera/renderer event handling:
     if (mCursorCaptured)
     {
         mCamera.OnEvent(event);
         mRender.OnEvent(event);
     }
 
-    // If cursor not captured - use imgui event handling:
+    // If cursor not captured - use gui event handling:
     else
     {
         iminit::ImGuiHandleEvent(event);
+
+        // Change gizmo mode:
+        if (std::holds_alternative<Event::Key>(event))
+        {
+            auto e = std::get<Event::Key>(event);
+
+            if (e.Keycode == VKTB_KEY_R && e.Action == VKTB_PRESS)
+                mSceneGui.RequestGizmoRotate();
+
+            if (e.Keycode == VKTB_KEY_S && e.Action == VKTB_PRESS)
+                mSceneGui.RequestGizmoScale();
+        }
 
         // Detect if background was clicked
         // To-do: encapsulate this somehow
         if (std::holds_alternative<Event::MouseButton>(event))
         {
-            auto mbEvent = std::get<Event::MouseButton>(event);
+            auto e = std::get<Event::MouseButton>(event);
 
-            if (mbEvent.Button == VKTB_MOUSE_BUTTON_LEFT && mbEvent.Action == VKTB_PRESS)
+            if (e.Button == VKTB_MOUSE_BUTTON_LEFT && e.Action == VKTB_PRESS)
             {
-                // To-do: also detect when gizmo is used.
-                // Otherwise its frustratingly easy to select other objects while using
-                // it.
-                if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
+                if (!iminit::AnythingHovered())
                 {
                     // To-do: when input buffers are implemented maybe fetch
                     // mouse pos from there, instead of calling to imgui
                     mPickRequested = ImGui::GetMousePos();
-                    // printf("Background clicked, with cursor at: (%f, %f)\n", pos.x,
-                    //        pos.y);
                 }
             }
         }

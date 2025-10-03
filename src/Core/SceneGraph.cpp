@@ -3,7 +3,6 @@
 #include "Vassert.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/quaternion.hpp>
 
 SceneGraphNode::SceneGraphNode(Scene *scene) : mScene(scene)
@@ -127,8 +126,11 @@ void SceneGraphNode::RemoveChildrenWithMesh(Scene &scene, SceneKey mesh)
 
 glm::mat4 SceneGraphNode::GetTransform()
 {
-    return glm::translate(glm::mat4(1.0f), Translation) *
-           glm::toMat4(glm::quat(Rotation)) * glm::scale(glm::mat4(1.0f), Scale);
+    auto translation = glm::translate(glm::mat4(1.0f), Translation);
+    auto rotation = glm::toMat4(glm::quat(Rotation));
+    auto scale = glm::scale(glm::mat4(1.0f), Scale);
+
+    return translation * rotation * scale;
 }
 
 glm::mat4 SceneGraphNode::GetAggregateTransform(glm::mat4 current)

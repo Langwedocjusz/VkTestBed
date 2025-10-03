@@ -125,21 +125,33 @@ void iminit::RecordImguiToCommandBuffer(VkCommandBuffer cmd)
 
 void iminit::ImGuiHandleEvent(Event::EventVariant event)
 {
+    using namespace Event;
+
     // clang-format off
     std::visit(overloaded{
         []([[maybe_unused]] Event::FramebufferResize arg) {},
-        [](Event::Focus arg) {ImGui_ImplGlfw_WindowFocusCallback(sWindow, arg.Focused);},
-        [](Event::CursorEnter arg) {ImGui_ImplGlfw_CursorEnterCallback(sWindow, arg.Entered);},
-        [](Event::CursorPos arg) {ImGui_ImplGlfw_CursorPosCallback(sWindow, arg.XPos, arg.YPos);},
-        [](Event::MouseButton arg) {ImGui_ImplGlfw_MouseButtonCallback(sWindow, arg.Button, arg.Action, arg.Mods);},
-        [](Event::Scroll arg) {ImGui_ImplGlfw_ScrollCallback(sWindow, arg.XOffset, arg.YOffset);},
-        [](Event::Key arg) {ImGui_ImplGlfw_KeyCallback(sWindow, arg.Keycode, arg.Scancode, arg.Action,arg.Mods);},
-        [](Event::Char arg) {ImGui_ImplGlfw_CharCallback(sWindow, arg.Codepoint); }
+        [](Focus arg)       {ImGui_ImplGlfw_WindowFocusCallback(sWindow, arg.Focused);},
+        [](CursorEnter arg) {ImGui_ImplGlfw_CursorEnterCallback(sWindow, arg.Entered);},
+        [](CursorPos arg)   {ImGui_ImplGlfw_CursorPosCallback(sWindow, arg.XPos, arg.YPos);},
+        [](MouseButton arg) {ImGui_ImplGlfw_MouseButtonCallback(sWindow, arg.Button, arg.Action, arg.Mods);},
+        [](Scroll arg)      {ImGui_ImplGlfw_ScrollCallback(sWindow, arg.XOffset, arg.YOffset);},
+        [](Key arg)         {ImGui_ImplGlfw_KeyCallback(sWindow, arg.Keycode, arg.Scancode, arg.Action,arg.Mods);},
+        [](Char arg)        {ImGui_ImplGlfw_CharCallback(sWindow, arg.Codepoint); }
     }, event);
     // clang-format on
 
     // Currently not handled:
     // ImGui_ImplGlfw_MonitorCallbac;
+}
+
+bool iminit::AnythingHovered()
+{
+    bool res = false;
+
+    res = res || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+    res = res || ImGuizmo::IsOver();
+
+    return res;
 }
 
 void iminit::ScaleStyle(float scaleFactor)

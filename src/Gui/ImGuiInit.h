@@ -22,6 +22,7 @@ void FinalizeGuiFrame();
 void RecordImguiToCommandBuffer(VkCommandBuffer cmd);
 
 void ImGuiHandleEvent(Event::EventVariant event);
+bool AnythingHovered();
 
 void DestroyImGui();
 } // namespace iminit

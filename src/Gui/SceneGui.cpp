@@ -714,42 +714,45 @@ void SceneGui::ObjectPropertiesMenu()
             ImGuiIO &io = ImGui::GetIO();
             ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
 
-            auto &obj = mEditor.GetObject(mSelectedNode->GetObjectKey());
+            // To-do: currently parent transform is hacked in as part of the
+            // camera 'view'. This avoids numerically unstable inversion
+            // of the parent matrix at each step of the transformation.
+            // The cost is that now all transformations are done in parent
+            // coordinate space. By itself this is acceptable, but ImGuizmo
+            // is not fully aware, so the widget is sometimes misaligned with
+            // the real translation axes etc.
 
-            glm::mat4 objAggregate = obj.Transform;
+            glm::mat4 currentNonAggregate = mSelectedNode->GetTransform();
             glm::mat4 parentAggregate = mSelectedNode->Parent->GetAggregateTransform();
 
-            auto view = mCamera.GetView();
+            auto view = mCamera.GetView() * parentAggregate;
             auto proj = mCamera.GetProj();
-            auto mode = ImGuizmo::MODE::WORLD;
-
             // As usual - Vulkan y orientation:
             proj[1][1] *= -1.0f;
 
-            glm::mat4 delta;
+            auto mode = ImGuizmo::MODE::WORLD;
+
+            bool manipulated = ImGuizmo::Manipulate(
+                glm::value_ptr(view), glm::value_ptr(proj), sGizmoOp, mode,
+                glm::value_ptr(currentNonAggregate));
+
+            if (manipulated)
             {
-                auto copy = objAggregate;
-                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), sGizmoOp,
-                                     mode, glm::value_ptr(copy), glm::value_ptr(delta));
+                glm::vec3 scale;
+                glm::quat rotation;
+                glm::vec3 translation;
+                glm::vec3 skew;
+                glm::vec4 perspective;
+                glm::decompose(currentNonAggregate, scale, rotation, translation, skew,
+                               perspective);
+
+                mSelectedNode->Translation = translation;
+                mSelectedNode->Rotation = glm::eulerAngles(rotation);
+                mSelectedNode->Scale = scale;
+
+                // To-do: optimization, same as above
+                mEditor.UpdateTransforms(&mEditor.GraphRoot);
             }
-
-            // To-do: think about avoiding this sort of unstable matrix math (inverse and
-            // decomppse) Currently using scale on rotated objects is completely broken
-            glm::mat4 deltaNode = glm::inverse(parentAggregate) * delta * objAggregate;
-
-            glm::vec3 scale;
-            glm::quat rotation;
-            glm::vec3 translation;
-            glm::vec3 skew;
-            glm::vec4 perspective;
-            glm::decompose(deltaNode, scale, rotation, translation, skew, perspective);
-
-            mSelectedNode->Translation = translation;
-            mSelectedNode->Rotation = glm::eulerAngles(rotation);
-            mSelectedNode->Scale = scale;
-
-            // To-do: optimization, same as above
-            mEditor.UpdateTransforms(&mEditor.GraphRoot);
         }
     }
 

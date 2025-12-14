@@ -82,14 +82,17 @@ void Application::Impl::Run()
         mOldTime = currentTime;
 
         // Recreate swapchain and related resources if necessary:
-        bool handleResize = (!mStillResizing && mResizeRequested);
-        mStillResizing = false;
+        bool handleResize = false;
+        handleResize = handleResize || !mCtx.SwapchainOk;
+        handleResize = handleResize || (!mStillResizing && mResizeRequested);
 
-        if (!mCtx.SwapchainOk || handleResize)
+        if (handleResize)
         {
             mRender.ResizeSwapchain();
             mResizeRequested = false;
         }
+
+        mStillResizing = false;
 
         // Reload the scene if necessary:
         if (mScene.UpdateRequested())
@@ -140,17 +143,22 @@ void Application::Impl::Run()
     iminit::DestroyImGui();
 }
 
-void Application::Impl::OnResize(uint32_t width, uint32_t height)
-{
-    mCtx.RequestedWidth = width;
-    mCtx.RequestedHeight = height;
-
-    mStillResizing = true;
-    mResizeRequested = true;
-}
-
 void Application::Impl::OnEvent(Event::EventVariant event)
 {
+    // Handle framebuffer resize (Vulkan logic should catch that by itself, but just to be sure...):
+    if (std::holds_alternative<Event::FramebufferResize>(event))
+    {
+        auto resize = std::get<Event::FramebufferResize>(event);
+
+        mCtx.RequestedWidth = resize.Width;
+        mCtx.RequestedHeight = resize.Height;
+
+        mStillResizing = true;
+        mResizeRequested = true;
+
+        return;
+    }
+
     // Handle some key combinations before propagating further:
     if (std::holds_alternative<Event::Key>(event))
     {

@@ -212,7 +212,11 @@ static std::optional<Camera::Movement> KeyToMovement(int keycode)
         return {};
     }
 
+    //On msvc, debug mode, std::unreachable triggers an 
+    //'unreachable code' exception...
+    #ifndef _MSC_VER
     std::unreachable();
+    #endif
 }
 
 void Camera::OnKeyPressed(int keycode, bool repeat)

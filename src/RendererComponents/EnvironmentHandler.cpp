@@ -11,6 +11,7 @@
 #include "Vassert.h"
 #include "VkUtils.h"
 
+#include <bit>
 #include <cmath>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vulkan/vulkan.h>
@@ -603,8 +604,9 @@ void EnvironmentHandler::ResetToBlack()
         clearImage(mPrefiltered.Img);
 
         // Set all SH coefficients to 0:
+        auto fillValue = std::bit_cast<uint32_t, float>(0.0f); 
+
         vkCmdFillBuffer(cmd, mFinalReductionBuffer.Handle, 0,
-                        mFinalReductionBuffer.AllocInfo.size,
-                        std::bit_cast<uint32_t>(0.0f));
+                        mFinalReductionBuffer.AllocInfo.size, fillValue);
     });
 }

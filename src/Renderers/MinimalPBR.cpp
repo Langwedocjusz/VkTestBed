@@ -450,7 +450,7 @@ void MinimalPbrRenderer::DrawAllInstances(VkCommandBuffer cmd, Drawable &drawabl
 
         settings.PCSetFn(instance);
         vkCmdPushConstants(cmd, settings.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           settings.PCSize, settings.PCData);
+                           static_cast<uint32_t>(settings.PCSize), settings.PCData);
 
         vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
 

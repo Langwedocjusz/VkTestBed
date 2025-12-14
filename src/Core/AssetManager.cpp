@@ -82,7 +82,10 @@ void AssetManager::OnUpdate()
                 auto &img = mScene.Images[data.ImageKey];
 
                 if (data.Path)
-                    img = ImageData::ImportSTB(data.Path->c_str(), data.Unorm);
+                {
+                    auto pathStr = data.Path->string();
+                    img = ImageData::ImportSTB(pathStr.c_str(), data.Unorm);
+                }
                 else
                     img = ImageData::SinglePixel(data.BaseColor, data.Unorm);
 
@@ -147,7 +150,9 @@ void AssetManager::LoadHdri(const std::filesystem::path &path)
         if (mHDRI.LastPath != path)
         {
             mHDRI.LastPath = path;
-            mScene.Env.HdriImage = ImageData::ImportEXR(path.c_str());
+
+            auto pathStr = path.string();
+            mScene.Env.HdriImage = ImageData::ImportEXR(pathStr.c_str());
             mScene.Env.ReloadImage = true;
 
             mScene.RequestUpdate(Scene::UpdateFlag::Images);

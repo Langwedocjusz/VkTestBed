@@ -289,11 +289,11 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     {
         auto queryRes = vkGetQueryPoolResults(
             mCtx.Device, *frame.QueryPool,
-            0,                                     // first query
-            timestamps.size(),                     // query count
-            timestamps.size() * sizeof(Timestamp), // data size
-            &timestamps[0],                        // data
-            sizeof(Timestamp),                     // stride
+            0,                                        // first query
+            static_cast<uint32_t>(timestamps.size()), // query count
+            timestamps.size() * sizeof(Timestamp),    // data size
+            &timestamps[0],                           // data
+            sizeof(Timestamp),                        // stride
             VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
 
         vassert(queryRes == VK_SUCCESS || queryRes == VK_NOT_READY);

@@ -14,7 +14,6 @@
 #include <imgui.h>
 
 #include <optional>
-#include <utility>
 
 void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
 {
@@ -209,14 +208,10 @@ static std::optional<Camera::Movement> KeyToMovement(int keycode)
     case VKTB_KEY_D:
         return Camera::Movement::Right;
     default:
-        return {};
+        return std::nullopt;
     }
 
-    //On msvc, debug mode, std::unreachable triggers an 
-    //'unreachable code' exception...
-    #ifndef _MSC_VER
-    std::unreachable();
-    #endif
+    return std::nullopt;
 }
 
 void Camera::OnKeyPressed(int keycode, bool repeat)

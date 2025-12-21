@@ -732,9 +732,9 @@ void SceneGui::ObjectPropertiesMenu()
 
             auto mode = ImGuizmo::MODE::WORLD;
 
-            bool manipulated = ImGuizmo::Manipulate(
-                glm::value_ptr(view), glm::value_ptr(proj), sGizmoOp, mode,
-                glm::value_ptr(currentNonAggregate));
+            bool manipulated =
+                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), sGizmoOp,
+                                     mode, glm::value_ptr(currentNonAggregate));
 
             if (manipulated)
             {

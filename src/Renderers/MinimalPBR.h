@@ -8,6 +8,7 @@
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Scene.h"
+#include "ShadowmapHandler.h"
 #include "Texture.h"
 #include <vulkan/vulkan_core.h>
 
@@ -72,6 +73,7 @@ class MinimalPbrRenderer final : public IRenderer {
         VkPipelineLayout Layout;
         void *PCData;
         size_t PCSize;
+        size_t MaterialDsIdx;
         PCSetFunction PCSetFn;
     };
 
@@ -98,17 +100,14 @@ class MinimalPbrRenderer final : public IRenderer {
     // Framebuffer:
     static constexpr VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
     static constexpr VkFormat mDepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-    static constexpr VkFormat mShadowmapFormat = VK_FORMAT_D32_SFLOAT;
 
     Image mDepthStencilBuffer;
     VkImageView mDepthStencilBufferView;
 
     // Common resources:
     VkSampler mSampler2D;
-    VkDescriptorPool mStaticDescriptorPool;
 
     // Graphics pipelines:
-    Pipeline mShadowmapPipeline;
     Pipeline mMainPipeline;
     Pipeline mBackgroundPipeline;
     Pipeline mStencilPipeline;
@@ -116,10 +115,6 @@ class MinimalPbrRenderer final : public IRenderer {
     Pipeline mObjectIdPipeline;
 
     // Push-constant structs for all pipelines:
-    struct {
-        glm::mat4 LightMVP;
-    } mShadowPCData;
-
     struct {
         glm::mat4 Model;
         // In principle this could be a mat3, but that somehow
@@ -171,9 +166,6 @@ class MinimalPbrRenderer final : public IRenderer {
 
     // Some renderer settings:
     const float mInternalResolutionScale = 1.0f;
-    float mAddZ = 8.0f;
-    float mSubZ = 20.0f;
-    float mShadowDist = 20.0f;
 
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct UBOData {
@@ -188,19 +180,10 @@ class MinimalPbrRenderer final : public IRenderer {
 
     DynamicUniformBuffer mDynamicUBO;
 
-    // Shadow map:
-    Image mShadowmap;
-    VkImageView mShadowmapView;
-    VkSampler mSamplerShadowmap;
-
-    VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
-    VkDescriptorSet mShadowmapDescriptorSet;
-
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;
-
-    // Descriptor set for sending shadow map view to imgui:
-    VkDescriptorSet mDebugTextureDescriptorSet;
+    // Shadowmap generation:
+    ShadowmapHandler mShadowmapHandler;
 
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;

@@ -24,8 +24,6 @@ class Application::Impl {
     ~Impl() = default;
 
     void Run();
-
-    void OnResize(uint32_t width, uint32_t height);
     void OnEvent(Event::EventVariant event);
 
   private:
@@ -145,7 +143,8 @@ void Application::Impl::Run()
 
 void Application::Impl::OnEvent(Event::EventVariant event)
 {
-    // Handle framebuffer resize (Vulkan logic should catch that by itself, but just to be sure...):
+    // Handle framebuffer resize (Vulkan logic should catch that by itself, but just to be
+    // sure...):
     if (std::holds_alternative<Event::FramebufferResize>(event))
     {
         auto resize = std::get<Event::FramebufferResize>(event);

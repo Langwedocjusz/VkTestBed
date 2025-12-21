@@ -143,6 +143,8 @@ target_sources(${PROJECT_NAME}
         src/RendererComponents/DynamicUniformBuffer.cpp
         src/RendererComponents/EnvironmentHandler.h
         src/RendererComponents/EnvironmentHandler.cpp
+        src/RendererComponents/ShadowmapHandler.h
+        src/RendererComponents/ShadowmapHandler.cpp
         src/Renderers/HelloRenderer.h
         src/Renderers/HelloRenderer.cpp
         src/Renderers/Minimal3D.h

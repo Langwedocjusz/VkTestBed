@@ -7,6 +7,7 @@
 #include "Vassert.h"
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
                            VkQueueFamilyProperties &properties)

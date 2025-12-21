@@ -604,7 +604,7 @@ void EnvironmentHandler::ResetToBlack()
         clearImage(mPrefiltered.Img);
 
         // Set all SH coefficients to 0:
-        auto fillValue = std::bit_cast<uint32_t, float>(0.0f); 
+        auto fillValue = std::bit_cast<uint32_t, float>(0.0f);
 
         vkCmdFillBuffer(cmd, mFinalReductionBuffer.Handle, 0,
                         mFinalReductionBuffer.AllocInfo.size, fillValue);

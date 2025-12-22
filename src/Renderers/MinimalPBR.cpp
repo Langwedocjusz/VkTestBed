@@ -24,6 +24,50 @@
 #include <cstdint>
 #include <ranges>
 #include <utility>
+#include <vulkan/vulkan_core.h>
+
+bool MinimalPbrRenderer::Drawable::EarlyBail(glm::mat4 viewProj)
+{
+    if (Instances.empty())
+        return true;
+
+    if (Instances.size() == 1)
+    {
+        if (!Bbox.InView(viewProj * Instances[0].Transform))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool MinimalPbrRenderer::Drawable::IsVisible(glm::mat4 viewProj, size_t instanceIdx)
+{
+    return Bbox.InView(viewProj * Instances[instanceIdx].Transform);
+}
+
+void MinimalPbrRenderer::Drawable::BindGeometryBuffers(VkCommandBuffer cmd)
+{
+    VkBuffer vertBuffer = VertexBuffer.Handle;
+    VkDeviceSize vertOffset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
+
+    vkCmdBindIndexBuffer(cmd, IndexBuffer.Handle, 0, MinimalPbrRenderer::IndexType);
+}
+
+void MinimalPbrRenderer::Drawable::Draw(VkCommandBuffer cmd)
+{
+    vkCmdDrawIndexed(cmd, IndexCount, 1, 0, 0, 0);
+}
+
+void MinimalPbrRenderer::Material::BindDescriptorSet(VkCommandBuffer cmd,
+                                                     VkPipelineLayout pipelineLayout,
+                                                     uint32_t binding)
+{
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, binding,
+                            1, &DescriptorSet, 0, nullptr);
+}
 
 void MinimalPbrRenderer::DestroyDrawable(const MinimalPbrRenderer::Drawable &drawable)
 {
@@ -285,47 +329,33 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
     mFrame.Stats.NumBinds = stats.NumBinds;
 }
 
-void MinimalPbrRenderer::DrawAllInstances(VkCommandBuffer cmd, Drawable &drawable,
-                                          DrawSettings &settings, DrawStats &stats)
+template <typename Fn>
+void MinimalPbrRenderer::DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &drawable,
+                                                glm::mat4 viewProj,
+                                                VkPipelineLayout layout,
+                                                uint32_t materialBinding,
+                                                Fn instanceCallback, DrawStats &stats)
 {
-    // Bail immediately if there are no instances to draw:
-    if (drawable.Instances.empty())
-        return;
+    using namespace std::views;
 
-    if (drawable.Instances.size() == 1)
-    {
-        if (!drawable.Bbox.InView(settings.ViewProj * drawable.Instances[0].Transform))
-        {
-            return;
-        }
-    }
+    // Bind drawable geometry buffers:
+    drawable.BindGeometryBuffers(cmd);
 
-    // Bind all per-drawable resources:
-    VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
-    VkDeviceSize vertOffset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
-
-    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0, mGeometryLayout.IndexType);
-
+    // Bind drawable material descriptor set:
     auto &material = mMaterials.at(drawable.MaterialKey);
-
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, settings.Layout, settings.MaterialDsIdx, 1,
-                            &material.DescriptorSet, 0, nullptr);
+    material.BindDescriptorSet(cmd, layout, materialBinding);
 
     // Push per-instance data and issue draw commands:
-    for (auto &instance : drawable.Instances)
+    for (auto [idx, instance] : enumerate(drawable.Instances))
     {
-        auto &model = instance.Transform;
-
         // Do frustum culling:
-        if (!drawable.Bbox.InView(settings.ViewProj * model))
+        if (!drawable.IsVisible(viewProj, idx))
             continue;
 
-        settings.PCSetFn(instance);
-        vkCmdPushConstants(cmd, settings.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           static_cast<uint32_t>(settings.PCSize), settings.PCData);
+        // Callback for per-instance binds:
+        instanceCallback(cmd, instance);
 
-        vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
+        drawable.Draw(cmd);
 
         stats.NumDraws++;
         stats.NumIdx += drawable.IndexCount;
@@ -334,64 +364,25 @@ void MinimalPbrRenderer::DrawAllInstances(VkCommandBuffer cmd, Drawable &drawabl
     stats.NumBinds += 3;
 }
 
-void MinimalPbrRenderer::DrawSingleInstanceOutline(VkCommandBuffer cmd,
-                                                   DrawableKey drawableKey,
-                                                   size_t instanceId,
-                                                   VkPipelineLayout layout)
+template <typename Fn>
+void MinimalPbrRenderer::DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
+                                                VkPipelineLayout layout,
+                                                uint32_t materialBinding,
+                                                Fn instanceCallback, DrawStats &stats)
 {
-    auto &drawable = mDrawables[drawableKey];
-    auto &material = mMaterials.at(drawable.MaterialKey);
-    auto &model = drawable.Instances.at(instanceId).Transform;
-
-    // Do frustum culling:
-    if (!drawable.Bbox.InView(mUBOData.CameraViewProjection * model))
-        return;
-
-    // Bind all per-drawable resources:
-    VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
-    VkDeviceSize vertOffset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
-
-    vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0, mGeometryLayout.IndexType);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1,
-                            &material.DescriptorSet, 0, nullptr);
-
-    // Push per-instance data:
-    mOutlinePCData.Model = model;
-
-    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                       sizeof(mOutlinePCData), &mOutlinePCData);
-
-    // Draw:
-    vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
-}
-
-void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
-{
-    mShadowmapHandler.BeginShadowPass(cmd);
-
-    stats.NumBinds += 2;
-
-    // To-do: this is extremely ugly...
-    DrawSettings drawSettings{
-        .ViewProj = mUBOData.LightViewProjection,
-        .Layout = mShadowmapHandler.GetPipelineLayout(),
-        .PCData = &mShadowmapHandler.mShadowPCData,
-        .PCSize = sizeof(mShadowmapHandler.mShadowPCData),
-        .MaterialDsIdx = 0,
-        .PCSetFn =
-            [&](Instance &inst) {
-                mShadowmapHandler.mShadowPCData.LightMVP =
-                    mUBOData.LightViewProjection * inst.Transform;
-            },
-    };
-
     // Draw single-sided drawables:
     vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
 
     for (auto key : mSingleSidedDrawableKeys)
     {
-        DrawAllInstances(cmd, mDrawables[key], drawSettings, stats);
+        auto &drawable = mDrawables[key];
+
+        // Bail immediately if there are no instances to draw:
+        if (drawable.EarlyBail(viewProj))
+            continue;
+
+        DrawAllInstancesCulled(cmd, drawable, viewProj, layout, materialBinding,
+                               instanceCallback, stats);
     }
 
     // Draw double-sided drawables:
@@ -399,14 +390,38 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
     for (auto key : mDoubleSidedDrawableKeys)
     {
-        DrawAllInstances(cmd, mDrawables[key], drawSettings, stats);
+        auto &drawable = mDrawables[key];
+
+        // Bail immediately if there are no instances to draw:
+        if (drawable.EarlyBail(viewProj))
+            continue;
+
+        DrawAllInstancesCulled(cmd, drawable, viewProj, layout, materialBinding,
+                               instanceCallback, stats);
     }
+}
+
+void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
+{
+    mShadowmapHandler.BeginShadowPass(cmd);
+    stats.NumBinds += 2;
+
+    auto viewProj = mUBOData.LightViewProjection;
+
+    auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+        mShadowmapHandler.PushConstantTransform(cmd, instance.Transform);
+    };
+
+    DrawSceneFrustumCulled(cmd, viewProj, mShadowmapHandler.GetPipelineLayout(), 0,
+                           instanceCallback, stats);
 
     mShadowmapHandler.EndShadowPass(cmd);
 }
 
 void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 {
+    using namespace std::views;
+
     VkClearValue clear;
     clear.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
 
@@ -440,36 +455,20 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
                                 mMainPipeline.Layout, 3, 1, mShadowmapHandler.GetDSPtr(),
                                 0, nullptr);
 
-        stats.NumBinds += 2;
+        stats.NumBinds += 3;
 
-        DrawSettings drawSettings{
-            .ViewProj = mUBOData.CameraViewProjection,
-            .Layout = mMainPipeline.Layout,
-            .PCData = &mMainPCData,
-            .PCSize = sizeof(mMainPCData),
-            .MaterialDsIdx = 1,
-            .PCSetFn =
-                [&](Instance &inst) {
-                    mMainPCData.Model = inst.Transform;
-                    mMainPCData.Normal = glm::transpose(glm::inverse(inst.Transform));
-                },
+        auto viewProj = mUBOData.CameraViewProjection;
+
+        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+            mMainPCData.Model = instance.Transform;
+            mMainPCData.Normal = glm::transpose(glm::inverse(instance.Transform));
+
+            vkCmdPushConstants(cmd, mMainPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                               sizeof(mMainPCData), &mMainPCData);
         };
 
-        // Draw single-sided drawables:
-        vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
-
-        for (auto key : mSingleSidedDrawableKeys)
-        {
-            DrawAllInstances(cmd, mDrawables[key], drawSettings, stats);
-        }
-
-        // Draw double-sided drawables:
-        vkCmdSetCullMode(cmd, VK_CULL_MODE_NONE);
-
-        for (auto key : mDoubleSidedDrawableKeys)
-        {
-            DrawAllInstances(cmd, mDrawables[key], drawSettings, stats);
-        }
+        DrawSceneFrustumCulled(cmd, viewProj, mMainPipeline.Layout, 1, instanceCallback,
+                               stats);
 
         // Draw the background:
         if (mEnvHandler.HdriEnabled())
@@ -533,8 +532,27 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
-            DrawSingleInstanceOutline(cmd, drawableKey, instanceId,
-                                      mStencilPipeline.Layout);
+            auto &drawable = mDrawables[drawableKey];
+
+            // Do frustum culling:
+            if (!drawable.IsVisible(mUBOData.CameraViewProjection, instanceId))
+                break;
+
+            // Bind all per-drawable resources:
+            drawable.BindGeometryBuffers(cmd);
+
+            auto &material = mMaterials.at(drawable.MaterialKey);
+            material.BindDescriptorSet(cmd, mStencilPipeline.Layout, 1);
+
+            // Push per-instance data:
+            auto &model = drawable.Instances.at(instanceId).Transform;
+            mOutlinePCData.Model = model;
+
+            vkCmdPushConstants(cmd, mStencilPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
+                               0, sizeof(mOutlinePCData), &mOutlinePCData);
+
+            // Draw:
+            drawable.Draw(cmd);
         }
 
         vkCmdEndRendering(cmd);
@@ -562,8 +580,27 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
-            DrawSingleInstanceOutline(cmd, drawableKey, instanceId,
-                                      mOutlinePipeline.Layout);
+            auto &drawable = mDrawables[drawableKey];
+
+            // Do frustum culling:
+            if (!drawable.IsVisible(mUBOData.CameraViewProjection, instanceId))
+                break;
+
+            // Bind all per-drawable resources:
+            drawable.BindGeometryBuffers(cmd);
+
+            auto &material = mMaterials.at(drawable.MaterialKey);
+            material.BindDescriptorSet(cmd, mOutlinePipeline.Layout, 1);
+
+            // Push per-instance data:
+            auto &model = drawable.Instances.at(instanceId).Transform;
+            mOutlinePCData.Model = model;
+
+            vkCmdPushConstants(cmd, mOutlinePipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
+                               0, sizeof(mOutlinePCData), &mOutlinePCData);
+
+            // Draw:
+            drawable.Draw(cmd);
         }
 
         vkCmdEndRendering(cmd);
@@ -579,14 +616,8 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     float xmin = x * pixel_dx * mInternalResolutionScale;
     float ymin = y * pixel_dy * mInternalResolutionScale;
 
-    // float xmax = xmin + 64.0f * pixel_dx;
-    // float ymax = ymin + 64.0f * pixel_dy;
-
     float xmax = xmin + pixel_dx;
     float ymax = ymin + pixel_dy;
-
-    // xmin -= 64.0f * pixel_dx;
-    // ymin -= 64.0f * pixel_dy;
 
     glm::mat4 viewProj = mCamera.GetViewProjRestrictedRange(xmin, xmax, ymin, ymax);
 
@@ -598,37 +629,18 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
                             mObjectIdPipeline.Layout, 0, 1, mDynamicUBO.DescriptorSet(),
                             0, nullptr);
 
-    DrawSettings drawSettings{
-        .ViewProj = viewProj,
-        .Layout = mObjectIdPipeline.Layout,
-        .PCData = &mObjectIdPCData,
-        .PCSize = sizeof(mObjectIdPCData),
-        .MaterialDsIdx = 1,
-        .PCSetFn =
-            [&](Instance &inst) {
-                mObjectIdPCData.Model = viewProj * inst.Transform;
-                mObjectIdPCData.ObjectId = inst.ObjectId;
-            },
+    auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Instance &instance) {
+        mObjectIdPCData.Model = viewProj * instance.Transform;
+        mObjectIdPCData.ObjectId = instance.ObjectId;
+
+        vkCmdPushConstants(cmd, mObjectIdPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                           sizeof(mObjectIdPCData), &mObjectIdPCData);
     };
 
-    // Draw single-sided drawables:
-    vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
-
-    // To-do solve this more cleanly:
     DrawStats stats;
 
-    for (auto key : mSingleSidedDrawableKeys)
-    {
-        DrawAllInstances(cmd, mDrawables[key], drawSettings, stats);
-    }
-
-    // Draw double-sided drawables:
-    vkCmdSetCullMode(cmd, VK_CULL_MODE_NONE);
-
-    for (auto key : mDoubleSidedDrawableKeys)
-    {
-        DrawAllInstances(cmd, mDrawables[key], drawSettings, stats);
-    }
+    DrawSceneFrustumCulled(cmd, viewProj, mObjectIdPipeline.Layout, 1, instanceCallback,
+                           stats);
 }
 
 void MinimalPbrRenderer::CreateSwapchainResources()

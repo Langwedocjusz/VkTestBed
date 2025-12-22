@@ -35,6 +35,7 @@ class MinimalPbrRenderer final : public IRenderer {
 
     struct Material {
         VkDescriptorSet DescriptorSet;
+        Buffer UBO;
 
         struct {
             float AlphaCutoff = 0.5f;
@@ -42,7 +43,8 @@ class MinimalPbrRenderer final : public IRenderer {
             int32_t DoubleSided = 0;
         } UboData;
 
-        Buffer UBO;
+        void BindDescriptorSet(VkCommandBuffer cmd, VkPipelineLayout pipelineLayout,
+                               uint32_t binding);
     };
 
     struct Instance {
@@ -60,6 +62,11 @@ class MinimalPbrRenderer final : public IRenderer {
         BoundingBox Bbox;
         SceneKey MaterialKey = 0;
         std::vector<Instance> Instances;
+
+        bool EarlyBail(glm::mat4 viewProj);
+        bool IsVisible(glm::mat4 viewProj, size_t instanceIdx);
+        void BindGeometryBuffers(VkCommandBuffer cmd);
+        void Draw(VkCommandBuffer cmd);
     };
 
     // Drawables correspond to mesh primitives
@@ -84,14 +91,20 @@ class MinimalPbrRenderer final : public IRenderer {
     void LoadMeshMaterials(const Scene &scene);
     void LoadObjects(const Scene &scene);
 
+    template <typename Fn>
+    void DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &drawable,
+                                glm::mat4 viewProj, VkPipelineLayout layout,
+                                uint32_t materialBinding, Fn instanceCallback,
+                                DrawStats &stats);
+
+    template <typename Fn>
+    void DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
+                                VkPipelineLayout layout, uint32_t materialBinding,
+                                Fn instanceCallback, DrawStats &stats);
+
     void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
     void MainPass(VkCommandBuffer cmd, DrawStats &stats);
     void OutlinePass(VkCommandBuffer cmd, SceneKey highlightedObj);
-
-    void DrawAllInstances(VkCommandBuffer cmd, Drawable &drawable, DrawSettings &settings,
-                          DrawStats &stats);
-    void DrawSingleInstanceOutline(VkCommandBuffer cmd, DrawableKey drawableKey,
-                                   size_t instanceId, VkPipelineLayout layout);
 
     void DestroyDrawable(const Drawable &drawable);
     void DestroyTexture(const Texture &texture);
@@ -145,9 +158,11 @@ class MinimalPbrRenderer final : public IRenderer {
     // Drawables:
     using enum Vertex::AttributeType;
 
+    static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
+
     GeometryLayout mGeometryLayout{
         .VertexLayout = {Vec3, Vec2, Vec3, Vec4},
-        .IndexType = VK_INDEX_TYPE_UINT32,
+        .IndexType = IndexType,
     };
 
     std::map<DrawableKey, Drawable> mDrawables;

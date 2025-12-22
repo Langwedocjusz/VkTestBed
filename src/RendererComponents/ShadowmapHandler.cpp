@@ -195,6 +195,14 @@ void ShadowmapHandler::BeginShadowPass(VkCommandBuffer cmd)
     common::ViewportScissor(cmd, extent);
 }
 
+void ShadowmapHandler::PushConstantTransform(VkCommandBuffer cmd, glm::mat4 transform)
+{
+    mShadowPCData.LightMVP = mLightViewProj * transform;
+
+    vkCmdPushConstants(cmd, mShadowmapPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                       sizeof(mShadowPCData), &mShadowPCData);
+}
+
 void ShadowmapHandler::EndShadowPass(VkCommandBuffer cmd)
 {
     vkCmdEndRendering(cmd);

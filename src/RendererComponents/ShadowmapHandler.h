@@ -18,7 +18,9 @@ class ShadowmapHandler {
                           VkDescriptorSetLayout materialDSLayout);
     void OnUpdate(Frustum camFr, glm::vec3 lightDir);
     void OnImGui();
+
     void BeginShadowPass(VkCommandBuffer cmd);
+    void PushConstantTransform(VkCommandBuffer cmd, glm::mat4 transform);
     void EndShadowPass(VkCommandBuffer cmd);
 
     [[nodiscard]] glm::mat4 GetViewProj() const

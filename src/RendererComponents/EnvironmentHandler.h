@@ -37,18 +37,18 @@ class EnvironmentHandler {
         return mEnvUBOData;
     };
 
-    [[nodiscard]] VkDescriptorSet *GetBackgroundDSPtr()
+    [[nodiscard]] VkDescriptorSet GetBackgroundDS() const
     {
-        return &mBackgroundDescriptorSet;
+        return mBackgroundDescriptorSet;
     }
     [[nodiscard]] VkDescriptorSetLayout GetBackgroundDSLayout() const
     {
         return mBackgroundDescrptorSetLayout;
     }
 
-    [[nodiscard]] VkDescriptorSet *GetLightingDSPtr()
+    [[nodiscard]] VkDescriptorSet GetLightingDS() const
     {
-        return &mLightingDescriptorSet;
+        return mLightingDescriptorSet;
     }
     [[nodiscard]] VkDescriptorSetLayout GetLightingDSLayout() const
     {

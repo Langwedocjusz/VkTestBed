@@ -7,7 +7,7 @@
 
 #include <set>
 
-static VkExtent3D FromExtent2D(VkExtent2D extent)
+static VkExtent3D Extent2DTo3D(VkExtent2D extent)
 {
     return VkExtent3D{
         .width = extent.width,
@@ -33,11 +33,11 @@ static VkImageAspectFlags GetDefaultAspect(VkFormat format)
         VK_FORMAT_D24_UNORM_S8_UINT,
     };
 
-    if (depthStencilFormats.find(format) != depthStencilFormats.end())
+    if (depthStencilFormats.contains(format))
         return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-    else if (depthFormats.find(format) != depthFormats.end())
+    else if (depthFormats.contains(format))
         return VK_IMAGE_ASPECT_DEPTH_BIT;
-    else if (stencilFormats.find(format) != stencilFormats.end())
+    else if (stencilFormats.contains(format))
         return VK_IMAGE_ASPECT_STENCIL_BIT;
 
     return VK_IMAGE_ASPECT_COLOR_BIT;
@@ -49,7 +49,7 @@ Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent = FromExtent2D(info.Extent);
+    imageInfo.extent = Extent2DTo3D(info.Extent);
     imageInfo.format = info.Format;
     imageInfo.usage = info.Usage;
     imageInfo.mipLevels = info.MipLevels;
@@ -97,7 +97,7 @@ Image MakeImage::Cube(VulkanContext &ctx, const std::string &debugName, Image2DI
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent = FromExtent2D(info.Extent);
+    imageInfo.extent = Extent2DTo3D(info.Extent);
     imageInfo.format = info.Format;
     imageInfo.usage = info.Usage;
     imageInfo.mipLevels = info.MipLevels;

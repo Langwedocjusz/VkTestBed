@@ -79,10 +79,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 
         common::ViewportScissor(cmd, GetTargetSize());
 
-        // To-do: figure out a better way of doing this:
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mGraphicsPipeline.Layout, 0, 1,
-                                mDynamicUBO.DescriptorSet(), 0, nullptr);
+        mGraphicsPipeline.BindDescriptorSetGraphics(cmd, mDynamicUBO.DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mDrawables)
         {

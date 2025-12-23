@@ -23,9 +23,9 @@ class DynamicUniformBuffer {
         return mDescriptorSetLayout;
     }
 
-    [[nodiscard]] VkDescriptorSet *DescriptorSet()
+    [[nodiscard]] VkDescriptorSet DescriptorSet() const
     {
-        return &mDescriptorSets[mFrame.ImageIndex];
+        return mDescriptorSets[mFrame.ImageIndex];
     }
 
   private:

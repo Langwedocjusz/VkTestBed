@@ -32,17 +32,7 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     float ShadowBiasMax;
 } DynamicUBO;
 
-layout(set = 1, binding = 0) uniform sampler2D albedo_map;
-layout(set = 1, binding = 1) uniform sampler2D rougness_map;
-layout(set = 1, binding = 2) uniform sampler2D normal_map;
-
-layout(scalar, set = 1, binding = 3) uniform MatUBOBlock {
-    float AlphaCutoff;
-    vec3 TranslucentColor;
-    int DoubleSided;
-} MatUBO;
-
-layout(scalar, set = 2, binding = 0) uniform EnvUBOBlock {
+layout(scalar, set = 1, binding = 0) uniform EnvUBOBlock {
     int DirLightOn;
     vec3 LightDir;
     vec3 LightColor;
@@ -50,14 +40,24 @@ layout(scalar, set = 2, binding = 0) uniform EnvUBOBlock {
     float MaxReflectionLod;
 } EnvUBO;
 
-layout(std140, set = 2, binding = 1) readonly buffer SHBuffer {
+layout(std140, set = 1, binding = 1) readonly buffer SHBuffer {
    SHData irradianceMap;
 };
 
-layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
-layout(set = 2, binding = 3) uniform sampler2D integrationMap;
+layout(set = 1, binding = 2) uniform samplerCube prefilteredMap;
+layout(set = 1, binding = 3) uniform sampler2D integrationMap;
 
-layout(set = 3, binding = 0) uniform sampler2DShadow shadowMap;
+layout(set = 2, binding = 0) uniform sampler2DShadow shadowMap;
+
+layout(set = 3, binding = 0) uniform sampler2D albedo_map;
+layout(set = 3, binding = 1) uniform sampler2D rougness_map;
+layout(set = 3, binding = 2) uniform sampler2D normal_map;
+
+layout(scalar, set = 3, binding = 3) uniform MatUBOBlock {
+    float AlphaCutoff;
+    vec3 TranslucentColor;
+    int DoubleSided;
+} MatUBO;
 
 layout(push_constant) uniform PushConstantsBlock {
     mat4 Transform;

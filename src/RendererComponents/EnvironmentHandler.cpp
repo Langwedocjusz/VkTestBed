@@ -365,9 +365,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                           mEquiRectToCubePipeline.Handle);
 
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                mEquiRectToCubePipeline.Layout, 0, 1,
-                                &mTexToImgDescriptorSet, 0, nullptr);
+        mEquiRectToCubePipeline.BindDescriptorSetCompute(cmd, mTexToImgDescriptorSet, 0);
 
         uint32_t localSizeX = 32, localSizeY = 32;
 
@@ -397,13 +395,11 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                           mIrradianceSHPipeline.Handle);
 
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                mIrradianceSHPipeline.Layout, 0, 1,
-                                &mBackgroundDescriptorSet, 0, nullptr);
-
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                mIrradianceSHPipeline.Layout, 1, 1,
-                                &mIrradianceDescriptorSet, 0, nullptr);
+        std::array descriptorSets{
+            mBackgroundDescriptorSet,
+            mIrradianceDescriptorSet,
+        };
+        mIrradianceSHPipeline.BindDescriptorSetsCompute(cmd, descriptorSets, 0);
 
         IrradianceSHPushConstants pcData{
             .CubemapRes = mCubemap.Img.Info.extent.width,
@@ -424,9 +420,7 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                           mIrradianceReducePipeline.Handle);
 
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                mIrradianceReducePipeline.Layout, 0, 1,
-                                &mIrradianceDescriptorSet, 0, nullptr);
+        mIrradianceReducePipeline.BindDescriptorSetCompute(cmd, mIrradianceDescriptorSet, 0);
 
         ReducePushConstants pcData{
             .BufferSize = mFirstBufferLen,
@@ -509,9 +503,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
                 vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                                   mPrefilteredGenPipeline.Handle);
 
-                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                        mPrefilteredGenPipeline.Layout, 0, 1,
-                                        &mPrefilteredDescriptorSet, 0, nullptr);
+                mPrefilteredGenPipeline.BindDescriptorSetCompute(cmd, mPrefilteredDescriptorSet, 0);
 
                 vkCmdPushConstants(cmd, mPrefilteredGenPipeline.Layout,
                                    VK_SHADER_STAGE_COMPUTE_BIT, 0,
@@ -552,9 +544,7 @@ void EnvironmentHandler::GenerateIntegrationMap()
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                           mIntegrationGenPipeline.Handle);
 
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                mIntegrationGenPipeline.Layout, 0, 1,
-                                &mIntegrationDescriptorSet, 0, nullptr);
+        mIntegrationGenPipeline.BindDescriptorSetCompute(cmd, mIntegrationDescriptorSet, 0);
 
         uint32_t localSizeX = 32, localSizeY = 32;
 

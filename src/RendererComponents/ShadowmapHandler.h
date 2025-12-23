@@ -20,8 +20,12 @@ class ShadowmapHandler {
     void OnImGui();
 
     void BeginShadowPass(VkCommandBuffer cmd);
-    void PushConstantTransform(VkCommandBuffer cmd, glm::mat4 transform);
     void EndShadowPass(VkCommandBuffer cmd);
+
+    /// Descriptor set being bound is assumed to have albedo map as its first binding.
+    /// It is also assumed that transparency is stored in the a channel.
+    void BindMaterialDS(VkCommandBuffer cmd, VkDescriptorSet materialDS);
+    void PushConstantTransform(VkCommandBuffer cmd, glm::mat4 transform);
 
     [[nodiscard]] glm::mat4 GetViewProj() const
     {
@@ -31,21 +35,10 @@ class ShadowmapHandler {
     {
         return mShadowmapDescriptorSetLayout;
     }
-    [[nodiscard]] VkDescriptorSet *GetDSPtr()
+    [[nodiscard]] VkDescriptorSet GetDescriptorSet() const
     {
-        return &mShadowmapDescriptorSet;
+        return mShadowmapDescriptorSet;
     }
-
-    // To-do: this shouldn't be exposed
-    [[nodiscard]] VkPipelineLayout GetPipelineLayout() const
-    {
-        return mShadowmapPipeline.Layout;
-    }
-
-    // To-do: this is temporary, should be private:
-    struct {
-        glm::mat4 LightMVP;
-    } mShadowPCData;
 
   private:
     static constexpr VkFormat mShadowmapFormat = VK_FORMAT_D32_SFLOAT;
@@ -56,6 +49,10 @@ class ShadowmapHandler {
     Pipeline mShadowmapPipeline;
 
     glm::mat4 mLightViewProj;
+
+    struct {
+        glm::mat4 LightMVP;
+    } mShadowPCData;
 
     float mAddZ = 8.0f;
     float mSubZ = 20.0f;

@@ -30,7 +30,7 @@ static VkDeviceSize BytesPerPixel(VkFormat format)
     std::unreachable();
 }
 
-static std::tuple<VkDeviceSize, VkExtent2D> RepackImgData(const ImageData &data)
+static std::tuple<VkDeviceSize, VkExtent2D> GetSizeExtent(const ImageData &data)
 {
     VkDeviceSize size = data.Width * data.Height * BytesPerPixel(data.Format);
 
@@ -43,7 +43,7 @@ static std::tuple<VkDeviceSize, VkExtent2D> RepackImgData(const ImageData &data)
 Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const std::string &debugName,
                                 const ImageData &data)
 {
-    auto [imageSize, extent] = RepackImgData(data);
+    auto [imageSize, extent] = GetSizeExtent(data);
 
     Image2DInfo imgInfo{
         .Extent = extent,
@@ -69,7 +69,7 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const std::string &debugName
 Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, const std::string &debugName,
                                    const ImageData &data)
 {
-    auto [imageSize, extent] = RepackImgData(data);
+    auto [imageSize, extent] = GetSizeExtent(data);
 
     Image2DInfo imgInfo{
         .Extent = extent,

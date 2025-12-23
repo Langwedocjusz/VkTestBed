@@ -139,10 +139,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
         common::ViewportScissor(cmd, GetTargetSize());
 
-        // To-do: figure out a better way of doing this:
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mColoredPipeline.Layout, 0, 1,
-                                mDynamicUBO.DescriptorSet(), 0, nullptr);
+        mColoredPipeline.BindDescriptorSetGraphics(cmd, mDynamicUBO.DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mColoredDrawables)
         {
@@ -168,10 +165,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
         common::ViewportScissor(cmd, GetTargetSize());
 
-        // To-do: figure out a better way of doing this:
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                mTexturedPipeline.Layout, 0, 1,
-                                mDynamicUBO.DescriptorSet(), 0, nullptr);
+        mTexturedPipeline.BindDescriptorSetGraphics(cmd, mDynamicUBO.DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mTexturedDrawables)
         {
@@ -183,10 +177,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
                                  mTexturedLayout.IndexType);
 
             auto &material = mMaterials.at(drawable.Material);
-
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    mTexturedPipeline.Layout, 1, 1,
-                                    &material.DescriptorSet, 0, nullptr);
+            mTexturedPipeline.BindDescriptorSetGraphics(cmd, material.DescriptorSet, 1);
 
             for (auto &transform : drawable.Instances)
             {

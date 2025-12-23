@@ -10,6 +10,7 @@
 #include "Scene.h"
 #include "ShadowmapHandler.h"
 #include "Texture.h"
+#include "VulkanContext.h"
 #include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
@@ -42,9 +43,6 @@ class MinimalPbrRenderer final : public IRenderer {
             glm::vec3 TranslucentColor = glm::vec3(0.0f);
             int32_t DoubleSided = 0;
         } UboData;
-
-        void BindDescriptorSet(VkCommandBuffer cmd, VkPipelineLayout pipelineLayout,
-                               uint32_t binding);
     };
 
     struct Instance {
@@ -52,7 +50,20 @@ class MinimalPbrRenderer final : public IRenderer {
         glm::mat4 Transform;
     };
 
+    // To-do: This will be remade in RAII fashion when VulkanContext is reworked as a
+    // singleton. Currently each drawable would need to hold a reference to it, which
+    // aside from memory usage also makes it difficult to make drawables movable-non
+    // copyable, as they should be.
     struct Drawable {
+        void Init(VulkanContext &ctx, const ScenePrimitive &prim,
+                  const std::string &debugName);
+        void Destroy(VulkanContext &ctx);
+
+        bool EarlyBail(glm::mat4 viewProj);
+        bool IsVisible(glm::mat4 viewProj, size_t instanceIdx);
+        void BindGeometryBuffers(VkCommandBuffer cmd);
+        void Draw(VkCommandBuffer cmd);
+
         Buffer VertexBuffer;
         uint32_t VertexCount;
 
@@ -62,11 +73,6 @@ class MinimalPbrRenderer final : public IRenderer {
         BoundingBox Bbox;
         SceneKey MaterialKey = 0;
         std::vector<Instance> Instances;
-
-        bool EarlyBail(glm::mat4 viewProj);
-        bool IsVisible(glm::mat4 viewProj, size_t instanceIdx);
-        void BindGeometryBuffers(VkCommandBuffer cmd);
-        void Draw(VkCommandBuffer cmd);
     };
 
     // Drawables correspond to mesh primitives
@@ -91,22 +97,20 @@ class MinimalPbrRenderer final : public IRenderer {
     void LoadMeshMaterials(const Scene &scene);
     void LoadObjects(const Scene &scene);
 
-    template <typename Fn>
+    template <typename MaterialFn, typename InstanceFn>
     void DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &drawable,
-                                glm::mat4 viewProj, VkPipelineLayout layout,
-                                uint32_t materialBinding, Fn instanceCallback,
-                                DrawStats &stats);
+                                glm::mat4 viewProj, MaterialFn materialCallback,
+                                InstanceFn instanceCallback, DrawStats &stats);
 
-    template <typename Fn>
+    template <typename MaterialFn, typename InstanceFn>
     void DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                VkPipelineLayout layout, uint32_t materialBinding,
-                                Fn instanceCallback, DrawStats &stats);
+                                MaterialFn materialCallback, InstanceFn instanceCallback,
+                                DrawStats &stats);
 
     void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
     void MainPass(VkCommandBuffer cmd, DrawStats &stats);
     void OutlinePass(VkCommandBuffer cmd, SceneKey highlightedObj);
 
-    void DestroyDrawable(const Drawable &drawable);
     void DestroyTexture(const Texture &texture);
 
   private:

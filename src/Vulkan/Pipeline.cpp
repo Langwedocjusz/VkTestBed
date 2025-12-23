@@ -7,6 +7,35 @@
 
 #include <vulkan/vulkan.h>
 
+void Pipeline::BindDescriptorSetGraphics(VkCommandBuffer cmd, VkDescriptorSet set,
+                                         uint32_t setIdx)
+{
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, Layout, setIdx, 1, &set,
+                            0, nullptr);
+}
+
+void Pipeline::BindDescriptorSetCompute(VkCommandBuffer cmd, VkDescriptorSet set,
+                                        uint32_t setIdx)
+{
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, Layout, setIdx, 1, &set,
+                            0, nullptr);
+}
+
+void Pipeline::BindDescriptorSetsGraphics(VkCommandBuffer cmd,
+                                          std::span<VkDescriptorSet> sets,
+                                          uint32_t startIdx)
+{
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, Layout, startIdx,
+                            static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
+}
+
+void Pipeline::BindDescriptorSetsCompute(VkCommandBuffer cmd,
+                                         std::span<VkDescriptorSet> sets, uint32_t startIdx)
+{
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, Layout, startIdx,
+                            static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
+}
+
 PipelineBuilder::PipelineBuilder(std::string_view debugName)
     : mDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR}),
       mDebugName(debugName)

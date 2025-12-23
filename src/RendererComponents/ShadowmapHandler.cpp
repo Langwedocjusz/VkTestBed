@@ -195,6 +195,12 @@ void ShadowmapHandler::BeginShadowPass(VkCommandBuffer cmd)
     common::ViewportScissor(cmd, extent);
 }
 
+void ShadowmapHandler::EndShadowPass(VkCommandBuffer cmd)
+{
+    vkCmdEndRendering(cmd);
+    barrier::ImageBarrierDepthToSample(cmd, mShadowmap.Handle);
+}
+
 void ShadowmapHandler::PushConstantTransform(VkCommandBuffer cmd, glm::mat4 transform)
 {
     mShadowPCData.LightMVP = mLightViewProj * transform;
@@ -203,8 +209,7 @@ void ShadowmapHandler::PushConstantTransform(VkCommandBuffer cmd, glm::mat4 tran
                        sizeof(mShadowPCData), &mShadowPCData);
 }
 
-void ShadowmapHandler::EndShadowPass(VkCommandBuffer cmd)
+void ShadowmapHandler::BindMaterialDS(VkCommandBuffer cmd, VkDescriptorSet materialDS)
 {
-    vkCmdEndRendering(cmd);
-    barrier::ImageBarrierDepthToSample(cmd, mShadowmap.Handle);
+    mShadowmapPipeline.BindDescriptorSetGraphics(cmd, materialDS, 0);
 }

@@ -8,12 +8,23 @@
 
 #include <optional>
 #include <set>
+#include <span>
 #include <string_view>
 #include <vector>
 
 struct Pipeline {
     VkPipeline Handle;
     VkPipelineLayout Layout;
+
+    void BindDescriptorSetGraphics(VkCommandBuffer cmd, VkDescriptorSet set,
+                                   uint32_t setIdx);
+    void BindDescriptorSetCompute(VkCommandBuffer cmd, VkDescriptorSet set,
+                                  uint32_t setIdx);
+
+    void BindDescriptorSetsGraphics(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
+                                    uint32_t startIdx);
+    void BindDescriptorSetsCompute(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
+                                   uint32_t startIdx);
 };
 
 class PipelineBuilder {

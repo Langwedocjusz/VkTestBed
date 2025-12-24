@@ -432,25 +432,10 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 {
     using namespace std::views;
 
-    VkClearValue clear;
-    clear.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
-
-    auto colorAttachment = vkinit::CreateAttachmentInfo(
-        mRenderTargetView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, clear);
-
-    VkClearValue depthClear;
-    depthClear.depthStencil = {1.0f, 0};
-
-    auto depthAttachment = vkinit::CreateAttachmentInfo(
-        mDepthStencilBufferView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        depthClear);
-
-    VkRenderingInfo renderingInfo = vkinit::CreateRenderingInfo(
-        GetTargetSize(), colorAttachment, depthAttachment, true);
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
+    common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTargetView,
+                                            mDepthStencilBufferView, true, true);
     {
-        //Draw the scene:
+        // Draw the scene:
         mMainPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
@@ -459,9 +444,9 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
             mEnvHandler.GetLightingDS(),
             mShadowmapHandler.GetDescriptorSet(),
         };
-        
+
         mMainPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
-        
+
         stats.NumBinds += 3;
 
         auto viewProj = mUBOData.CameraViewProjection;
@@ -522,13 +507,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
     // Draw to stencil:
     {
-        auto stencilAttachment = vkinit::CreateAttachmentInfo(
-            mDepthStencilBufferView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-        VkRenderingInfo renderingInfo =
-            vkinit::CreateRenderingInfoDepthStencil(GetTargetSize(), stencilAttachment);
-
-        vkCmdBeginRendering(cmd, &renderingInfo);
+        common::BeginRenderingDepth(cmd, GetTargetSize(), mDepthStencilBufferView, true, false);
 
         mStencilPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
@@ -565,16 +544,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
     // Draw outline:
     {
-        auto colorAttachment = vkinit::CreateAttachmentInfo(
-            mRenderTargetView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-        auto stencilAttachment = vkinit::CreateAttachmentInfo(
-            mDepthStencilBufferView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-        VkRenderingInfo renderingInfo = vkinit::CreateRenderingInfo(
-            GetTargetSize(), colorAttachment, stencilAttachment, true);
-
-        vkCmdBeginRendering(cmd, &renderingInfo);
+        common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTargetView, mDepthStencilBufferView, true, false);
 
         mOutlinePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());

@@ -21,15 +21,13 @@ void Pipeline::Bind(VkCommandBuffer cmd)
 }
 
 void Pipeline::BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set,
-                                         uint32_t setIdx)
+                                 uint32_t setIdx)
 {
-    vkCmdBindDescriptorSets(cmd, mBindPoint, Layout, setIdx, 1, &set,
-                            0, nullptr);
+    vkCmdBindDescriptorSets(cmd, mBindPoint, Layout, setIdx, 1, &set, 0, nullptr);
 }
 
-void Pipeline::BindDescriptorSets(VkCommandBuffer cmd,
-                                          std::span<VkDescriptorSet> sets,
-                                          uint32_t startIdx)
+void Pipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
+                                  uint32_t startIdx)
 {
     vkCmdBindDescriptorSets(cmd, mBindPoint, Layout, startIdx,
                             static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);

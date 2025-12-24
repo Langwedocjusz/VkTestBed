@@ -17,21 +17,18 @@ VkCommandBuffer CreateCommandBuffer(VulkanContext &ctx, VkCommandPool pool);
 void AllocateCommandBuffers(VulkanContext &ctx, std::span<VkCommandBuffer> buffers,
                             VkCommandPool pool);
 
-VkRenderingAttachmentInfoKHR CreateAttachmentInfo(
+VkRenderingAttachmentInfo CreateAttachmentInfo(
     VkImageView view, VkImageLayout layout,
     std::optional<VkClearValue> clear = std::nullopt);
 
-VkRenderingInfoKHR CreateRenderingInfo(VkExtent2D extent,
+VkRenderingInfo CreateRenderingInfo(VkExtent2D extent,
                                        VkRenderingAttachmentInfo &colorAttachment);
 
-VkRenderingInfoKHR CreateRenderingInfo(VkExtent2D extent,
+VkRenderingInfo CreateRenderingInfo(VkExtent2D extent,
                                        VkRenderingAttachmentInfo &colorAttachment,
                                        VkRenderingAttachmentInfo &depthAttachment,
-                                       bool depthAsStencil = false);
+                                       bool hasStencil);
 
-VkRenderingInfoKHR CreateRenderingInfoDepthOnly(
-    VkExtent2D extent, VkRenderingAttachmentInfo &depthAttachment);
-
-VkRenderingInfoKHR CreateRenderingInfoDepthStencil(
-    VkExtent2D extent, VkRenderingAttachmentInfo &depthStencilAttachment);
+VkRenderingInfo CreateRenderingInfo(
+    VkExtent2D extent, VkRenderingAttachmentInfo &depthAttachment, bool hasStencil);
 }; // namespace vkinit

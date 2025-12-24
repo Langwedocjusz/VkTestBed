@@ -117,22 +117,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
     // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
-    VkClearValue clear;
-    clear.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
-
-    auto colorAttachment = vkinit::CreateAttachmentInfo(
-        mRenderTargetView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, clear);
-
-    VkClearValue depthClear;
-    depthClear.depthStencil = {1.0f, 0};
-
-    auto depthAttachment = vkinit::CreateAttachmentInfo(
-        mDepthBufferView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depthClear);
-
-    VkRenderingInfoKHR renderingInfo =
-        vkinit::CreateRenderingInfo(GetTargetSize(), colorAttachment, depthAttachment);
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
+    common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTargetView, mDepthBufferView, false, true);
     {
         // 1. Colored vertices pass:
         mColoredPipeline.Bind(cmd);

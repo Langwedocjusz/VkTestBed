@@ -13,21 +13,21 @@
 #include <vector>
 
 class Pipeline {
-public:
+  public:
     Pipeline() = default;
     static Pipeline MakePipeline(VkPipelineBindPoint);
 
     void Bind(VkCommandBuffer cmd);
 
-    void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set,
-                                   uint32_t setIdx);
+    void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
     void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
-                                    uint32_t startIdx);
-public:
+                            uint32_t startIdx);
+
+  public:
     VkPipeline Handle;
     VkPipelineLayout Layout;
 
-private:
+  private:
     VkPipelineBindPoint mBindPoint;
 };
 

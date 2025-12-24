@@ -495,8 +495,9 @@ void EnvironmentHandler::GeneratePrefilteredMap()
                 .Update(mCtx);
 
             mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-                mPrefilteredGenPipeline.Bind(cmd); 
-                mPrefilteredGenPipeline.BindDescriptorSet(cmd, mPrefilteredDescriptorSet, 0);
+                mPrefilteredGenPipeline.Bind(cmd);
+                mPrefilteredGenPipeline.BindDescriptorSet(cmd, mPrefilteredDescriptorSet,
+                                                          0);
 
                 vkCmdPushConstants(cmd, mPrefilteredGenPipeline.Layout,
                                    VK_SHADER_STAGE_COMPUTE_BIT, 0,

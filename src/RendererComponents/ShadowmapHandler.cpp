@@ -176,20 +176,11 @@ void ShadowmapHandler::OnImGui()
 
 void ShadowmapHandler::BeginShadowPass(VkCommandBuffer cmd)
 {
-    auto extent = VkExtent2D(mShadowmap.Info.extent.width, mShadowmap.Info.extent.height);
-
     barrier::ImageBarrierDepthToRender(cmd, mShadowmap.Handle);
 
-    VkClearValue depthClear;
-    depthClear.depthStencil = {1.0f, 0};
+    auto extent = VkExtent2D(mShadowmap.Info.extent.width, mShadowmap.Info.extent.height);
 
-    auto depthAttachment = vkinit::CreateAttachmentInfo(
-        mShadowmapView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, depthClear);
-
-    VkRenderingInfo renderingInfo =
-        vkinit::CreateRenderingInfoDepthOnly(extent, depthAttachment);
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
+    common::BeginRenderingDepth(cmd, extent, mShadowmapView, false, true);
 
     mShadowmapPipeline.Bind(cmd);
     common::ViewportScissor(cmd, extent);

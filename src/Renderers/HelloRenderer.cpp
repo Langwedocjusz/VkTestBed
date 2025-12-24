@@ -65,15 +65,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
-    VkClearValue clear{{{0.0f, 0.0f, 0.0f, 0.0f}}};
-
-    VkRenderingAttachmentInfoKHR colorAttachment = vkinit::CreateAttachmentInfo(
-        mRenderTargetView, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, clear);
-
-    VkRenderingInfoKHR renderingInfo =
-        vkinit::CreateRenderingInfo(GetTargetSize(), colorAttachment);
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
+    common::BeginRenderingColor(cmd, GetTargetSize(), mRenderTargetView, true);
     {
         mGraphicsPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());

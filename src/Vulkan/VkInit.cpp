@@ -79,11 +79,11 @@ void vkinit::AllocateCommandBuffers(VulkanContext &ctx,
     vassert(ret == VK_SUCCESS, "Failed to allocate command buffers!");
 }
 
-VkRenderingAttachmentInfoKHR vkinit::CreateAttachmentInfo(
+VkRenderingAttachmentInfo vkinit::CreateAttachmentInfo(
     VkImageView view, VkImageLayout layout, std::optional<VkClearValue> clear)
 {
-    VkRenderingAttachmentInfoKHR attachment{};
-    attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+    VkRenderingAttachmentInfo attachment{};
+    attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     attachment.imageView = view;
     attachment.imageLayout = layout;
     attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -98,11 +98,11 @@ VkRenderingAttachmentInfoKHR vkinit::CreateAttachmentInfo(
     return attachment;
 }
 
-VkRenderingInfoKHR vkinit::CreateRenderingInfo(VkExtent2D extent,
+VkRenderingInfo vkinit::CreateRenderingInfo(VkExtent2D extent,
                                                VkRenderingAttachmentInfo &colorAttachment)
 {
-    VkRenderingInfoKHR renderingInfo{};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea.extent = extent;
     renderingInfo.renderArea.offset = {0, 0};
     renderingInfo.layerCount = 1;
@@ -112,13 +112,13 @@ VkRenderingInfoKHR vkinit::CreateRenderingInfo(VkExtent2D extent,
     return renderingInfo;
 }
 
-VkRenderingInfoKHR vkinit::CreateRenderingInfo(VkExtent2D extent,
+VkRenderingInfo vkinit::CreateRenderingInfo(VkExtent2D extent,
                                                VkRenderingAttachmentInfo &colorAttachment,
                                                VkRenderingAttachmentInfo &depthAttachment,
-                                               bool depthAsStencil)
+                                               bool hasStencil)
 {
-    VkRenderingInfoKHR renderingInfo{};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea.extent = extent;
     renderingInfo.renderArea.offset = {0, 0};
     renderingInfo.layerCount = 1;
@@ -126,35 +126,24 @@ VkRenderingInfoKHR vkinit::CreateRenderingInfo(VkExtent2D extent,
     renderingInfo.pColorAttachments = &colorAttachment;
     renderingInfo.pDepthAttachment = &depthAttachment;
 
-    if (depthAsStencil)
+    if (hasStencil)
         renderingInfo.pStencilAttachment = &depthAttachment;
 
     return renderingInfo;
 }
 
-VkRenderingInfoKHR vkinit::CreateRenderingInfoDepthOnly(
-    VkExtent2D extent, VkRenderingAttachmentInfo &depthAttachment)
+VkRenderingInfo vkinit::CreateRenderingInfo(
+    VkExtent2D extent, VkRenderingAttachmentInfo &depthAttachment, bool hasStencil)
 {
-    VkRenderingInfoKHR renderingInfo{};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea.extent = extent;
     renderingInfo.renderArea.offset = {0, 0};
     renderingInfo.layerCount = 1;
     renderingInfo.pDepthAttachment = &depthAttachment;
 
-    return renderingInfo;
-}
-
-VkRenderingInfoKHR vkinit::CreateRenderingInfoDepthStencil(
-    VkExtent2D extent, VkRenderingAttachmentInfo &depthStencilAttachment)
-{
-    VkRenderingInfoKHR renderingInfo{};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-    renderingInfo.renderArea.extent = extent;
-    renderingInfo.renderArea.offset = {0, 0};
-    renderingInfo.layerCount = 1;
-    renderingInfo.pDepthAttachment = &depthStencilAttachment;
-    renderingInfo.pStencilAttachment = &depthStencilAttachment;
+    if (hasStencil)
+        renderingInfo.pStencilAttachment = &depthAttachment;
 
     return renderingInfo;
 }

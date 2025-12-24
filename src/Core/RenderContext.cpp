@@ -367,9 +367,9 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     // III. Submit the command buffer
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    common::SubmitQueue(mCtx.Queues.Graphics, &cmd, frame.InFlightFence,
-                        &frame.ImageAcquiredSemaphore, &waitStage,
-                        &swap.RenderCompletedSemaphore);
+    common::SubmitQueue(mCtx.Queues.Graphics, cmd, frame.InFlightFence,
+                        frame.ImageAcquiredSemaphore, waitStage,
+                        swap.RenderCompletedSemaphore);
 }
 
 void RenderContext::DrawUI(VkCommandBuffer cmd)
@@ -378,13 +378,14 @@ void RenderContext::DrawUI(VkCommandBuffer cmd)
 
     auto swapchainView = mCtx.SwapchainImageViews[mFrameInfo.ImageIndex];
 
-    VkRenderingAttachmentInfoKHR colorAttachment = vkinit::CreateAttachmentInfo(
-        swapchainView, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, {});
-
-    VkRenderingInfoKHR renderingInfo =
-        vkinit::CreateRenderingInfo(swapchainSize, colorAttachment);
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
+    //VkRenderingAttachmentInfoKHR colorAttachment = vkinit::CreateAttachmentInfo(
+    //    swapchainView, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, {});
+    //
+    //VkRenderingInfoKHR renderingInfo =
+    //    vkinit::CreateRenderingInfo(swapchainSize, colorAttachment);
+    //
+    //vkCmdBeginRendering(cmd, &renderingInfo);
+    common::BeginRenderingColor(cmd, swapchainSize, swapchainView, false);
     {
         common::ViewportScissor(cmd, swapchainSize);
 
@@ -460,6 +461,7 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     vkDeviceWaitIdle(mCtx.Device);
 
     mCtx.ImmediateSubmitGraphics([&, x, y](VkCommandBuffer cmd) {
+        // Transitions layouts:
         auto info = barrier::ImageLayoutBarrierInfo{
             .Image = mPicking.Target.Handle,
             .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -468,24 +470,8 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         };
         barrier::ImageLayoutBarrierCoarse(cmd, info);
 
-        // Bind target and transitions layouts:
-        VkClearValue clear;
-        clear.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
-
-        auto colorAttachment = vkinit::CreateAttachmentInfo(
-            mPicking.TargetView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, clear);
-
-        VkClearValue depthClear;
-        depthClear.depthStencil = {1.0f, 0};
-
-        auto depthAttachment = vkinit::CreateAttachmentInfo(
-            mPicking.DepthView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depthClear);
-
-        VkRenderingInfo renderingInfo = vkinit::CreateRenderingInfo(
-            VkExtent2D{1, 1}, colorAttachment, depthAttachment);
-
         // Draw objects:
-        vkCmdBeginRendering(cmd, &renderingInfo);
+        common::BeginRenderingColorDepth(cmd, VkExtent2D{1,1}, mPicking.TargetView, mPicking.DepthView, false, true);
         mRenderer->RenderObjectId(cmd, x, y);
         vkCmdEndRendering(cmd);
 

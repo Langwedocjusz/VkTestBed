@@ -135,11 +135,10 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
     vkCmdBeginRendering(cmd, &renderingInfo);
     {
         // 1. Colored vertices pass:
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mColoredPipeline.Handle);
-
+        mColoredPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mColoredPipeline.BindDescriptorSetGraphics(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mColoredPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mColoredDrawables)
         {
@@ -161,11 +160,10 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
         }
 
         // 2. Textured vertices pass:
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mTexturedPipeline.Handle);
-
+        mTexturedPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mTexturedPipeline.BindDescriptorSetGraphics(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mTexturedPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mTexturedDrawables)
         {
@@ -177,7 +175,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
                                  mTexturedLayout.IndexType);
 
             auto &material = mMaterials.at(drawable.Material);
-            mTexturedPipeline.BindDescriptorSetGraphics(cmd, material.DescriptorSet, 1);
+            mTexturedPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             for (auto &transform : drawable.Instances)
             {

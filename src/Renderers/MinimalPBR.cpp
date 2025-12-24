@@ -451,7 +451,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     vkCmdBeginRendering(cmd, &renderingInfo);
     {
         //Draw the scene:
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mMainPipeline.Handle);
+        mMainPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
         std::array descriptorSets{
@@ -460,14 +460,14 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
             mShadowmapHandler.GetDescriptorSet(),
         };
         
-        mMainPipeline.BindDescriptorSetsGraphics(cmd, descriptorSets, 0);
+        mMainPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
         
         stats.NumBinds += 3;
 
         auto viewProj = mUBOData.CameraViewProjection;
 
         auto materialCallback = [this](VkCommandBuffer cmd, Material &material) {
-            mMainPipeline.BindDescriptorSetGraphics(cmd, material.DescriptorSet, 3);
+            mMainPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 3);
         };
 
         auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
@@ -483,11 +483,10 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         // Draw the background:
         if (mEnvHandler.HdriEnabled())
         {
-            mBackgroundPipeline.BindDescriptorSetGraphics(cmd, mEnvHandler.GetBackgroundDS(), 0);
-
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                              mBackgroundPipeline.Handle);
+            mBackgroundPipeline.Bind(cmd);
             common::ViewportScissor(cmd, GetTargetSize());
+
+            mBackgroundPipeline.BindDescriptorSet(cmd, mEnvHandler.GetBackgroundDS(), 0);
 
             vkCmdPushConstants(cmd, mBackgroundPipeline.Layout,
                                VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(FrustumBack),
@@ -531,10 +530,10 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
         vkCmdBeginRendering(cmd, &renderingInfo);
 
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mStencilPipeline.Handle);
+        mStencilPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mStencilPipeline.BindDescriptorSetGraphics(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mStencilPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
@@ -548,7 +547,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             drawable.BindGeometryBuffers(cmd);
 
             auto &material = mMaterials.at(drawable.MaterialKey);
-            mStencilPipeline.BindDescriptorSetGraphics(cmd, material.DescriptorSet, 1);
+            mStencilPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             // Push per-instance data:
             auto &model = drawable.Instances.at(instanceId).Transform;
@@ -577,10 +576,10 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
         vkCmdBeginRendering(cmd, &renderingInfo);
 
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mOutlinePipeline.Handle);
+        mOutlinePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mOutlinePipeline.BindDescriptorSetGraphics(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mOutlinePipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
@@ -594,7 +593,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             drawable.BindGeometryBuffers(cmd);
 
             auto &material = mMaterials.at(drawable.MaterialKey);
-            mOutlinePipeline.BindDescriptorSetGraphics(cmd, material.DescriptorSet, 1);
+            mOutlinePipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             // Push per-instance data:
             auto &model = drawable.Instances.at(instanceId).Transform;
@@ -626,13 +625,13 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     glm::mat4 viewProj = mCamera.GetViewProjRestrictedRange(xmin, xmax, ymin, ymax);
 
     // Draw all drawables, outputting their object id as fragment color:
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mObjectIdPipeline.Handle);
+    mObjectIdPipeline.Bind(cmd);
     common::ViewportScissor(cmd, VkExtent2D{1, 1});
 
-    mObjectIdPipeline.BindDescriptorSetGraphics(cmd, mDynamicUBO.DescriptorSet(), 0);
+    mObjectIdPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
 
     auto materialCallback = [this](VkCommandBuffer cmd, Material &material) {
-        mObjectIdPipeline.BindDescriptorSetGraphics(cmd, material.DescriptorSet, 1);
+        mObjectIdPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
     };
 
     auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Instance &instance) {

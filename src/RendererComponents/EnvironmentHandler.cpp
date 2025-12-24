@@ -362,10 +362,8 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
 
         // Sample equirectangular map to cubemap
         // using a compute pipeline:
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          mEquiRectToCubePipeline.Handle);
-
-        mEquiRectToCubePipeline.BindDescriptorSetCompute(cmd, mTexToImgDescriptorSet, 0);
+        mEquiRectToCubePipeline.Bind(cmd);
+        mEquiRectToCubePipeline.BindDescriptorSet(cmd, mTexToImgDescriptorSet, 0);
 
         uint32_t localSizeX = 32, localSizeY = 32;
 
@@ -392,14 +390,13 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
 {
     // Do parallel patch-based computation of SH coeficcients
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          mIrradianceSHPipeline.Handle);
-
         std::array descriptorSets{
             mBackgroundDescriptorSet,
             mIrradianceDescriptorSet,
         };
-        mIrradianceSHPipeline.BindDescriptorSetsCompute(cmd, descriptorSets, 0);
+
+        mIrradianceSHPipeline.Bind(cmd);
+        mIrradianceSHPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
 
         IrradianceSHPushConstants pcData{
             .CubemapRes = mCubemap.Img.Info.extent.width,
@@ -417,10 +414,8 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
 
     // Sum-reduce the resulting array:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          mIrradianceReducePipeline.Handle);
-
-        mIrradianceReducePipeline.BindDescriptorSetCompute(cmd, mIrradianceDescriptorSet, 0);
+        mIrradianceReducePipeline.Bind(cmd);
+        mIrradianceReducePipeline.BindDescriptorSet(cmd, mIrradianceDescriptorSet, 0);
 
         ReducePushConstants pcData{
             .BufferSize = mFirstBufferLen,
@@ -500,10 +495,8 @@ void EnvironmentHandler::GeneratePrefilteredMap()
                 .Update(mCtx);
 
             mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                  mPrefilteredGenPipeline.Handle);
-
-                mPrefilteredGenPipeline.BindDescriptorSetCompute(cmd, mPrefilteredDescriptorSet, 0);
+                mPrefilteredGenPipeline.Bind(cmd); 
+                mPrefilteredGenPipeline.BindDescriptorSet(cmd, mPrefilteredDescriptorSet, 0);
 
                 vkCmdPushConstants(cmd, mPrefilteredGenPipeline.Layout,
                                    VK_SHADER_STAGE_COMPUTE_BIT, 0,
@@ -541,10 +534,8 @@ void EnvironmentHandler::GenerateIntegrationMap()
         };
         barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
 
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          mIntegrationGenPipeline.Handle);
-
-        mIntegrationGenPipeline.BindDescriptorSetCompute(cmd, mIntegrationDescriptorSet, 0);
+        mIntegrationGenPipeline.Bind(cmd);
+        mIntegrationGenPipeline.BindDescriptorSet(cmd, mIntegrationDescriptorSet, 0);
 
         uint32_t localSizeX = 32, localSizeY = 32;
 

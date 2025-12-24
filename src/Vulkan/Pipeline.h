@@ -12,19 +12,23 @@
 #include <string_view>
 #include <vector>
 
-struct Pipeline {
+class Pipeline {
+public:
+    Pipeline() = default;
+    static Pipeline MakePipeline(VkPipelineBindPoint);
+
+    void Bind(VkCommandBuffer cmd);
+
+    void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set,
+                                   uint32_t setIdx);
+    void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
+                                    uint32_t startIdx);
+public:
     VkPipeline Handle;
     VkPipelineLayout Layout;
 
-    void BindDescriptorSetGraphics(VkCommandBuffer cmd, VkDescriptorSet set,
-                                   uint32_t setIdx);
-    void BindDescriptorSetCompute(VkCommandBuffer cmd, VkDescriptorSet set,
-                                  uint32_t setIdx);
-
-    void BindDescriptorSetsGraphics(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
-                                    uint32_t startIdx);
-    void BindDescriptorSetsCompute(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
-                                   uint32_t startIdx);
+private:
+    VkPipelineBindPoint mBindPoint;
 };
 
 class PipelineBuilder {

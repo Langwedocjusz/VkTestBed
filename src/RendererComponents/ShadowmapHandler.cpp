@@ -191,7 +191,7 @@ void ShadowmapHandler::BeginShadowPass(VkCommandBuffer cmd)
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mShadowmapPipeline.Handle);
+    mShadowmapPipeline.Bind(cmd);
     common::ViewportScissor(cmd, extent);
 }
 
@@ -211,5 +211,5 @@ void ShadowmapHandler::PushConstantTransform(VkCommandBuffer cmd, glm::mat4 tran
 
 void ShadowmapHandler::BindMaterialDS(VkCommandBuffer cmd, VkDescriptorSet materialDS)
 {
-    mShadowmapPipeline.BindDescriptorSetGraphics(cmd, materialDS, 0);
+    mShadowmapPipeline.BindDescriptorSet(cmd, materialDS, 0);
 }

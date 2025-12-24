@@ -7,32 +7,31 @@
 
 #include <vulkan/vulkan.h>
 
-void Pipeline::BindDescriptorSetGraphics(VkCommandBuffer cmd, VkDescriptorSet set,
+Pipeline Pipeline::MakePipeline(VkPipelineBindPoint bindPoint)
+{
+    Pipeline ret;
+    ret.mBindPoint = bindPoint;
+
+    return ret;
+}
+
+void Pipeline::Bind(VkCommandBuffer cmd)
+{
+    vkCmdBindPipeline(cmd, mBindPoint, Handle);
+}
+
+void Pipeline::BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set,
                                          uint32_t setIdx)
 {
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, Layout, setIdx, 1, &set,
+    vkCmdBindDescriptorSets(cmd, mBindPoint, Layout, setIdx, 1, &set,
                             0, nullptr);
 }
 
-void Pipeline::BindDescriptorSetCompute(VkCommandBuffer cmd, VkDescriptorSet set,
-                                        uint32_t setIdx)
-{
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, Layout, setIdx, 1, &set,
-                            0, nullptr);
-}
-
-void Pipeline::BindDescriptorSetsGraphics(VkCommandBuffer cmd,
+void Pipeline::BindDescriptorSets(VkCommandBuffer cmd,
                                           std::span<VkDescriptorSet> sets,
                                           uint32_t startIdx)
 {
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, Layout, startIdx,
-                            static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
-}
-
-void Pipeline::BindDescriptorSetsCompute(VkCommandBuffer cmd,
-                                         std::span<VkDescriptorSet> sets, uint32_t startIdx)
-{
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, Layout, startIdx,
+    vkCmdBindDescriptorSets(cmd, mBindPoint, Layout, startIdx,
                             static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
 }
 
@@ -257,7 +256,7 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 
 Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    Pipeline pipeline{};
+    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_GRAPHICS);
 
     // Build the shader stages:
     auto shaderStages = ShaderBuilder()
@@ -431,7 +430,7 @@ Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 
 Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    Pipeline pipeline{};
+    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_COMPUTE);
 
     auto shaderStages = ShaderBuilder().SetComputePath(*mShaderPath).Build(ctx);
 

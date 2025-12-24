@@ -75,11 +75,10 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 
     vkCmdBeginRendering(cmd, &renderingInfo);
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline.Handle);
-
+        mGraphicsPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mGraphicsPipeline.BindDescriptorSetGraphics(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mGraphicsPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mDrawables)
         {

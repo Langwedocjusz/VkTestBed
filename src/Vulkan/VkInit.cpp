@@ -1,9 +1,9 @@
 #include "VkInit.h"
 #include "Pch.h"
 
-#include <vulkan/vulkan.h>
-
 #include "Vassert.h"
+
+#include <vulkan/vulkan.h>
 
 void vkinit::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
 {

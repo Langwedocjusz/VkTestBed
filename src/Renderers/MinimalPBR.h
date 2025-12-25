@@ -11,7 +11,6 @@
 #include "ShadowmapHandler.h"
 #include "Texture.h"
 #include "VulkanContext.h"
-#include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
   public:

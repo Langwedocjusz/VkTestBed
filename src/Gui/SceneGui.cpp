@@ -2,8 +2,9 @@
 #include "ImageData.h"
 #include "Pch.h"
 
-#include "ImGuiUtils.h"
 #include "Scene.h"
+#include "Vassert.h"
+#include "ImGuiUtils.h"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -13,8 +14,6 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
-
-#include "Vassert.h"
 
 #include <filesystem>
 #include <optional>

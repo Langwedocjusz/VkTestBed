@@ -1,9 +1,10 @@
 #include "Vassert.h"
+#include "Pch.h"
+
+#include <cpptrace/cpptrace.hpp>
 
 #include <cstdlib>
 #include <iostream>
-
-#include <cpptrace/cpptrace.hpp>
 
 void vassert(bool condition, const std::source_location location)
 {

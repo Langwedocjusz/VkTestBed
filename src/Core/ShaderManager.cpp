@@ -1,9 +1,9 @@
 #include "ShaderManager.h"
 #include "Pch.h"
 
-#include <algorithm>
 #include <efsw/efsw.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>

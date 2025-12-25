@@ -6,9 +6,9 @@
 #include "Texture.h"
 #include "Vassert.h"
 
-#include <utility>
 #include <vulkan/vulkan.h>
 
+#include <utility>
 #include <cstdint>
 
 static VkDeviceSize BytesPerPixel(VkFormat format)

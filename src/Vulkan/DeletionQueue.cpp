@@ -3,8 +3,9 @@
 
 #include "CppUtils.h"
 
-#include <ranges>
 #include <vulkan/vulkan.h>
+
+#include <ranges>
 
 void DeletionQueue::flush()
 {

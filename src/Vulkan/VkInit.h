@@ -2,9 +2,10 @@
 
 #include "VulkanContext.h"
 
+#include <vulkan/vulkan.h>
+
 #include <optional>
 #include <span>
-#include <vulkan/vulkan.h>
 
 namespace vkinit
 {

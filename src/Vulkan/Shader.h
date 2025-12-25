@@ -1,9 +1,9 @@
 #pragma once
 
+#include "VulkanContext.h"
+
 #include <optional>
 #include <string>
-
-#include "VulkanContext.h"
 
 class ShaderBuilder {
   public:

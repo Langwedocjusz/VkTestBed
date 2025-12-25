@@ -12,7 +12,6 @@
 #include "Renderer.h"
 #include "Sampler.h"
 #include "Scene.h"
-#include "VkInit.h"
 #include "VulkanContext.h"
 
 #include <glm/ext/matrix_clip_space.hpp>

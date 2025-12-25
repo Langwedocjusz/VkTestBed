@@ -1,7 +1,6 @@
 #include "Minimal3D.h"
 #include "Pch.h"
 
-#include "Barrier.h"
 #include "BufferUtils.h"
 #include "Common.h"
 #include "Descriptor.h"
@@ -9,7 +8,6 @@
 #include "ImageUtils.h"
 #include "Renderer.h"
 #include "Sampler.h"
-#include "VkInit.h"
 
 #include <ranges>
 

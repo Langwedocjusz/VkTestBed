@@ -1,11 +1,10 @@
+#include "SystemWindow.h"
 #include "Pch.h"
 
-#include "SystemWindow.h"
+#include "Vassert.h"
 
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
-
-#include "Vassert.h"
 
 #include <iostream>
 

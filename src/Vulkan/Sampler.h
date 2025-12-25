@@ -3,11 +3,11 @@
 #include "DeletionQueue.h"
 #include "VulkanContext.h"
 
+#include <vulkan/vulkan.h>
+
 #include <optional>
 #include <string>
 #include <string_view>
-
-#include <vulkan/vulkan.h>
 
 class SamplerBuilder {
   public:

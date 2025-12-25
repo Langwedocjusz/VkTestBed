@@ -5,7 +5,6 @@
 #include "VkInit.h"
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 void common::ViewportScissor(VkCommandBuffer buffer, VkExtent2D extent)
 {

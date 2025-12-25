@@ -1,7 +1,6 @@
 #include "ModelLoader.h"
 #include "Pch.h"
 
-#include "Scene.h"
 #include "TangentsGenerator.h"
 
 #include <fastgltf/core.hpp>

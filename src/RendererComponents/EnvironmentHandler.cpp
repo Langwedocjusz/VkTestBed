@@ -11,10 +11,11 @@
 #include "Vassert.h"
 #include "VkUtils.h"
 
+#include <vulkan/vulkan.h>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <bit>
 #include <cmath>
-#include <glm/gtc/matrix_transform.hpp>
-#include <vulkan/vulkan.h>
 
 EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     : mCtx(ctx), mDescriptorAllocator(ctx), mDeletionQueue(ctx),

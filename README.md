@@ -1,7 +1,7 @@
 # VkTestBed
 A thin framework for impementing, testing and timing different graphical techniques with Vulkan API.
 
-![alt text](https://github.com/Langwedocjusz/VkTestBed/blob/main/img/1.png?raw=true)
+![alt text](https://github.com/Langwedocjusz/VkTestBed/blob/main/img/2.png?raw=true)
 
 ## Goals
 The end goal is devloping an architecture that allows to efficiently specify a scene, and completely seprately a renderer.

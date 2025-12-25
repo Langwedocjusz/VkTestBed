@@ -20,7 +20,6 @@
 #include <memory>
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     : mCtx(ctx), mCamera(camera), mFactory(ctx, mFrameInfo, mCamera),
@@ -378,13 +377,6 @@ void RenderContext::DrawUI(VkCommandBuffer cmd)
 
     auto swapchainView = mCtx.SwapchainImageViews[mFrameInfo.ImageIndex];
 
-    //VkRenderingAttachmentInfoKHR colorAttachment = vkinit::CreateAttachmentInfo(
-    //    swapchainView, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, {});
-    //
-    //VkRenderingInfoKHR renderingInfo =
-    //    vkinit::CreateRenderingInfo(swapchainSize, colorAttachment);
-    //
-    //vkCmdBeginRendering(cmd, &renderingInfo);
     common::BeginRenderingColor(cmd, swapchainSize, swapchainView, false);
     {
         common::ViewportScissor(cmd, swapchainSize);

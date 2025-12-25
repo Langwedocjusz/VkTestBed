@@ -2,10 +2,9 @@
 #include "Pch.h"
 
 #include "VkUtils.h"
+#include "Vassert.h"
 
 #include <vulkan/vulkan.h>
-
-#include "Vassert.h"
 
 SamplerBuilder::SamplerBuilder(std::string_view debugName) : mDebugName(debugName)
 {

@@ -44,8 +44,6 @@ class RenderContext {
     RendererFactory mFactory;
     std::unique_ptr<IRenderer> mRenderer;
 
-    VkDescriptorPool mImGuiDescriptorPool;
-
     bool mShowStats = false;
 
     bool mTimestampSupported;
@@ -56,16 +54,17 @@ class RenderContext {
         uint64_t Availability = 0;
     };
 
-    static constexpr size_t mTimestampsPerFrame = 2;
-    std::vector<std::array<Timestamp, mTimestampsPerFrame>> mTimestamps;
-    std::vector<bool> mTimestampFirstRun;
+    static constexpr size_t TimestampsPerFrame = 2;
+
+    using FrameTimestamps = std::array<Timestamp, TimestampsPerFrame>;
+
+    std::array<FrameTimestamps, FrameInfo::MaxInFlight> mTimestamps;
+    std::array<bool, FrameInfo::MaxInFlight> mTimestampFirstRun;
 
     // Framebuffer for object picking:
     struct {
-        Image Target;
-        VkImageView TargetView;
-        Image Depth;
-        VkImageView DepthView;
+        Texture Target;
+        Texture Depth;
 
         Buffer ReadbackBuffer;
     } mPicking;

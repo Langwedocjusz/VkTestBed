@@ -79,8 +79,9 @@ void vkinit::AllocateCommandBuffers(VulkanContext &ctx,
     vassert(ret == VK_SUCCESS, "Failed to allocate command buffers!");
 }
 
-VkRenderingAttachmentInfo vkinit::CreateAttachmentInfo(
-    VkImageView view, VkImageLayout layout, std::optional<VkClearValue> clear)
+VkRenderingAttachmentInfo vkinit::CreateAttachmentInfo(VkImageView view,
+                                                       VkImageLayout layout,
+                                                       std::optional<VkClearValue> clear)
 {
     VkRenderingAttachmentInfo attachment{};
     attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -99,7 +100,7 @@ VkRenderingAttachmentInfo vkinit::CreateAttachmentInfo(
 }
 
 VkRenderingInfo vkinit::CreateRenderingInfo(VkExtent2D extent,
-                                               VkRenderingAttachmentInfo &colorAttachment)
+                                            VkRenderingAttachmentInfo &colorAttachment)
 {
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -113,9 +114,9 @@ VkRenderingInfo vkinit::CreateRenderingInfo(VkExtent2D extent,
 }
 
 VkRenderingInfo vkinit::CreateRenderingInfo(VkExtent2D extent,
-                                               VkRenderingAttachmentInfo &colorAttachment,
-                                               VkRenderingAttachmentInfo &depthAttachment,
-                                               bool hasStencil)
+                                            VkRenderingAttachmentInfo &colorAttachment,
+                                            VkRenderingAttachmentInfo &depthAttachment,
+                                            bool hasStencil)
 {
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -132,8 +133,9 @@ VkRenderingInfo vkinit::CreateRenderingInfo(VkExtent2D extent,
     return renderingInfo;
 }
 
-VkRenderingInfo vkinit::CreateRenderingInfo(
-    VkExtent2D extent, VkRenderingAttachmentInfo &depthAttachment, bool hasStencil)
+VkRenderingInfo vkinit::CreateRenderingInfo(VkExtent2D extent,
+                                            VkRenderingAttachmentInfo &depthAttachment,
+                                            bool hasStencil)
 {
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;

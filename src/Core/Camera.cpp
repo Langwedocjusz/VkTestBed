@@ -50,7 +50,7 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
         .FarBottomRight = GetCorner(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)),
     };
 
-    // Not doing the final division makes
+    // Not doing the final perspective division makes
     // the cubemap coordinates more stable:
     mFrustumBack = FrustumBack{
         .TopLeft = mInvViewProj * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
@@ -209,8 +209,6 @@ static std::optional<Camera::Movement> KeyToMovement(int keycode)
     default:
         return std::nullopt;
     }
-
-    return std::nullopt;
 }
 
 void Camera::OnKeyPressed(int keycode, bool repeat)

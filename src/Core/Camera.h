@@ -86,7 +86,7 @@ class Camera {
         return mFrustumBack;
     }
 
-    /// Get perspective projection covering a fiven rectangle of the near plane.
+    /// Get perspective projection covering a given rectangle of the near plane.
     /// Rectangle coords are meant to be normalized to [0,1].
     [[nodiscard]] glm::mat4 GetViewProjRestrictedRange(float xmin, float xmax, float ymin,
                                                        float ymax) const;

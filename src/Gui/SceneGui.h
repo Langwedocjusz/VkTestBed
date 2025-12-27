@@ -4,17 +4,22 @@
 #include "ModelLoaderGui.h"
 #include "SceneEditor.h"
 
+enum class GizmoMode
+{
+    Translate,
+    Rotate,
+    Scale,
+};
+
 class SceneGui {
   public:
     SceneGui(SceneEditor &editor, const Camera &camera);
 
     void OnImGui();
+    void OnEvent(Event::EventVariant event);
 
     void SetSelection(SceneKey objKey);
     [[nodiscard]] std::optional<SceneKey> GetSelection() const;
-
-    void RequestGizmoRotate();
-    void RequestGizmoScale();
 
   private:
     void SceneHierarchyMenu();
@@ -47,6 +52,8 @@ class SceneGui {
         SceneGraphNode *Parent;
         int64_t ChildId;
     };
+
+    GizmoMode mGizmoMode = GizmoMode::Translate;
 
     bool mOpenHdriPopup = false;
     bool mHdriStillOpen = true;

@@ -2,6 +2,7 @@
 #include "Pch.h"
 
 #include "CppUtils.h"
+#include "Keycodes.h"
 #include "Vassert.h"
 #include "VulkanContext.h"
 
@@ -11,13 +12,20 @@
 
 #include "ImGuizmo.h"
 
+#include <vulkan/vulkan.h>
+
 #include <array>
 #include <iostream>
 
 // Storage for window handle:
 static GLFWwindow *sWindow = nullptr;
+// Storage for internal imgui descriptor pool:
+static VkDescriptorPool sDescriptorPool;
 
 static void ResetStyle();
+static void ScaleStyle(float);
+static bool IsAnyWindowHovered();
+
 [[maybe_unused]] static void check_vk_result(VkResult err);
 
 void iminit::InitImGui()
@@ -35,10 +43,16 @@ void iminit::InitImGui()
     ResetStyle();
 }
 
-VkDescriptorPool iminit::CreateDescriptorPool(VulkanContext &ctx)
+void iminit::InitGlfwBackend(GLFWwindow *window)
 {
-    VkDescriptorPool pool;
+    ImGui_ImplGlfw_InitForVulkan(window, false);
+    sWindow = window;
+}
 
+
+void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
+{
+    //Create descriptor pool for imgui renderer:
     std::array<VkDescriptorPoolSize, 1> poolSizes{
         {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10}},
     };
@@ -50,22 +64,11 @@ VkDescriptorPool iminit::CreateDescriptorPool(VulkanContext &ctx)
     pool_info.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     pool_info.pPoolSizes = poolSizes.data();
 
-    auto res = vkCreateDescriptorPool(ctx.Device, &pool_info, nullptr, &pool);
+    auto res = vkCreateDescriptorPool(ctx.Device, &pool_info, nullptr, &sDescriptorPool);
 
     vassert(res == VK_SUCCESS, "Failed to create Imgui Descriptor Pool!");
 
-    return pool;
-}
-
-void iminit::InitGlfwBackend(GLFWwindow *window)
-{
-    ImGui_ImplGlfw_InitForVulkan(window, false);
-    sWindow = window;
-}
-
-void iminit::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPool,
-                               uint32_t framesInFlight)
-{
+    //Init ImGui vulkan backend:
     ImGui_ImplVulkan_InitInfo init_info = {};
 
     init_info.Instance = ctx.Instance;
@@ -73,7 +76,7 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPo
     init_info.Device = ctx.Device;
 
     init_info.Queue = ctx.Queues.Graphics;
-    init_info.DescriptorPool = descriptorPool;
+    init_info.DescriptorPool = sDescriptorPool;
     init_info.MinImageCount = framesInFlight;
     init_info.ImageCount = framesInFlight;
 
@@ -95,9 +98,11 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPo
     ImGui_ImplVulkan_Init(&init_info);
 }
 
-void iminit::DestroyImGui()
+void iminit::DestroyImGui(VulkanContext& ctx)
 {
     ImGui_ImplVulkan_Shutdown();
+    vkDestroyDescriptorPool(ctx.Device, sDescriptorPool, nullptr);
+    
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 }
@@ -123,9 +128,62 @@ void iminit::RecordImguiToCommandBuffer(VkCommandBuffer cmd)
         ImGui_ImplVulkan_RenderDrawData(draw_data, cmd);
 }
 
-void iminit::ImGuiHandleEvent(Event::EventVariant event)
+iminit::EventFeedback iminit::OnEvent(Event::EventVariant event)
 {
     using namespace Event;
+
+    EventFeedback ret{};
+
+    // Keyboard shortcuts to scale UI:
+    if (std::holds_alternative<Event::Key>(event))
+    {
+        auto keyEvent = std::get<Event::Key>(event);
+
+        // Hold ctrl pressed state
+        // To do: implement better solution (buffer for whole keyboard..)
+        static bool ctrlPressed = false;
+
+        if (keyEvent.Keycode == VKTB_KEY_LEFT_CONTROL)
+        {
+            if (keyEvent.Action == VKTB_PRESS)
+                ctrlPressed = true;
+            else if (keyEvent.Action == VKTB_RELEASE)
+                ctrlPressed = false;
+        }
+
+        const float scaleStep = 0.05f;
+        static float scaleFac = 1.0f;
+
+        // Scalue ui font:
+        if (ctrlPressed && keyEvent.Keycode == VKTB_KEY_EQUAL)
+        {
+            scaleFac += scaleStep;
+            ScaleStyle(scaleFac);
+        }
+
+        if (ctrlPressed && keyEvent.Keycode == VKTB_KEY_MINUS)
+        {
+            scaleFac = std::max(scaleStep, scaleFac - scaleStep);
+            ScaleStyle(scaleFac);
+        }
+    }
+
+    // Detect if background was clicked:
+    if (std::holds_alternative<Event::MouseButton>(event))
+    {
+        auto e = std::get<Event::MouseButton>(event);
+        
+        if (e.Button == VKTB_MOUSE_BUTTON_LEFT && e.Action == VKTB_PRESS)
+        {
+            if (!IsAnyWindowHovered())
+            {
+                ret.IsBackgroundClicked = true;
+            }
+        }
+    }
+
+    // Normal imgui event handling:
+    // Currently doesn't implement ImGui_ImplGlfw_MonitorCallbac
 
     // clang-format off
     std::visit(overloaded{
@@ -140,11 +198,11 @@ void iminit::ImGuiHandleEvent(Event::EventVariant event)
     }, event);
     // clang-format on
 
-    // Currently not handled:
-    // ImGui_ImplGlfw_MonitorCallbac;
+    //Return some event processing information to call site:
+    return ret;
 }
 
-bool iminit::AnythingHovered()
+static bool IsAnyWindowHovered()
 {
     bool res = false;
 
@@ -154,7 +212,7 @@ bool iminit::AnythingHovered()
     return res;
 }
 
-void iminit::ScaleStyle(float scaleFactor)
+static void ScaleStyle(float scaleFactor)
 {
     ResetStyle();
 

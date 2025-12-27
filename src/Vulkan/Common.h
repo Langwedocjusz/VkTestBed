@@ -9,14 +9,14 @@ namespace common
 {
 void ViewportScissor(VkCommandBuffer buffer, VkExtent2D extent);
 
-void BeginRenderingColor(VkCommandBuffer cmd, VkExtent2D extent, VkImageView color, bool clear);
+void BeginRenderingColor(VkCommandBuffer cmd, VkExtent2D extent, VkImageView color,
+                         bool clear);
 
-void BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent, 
-                                    VkImageView color, VkImageView depth,  
-                                    bool hasStencil, bool clear);
+void BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent, VkImageView color,
+                              VkImageView depth, bool hasStencil, bool clear);
 
-void BeginRenderingDepth(VkCommandBuffer cmd, VkExtent2D extent,
-                        VkImageView depth, bool hasStencil, bool clear);
+void BeginRenderingDepth(VkCommandBuffer cmd, VkExtent2D extent, VkImageView depth,
+                         bool hasStencil, bool clear);
 
 void SubmitQueue(VkQueue queue, VkCommandBuffer cmd, VkFence fence,
                  VkSemaphore waitSemaphore, VkPipelineStageFlags waitStage,

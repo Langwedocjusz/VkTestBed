@@ -23,13 +23,14 @@ VkRenderingAttachmentInfo CreateAttachmentInfo(
     std::optional<VkClearValue> clear = std::nullopt);
 
 VkRenderingInfo CreateRenderingInfo(VkExtent2D extent,
-                                       VkRenderingAttachmentInfo &colorAttachment);
+                                    VkRenderingAttachmentInfo &colorAttachment);
 
 VkRenderingInfo CreateRenderingInfo(VkExtent2D extent,
-                                       VkRenderingAttachmentInfo &colorAttachment,
-                                       VkRenderingAttachmentInfo &depthAttachment,
-                                       bool hasStencil);
+                                    VkRenderingAttachmentInfo &colorAttachment,
+                                    VkRenderingAttachmentInfo &depthAttachment,
+                                    bool hasStencil);
 
-VkRenderingInfo CreateRenderingInfo(
-    VkExtent2D extent, VkRenderingAttachmentInfo &depthAttachment, bool hasStencil);
+VkRenderingInfo CreateRenderingInfo(VkExtent2D extent,
+                                    VkRenderingAttachmentInfo &depthAttachment,
+                                    bool hasStencil);
 }; // namespace vkinit

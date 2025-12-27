@@ -1,8 +1,8 @@
 #include "Descriptor.h"
 #include "Pch.h"
 
-#include "VkUtils.h"
 #include "Vassert.h"
+#include "VkUtils.h"
 
 #include <vulkan/vulkan.h>
 

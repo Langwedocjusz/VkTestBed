@@ -74,10 +74,6 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     // Setup timestamp queries if possible:
     if (mTimestampSupported)
     {
-        // Allocate memory for timestamps:
-        mTimestamps.resize(mFrameInfo.MaxInFlight);
-        mTimestampFirstRun.resize(mFrameInfo.MaxInFlight, true);
-
         for (auto &res : mFrameInfo.FrameData)
         {
             // Create the query pool:
@@ -87,7 +83,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
             VkQueryPoolCreateInfo queryPoolInfo{};
             queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
             queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
-            queryPoolInfo.queryCount = mTimestampsPerFrame;
+            queryPoolInfo.queryCount = TimestampsPerFrame;
 
             auto queryRes =
                 vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr, &pool);
@@ -97,7 +93,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
 
             // Reset all timestamps preemptively
             mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-                vkCmdResetQueryPool(cmd, pool, 0, mTimestampsPerFrame);
+                vkCmdResetQueryPool(cmd, pool, 0, TimestampsPerFrame);
             });
         }
     }
@@ -120,14 +116,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
         .MipLevels = 1,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
-
-    mPicking.Target = MakeImage::Image2D(mCtx, "PickingTarget", renderTargetInfo);
-    mPicking.TargetView =
-        MakeView::View2D(mCtx, "PickingTargetView", mPicking.Target,
-                         IRenderer::PickingTargetFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-
-    mMainDeletionQueue.push_back(mPicking.Target);
-    mMainDeletionQueue.push_back(mPicking.TargetView);
+    mPicking.Target = MakeTexture::Texture2D(mCtx, "PickingTarget", renderTargetInfo, mMainDeletionQueue);
 
     Image2DInfo depthBufferInfo{
         .Extent = VkExtent2D{1, 1},
@@ -137,35 +126,24 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
         .MipLevels = 1,
         .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
+    mPicking.Depth = MakeTexture::Texture2D(mCtx, "PickingDepthBuffer", depthBufferInfo, mMainDeletionQueue);
 
-    mPicking.Depth = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);
-    mPicking.DepthView =
-        MakeView::View2D(mCtx, "DepthBufferView", mPicking.Depth,
-                         IRenderer::PickingDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-    mMainDeletionQueue.push_back(mPicking.Depth);
-    mMainDeletionQueue.push_back(mPicking.DepthView);
-
-    auto usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    auto flags =
+    auto bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    auto bufferFlags =
         VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     mPicking.ReadbackBuffer =
-        Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel), usage, flags);
+        Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel), bufferUsage, bufferFlags);
     mMainDeletionQueue.push_back(mPicking.ReadbackBuffer);
 }
 
 void RenderContext::OnInit()
 {
-    mImGuiDescriptorPool = iminit::CreateDescriptorPool(mCtx);
-    mMainDeletionQueue.push_back(mImGuiDescriptorPool);
-
-    iminit::InitVulkanBackend(mCtx, mImGuiDescriptorPool, mFrameInfo.MaxInFlight);
+    iminit::InitVulkanBackend(mCtx, mFrameInfo.MaxInFlight);
 
     // Renderer initialized after imgui backend, since it may need
     // imgui descriptor pool to allocate descriptors
     // for debug images.
-
     mRenderer = mFactory.MakeRenderer(RendererType::MinimalPBR);
 
     CreateSwapchainResources();
@@ -455,7 +433,7 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     mCtx.ImmediateSubmitGraphics([&, x, y](VkCommandBuffer cmd) {
         // Transitions layouts:
         auto info = barrier::ImageLayoutBarrierInfo{
-            .Image = mPicking.Target.Handle,
+            .Image = mPicking.Target.Img.Handle,
             .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             .NewLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
@@ -463,7 +441,8 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         barrier::ImageLayoutBarrierCoarse(cmd, info);
 
         // Draw objects:
-        common::BeginRenderingColorDepth(cmd, VkExtent2D{1,1}, mPicking.TargetView, mPicking.DepthView, false, true);
+        common::BeginRenderingColorDepth(cmd, VkExtent2D{1, 1}, mPicking.Target.View,
+                                         mPicking.Depth.View, false, true);
         mRenderer->RenderObjectId(cmd, x, y);
         vkCmdEndRendering(cmd);
 
@@ -477,14 +456,14 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         region.bufferRowLength = 0;
         region.bufferImageHeight = 0;
         region.imageOffset = {0, 0, 0};
-        region.imageExtent = mPicking.Target.Info.extent;
+        region.imageExtent = mPicking.Target.Img.Info.extent;
 
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.mipLevel = 0;
         region.imageSubresource.baseArrayLayer = 0;
         region.imageSubresource.layerCount = 1;
 
-        vkCmdCopyImageToBuffer(cmd, mPicking.Target.Handle,
+        vkCmdCopyImageToBuffer(cmd, mPicking.Target.Img.Handle,
                                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                mPicking.ReadbackBuffer.Handle, 1, &region);
     });

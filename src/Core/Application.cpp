@@ -8,14 +8,13 @@
 #include "SceneGui.h"
 #include "ShaderManager.h"
 #include "SystemWindow.h"
+#include "Timer.h"
 #include "VulkanContext.h"
 
-#include <optional>
+#include "imgui.h"
 #include <tracy/Tracy.hpp>
 
-#include "imgui.h"
-
-#include <chrono>
+#include <optional>
 #include <variant>
 
 class Application::Impl {
@@ -39,8 +38,8 @@ class Application::Impl {
 
     ShaderManager mShaderManager;
 
-    float mDeltaTime = 0.0f;
-    std::chrono::time_point<std::chrono::high_resolution_clock> mOldTime;
+    float mDeltaTimeSeconds = 0.0f;
+    Timer::TimePoint mOldTime;
 
     std::optional<ImVec2> mPickRequested = std::nullopt;
 
@@ -73,10 +72,8 @@ void Application::Impl::Run()
     while (!mWindow.ShouldClose())
     {
         // Update delta time:
-        using ms = std::chrono::duration<float, std::milli>;
-
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        mDeltaTime = std::chrono::duration_cast<ms>(currentTime - mOldTime).count();
+        auto currentTime = Timer::Now();
+        mDeltaTimeSeconds = Timer::GetDiffSeconds(currentTime, mOldTime);
         mOldTime = currentTime;
 
         // Recreate swapchain and related resources if necessary:
@@ -84,13 +81,13 @@ void Application::Impl::Run()
         handleResize = handleResize || !mCtx.SwapchainOk;
         handleResize = handleResize || (!mStillResizing && mResizeRequested);
 
+        mStillResizing = false;
+
         if (handleResize)
         {
             mRender.ResizeSwapchain();
             mResizeRequested = false;
         }
-
-        mStillResizing = false;
 
         // Reload the scene if necessary:
         if (mScene.UpdateRequested())
@@ -117,11 +114,9 @@ void Application::Impl::Run()
         mWindow.PollEvents();
 
         // Update Renderer and Scene Editor
-        auto deltaSeconds = mDeltaTime / 1000.0f;
-
-        mCamera.OnUpdate(deltaSeconds, mCtx.Swapchain.extent.width,
+        mCamera.OnUpdate(mDeltaTimeSeconds, mCtx.Swapchain.extent.width,
                          mCtx.Swapchain.extent.height);
-        mRender.OnUpdate(deltaSeconds);
+        mRender.OnUpdate(mDeltaTimeSeconds);
         mSceneEditor.OnUpdate();
 
         // Collect imgui calls
@@ -138,7 +133,7 @@ void Application::Impl::Run()
     }
 
     vkDeviceWaitIdle(mCtx.Device);
-    iminit::DestroyImGui();
+    iminit::DestroyImGui(mCtx);
 }
 
 void Application::Impl::OnEvent(Event::EventVariant event)
@@ -158,7 +153,7 @@ void Application::Impl::OnEvent(Event::EventVariant event)
         return;
     }
 
-    // Handle some key combinations before propagating further:
+    // Use escape to capture/release the cursor:
     if (std::holds_alternative<Event::Key>(event))
     {
         auto keyEvent = std::get<Event::Key>(event);
@@ -173,39 +168,6 @@ void Application::Impl::OnEvent(Event::EventVariant event)
             else
                 mWindow.FreeCursor();
         }
-
-        // Hold ctrl pressed state
-        // To do: implement better solution (buffer for whole keyboard..)
-        static bool ctrlPressed = false;
-
-        if (keyEvent.Keycode == VKTB_KEY_LEFT_CONTROL)
-        {
-            if (keyEvent.Action == VKTB_PRESS)
-                ctrlPressed = true;
-            else if (keyEvent.Action == VKTB_RELEASE)
-                ctrlPressed = false;
-        }
-
-        bool scaleUI = false;
-        const float scaleStep = 0.05f;
-        static float scaleFac = 1.0f;
-
-        if (ctrlPressed && keyEvent.Keycode == VKTB_KEY_EQUAL)
-        {
-            scaleFac += scaleStep;
-            scaleUI = true;
-        }
-
-        if (ctrlPressed && keyEvent.Keycode == VKTB_KEY_MINUS)
-        {
-            scaleFac = std::max(scaleStep, scaleFac - scaleStep);
-            scaleUI = true;
-        }
-
-        if (scaleUI)
-        {
-            iminit::ScaleStyle(scaleFac);
-        }
     }
 
     // If cursor caputured - propagate to camera/renderer event handling:
@@ -218,35 +180,15 @@ void Application::Impl::OnEvent(Event::EventVariant event)
     // If cursor not captured - use gui event handling:
     else
     {
-        iminit::ImGuiHandleEvent(event);
-
-        // Change gizmo mode:
-        if (std::holds_alternative<Event::Key>(event))
-        {
-            auto e = std::get<Event::Key>(event);
-
-            if (e.Keycode == VKTB_KEY_R && e.Action == VKTB_PRESS)
-                mSceneGui.RequestGizmoRotate();
-
-            if (e.Keycode == VKTB_KEY_S && e.Action == VKTB_PRESS)
-                mSceneGui.RequestGizmoScale();
-        }
-
-        // Detect if background was clicked
-        // To-do: encapsulate this somehow
-        if (std::holds_alternative<Event::MouseButton>(event))
-        {
-            auto e = std::get<Event::MouseButton>(event);
-
-            if (e.Button == VKTB_MOUSE_BUTTON_LEFT && e.Action == VKTB_PRESS)
-            {
-                if (!iminit::AnythingHovered())
-                {
-                    // To-do: when input buffers are implemented maybe fetch
-                    // mouse pos from there, instead of calling to imgui
-                    mPickRequested = ImGui::GetMousePos();
-                }
-            }
+        mSceneGui.OnEvent(event);
+        
+        auto feedback = iminit::OnEvent(event);
+        
+        if (feedback.IsBackgroundClicked)
+        {   
+            // To-do: when input buffers are implemented maybe fetch
+            // mouse pos from there, instead of calling to imgui
+            mPickRequested = ImGui::GetMousePos();
         }
     }
 }

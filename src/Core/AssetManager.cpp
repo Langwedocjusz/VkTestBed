@@ -23,7 +23,7 @@ static uint8_t PixelChannelFromFloat(float x)
 
 struct AssetManager::Model {
     Model(const ModelConfig &config, bool &isReady)
-        : Config(config), IsReady(isReady), TasksLeft(0), StartTime(Timer::Get())
+        : Config(config), IsReady(isReady), TasksLeft(0), StartTime(Timer::Now())
     {
     }
 
@@ -34,7 +34,7 @@ struct AssetManager::Model {
     std::vector<PrimitiveTaskData> PrimData;
     std::map<size_t, SceneKey> MeshDict;
     std::atomic_int64_t TasksLeft;
-    Timer::Point StartTime;
+    Timer::TimePoint StartTime;
 };
 
 AssetManager::AssetManager(Scene &scene) : mScene(scene)
@@ -130,7 +130,8 @@ void AssetManager::OnUpdate()
             mModel->IsReady = true;
 
             // Print message:
-            auto time = Timer::GetDiffSeconds(mModel->StartTime);
+            auto now = Timer::Now();
+            auto time = Timer::GetDiffSeconds(now, mModel->StartTime);
             std::cout << "Finished loading model (took " << time << " [s])\n";
 
             // Free task-related memory:

@@ -8,8 +8,8 @@
 
 #include <vulkan/vulkan.h>
 
-#include <utility>
 #include <cstdint>
+#include <utility>
 
 static VkDeviceSize BytesPerPixel(VkFormat format)
 {

@@ -432,7 +432,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     using namespace std::views;
 
     common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTargetView,
-                                            mDepthStencilBufferView, true, true);
+                                     mDepthStencilBufferView, true, true);
     {
         // Draw the scene:
         mMainPipeline.Bind(cmd);
@@ -506,7 +506,8 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
     // Draw to stencil:
     {
-        common::BeginRenderingDepth(cmd, GetTargetSize(), mDepthStencilBufferView, true, false);
+        common::BeginRenderingDepth(cmd, GetTargetSize(), mDepthStencilBufferView, true,
+                                    false);
 
         mStencilPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
@@ -543,7 +544,8 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
     // Draw outline:
     {
-        common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTargetView, mDepthStencilBufferView, true, false);
+        common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTargetView,
+                                         mDepthStencilBufferView, true, false);
 
         mOutlinePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());

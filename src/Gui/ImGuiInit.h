@@ -8,21 +8,20 @@ struct GLFWwindow;
 namespace iminit
 {
 void InitImGui();
-void ScaleStyle(float scaleFactor);
+
 void InitGlfwBackend(GLFWwindow *window);
-
-VkDescriptorPool CreateDescriptorPool(VulkanContext &ctx);
-
-void InitVulkanBackend(VulkanContext &ctx, VkDescriptorPool descriptorPool,
-                       uint32_t framesInFlight);
+void InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight);
 
 void BeginGuiFrame();
 void FinalizeGuiFrame();
 
+struct EventFeedback{
+    bool IsBackgroundClicked = false;
+};
+
+EventFeedback OnEvent(Event::EventVariant event);
+
 void RecordImguiToCommandBuffer(VkCommandBuffer cmd);
 
-void ImGuiHandleEvent(Event::EventVariant event);
-bool AnythingHovered();
-
-void DestroyImGui();
+void DestroyImGui(VulkanContext& ctx);
 } // namespace iminit

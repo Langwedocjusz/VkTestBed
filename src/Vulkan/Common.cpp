@@ -23,7 +23,8 @@ void common::ViewportScissor(VkCommandBuffer buffer, VkExtent2D extent)
     vkCmdSetScissor(buffer, 0, 1, &scissor);
 }
 
-void common::BeginRenderingColor(VkCommandBuffer cmd, VkExtent2D extent, VkImageView color, bool clear)
+void common::BeginRenderingColor(VkCommandBuffer cmd, VkExtent2D extent,
+                                 VkImageView color, bool clear)
 {
     std::optional<VkClearValue> colorClear = std::nullopt;
 
@@ -36,15 +37,14 @@ void common::BeginRenderingColor(VkCommandBuffer cmd, VkExtent2D extent, VkImage
     auto colorAttachment = vkinit::CreateAttachmentInfo(
         color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, colorClear);
 
-    VkRenderingInfo renderingInfo =
-        vkinit::CreateRenderingInfo(extent, colorAttachment);
+    VkRenderingInfo renderingInfo = vkinit::CreateRenderingInfo(extent, colorAttachment);
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 }
 
-void common::BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent, 
-                                    VkImageView color, VkImageView depth,  
-                                    bool hasStencil, bool clear)
+void common::BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent,
+                                      VkImageView color, VkImageView depth,
+                                      bool hasStencil, bool clear)
 {
     std::optional<VkClearValue> colorClear = std::nullopt;
     std::optional<VkClearValue> depthClear = std::nullopt;
@@ -71,7 +71,7 @@ void common::BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent,
 }
 
 void common::BeginRenderingDepth(VkCommandBuffer cmd, VkExtent2D extent,
-                                VkImageView depth, bool hasStencil, bool clear)
+                                 VkImageView depth, bool hasStencil, bool clear)
 {
     std::optional<VkClearValue> depthClear = std::nullopt;
 

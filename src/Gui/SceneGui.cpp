@@ -1,10 +1,11 @@
 #include "SceneGui.h"
-#include "ImageData.h"
 #include "Pch.h"
 
+#include "ImageData.h"
+#include "ImGuiUtils.h"
+#include "Keycodes.h"
 #include "Scene.h"
 #include "Vassert.h"
-#include "ImGuiUtils.h"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -18,11 +19,21 @@
 #include <filesystem>
 #include <optional>
 #include <ranges>
+#include <utility>
 #include <string>
 
 static const char *PAYLOAD_STRING = "SCENE_INSTANCE_PAYLOAD";
 
-static ImGuizmo::OPERATION sGizmoOp = ImGuizmo::OPERATION::TRANSLATE;
+static ImGuizmo::OPERATION TranslateMode(GizmoMode mode)
+{
+    switch (mode) {
+        case GizmoMode::Translate: return ImGuizmo::OPERATION::TRANSLATE;
+        case GizmoMode::Rotate: return ImGuizmo::OPERATION::ROTATE;
+        case GizmoMode::Scale: return ImGuizmo::OPERATION::SCALE;
+    }
+
+    std::unreachable();
+}
 
 SceneGui::SceneGui(SceneEditor &editor, const Camera &camera)
     : mEditor(editor), mCamera(camera), mModelLoader(editor)
@@ -48,6 +59,34 @@ void SceneGui::OnImGui()
     DataMenu();
     SceneHierarchyMenu();
     ObjectPropertiesMenu();
+}
+
+void SceneGui::OnEvent(Event::EventVariant event)
+{
+    // Change gizmo mode:
+    if (mSelectedNode == nullptr)
+        return;
+
+    if (!std::holds_alternative<Event::Key>(event))
+        return;
+
+    auto e = std::get<Event::Key>(event);
+
+    if (e.Keycode == VKTB_KEY_R && e.Action == VKTB_PRESS)
+    {
+        if (mGizmoMode == GizmoMode::Rotate)
+            mGizmoMode = GizmoMode::Translate;
+        else
+            mGizmoMode = GizmoMode::Rotate;
+    }
+
+    if (e.Keycode == VKTB_KEY_S && e.Action == VKTB_PRESS)
+    {
+        if (mGizmoMode == GizmoMode::Scale)
+            mGizmoMode = GizmoMode::Translate;
+        else
+            mGizmoMode = GizmoMode::Scale;
+    }
 }
 
 std::optional<SceneKey> SceneGui::GetSelection() const
@@ -95,28 +134,6 @@ void SceneGui::SetSelection(SceneKey objKey)
         else
             mSelectedNode = selectedNode;
     }
-}
-
-void SceneGui::RequestGizmoRotate()
-{
-    if (mSelectedNode == nullptr)
-        return;
-
-    if (sGizmoOp == ImGuizmo::OPERATION::ROTATE)
-        sGizmoOp = ImGuizmo::OPERATION::TRANSLATE;
-    else
-        sGizmoOp = ImGuizmo::OPERATION::ROTATE;
-}
-
-void SceneGui::RequestGizmoScale()
-{
-    if (mSelectedNode == nullptr)
-        return;
-
-    if (sGizmoOp == ImGuizmo::OPERATION::SCALE)
-        sGizmoOp = ImGuizmo::OPERATION::TRANSLATE;
-    else
-        sGizmoOp = ImGuizmo::OPERATION::SCALE;
 }
 
 void SceneGui::SceneHierarchyMenu()
@@ -730,9 +747,10 @@ void SceneGui::ObjectPropertiesMenu()
             proj[1][1] *= -1.0f;
 
             auto mode = ImGuizmo::MODE::WORLD;
+            auto op = TranslateMode(mGizmoMode);
 
             bool manipulated =
-                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), sGizmoOp,
+                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), op,
                                      mode, glm::value_ptr(currentNonAggregate));
 
             if (manipulated)

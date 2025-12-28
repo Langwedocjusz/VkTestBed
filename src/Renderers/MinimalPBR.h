@@ -11,6 +11,7 @@
 #include "ShadowmapHandler.h"
 #include "Texture.h"
 #include "VulkanContext.h"
+#include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
   public:
@@ -21,7 +22,7 @@ class MinimalPbrRenderer final : public IRenderer {
     void OnImGui() override;
     void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) override;
 
-    void CreateSwapchainResources() override;
+    void RecreateSwapchainResources() override;
     void RebuildPipelines() override;
     void LoadScene(const Scene &scene) override;
     void RenderObjectId(VkCommandBuffer cmd, float x, float y) override;
@@ -117,8 +118,10 @@ class MinimalPbrRenderer final : public IRenderer {
     static constexpr VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
     static constexpr VkFormat mDepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
-    Image mDepthStencilBuffer;
-    VkImageView mDepthStencilBufferView;
+    Texture mDepthStencilBuffer;
+
+    std::optional<Texture> mRenderTargetMsaa;
+    std::optional<Texture> mDepthStencilMsaa;
 
     // Common resources:
     VkSampler mSampler2D;
@@ -183,7 +186,8 @@ class MinimalPbrRenderer final : public IRenderer {
     std::map<SceneKey, std::vector<std::pair<DrawableKey, size_t>>> mObjectCache;
 
     // Some renderer settings:
-    const float mInternalResolutionScale = 1.0f;
+    float mInternalResolutionScale = 1.0f;
+    VkSampleCountFlagBits mMultisample = VK_SAMPLE_COUNT_1_BIT;
 
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct UBOData {
@@ -193,7 +197,7 @@ class MinimalPbrRenderer final : public IRenderer {
         float DirectionalFactor = 3.0f;
         float EnvironmentFactor = 0.05f;
         float ShadowBiasMin = 0.001f;
-        float ShadowBiasMax = 0.005f;
+        float ShadowBiasMax = 0.003f;
     } mUBOData;
 
     DynamicUniformBuffer mDynamicUBO;

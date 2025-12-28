@@ -237,6 +237,13 @@ PipelineBuilder &PipelineBuilder::SetPushConstantSize(uint32_t size)
     return *this;
 }
 
+PipelineBuilder &PipelineBuilder::SetMultisampling(VkSampleCountFlagBits sampleCount)
+{
+    mMultisample.rasterizationSamples = sampleCount;
+
+    return *this;
+}
+
 Pipeline PipelineBuilder::Build(VulkanContext &ctx)
 {
     return BuildImpl(ctx);

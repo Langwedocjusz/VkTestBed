@@ -1,8 +1,8 @@
 #include "SceneGui.h"
 #include "Pch.h"
 
-#include "ImageData.h"
 #include "ImGuiUtils.h"
+#include "ImageData.h"
 #include "Keycodes.h"
 #include "Scene.h"
 #include "Vassert.h"
@@ -19,17 +19,21 @@
 #include <filesystem>
 #include <optional>
 #include <ranges>
-#include <utility>
 #include <string>
+#include <utility>
 
 static const char *PAYLOAD_STRING = "SCENE_INSTANCE_PAYLOAD";
 
 static ImGuizmo::OPERATION TranslateMode(GizmoMode mode)
 {
-    switch (mode) {
-        case GizmoMode::Translate: return ImGuizmo::OPERATION::TRANSLATE;
-        case GizmoMode::Rotate: return ImGuizmo::OPERATION::ROTATE;
-        case GizmoMode::Scale: return ImGuizmo::OPERATION::SCALE;
+    switch (mode)
+    {
+    case GizmoMode::Translate:
+        return ImGuizmo::OPERATION::TRANSLATE;
+    case GizmoMode::Rotate:
+        return ImGuizmo::OPERATION::ROTATE;
+    case GizmoMode::Scale:
+        return ImGuizmo::OPERATION::SCALE;
     }
 
     std::unreachable();
@@ -750,8 +754,8 @@ void SceneGui::ObjectPropertiesMenu()
             auto op = TranslateMode(mGizmoMode);
 
             bool manipulated =
-                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), op,
-                                     mode, glm::value_ptr(currentNonAggregate));
+                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), op, mode,
+                                     glm::value_ptr(currentNonAggregate));
 
             if (manipulated)
             {

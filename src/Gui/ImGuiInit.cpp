@@ -49,10 +49,9 @@ void iminit::InitGlfwBackend(GLFWwindow *window)
     sWindow = window;
 }
 
-
 void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
 {
-    //Create descriptor pool for imgui renderer:
+    // Create descriptor pool for imgui renderer:
     std::array<VkDescriptorPoolSize, 1> poolSizes{
         {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10}},
     };
@@ -68,7 +67,7 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
 
     vassert(res == VK_SUCCESS, "Failed to create Imgui Descriptor Pool!");
 
-    //Init ImGui vulkan backend:
+    // Init ImGui vulkan backend:
     ImGui_ImplVulkan_InitInfo init_info = {};
 
     init_info.Instance = ctx.Instance;
@@ -98,11 +97,11 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
     ImGui_ImplVulkan_Init(&init_info);
 }
 
-void iminit::DestroyImGui(VulkanContext& ctx)
+void iminit::DestroyImGui(VulkanContext &ctx)
 {
     ImGui_ImplVulkan_Shutdown();
     vkDestroyDescriptorPool(ctx.Device, sDescriptorPool, nullptr);
-    
+
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 }
@@ -172,7 +171,7 @@ iminit::EventFeedback iminit::OnEvent(Event::EventVariant event)
     if (std::holds_alternative<Event::MouseButton>(event))
     {
         auto e = std::get<Event::MouseButton>(event);
-        
+
         if (e.Button == VKTB_MOUSE_BUTTON_LEFT && e.Action == VKTB_PRESS)
         {
             if (!IsAnyWindowHovered())
@@ -198,7 +197,7 @@ iminit::EventFeedback iminit::OnEvent(Event::EventVariant event)
     }, event);
     // clang-format on
 
-    //Return some event processing information to call site:
+    // Return some event processing information to call site:
     return ret;
 }
 

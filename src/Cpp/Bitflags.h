@@ -7,7 +7,7 @@
 template <typename T>
 class Bitflags {
   public:
-    using utype = std::underlying_type<T>::type;
+    using utype = std::underlying_type_t<T>;
 
     void Set(T t)
     {

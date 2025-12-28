@@ -168,7 +168,7 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir)
 void ShadowmapHandler::OnImGui()
 {
     ImGui::SliderFloat("Add Z", &mAddZ, 0.0f, 10.0f);
-    ImGui::SliderFloat("Sub Z", &mSubZ, 0.0f, 20.0f);
+    ImGui::SliderFloat("Sub Z", &mSubZ, 0.0f, 30.0f);
     ImGui::SliderFloat("Shadow Dist", &mShadowDist, 1.0f, 40.0f);
 
     ImGui::Image((ImTextureID)mDebugTextureDescriptorSet, ImVec2(512, 512));

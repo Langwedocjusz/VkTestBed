@@ -55,7 +55,7 @@ class ShadowmapHandler {
     } mShadowPCData;
 
     float mAddZ = 8.0f;
-    float mSubZ = 20.0f;
+    float mSubZ = 30.0f;
     float mShadowDist = 20.0f;
 
     Image mShadowmap;

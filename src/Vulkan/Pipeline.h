@@ -63,6 +63,8 @@ class PipelineBuilder {
 
     PipelineBuilder &SetPushConstantSize(uint32_t size);
 
+    PipelineBuilder &SetMultisampling(VkSampleCountFlagBits sampleCount);
+
     Pipeline Build(VulkanContext &ctx);
     Pipeline Build(VulkanContext &ctx, DeletionQueue &queue);
 

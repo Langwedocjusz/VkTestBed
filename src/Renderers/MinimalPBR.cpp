@@ -1,11 +1,11 @@
 #include "MinimalPBR.h"
-#include "Camera.h"
-#include "GeometryData.h"
 #include "Pch.h"
 
 #include "BufferUtils.h"
+#include "Camera.h"
 #include "Common.h"
 #include "Descriptor.h"
+#include "GeometryData.h"
 #include "ImageLoaders.h"
 #include "ImageUtils.h"
 #include "Pipeline.h"
@@ -190,6 +190,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .EnableDepthTest()
             .SetDepthFormat(mDepthStencilFormat)
             .SetStencilFormat(mDepthStencilFormat)
+            .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mBackgroundPipeline =
@@ -207,6 +208,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
             .SetDepthFormat(mDepthStencilFormat)
             .SetStencilFormat(mDepthStencilFormat)
+            .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
     // Rebuild env handler pipelines as well:
@@ -240,6 +242,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPushConstantSize(sizeof(mOutlinePCData))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
     VkStencilOpState stencilOutlineState{
@@ -268,6 +271,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPushConstantSize(sizeof(mOutlinePCData))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mObjectIdPipeline =
@@ -309,7 +313,38 @@ void MinimalPbrRenderer::OnImGui()
     ImGui::SliderFloat("Shadow Bias Min", &mUBOData.ShadowBiasMin, 0.0f, 0.1f);
     ImGui::SliderFloat("Shadow Bias Max", &mUBOData.ShadowBiasMax, 0.0f, 0.1f);
 
-    mShadowmapHandler.OnImGui();
+    if (ImGui::CollapsingHeader("Render Target"))
+    {
+        ImGui::SliderFloat("Internal Res Scale", &mInternalResolutionScale, 0.25f, 2.0f);
+
+        static int choice;
+        static std::array names{"1x", "2x", "4x", "8x"};
+
+        if (ImGui::Combo("Multisampling", &choice, names.data(), names.size()))
+        {
+        }
+
+        if (ImGui::Button("Recreate"))
+        {
+            vkDeviceWaitIdle(mCtx.Device);
+
+            const std::array options{
+                VK_SAMPLE_COUNT_1_BIT,
+                VK_SAMPLE_COUNT_2_BIT,
+                VK_SAMPLE_COUNT_4_BIT,
+                VK_SAMPLE_COUNT_8_BIT,
+            };
+
+            mMultisample = options[choice];
+
+            RecreateSwapchainResources();
+            // Pipelines also need to be rebuilt when render target changes:
+            RebuildPipelines();
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Shadowmap"))
+        mShadowmapHandler.OnImGui();
 
     ImGui::End();
 }
@@ -431,57 +466,65 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 {
     using namespace std::views;
 
-    common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTargetView,
-                                     mDepthStencilBufferView, true, true);
+    if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
     {
-        // Draw the scene:
-        mMainPipeline.Bind(cmd);
+        common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTarget.View,
+                                         mDepthStencilBuffer.View, true, true);
+    }
+    else
+    {
+        common::BeginRenderingColorDepthMSAA(
+            cmd, GetTargetSize(), mRenderTargetMsaa->View, mRenderTarget.View,
+            mDepthStencilMsaa->View, mDepthStencilBuffer.View, true, true);
+    }
+
+    // Draw the scene:
+    mMainPipeline.Bind(cmd);
+    common::ViewportScissor(cmd, GetTargetSize());
+
+    std::array descriptorSets{
+        mDynamicUBO.DescriptorSet(),
+        mEnvHandler.GetLightingDS(),
+        mShadowmapHandler.GetDescriptorSet(),
+    };
+
+    mMainPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
+
+    stats.NumBinds += 3;
+
+    auto viewProj = mUBOData.CameraViewProjection;
+
+    auto materialCallback = [this](VkCommandBuffer cmd, Material &material) {
+        mMainPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 3);
+    };
+
+    auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+        mMainPCData.Model = instance.Transform;
+        mMainPCData.Normal = glm::transpose(glm::inverse(instance.Transform));
+
+        vkCmdPushConstants(cmd, mMainPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                           sizeof(mMainPCData), &mMainPCData);
+    };
+
+    DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
+
+    // Draw the background:
+    if (mEnvHandler.HdriEnabled())
+    {
+        mBackgroundPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        std::array descriptorSets{
-            mDynamicUBO.DescriptorSet(),
-            mEnvHandler.GetLightingDS(),
-            mShadowmapHandler.GetDescriptorSet(),
-        };
+        mBackgroundPipeline.BindDescriptorSet(cmd, mEnvHandler.GetBackgroundDS(), 0);
 
-        mMainPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
+        vkCmdPushConstants(cmd, mBackgroundPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
+                           0, sizeof(FrustumBack), &mCamera.GetFrustumBack());
 
-        stats.NumBinds += 3;
+        vkCmdDraw(cmd, 3, 1, 0, 0);
 
-        auto viewProj = mUBOData.CameraViewProjection;
-
-        auto materialCallback = [this](VkCommandBuffer cmd, Material &material) {
-            mMainPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 3);
-        };
-
-        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-            mMainPCData.Model = instance.Transform;
-            mMainPCData.Normal = glm::transpose(glm::inverse(instance.Transform));
-
-            vkCmdPushConstants(cmd, mMainPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                               sizeof(mMainPCData), &mMainPCData);
-        };
-
-        DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
-
-        // Draw the background:
-        if (mEnvHandler.HdriEnabled())
-        {
-            mBackgroundPipeline.Bind(cmd);
-            common::ViewportScissor(cmd, GetTargetSize());
-
-            mBackgroundPipeline.BindDescriptorSet(cmd, mEnvHandler.GetBackgroundDS(), 0);
-
-            vkCmdPushConstants(cmd, mBackgroundPipeline.Layout,
-                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(FrustumBack),
-                               &mCamera.GetFrustumBack());
-
-            vkCmdDraw(cmd, 3, 1, 0, 0);
-
-            stats.NumBinds += 2;
-            stats.NumDraws += 1;
-        }
+        stats.NumBinds += 2;
+        stats.NumDraws += 1;
     }
+
     vkCmdEndRendering(cmd);
 }
 
@@ -506,8 +549,16 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
     // Draw to stencil:
     {
-        common::BeginRenderingDepth(cmd, GetTargetSize(), mDepthStencilBufferView, true,
-                                    false);
+        if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
+        {
+            common::BeginRenderingDepth(cmd, GetTargetSize(), mDepthStencilBuffer.View,
+                                        true, false);
+        }
+        else
+        {
+            common::BeginRenderingDepthMSAA(cmd, GetTargetSize(), mDepthStencilMsaa->View,
+                                            mDepthStencilBuffer.View, true, false);
+        }
 
         mStencilPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
@@ -544,8 +595,17 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
     // Draw outline:
     {
-        common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTargetView,
-                                         mDepthStencilBufferView, true, false);
+        if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
+        {
+            common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTarget.View,
+                                             mDepthStencilBuffer.View, true, false);
+        }
+        else
+        {
+            common::BeginRenderingColorDepthMSAA(
+                cmd, GetTargetSize(), mRenderTargetMsaa->View, mRenderTarget.View,
+                mDepthStencilMsaa->View, mDepthStencilBuffer.View, true, false);
+        }
 
         mOutlinePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
@@ -584,8 +644,8 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
 {
     // Calculate camera matrix:
-    float pixel_dx = 1.0f / static_cast<float>(mRenderTarget.Info.extent.width);
-    float pixel_dy = 1.0f / static_cast<float>(mRenderTarget.Info.extent.height);
+    float pixel_dx = 1.0f / static_cast<float>(mRenderTarget.Img.Info.extent.width);
+    float pixel_dy = 1.0f / static_cast<float>(mRenderTarget.Img.Info.extent.height);
 
     float xmin = x * pixel_dx * mInternalResolutionScale;
     float ymin = y * pixel_dy * mInternalResolutionScale;
@@ -618,8 +678,10 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
 }
 
-void MinimalPbrRenderer::CreateSwapchainResources()
+void MinimalPbrRenderer::RecreateSwapchainResources()
 {
+    mSwapchainDeletionQueue.flush();
+
     // Create the render target:
     auto ScaleResolution = [this](uint32_t res) {
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
@@ -645,14 +707,8 @@ void MinimalPbrRenderer::CreateSwapchainResources()
         .MipLevels = 1,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
-
-    mRenderTarget = MakeImage::Image2D(mCtx, "RenderTarget", renderTargetInfo);
-    mSwapchainDeletionQueue.push_back(mRenderTarget);
-
-    // Create the render target view:
-    mRenderTargetView = MakeView::View2D(mCtx, "RenderTargetView", mRenderTarget,
-                                         mRenderTargetFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-    mSwapchainDeletionQueue.push_back(mRenderTargetView);
+    mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
+                                           mSwapchainDeletionQueue);
 
     // Create depth buffer:
     Image2DInfo depthBufferInfo{
@@ -663,14 +719,22 @@ void MinimalPbrRenderer::CreateSwapchainResources()
         .MipLevels = 1,
         .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
+    mDepthStencilBuffer = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
+                                                 mSwapchainDeletionQueue);
 
-    mDepthStencilBuffer = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);
-    mDepthStencilBufferView = MakeView::View2D(
-        mCtx, "DepthBufferView", mDepthStencilBuffer, mDepthStencilFormat,
-        VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+    // If multisampling is used, create intermediate buffers for rendering, before
+    // resolution into usual images:
+    if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
+    {
+        renderTargetInfo.Multisampling = mMultisample;
+        renderTargetInfo.Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        mRenderTargetMsaa = MakeTexture::Texture2D(
+            mCtx, "RenderTargetMSAA", renderTargetInfo, mSwapchainDeletionQueue);
 
-    mSwapchainDeletionQueue.push_back(mDepthStencilBuffer);
-    mSwapchainDeletionQueue.push_back(mDepthStencilBufferView);
+        depthBufferInfo.Multisampling = mMultisample;
+        mDepthStencilMsaa = MakeTexture::Texture2D(
+            mCtx, "DepthBufferMSAA", depthBufferInfo, mSwapchainDeletionQueue);
+    }
 }
 
 void MinimalPbrRenderer::LoadScene(const Scene &scene)

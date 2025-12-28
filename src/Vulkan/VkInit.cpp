@@ -4,6 +4,7 @@
 #include "Vassert.h"
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 void vkinit::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
 {
@@ -89,6 +90,39 @@ VkRenderingAttachmentInfo vkinit::CreateAttachmentInfo(VkImageView view,
     attachment.imageLayout = layout;
     attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    // Unused:
+    // attachment.resolveImageLayout
+    // attachment.resolveImageView
+    // attachment.resolveMode
+
+    if (clear.has_value())
+    {
+        attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachment.clearValue = clear.value();
+    }
+
+    return attachment;
+}
+
+VkRenderingAttachmentInfo vkinit::CreateAttachmentInfoMSAA(
+    VkImageView viewMsaa, VkImageView viewResolve, VkImageLayout layout,
+    std::optional<VkClearValue> clear)
+{
+    VkRenderingAttachmentInfo attachment{};
+    attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    attachment.imageView = viewMsaa;
+    attachment.imageLayout = layout;
+    attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    attachment.resolveImageLayout = layout;
+    attachment.resolveImageView = viewResolve;
+    // To-do: maybe expose this:
+    if (layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+        attachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+    else
+        attachment.resolveMode = VK_RESOLVE_MODE_NONE;
 
     if (clear.has_value())
     {

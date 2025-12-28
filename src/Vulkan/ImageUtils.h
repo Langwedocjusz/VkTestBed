@@ -16,6 +16,7 @@ struct Image2DInfo {
     VkImageUsageFlags Usage;
     uint32_t MipLevels;
     std::optional<VkImageLayout> Layout = std::nullopt;
+    VkSampleCountFlagBits Multisampling = VK_SAMPLE_COUNT_1_BIT;
 };
 
 namespace MakeImage

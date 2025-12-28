@@ -22,7 +22,7 @@ class IRenderer {
     virtual void OnImGui() = 0;
     virtual void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) = 0;
 
-    virtual void CreateSwapchainResources() = 0;
+    virtual void RecreateSwapchainResources() = 0;
     virtual void RebuildPipelines() = 0;
     virtual void LoadScene(const Scene &scene) = 0;
     virtual void RenderObjectId(VkCommandBuffer cmd, float x, float y) = 0;
@@ -36,17 +36,18 @@ class IRenderer {
         mSwapchainDeletionQueue.flush();
     }
 
-    [[nodiscard]] Image &GetTarget()
+    [[nodiscard]] Image &GetTargetImage()
     {
-        return mRenderTarget;
+        return mRenderTarget.Img;
     }
     [[nodiscard]] VkImageView GetTargetView() const
     {
-        return mRenderTargetView;
+        return mRenderTarget.View;
     }
     [[nodiscard]] VkExtent2D GetTargetSize() const
     {
-        return {mRenderTarget.Info.extent.width, mRenderTarget.Info.extent.height};
+        return {mRenderTarget.Img.Info.extent.width,
+                mRenderTarget.Img.Info.extent.height};
     }
 
   protected:
@@ -54,8 +55,7 @@ class IRenderer {
     FrameInfo &mFrame;
     Camera &mCamera;
 
-    Image mRenderTarget;
-    VkImageView mRenderTargetView;
+    Texture mRenderTarget;
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;

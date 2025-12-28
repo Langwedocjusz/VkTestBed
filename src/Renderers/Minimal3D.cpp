@@ -50,7 +50,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     RebuildPipelines();
 
     // Create swapchain resources:
-    CreateSwapchainResources();
+    RecreateSwapchainResources();
 }
 
 Minimal3DRenderer::~Minimal3DRenderer()
@@ -115,8 +115,8 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
     // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
-    common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTargetView,
-                                     mDepthBufferView, false, true);
+    common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTarget.View,
+                                     mDepthBuffer.View, false, true);
     {
         // 1. Colored vertices pass:
         mColoredPipeline.Bind(cmd);
@@ -179,7 +179,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
     vkCmdEndRendering(cmd);
 }
 
-void Minimal3DRenderer::CreateSwapchainResources()
+void Minimal3DRenderer::RecreateSwapchainResources()
 {
     // Create the render target:
     auto ScaleResolution = [this](uint32_t res) {
@@ -206,14 +206,8 @@ void Minimal3DRenderer::CreateSwapchainResources()
         .MipLevels = 1,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
-
-    mRenderTarget = MakeImage::Image2D(mCtx, "RenderTarget", renderTargetInfo);
-    mSwapchainDeletionQueue.push_back(mRenderTarget);
-
-    // Create the render target view:
-    mRenderTargetView = MakeView::View2D(mCtx, "RenderTargetView", mRenderTarget,
-                                         mRenderTargetFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-    mSwapchainDeletionQueue.push_back(mRenderTargetView);
+    mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
+                                           mSwapchainDeletionQueue);
 
     // Create depth buffer:
     Image2DInfo depthBufferInfo{
@@ -224,13 +218,8 @@ void Minimal3DRenderer::CreateSwapchainResources()
         .MipLevels = 1,
         .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
-
-    mDepthBuffer = MakeImage::Image2D(mCtx, "DepthBuffer", depthBufferInfo);
-    mDepthBufferView = MakeView::View2D(mCtx, "DepthBufferView", mDepthBuffer,
-                                        mDepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-    mSwapchainDeletionQueue.push_back(mDepthBuffer);
-    mSwapchainDeletionQueue.push_back(mDepthBufferView);
+    mRenderTarget = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
+                                           mSwapchainDeletionQueue);
 }
 
 void Minimal3DRenderer::LoadScene(const Scene &scene)

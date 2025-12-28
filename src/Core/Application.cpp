@@ -181,11 +181,11 @@ void Application::Impl::OnEvent(Event::EventVariant event)
     else
     {
         mSceneGui.OnEvent(event);
-        
+
         auto feedback = iminit::OnEvent(event);
-        
+
         if (feedback.IsBackgroundClicked)
-        {   
+        {
             // To-do: when input buffers are implemented maybe fetch
             // mouse pos from there, instead of calling to imgui
             mPickRequested = ImGui::GetMousePos();

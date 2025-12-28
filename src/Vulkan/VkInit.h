@@ -22,6 +22,10 @@ VkRenderingAttachmentInfo CreateAttachmentInfo(
     VkImageView view, VkImageLayout layout,
     std::optional<VkClearValue> clear = std::nullopt);
 
+VkRenderingAttachmentInfo CreateAttachmentInfoMSAA(
+    VkImageView viewMsaa, VkImageView viewResolve, VkImageLayout layout,
+    std::optional<VkClearValue> clear = std::nullopt);
+
 VkRenderingInfo CreateRenderingInfo(VkExtent2D extent,
                                     VkRenderingAttachmentInfo &colorAttachment);
 

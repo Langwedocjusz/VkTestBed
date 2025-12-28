@@ -19,7 +19,7 @@ static VkExtent3D Extent2DTo3D(VkExtent2D extent)
 
 static VkImageAspectFlags GetDefaultAspect(VkFormat format)
 {
-    //Check if contains both depth and stencil:
+    // Check if contains both depth and stencil:
     const std::set<VkFormat> depthStencilFormats{
         VK_FORMAT_D32_SFLOAT_S8_UINT,
         VK_FORMAT_D24_UNORM_S8_UINT,
@@ -28,7 +28,7 @@ static VkImageAspectFlags GetDefaultAspect(VkFormat format)
     if (depthStencilFormats.contains(format))
         return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
-    //Otherwise check if depth only:
+    // Otherwise check if depth only:
     const std::set<VkFormat> depthFormats{
         VK_FORMAT_D32_SFLOAT,
         VK_FORMAT_D16_UNORM,
@@ -36,14 +36,14 @@ static VkImageAspectFlags GetDefaultAspect(VkFormat format)
     if (depthFormats.contains(format))
         return VK_IMAGE_ASPECT_DEPTH_BIT;
 
-    //Otherwise check if stencil only:
+    // Otherwise check if stencil only:
     const std::set<VkFormat> stencilFormats{
         VK_FORMAT_S8_UINT,
     };
     if (stencilFormats.contains(format))
         return VK_IMAGE_ASPECT_STENCIL_BIT;
 
-    //Otherwise assume color:
+    // Otherwise assume color:
     return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
@@ -59,6 +59,8 @@ Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
     imageInfo.mipLevels = info.MipLevels;
     // This is actual order of pixels in memory, not sampler tiling:
     imageInfo.tiling = info.Tiling;
+    // Multisampling, only relevant for attachments:
+    imageInfo.samples = info.Multisampling;
 
     // Hardcoded part:
     imageInfo.flags = 0;
@@ -66,8 +68,6 @@ Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     // Only other option is PREINITIALIZED:
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    // Multisampling, only relevant for attachments:
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
     auto res = Image::Create(ctx, debugName, imageInfo);
 
@@ -205,8 +205,7 @@ Texture MakeTexture::Texture2D(VulkanContext &ctx, const std::string &debugName,
     res.Img = MakeImage::Image2D(ctx, debugName, info);
 
     auto aspectMask = GetDefaultAspect(info.Format);
-    res.View =
-        MakeView::View2D(ctx, debugName, res.Img, info.Format, aspectMask);
+    res.View = MakeView::View2D(ctx, debugName, res.Img, info.Format, aspectMask);
 
     return res;
 }
@@ -227,8 +226,7 @@ Texture MakeTexture::TextureCube(VulkanContext &ctx, const std::string &debugNam
     res.Img = MakeImage::Cube(ctx, debugName, info);
 
     auto aspectMask = GetDefaultAspect(info.Format);
-    res.View = MakeView::ViewCube(ctx, debugName, res.Img, info.Format,
-                                  aspectMask);
+    res.View = MakeView::ViewCube(ctx, debugName, res.Img, info.Format, aspectMask);
 
     return res;
 }

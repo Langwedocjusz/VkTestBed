@@ -5,7 +5,6 @@
 #include "Common.h"
 #include "ImageUtils.h"
 #include "Renderer.h"
-#include "VkInit.h"
 
 #include <vulkan/vulkan.h>
 
@@ -19,7 +18,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera
     mDynamicUBO.OnInit("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT, sizeof(mUBOData));
 
     RebuildPipelines();
-    CreateSwapchainResources();
+    RecreateSwapchainResources();
 }
 
 HelloRenderer::~HelloRenderer()
@@ -65,7 +64,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
-    common::BeginRenderingColor(cmd, GetTargetSize(), mRenderTargetView, true);
+    common::BeginRenderingColor(cmd, GetTargetSize(), mRenderTarget.View, true);
     {
         mGraphicsPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
@@ -97,7 +96,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     vkCmdEndRendering(cmd);
 }
 
-void HelloRenderer::CreateSwapchainResources()
+void HelloRenderer::RecreateSwapchainResources()
 {
     // Create the render target:
     auto ScaleResolution = [this](uint32_t res) {
@@ -125,13 +124,8 @@ void HelloRenderer::CreateSwapchainResources()
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
 
-    mRenderTarget = MakeImage::Image2D(mCtx, "RenderTarget", renderTargetInfo);
-    mSwapchainDeletionQueue.push_back(mRenderTarget);
-
-    // Create the render target view:
-    mRenderTargetView = MakeView::View2D(mCtx, "RenderTargetView", mRenderTarget,
-                                         mRenderTargetFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-    mSwapchainDeletionQueue.push_back(mRenderTargetView);
+    mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
+                                           mSwapchainDeletionQueue);
 }
 
 void HelloRenderer::LoadScene(const Scene &scene)

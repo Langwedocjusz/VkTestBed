@@ -15,8 +15,17 @@ void BeginRenderingColor(VkCommandBuffer cmd, VkExtent2D extent, VkImageView col
 void BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent, VkImageView color,
                               VkImageView depth, bool hasStencil, bool clear);
 
+void BeginRenderingColorDepthMSAA(VkCommandBuffer cmd, VkExtent2D extent,
+                                  VkImageView colorMsaa, VkImageView colorResolve,
+                                  VkImageView depthMsaa, VkImageView depthResolve,
+                                  bool hasStencil, bool clear);
+
 void BeginRenderingDepth(VkCommandBuffer cmd, VkExtent2D extent, VkImageView depth,
                          bool hasStencil, bool clear);
+
+void BeginRenderingDepthMSAA(VkCommandBuffer cmd, VkExtent2D extent,
+                             VkImageView depthMsaa, VkImageView depthResolve,
+                             bool hasStencil, bool clear);
 
 void SubmitQueue(VkQueue queue, VkCommandBuffer cmd, VkFence fence,
                  VkSemaphore waitSemaphore, VkPipelineStageFlags waitStage,

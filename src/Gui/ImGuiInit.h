@@ -15,7 +15,7 @@ void InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight);
 void BeginGuiFrame();
 void FinalizeGuiFrame();
 
-struct EventFeedback{
+struct EventFeedback {
     bool IsBackgroundClicked = false;
 };
 
@@ -23,5 +23,5 @@ EventFeedback OnEvent(Event::EventVariant event);
 
 void RecordImguiToCommandBuffer(VkCommandBuffer cmd);
 
-void DestroyImGui(VulkanContext& ctx);
+void DestroyImGui(VulkanContext &ctx);
 } // namespace iminit

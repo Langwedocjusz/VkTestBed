@@ -16,10 +16,10 @@
 #include "VkUtils.h"
 #include "VulkanContext.h"
 
+#include <vulkan/vulkan.h>
+
 #include <iostream>
 #include <memory>
-
-#include <vulkan/vulkan.h>
 
 RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     : mCtx(ctx), mCamera(camera), mFactory(ctx, mFrameInfo, mCamera),
@@ -74,6 +74,8 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     // Setup timestamp queries if possible:
     if (mTimestampSupported)
     {
+        mTimestampFirstRun.fill(true);
+
         for (auto &res : mFrameInfo.FrameData)
         {
             // Create the query pool:
@@ -116,7 +118,8 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
         .MipLevels = 1,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
-    mPicking.Target = MakeTexture::Texture2D(mCtx, "PickingTarget", renderTargetInfo, mMainDeletionQueue);
+    mPicking.Target = MakeTexture::Texture2D(mCtx, "PickingTarget", renderTargetInfo,
+                                             mMainDeletionQueue);
 
     Image2DInfo depthBufferInfo{
         .Extent = VkExtent2D{1, 1},
@@ -126,7 +129,8 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
         .MipLevels = 1,
         .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
-    mPicking.Depth = MakeTexture::Texture2D(mCtx, "PickingDepthBuffer", depthBufferInfo, mMainDeletionQueue);
+    mPicking.Depth = MakeTexture::Texture2D(mCtx, "PickingDepthBuffer", depthBufferInfo,
+                                            mMainDeletionQueue);
 
     auto bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     auto bufferFlags =
@@ -303,13 +307,13 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         }
 
         // 1. Transition render target to rendering:
-        barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTarget().Handle);
+        barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTargetImage().Handle);
 
         // 2. Render to image:
         mRenderer->OnRender(highlightedObj);
 
         // 3. Transition render target and swapchain image for copy:
-        barrier::ImageBarrierColorToTransfer(cmd, mRenderer->GetTarget().Handle);
+        barrier::ImageBarrierColorToTransfer(cmd, mRenderer->GetTargetImage().Handle);
         barrier::ImageBarrierSwapchainToTransfer(cmd, swapchainImage);
 
         // 4. Copy render target to swapchain image
@@ -321,7 +325,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
             .NumLayers = 1,
         };
 
-        vkutils::BlitImageZeroMip(cmd, mRenderer->GetTarget(), swapchainInfo);
+        vkutils::BlitImageZeroMip(cmd, mRenderer->GetTargetImage(), swapchainInfo);
 
         // 5. Transition swapchain image to render:
         barrier::ImageBarrierSwapchainToRender(cmd, swapchainImage);
@@ -380,7 +384,7 @@ void RenderContext::CreateSwapchainResources()
         }
     });
 
-    mRenderer->CreateSwapchainResources();
+    mRenderer->RecreateSwapchainResources();
 }
 
 void RenderContext::DestroySwapchainResources()

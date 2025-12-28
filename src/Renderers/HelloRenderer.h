@@ -17,7 +17,7 @@ class HelloRenderer final : public IRenderer {
     void OnImGui() override;
     void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) override;
 
-    void CreateSwapchainResources() override;
+    void RecreateSwapchainResources() override;
     void RebuildPipelines() override;
     void LoadScene(const Scene &scene) override;
     void RenderObjectId(VkCommandBuffer cmd, float x, float y) override;

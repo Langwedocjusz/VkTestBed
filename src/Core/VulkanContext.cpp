@@ -1,13 +1,11 @@
 #include "VulkanContext.h"
 #include "Pch.h"
 
-#include "VkBootstrap.h"
+#include "Vassert.h"
 #include "VkUtils.h"
 
-#include "Vassert.h"
-
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include "VkBootstrap.h"
+#include "volk.h"
 
 static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
                            VkQueueFamilyProperties &properties)
@@ -29,41 +27,25 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                              SystemWindow &window)
     : RequestedWidth(width), RequestedHeight(height)
 {
-    // Initialization done using vk-bootstrap, docs available at
-    // https://github.com/charles-lunarg/vk-bootstrap/blob/main/docs/getting_started.md
-
-    // Retrieve system info
-    auto systemInfoRet = vkb::SystemInfo::get_system_info();
-
-    if (!systemInfoRet.has_value())
-        vpanic(systemInfoRet.error().message());
-
-    const auto &systemInfo = systemInfoRet.value();
+    if (volkInitialize() != VK_SUCCESS)
+    {
+        vpanic("Failed to initialize volk!");
+    }
 
     // Instance creation:
-    auto instBuilder = vkb::InstanceBuilder();
-
+    Instance = vkb::InstanceBuilder()
+                   .set_app_name(appName.c_str())
+                   .set_engine_name("No Engine")
+                   .require_api_version(1, 3, 0)
+                   .use_default_debug_messenger()
 #ifdef USE_VALIDATION_LAYERS
-    instBuilder.request_validation_layers();
+                   .request_validation_layers()
 #endif
+                   .build()
+                   .value();
+    volkLoadInstance(Instance);
 
-    if (systemInfo.is_extension_available("VK_EXT_debug_utils"))
-        instBuilder.enable_extension("VK_EXT_debug_utils");
-
-    auto instRet = instBuilder.set_app_name(appName.c_str())
-                       .set_engine_name("No Engine")
-                       .require_api_version(1, 3, 0)
-                       .use_default_debug_messenger()
-                       .build();
-
-    if (!instRet.has_value())
-        vpanic(instRet.error().message());
-
-    Instance = instRet.value();
     Surface = window.CreateSurface(Instance);
-
-    SetDebugUtilsObjectName = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(
-        Instance, "vkSetDebugUtilsObjectNameEXT");
 
     // Device selection:
 
@@ -82,24 +64,16 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     features13.dynamicRendering = true;
     features13.synchronization2 = true;
 
-    auto physDeviceRet = vkb::PhysicalDeviceSelector(Instance)
-                             .set_surface(Surface)
-                             .set_required_features(features)
-                             .set_required_features_12(features12)
-                             .set_required_features_13(features13)
-                             .select();
+    PhysicalDevice = vkb::PhysicalDeviceSelector(Instance)
+                         .set_surface(Surface)
+                         .set_required_features(features)
+                         .set_required_features_12(features12)
+                         .set_required_features_13(features13)
+                         .select()
+                         .value();
 
-    if (!physDeviceRet.has_value())
-        vpanic(physDeviceRet.error().message());
-
-    PhysicalDevice = physDeviceRet.value();
-
-    auto deviceRet = vkb::DeviceBuilder(PhysicalDevice).build();
-
-    if (!deviceRet.has_value())
-        vpanic(deviceRet.error().message());
-
-    Device = deviceRet.value();
+    Device = vkb::DeviceBuilder(PhysicalDevice).build().value();
+    volkLoadDevice(Device);
 
     // Create queues:
     Queues.Graphics =
@@ -108,28 +82,40 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     Queues.Present = CreateQueue(*this, vkb::QueueType::present, QueueProperties.Present);
 
     // Vma Allocator creation:
-    VmaAllocatorCreateInfo allocatorCreateInfo = {};
-    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
-    allocatorCreateInfo.physicalDevice = PhysicalDevice;
-    allocatorCreateInfo.device = Device;
-    allocatorCreateInfo.instance = Instance;
-    allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    {
+        VmaVulkanFunctions vulkanFunctions{};
+        vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+        vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
 
-    vmaCreateAllocator(&allocatorCreateInfo, &Allocator);
+        VmaAllocatorCreateInfo allocatorCreateInfo = {};
+        allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+        allocatorCreateInfo.physicalDevice = PhysicalDevice;
+        allocatorCreateInfo.device = Device;
+        allocatorCreateInfo.instance = Instance;
+        allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+        allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+
+        vmaCreateAllocator(&allocatorCreateInfo, &Allocator);
+    }
 
     // Swapchain creation:
     CreateSwapchain(true);
 
     // Allocate command pools for immediate submit:
-    VkCommandPoolCreateInfo poolInfo = {};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.queueFamilyIndex = Device.get_queue_index(vkb::QueueType::graphics).value();
-    // To allow resetting individual buffers:
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    {
+        auto graphics_idx = Device.get_queue_index(vkb::QueueType::graphics).value();
 
-    auto ret = vkCreateCommandPool(Device, &poolInfo, nullptr, &mImmGraphicsCommandPool);
+        VkCommandPoolCreateInfo poolInfo = {};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.queueFamilyIndex = graphics_idx;
+        // To allow resetting individual buffers:
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-    vassert(ret == VK_SUCCESS, "Failed to create an immediate submit command pool!");
+        auto ret =
+            vkCreateCommandPool(Device, &poolInfo, nullptr, &mImmGraphicsCommandPool);
+
+        vassert(ret == VK_SUCCESS, "Failed to create an immediate submit command pool!");
+    }
 }
 
 VulkanContext::~VulkanContext()
@@ -153,6 +139,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
 
     // To manually specify format:
     //.set_desired_format(VkSurfaceFormatKHR)
+    
     auto swapRet = vkb::SwapchainBuilder(Device)
                        .set_old_swapchain(Swapchain)
                        .set_desired_extent(RequestedWidth, RequestedHeight)

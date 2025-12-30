@@ -16,7 +16,7 @@
 #include "VkUtils.h"
 #include "VulkanContext.h"
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 #include <iostream>
 #include <memory>

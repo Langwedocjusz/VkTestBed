@@ -20,12 +20,11 @@
 
 #include <imgui.h>
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 #include <cstdint>
 #include <ranges>
 #include <utility>
-#include <vulkan/vulkan_core.h>
 
 void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive &prim,
                                         const std::string &debugName)
@@ -681,6 +680,8 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
 void MinimalPbrRenderer::RecreateSwapchainResources()
 {
     mSwapchainDeletionQueue.flush();
+    // To-do: If multisampling is set back to 1, then multisample target optionals can be
+    // set back to nullopt
 
     // Create the render target:
     auto ScaleResolution = [this](uint32_t res) {

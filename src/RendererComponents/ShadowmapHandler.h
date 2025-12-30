@@ -5,9 +5,8 @@
 #include "Pipeline.h"
 #include "VulkanContext.h"
 
+#include "volk.h"
 #include <glm/glm.hpp>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 class ShadowmapHandler {
   public:

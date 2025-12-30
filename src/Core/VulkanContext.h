@@ -5,7 +5,7 @@
 
 #include "vk_mem_alloc.h"
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 #include <functional>
 
@@ -50,9 +50,6 @@ class VulkanContext {
     bool SwapchainOk = true;
     uint32_t RequestedWidth;
     uint32_t RequestedHeight;
-
-    // Non-core function pointers:
-    PFN_vkSetDebugUtilsObjectNameEXT SetDebugUtilsObjectName = VK_NULL_HANDLE;
 
   private:
     VkCommandPool mImmGraphicsCommandPool;

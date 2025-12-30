@@ -4,10 +4,11 @@
 #include "GeometryData.h"
 #include "TangentsGenerator.h"
 
+#include "volk.h"
+
 #include <cmath>
 #include <cstdint>
 #include <numbers>
-#include <vulkan/vulkan.h>
 
 // clang-format off
 

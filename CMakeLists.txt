@@ -16,25 +16,25 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 #=Get dependencies=========================================================================
 
-find_package(Vulkan REQUIRED)
-
 option(IMGUI_BACKEND_GLFW "" ON )
 option(IMGUI_BACKEND_VULKAN "" ON )
+option(IMGUI_VULKAN_NO_PROTOTYPES "" ON)
 option(TRACY_ENABLE "" ON )
 
-add_subdirectory(vendor/glfw)
-add_subdirectory(vendor/vk-bootstrap)
-add_subdirectory(vendor/VulkanMemoryAllocator)
+add_subdirectory(vendor/cpptrace)
+add_subdirectory(vendor/efsw)
+add_subdirectory(vendor/fastgltf)
 add_subdirectory(vendor/glm)
+add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/ImGuizmo)
-add_subdirectory(vendor/stb_image)
-add_subdirectory(vendor/fastgltf)
-add_subdirectory(vendor/efsw)
-add_subdirectory(vendor/tracy)
-add_subdirectory(vendor/tinyexr)
 add_subdirectory(vendor/mikktspace)
-add_subdirectory(vendor/cpptrace)
+add_subdirectory(vendor/stb_image)
+add_subdirectory(vendor/tinyexr)
+add_subdirectory(vendor/tracy)
+add_subdirectory(vendor/vk-bootstrap)
+add_subdirectory(vendor/volk)
+add_subdirectory(vendor/VulkanMemoryAllocator)
 
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
@@ -45,7 +45,7 @@ target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 
 #Some additional linking for dependencies:
 target_link_libraries(imgui PRIVATE glfw)
-target_link_libraries(imgui PRIVATE Vulkan::Vulkan)
+target_link_libraries(imgui PRIVATE volk)
 target_link_libraries(ImGuizmo PRIVATE imgui)
 
 #=Setup the main executable=================================================================
@@ -210,7 +210,7 @@ source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 target_precompile_headers(${PROJECT_NAME} PUBLIC src/Pch.h)
 
 #Link dependencies:
-target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
+#target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
 target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
@@ -224,3 +224,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
 target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)
 target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
 target_link_libraries(${PROJECT_NAME} PRIVATE cpptrace::cpptrace)
+target_link_libraries(${PROJECT_NAME} PRIVATE volk)

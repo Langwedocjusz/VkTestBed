@@ -2,7 +2,6 @@
 #include "Pch.h"
 
 #include "Vassert.h"
-#include <vulkan/vulkan_core.h>
 
 void vkutils::BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags)
 {

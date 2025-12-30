@@ -5,7 +5,7 @@
 #include "Vassert.h"
 #include "VkUtils.h"
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 Pipeline Pipeline::MakePipeline(VkPipelineBindPoint bindPoint)
 {

@@ -3,7 +3,7 @@
 
 #include "VkUtils.h"
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 Buffer Buffer::Create(VulkanContext &ctx, const std::string &debugName, VkDeviceSize size,
                       VkBufferUsageFlags usage, VmaAllocationCreateFlags flags)

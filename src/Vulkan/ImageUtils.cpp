@@ -3,10 +3,9 @@
 
 #include "Barrier.h"
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 #include <set>
-#include <vulkan/vulkan_core.h>
 
 static VkExtent3D Extent2DTo3D(VkExtent2D extent)
 {

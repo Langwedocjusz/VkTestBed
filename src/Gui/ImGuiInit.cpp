@@ -12,10 +12,13 @@
 
 #include "ImGuizmo.h"
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 #include <array>
+#include <cstring>
 #include <iostream>
+#include <set>
+#include <vulkan/vulkan_core.h>
 
 // Storage for window handle:
 static GLFWwindow *sWindow = nullptr;
@@ -49,6 +52,36 @@ void iminit::InitGlfwBackend(GLFWwindow *window)
     sWindow = window;
 }
 
+static auto ImGuiFunctionLoader(const char *function_name, void *ctx)
+{
+    const std::string strName{function_name};
+
+    // To-do: this will break if newer versions of imgui use more instance level fns.
+    // Think about a smarter way to do this.
+    const std::set<std::string> instanceFns{
+        "vkDestroySurfaceKHR",
+        "vkEnumeratePhysicalDevices",
+        "vkGetPhysicalDeviceProperties",
+        "vkGetPhysicalDeviceMemoryProperties",
+        "vkGetPhysicalDeviceQueueFamilyProperties",
+        "vkGetPhysicalDeviceSurfaceCapabilitiesKHR",
+        "vkGetPhysicalDeviceSurfaceFormatsKHR",
+        "vkGetPhysicalDeviceSurfacePresentModesKHR",
+        "vkGetPhysicalDeviceSurfaceSupportKHR",
+    };
+
+    if (instanceFns.contains(strName))
+    {
+        auto &instance = reinterpret_cast<VulkanContext *>(ctx)->Instance;
+        return vkGetInstanceProcAddr(instance, function_name);
+    }
+    else
+    {
+        auto &device = reinterpret_cast<VulkanContext *>(ctx)->Device;
+        return vkGetDeviceProcAddr(device, function_name);
+    }
+}
+
 void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
 {
     // Create descriptor pool for imgui renderer:
@@ -68,6 +101,8 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
     vassert(res == VK_SUCCESS, "Failed to create Imgui Descriptor Pool!");
 
     // Init ImGui vulkan backend:
+    ImGui_ImplVulkan_LoadFunctions(VK_VERSION_1_3, ImGuiFunctionLoader, &ctx);
+
     ImGui_ImplVulkan_InitInfo init_info = {};
 
     init_info.Instance = ctx.Instance;

@@ -4,7 +4,7 @@
 #include "Vassert.h"
 #include "VkInit.h"
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 void common::ViewportScissor(VkCommandBuffer buffer, VkExtent2D extent)
 {

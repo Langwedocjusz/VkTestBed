@@ -28,3 +28,6 @@
 [submodule "vendor/ImGuizmo"]
 	path = vendor/ImGuizmo
 	url = https://github.com/Langwedocjusz/ImGuizmo
+[submodule "vendor/volk"]
+	path = vendor/volk
+	url = https://github.com/zeux/volk

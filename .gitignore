@@ -5,15 +5,18 @@ build/
 
 #Compiled shader bytecode:
 assets/spirv
-#Textures
+#Textures:
 assets/textures
-#Gltf models
+#Gltf models:
 assets/gltf
-#Cubemaps
+#Cubemaps:
 assets/cubemaps
 
 #Imgui conifg:
 imgui.ini
 
-#Ninja log 
+#Ninja log:
 trace.json
+
+#Python virtual env:
+venv

@@ -7,8 +7,8 @@
 #include "Texture.h"
 #include "VulkanContext.h"
 
+#include "volk.h"
 #include <glm/glm.hpp>
-#include <vulkan/vulkan.h>
 
 class EnvironmentHandler {
   public:

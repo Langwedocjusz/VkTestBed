@@ -3,7 +3,7 @@
 #include "Image.h"
 #include "VulkanContext.h"
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 namespace vkutils
 {
@@ -20,7 +20,8 @@ inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handl
     debugLayoutInfo.objectHandle = (uint64_t)handle;
     debugLayoutInfo.pObjectName = name.c_str();
 
-    ctx.SetDebugUtilsObjectName(ctx.Device.device, &debugLayoutInfo);
+    // ctx.SetDebugUtilsObjectName(ctx.Device.device, &debugLayoutInfo);
+    vkSetDebugUtilsObjectNameEXT(ctx.Device.device, &debugLayoutInfo);
 }
 
 void BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags = 0);

@@ -7,6 +7,7 @@
 #include "RendererFactory.h"
 #include "Scene.h"
 #include "VulkanContext.h"
+#include "VulkanStatistics.h"
 
 #include <memory>
 
@@ -44,30 +45,16 @@ class RenderContext {
     RendererFactory mFactory;
     std::unique_ptr<IRenderer> mRenderer;
 
-    bool mShowStats = false;
-
-    bool mTimestampSupported;
-    float mTimestampPeriod;
-
-    struct Timestamp {
-        uint64_t Value = 0;
-        uint64_t Availability = 0;
-    };
-
-    static constexpr size_t TimestampsPerFrame = 2;
-
-    using FrameTimestamps = std::array<Timestamp, TimestampsPerFrame>;
-
-    std::array<FrameTimestamps, FrameInfo::MaxInFlight> mTimestamps;
-    std::array<bool, FrameInfo::MaxInFlight> mTimestampFirstRun;
-
-    // Framebuffer for object picking:
+    // Object picking related data:
     struct {
         Texture Target;
         Texture Depth;
 
         Buffer ReadbackBuffer;
     } mPicking;
+
+    bool mShowStats = false;
+    VulkanStatisticsCollector mStatsCollector;
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;

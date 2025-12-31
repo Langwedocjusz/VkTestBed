@@ -72,6 +72,12 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                          .select()
                          .value();
 
+    // Enable optional features:
+    VkPhysicalDeviceFeatures optionalFeatures{};
+    optionalFeatures.pipelineStatisticsQuery = true;
+
+    PhysicalDevice.enable_features_if_present(optionalFeatures);
+
     Device = vkb::DeviceBuilder(PhysicalDevice).build().value();
     volkLoadDevice(Device);
 
@@ -139,7 +145,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
 
     // To manually specify format:
     //.set_desired_format(VkSurfaceFormatKHR)
-    
+
     auto swapRet = vkb::SwapchainBuilder(Device)
                        .set_old_swapchain(Swapchain)
                        .set_desired_extent(RequestedWidth, RequestedHeight)

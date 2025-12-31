@@ -121,6 +121,9 @@ void imutils::DisplayStats(FrameStats &stats)
     auto allocMB = stats.MemoryAllocation / 1000000;
     ImGui::Text("VRAM Usage/Aloc: %zu / %zu [MB]", usageMB, allocMB);
 
+    ImGui::Text("Fragment invocations: %i (%.2f %%)", stats.FragmentInvocations,
+                stats.FragmentPercent);
+
     ImGui::End();
 
     ImGui::PopStyleColor(1);

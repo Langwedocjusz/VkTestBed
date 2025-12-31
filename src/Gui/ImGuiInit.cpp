@@ -15,10 +15,8 @@
 #include "volk.h"
 
 #include <array>
-#include <cstring>
 #include <iostream>
 #include <set>
-#include <vulkan/vulkan_core.h>
 
 // Storage for window handle:
 static GLFWwindow *sWindow = nullptr;

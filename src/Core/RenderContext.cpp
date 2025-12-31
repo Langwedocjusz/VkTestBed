@@ -18,12 +18,11 @@
 
 #include "volk.h"
 
-#include <iostream>
 #include <memory>
 
 RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     : mCtx(ctx), mCamera(camera), mFactory(ctx, mFrameInfo, mCamera),
-      mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
+      mStatsCollector(ctx), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
 {
     // Create per frame command pools/buffers and sync-objects:
     for (auto &data : mFrameInfo.FrameData)
@@ -55,54 +54,6 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     for (auto &data : mFrameInfo.SwapchainData)
     {
         mMainDeletionQueue.push_back(data.RenderCompletedSemaphore);
-    }
-
-    // Check for timestamp support:
-    auto &limits = mCtx.PhysicalDevice.properties.limits;
-
-    mTimestampPeriod = limits.timestampPeriod;
-    mTimestampSupported = (mTimestampPeriod != 0.0f);
-
-    if (!limits.timestampComputeAndGraphics)
-    {
-        if (mCtx.QueueProperties.Graphics.timestampValidBits == 0)
-        {
-            mTimestampSupported = false;
-        }
-    }
-
-    // Setup timestamp queries if possible:
-    if (mTimestampSupported)
-    {
-        mTimestampFirstRun.fill(true);
-
-        for (auto &res : mFrameInfo.FrameData)
-        {
-            // Create the query pool:
-            res.QueryPool = VkQueryPool{};
-            VkQueryPool &pool = *res.QueryPool;
-
-            VkQueryPoolCreateInfo queryPoolInfo{};
-            queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-            queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
-            queryPoolInfo.queryCount = TimestampsPerFrame;
-
-            auto queryRes =
-                vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr, &pool);
-
-            vassert(queryRes == VK_SUCCESS, "Failed to create query pool!");
-            mMainDeletionQueue.push_back(pool);
-
-            // Reset all timestamps preemptively
-            mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-                vkCmdResetQueryPool(cmd, pool, 0, TimestampsPerFrame);
-            });
-        }
-    }
-
-    else
-    {
-        std::cout << "Timestamp queries not supported!\n";
     }
 
     // Setup framebuffer for object picking:
@@ -258,40 +209,22 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     auto &swap = mFrameInfo.CurrentSwapchainData();
     auto &cmd = mFrameInfo.CurrentCmd();
 
-    auto &timestamps = mTimestamps[mFrameInfo.Index];
     auto &swapchainImage = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
 
-    // Detect first run:
-    bool firstRun = mTimestampFirstRun[mFrameInfo.Index];
-    mTimestampFirstRun[mFrameInfo.Index] = false;
+    auto queryResult = mStatsCollector.QueryResults(mFrameInfo.Index);
 
-    // Query for timestamp results from the previous run of this frame:
-    if (!firstRun && mTimestampSupported)
+    if (auto timeMS = queryResult.FrameTimeMS)
+        mFrameInfo.Stats.GPUTime = *timeMS;
+
+    if (auto fragCount = queryResult.FragmentInvocations)
     {
-        auto queryRes = vkGetQueryPoolResults(
-            mCtx.Device, *frame.QueryPool,
-            0,                                        // first query
-            static_cast<uint32_t>(timestamps.size()), // query count
-            timestamps.size() * sizeof(Timestamp),    // data size
-            &timestamps[0],                           // data
-            sizeof(Timestamp),                        // stride
-            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+        auto targetSize = mRenderer->GetTargetSize();
+        auto targetPixels = targetSize.width * targetSize.height;
 
-        vassert(queryRes == VK_SUCCESS || queryRes == VK_NOT_READY);
+        mFrameInfo.Stats.FragmentInvocations = *fragCount;
+        mFrameInfo.Stats.FragmentPercent =
+            100.0f * static_cast<float>(*fragCount) / static_cast<float>(targetPixels);
     }
-
-    // Check if the timestamps are ready, display results if so:
-    bool timestampsReady =
-        (timestamps[0].Availability != 0) && (timestamps[1].Availability != 0);
-
-    if (timestampsReady)
-    {
-        auto diff = static_cast<float>(timestamps[1].Value - timestamps[0].Value);
-        mFrameInfo.Stats.GPUTime = diff * mTimestampPeriod / 1e6f;
-    }
-
-    // Decide if new timestamps can be written:
-    bool writeTimestamps = firstRun || timestampsReady;
 
     // I. Reset the command buffer
     vkResetCommandBuffer(cmd, 0);
@@ -299,18 +232,15 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     // II. Record the command buffer
     vkutils::BeginRecording(cmd);
     {
-        if (writeTimestamps)
-        {
-            vkCmdResetQueryPool(cmd, *frame.QueryPool, 0, 1);
-            vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, *frame.QueryPool,
-                                0);
-        }
+        mStatsCollector.TimestampTop(cmd, mFrameInfo.Index);
 
         // 1. Transition render target to rendering:
         barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTargetImage().Handle);
 
         // 2. Render to image:
+        mStatsCollector.PipelineStatsStart(cmd, mFrameInfo.Index);
         mRenderer->OnRender(highlightedObj);
+        mStatsCollector.PipelineStatsEnd(cmd, mFrameInfo.Index);
 
         // 3. Transition render target and swapchain image for copy:
         barrier::ImageBarrierColorToTransfer(cmd, mRenderer->GetTargetImage().Handle);
@@ -336,12 +266,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         // 7. Transition swapchain image to presentation:
         barrier::ImageBarrierSwapchainToPresent(cmd, swapchainImage);
 
-        if (writeTimestamps)
-        {
-            vkCmdResetQueryPool(cmd, *frame.QueryPool, 1, 1);
-            vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                                *frame.QueryPool, 1);
-        }
+        mStatsCollector.TimestampBottom(cmd, mFrameInfo.Index);
     }
     vkutils::EndRecording(cmd);
 

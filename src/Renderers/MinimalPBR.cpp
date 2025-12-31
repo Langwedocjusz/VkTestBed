@@ -444,12 +444,12 @@ void MinimalPbrRenderer::DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 v
 void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 {
     mShadowmapHandler.BeginShadowPass(cmd);
-    stats.NumBinds += 2;
 
     auto viewProj = mUBOData.LightViewProjection;
 
-    auto materialCallback = [this](VkCommandBuffer cmd, Material &material) {
+    auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
         mShadowmapHandler.BindMaterialDS(cmd, material.DescriptorSet);
+        stats.NumBinds += 1;
     };
 
     auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
@@ -488,13 +488,13 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     };
 
     mMainPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
-
     stats.NumBinds += 3;
 
     auto viewProj = mUBOData.CameraViewProjection;
 
-    auto materialCallback = [this](VkCommandBuffer cmd, Material &material) {
+    auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
         mMainPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 3);
+        stats.NumBinds += 1;
     };
 
     auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
@@ -514,13 +514,12 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         common::ViewportScissor(cmd, GetTargetSize());
 
         mBackgroundPipeline.BindDescriptorSet(cmd, mEnvHandler.GetBackgroundDS(), 0);
+        stats.NumBinds +=1;
 
         vkCmdPushConstants(cmd, mBackgroundPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
                            0, sizeof(FrustumBack), &mCamera.GetFrustumBack());
 
         vkCmdDraw(cmd, 3, 1, 0, 0);
-
-        stats.NumBinds += 2;
         stats.NumDraws += 1;
     }
 

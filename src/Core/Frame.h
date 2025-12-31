@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <optional>
 #include <vector>
 
 #include "volk.h"
@@ -12,8 +11,6 @@ struct FrameResources {
 
     VkCommandPool CommandPool;
     VkCommandBuffer CommandBuffer;
-
-    std::optional<VkQueryPool> QueryPool;
 };
 
 struct SwapchainResources {
@@ -29,6 +26,8 @@ struct FrameStats {
     uint32_t NumDispatches = 0;
     size_t MemoryUsage = 0;
     size_t MemoryAllocation = 0;
+    uint32_t FragmentInvocations = 0;
+    float FragmentPercent = 0.0f;
 };
 
 struct FrameInfo {

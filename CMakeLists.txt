@@ -120,6 +120,8 @@ target_sources(${PROJECT_NAME}
         src/Core/VmaImpl.cpp
         src/Core/VulkanContext.h
         src/Core/VulkanContext.cpp
+        src/Core/VulkanStatistics.h
+        src/Core/VulkanStatistics.cpp
         src/Cpp/Vassert.h
         src/Cpp/Vassert.cpp
         src/Cpp/Bitflags.h

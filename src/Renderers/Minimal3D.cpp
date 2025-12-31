@@ -116,7 +116,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
     common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTarget.View,
-                                     mDepthBuffer.View, false, true);
+                                     mDepthBuffer.View, false, true, true);
     {
         // 1. Colored vertices pass:
         mColoredPipeline.Bind(cmd);

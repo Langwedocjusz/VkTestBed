@@ -107,6 +107,7 @@ class MinimalPbrRenderer final : public IRenderer {
                                 DrawStats &stats);
 
     void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
+    void Prepass(VkCommandBuffer cmd, DrawStats &stats);
     void MainPass(VkCommandBuffer cmd, DrawStats &stats);
     void OutlinePass(VkCommandBuffer cmd, SceneKey highlightedObj);
 
@@ -126,6 +127,7 @@ class MinimalPbrRenderer final : public IRenderer {
     VkSampler mSampler2D;
 
     // Graphics pipelines:
+    Pipeline mZPrepassPipeline;
     Pipeline mMainPipeline;
     Pipeline mBackgroundPipeline;
     Pipeline mStencilPipeline;
@@ -133,6 +135,10 @@ class MinimalPbrRenderer final : public IRenderer {
     Pipeline mObjectIdPipeline;
 
     // Push-constant structs for all pipelines:
+    struct {
+        glm::mat4 Model;
+    } mPrepassPCData;
+
     struct {
         glm::mat4 Model;
         // In principle this could be a mat3, but that somehow
@@ -187,6 +193,7 @@ class MinimalPbrRenderer final : public IRenderer {
     // Some renderer settings:
     float mInternalResolutionScale = 1.0f;
     VkSampleCountFlagBits mMultisample = VK_SAMPLE_COUNT_1_BIT;
+    bool mEnablePrepass = true;
 
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct UBOData {

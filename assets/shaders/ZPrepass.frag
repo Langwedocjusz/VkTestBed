@@ -4,16 +4,16 @@
 
 layout(location = 0) in vec2 texCoord;
 
-layout(set = 0, binding = 0) uniform sampler2D albedo_map;
+layout(set = 1, binding = 0) uniform sampler2D albedo_map;
 
-layout(scalar, set = 0, binding = 3) uniform MatUBOBlock {
+layout(scalar, set = 1, binding = 3) uniform MatUBOBlock {
     float AlphaCutoff;
     vec3 TranslucentColor;
     int DoubleSided;
 } MatUBO;
 
 layout(push_constant) uniform constants {
-    mat4 MVP;
+    mat4 Transform;
 } PushConstants;
 
 void main()

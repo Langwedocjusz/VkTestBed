@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <ranges>
 #include <utility>
+#include <vulkan/vulkan_core.h>
 
 void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive &prim,
                                         const std::string &debugName)
@@ -171,6 +172,31 @@ void MinimalPbrRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
+    mZPrepassPipeline =
+        PipelineBuilder("MinimalPBRPrepassPipeline")
+            .SetShaderPathVertex("assets/spirv/ZPrepassVert.spv")
+            .SetShaderPathFragment("assets/spirv/ZPrepassFrag.spv")
+            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+            .SetPushConstantSize(sizeof(mPrepassPCData))
+            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .EnableDepthTest()
+            .SetDepthFormat(mDepthStencilFormat)
+            .SetStencilFormat(mDepthStencilFormat)
+            .SetMultisampling(mMultisample)
+            .Build(mCtx, mPipelineDeletionQueue);
+
+    VkCompareOp mainCompareOp{};
+
+    if (mEnablePrepass)
+        mainCompareOp = VK_COMPARE_OP_EQUAL;
+    else
+        mainCompareOp = VK_COMPARE_OP_LESS;
+
     mMainPipeline =
         PipelineBuilder("MinimalPBRMainPipeline")
             .SetShaderPathVertex("assets/spirv/MinimalPBRVert.spv")
@@ -186,7 +212,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .AddDescriptorSetLayout(mShadowmapHandler.GetDSLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-            .EnableDepthTest()
+            .EnableDepthTest(mainCompareOp)
             .SetDepthFormat(mDepthStencilFormat)
             .SetStencilFormat(mDepthStencilFormat)
             .SetMultisampling(mMultisample)
@@ -306,6 +332,12 @@ void MinimalPbrRenderer::OnImGui()
 {
     ImGui::Begin("Renderer settings");
 
+    if (ImGui::Checkbox("Enable Z Prepass", &mEnablePrepass))
+    {
+        vkDeviceWaitIdle(mCtx.Device);
+        RebuildPipelines();
+    }
+
     ImGui::SliderFloat("Directional Factor", &mUBOData.DirectionalFactor, 0.0f, 6.0f);
     ImGui::SliderFloat("Environment Factor", &mUBOData.EnvironmentFactor, 0.0f, 1.0f);
 
@@ -359,6 +391,10 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
     DrawStats stats{};
 
     ShadowPass(cmd, stats);
+    
+    if (mEnablePrepass)
+        Prepass(cmd, stats);
+    
     MainPass(cmd, stats);
 
     if (highlightedObj.has_value())
@@ -461,20 +497,51 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
     mShadowmapHandler.EndShadowPass(cmd);
 }
 
+void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
+{
+    if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
+        common::BeginRenderingDepth(cmd, GetTargetSize(), mDepthStencilBuffer.View, true, true);
+    else
+        common::BeginRenderingDepthMSAA(cmd, GetTargetSize(), mDepthStencilMsaa->View, mDepthStencilBuffer.View, true, true);
+
+    mZPrepassPipeline.Bind(cmd);
+    common::ViewportScissor(cmd, GetTargetSize());
+
+    mZPrepassPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+
+    auto viewProj = mUBOData.CameraViewProjection;
+
+    auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
+        mZPrepassPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
+        stats.NumBinds += 1;
+    };
+
+    auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+        mPrepassPCData.Model = instance.Transform;
+
+        vkCmdPushConstants(cmd, mZPrepassPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                           sizeof(mPrepassPCData), &mPrepassPCData);
+    };
+
+    DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
+
+    vkCmdEndRendering(cmd);
+}
+
 void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 {
-    using namespace std::views;
+    bool clearDepth = !mEnablePrepass;
 
     if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
     {
         common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTarget.View,
-                                         mDepthStencilBuffer.View, true, true);
+                                         mDepthStencilBuffer.View, true, true, clearDepth);
     }
     else
     {
         common::BeginRenderingColorDepthMSAA(
             cmd, GetTargetSize(), mRenderTargetMsaa->View, mRenderTarget.View,
-            mDepthStencilMsaa->View, mDepthStencilBuffer.View, true, true);
+            mDepthStencilMsaa->View, mDepthStencilBuffer.View, true, true, clearDepth);
     }
 
     // Draw the scene:
@@ -596,13 +663,13 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
         if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
         {
             common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTarget.View,
-                                             mDepthStencilBuffer.View, true, false);
+                                             mDepthStencilBuffer.View, true, false, false);
         }
         else
         {
             common::BeginRenderingColorDepthMSAA(
                 cmd, GetTargetSize(), mRenderTargetMsaa->View, mRenderTarget.View,
-                mDepthStencilMsaa->View, mDepthStencilBuffer.View, true, false);
+                mDepthStencilMsaa->View, mDepthStencilBuffer.View, true, false, false);
         }
 
         mOutlinePipeline.Bind(cmd);

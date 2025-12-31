@@ -13,12 +13,12 @@ void BeginRenderingColor(VkCommandBuffer cmd, VkExtent2D extent, VkImageView col
                          bool clear);
 
 void BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent, VkImageView color,
-                              VkImageView depth, bool hasStencil, bool clear);
+                              VkImageView depth, bool hasStencil, bool clearColor, bool clearDepth);
 
 void BeginRenderingColorDepthMSAA(VkCommandBuffer cmd, VkExtent2D extent,
                                   VkImageView colorMsaa, VkImageView colorResolve,
                                   VkImageView depthMsaa, VkImageView depthResolve,
-                                  bool hasStencil, bool clear);
+                                  bool hasStencil, bool clearColor, bool clearDepth);
 
 void BeginRenderingDepth(VkCommandBuffer cmd, VkExtent2D extent, VkImageView depth,
                          bool hasStencil, bool clear);

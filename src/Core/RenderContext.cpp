@@ -371,7 +371,7 @@ SceneKey RenderContext::PickObjectId(float x, float y)
 
         // Draw objects:
         common::BeginRenderingColorDepth(cmd, VkExtent2D{1, 1}, mPicking.Target.View,
-                                         mPicking.Depth.View, false, true);
+                                         mPicking.Depth.View, false, true, true);
         mRenderer->RenderObjectId(cmd, x, y);
         vkCmdEndRendering(cmd);
 

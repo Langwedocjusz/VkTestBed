@@ -78,17 +78,6 @@ class MinimalPbrRenderer final : public IRenderer {
     // so DrawableKey is the pair (MeshKey, PrimitiveId)
     using DrawableKey = std::pair<SceneKey, size_t>;
 
-    using PCSetFunction = std::function<void(Instance &)>;
-
-    struct DrawSettings {
-        glm::mat4 ViewProj;
-        VkPipelineLayout Layout;
-        void *PCData;
-        size_t PCSize;
-        size_t MaterialDsIdx;
-        PCSetFunction PCSetFn;
-    };
-
   private:
     void LoadMeshes(const Scene &scene);
     void LoadImages(const Scene &scene);
@@ -108,6 +97,7 @@ class MinimalPbrRenderer final : public IRenderer {
 
     void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
     void Prepass(VkCommandBuffer cmd, DrawStats &stats);
+    void AOPass(VkCommandBuffer cmd, DrawStats &stats);
     void MainPass(VkCommandBuffer cmd, DrawStats &stats);
     void OutlinePass(VkCommandBuffer cmd, SceneKey highlightedObj);
 
@@ -118,16 +108,19 @@ class MinimalPbrRenderer final : public IRenderer {
     static constexpr VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
     static constexpr VkFormat mDepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
-    Texture mDepthStencilBuffer;
-
     std::optional<Texture> mRenderTargetMsaa;
     std::optional<Texture> mDepthStencilMsaa;
+
+    Texture mDepthStencilBuffer;
+    VkImageView mDepthOnlyView;
+    Texture mAOTarget;
 
     // Common resources:
     VkSampler mSampler2D;
 
     // Graphics pipelines:
     Pipeline mZPrepassPipeline;
+    Pipeline mAOGenPipeline;
     Pipeline mMainPipeline;
     Pipeline mBackgroundPipeline;
     Pipeline mStencilPipeline;
@@ -138,6 +131,11 @@ class MinimalPbrRenderer final : public IRenderer {
     struct {
         glm::mat4 Model;
     } mPrepassPCData;
+
+    struct {
+        glm::mat4 Proj;
+        glm::mat4 InvProj;
+    } mAOGenPCData;
 
     struct {
         glm::mat4 Model;
@@ -161,10 +159,19 @@ class MinimalPbrRenderer final : public IRenderer {
     Texture mDefaultNormal;
     std::map<SceneKey, Texture> mImages;
 
-    // Descriptors for materials:s
+    // Descriptors for materials:
     VkDescriptorSetLayout mMaterialDescriptorSetLayout;
     DynamicDescriptorAllocator mMaterialDescriptorAllocator;
     std::map<SceneKey, Material> mMaterials;
+
+    // AO descriptors:
+    VkDescriptorPool mAODescriptorPool;
+    // Generation:
+    VkDescriptorSetLayout mAOGenDescriptorSetLayout;
+    VkDescriptorSet mAOGenDescriptorSet;
+    // Usage:
+    VkDescriptorSetLayout mAOUsageDescriptorSetLayout;
+    VkDescriptorSet mAOUsageDescriptorSet;
 
     // Drawables:
     using enum Vertex::AttributeType;
@@ -194,6 +201,7 @@ class MinimalPbrRenderer final : public IRenderer {
     float mInternalResolutionScale = 1.0f;
     VkSampleCountFlagBits mMultisample = VK_SAMPLE_COUNT_1_BIT;
     bool mEnablePrepass = true;
+    bool mEnableAO = false;
 
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct UBOData {
@@ -204,6 +212,7 @@ class MinimalPbrRenderer final : public IRenderer {
         float EnvironmentFactor = 0.05f;
         float ShadowBiasMin = 0.001f;
         float ShadowBiasMax = 0.003f;
+        int AOEnabled = 0;
     } mUBOData;
 
     DynamicUniformBuffer mDynamicUBO;

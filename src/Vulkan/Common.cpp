@@ -55,7 +55,7 @@ void common::BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent,
         colorClear->color = {{0.0f, 0.0f, 0.0f, 0.0f}};
     }
 
-    if (clearDepth) 
+    if (clearDepth)
     {
         depthClear = VkClearValue{};
         depthClear->depthStencil = {1.0f, 0};
@@ -76,7 +76,8 @@ void common::BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent,
 void common::BeginRenderingColorDepthMSAA(VkCommandBuffer cmd, VkExtent2D extent,
                                           VkImageView colorMsaa, VkImageView colorResolve,
                                           VkImageView depthMsaa, VkImageView depthResolve,
-                                          bool hasStencil, bool clearColor, bool clearDepth)
+                                          bool hasStencil, bool clearColor,
+                                          bool clearDepth)
 {
     std::optional<VkClearValue> colorClear = std::nullopt;
     std::optional<VkClearValue> depthClear = std::nullopt;
@@ -87,7 +88,7 @@ void common::BeginRenderingColorDepthMSAA(VkCommandBuffer cmd, VkExtent2D extent
         colorClear->color = {{0.0f, 0.0f, 0.0f, 0.0f}};
     }
 
-    if (clearDepth) 
+    if (clearDepth)
     {
         depthClear = VkClearValue{};
         depthClear->depthStencil = {1.0f, 0};

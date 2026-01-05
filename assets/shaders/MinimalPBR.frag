@@ -7,6 +7,8 @@
 #define SOFT_SHADOWS
 #define TRANSLUCENCY
 
+//#define SSAO_DEBUG_VIEW
+
 const float PI = 3.1415926535;
 
 #include "common/Pbr.glsl"
@@ -30,6 +32,7 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     float EnvironmentFactor;
     float ShadowBiasMin;
     float ShadowBiasMax;
+    int AOEnabled;
 } DynamicUBO;
 
 layout(scalar, set = 1, binding = 0) uniform EnvUBOBlock {
@@ -49,11 +52,13 @@ layout(set = 1, binding = 3) uniform sampler2D integrationMap;
 
 layout(set = 2, binding = 0) uniform sampler2DShadow shadowMap;
 
-layout(set = 3, binding = 0) uniform sampler2D albedo_map;
-layout(set = 3, binding = 1) uniform sampler2D rougness_map;
-layout(set = 3, binding = 2) uniform sampler2D normal_map;
+layout(set = 3, binding = 0) uniform sampler2D aoMap;
 
-layout(scalar, set = 3, binding = 3) uniform MatUBOBlock {
+layout(set = 4, binding = 0) uniform sampler2D albedo_map;
+layout(set = 4, binding = 1) uniform sampler2D rougness_map;
+layout(set = 4, binding = 2) uniform sampler2D normal_map;
+
+layout(scalar, set = 4, binding = 3) uniform MatUBOBlock {
     float AlphaCutoff;
     vec3 TranslucentColor;
     int DoubleSided;
@@ -176,6 +181,14 @@ void main()
 
     res.rgb = GetSkyLight(normal, view, diffuse, f0, roughness);
 
+    if (DynamicUBO.AOEnabled == 1)
+    {
+        //To-do: maybe texture instead of texelFetch?
+        float ao = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0).r;
+        
+        res.rgb *= ao;
+    }
+
     #ifdef TRANSLUCENCY
     if(MatUBO.DoubleSided == 1)
     {
@@ -216,6 +229,16 @@ void main()
     //Do color correction:
     res.rgb = ACESFilm(res.rgb);
     res.rgb = pow(res.rgb, vec3(1.0/2.2));
+
+    #ifdef SSAO_DEBUG_VIEW
+    if (DynamicUBO.AOEnabled == 1)
+    {
+        //To-do: maybe texture instead of texelFetch?
+        float ao = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0).r;
+        
+        res.rgb = vec3(ao);
+    }
+    #endif
 
     outColor = res;
 }

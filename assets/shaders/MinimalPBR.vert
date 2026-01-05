@@ -33,6 +33,8 @@ layout(push_constant) uniform constants {
 void main() {
     mat4 MVP = Ubo.CameraViewProjection * PushConstants.Model;
 
+    gl_Position = MVP * vec4(aPosition, 1.0);
+
     OutData.TexCoord = aTexCoord;
     OutData.Normal = normalize(mat3(PushConstants.Normal) * aNormal);
     OutData.Tangent = aTangent;
@@ -43,6 +45,4 @@ void main() {
     OutData.FragPos = vec3(PushConstants.Model * vec4(aPosition, 1.0));
 
     OutData.LightSpaceFragPos = Ubo.LightViewProjection * vec4(OutData.FragPos, 1.0);
-
-    gl_Position = MVP * vec4(aPosition, 1.0);
 }

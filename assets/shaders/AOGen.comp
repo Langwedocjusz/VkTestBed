@@ -1,0 +1,159 @@
+#version 450
+
+layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout (set = 0, binding = 0, Rgba8) uniform writeonly image2D aoResult;
+
+layout(set = 0, binding = 1) uniform sampler2D depthBuffer;
+
+//To-do: proj can be fetched from camera uniform buffer:
+layout(push_constant) uniform constants {
+    mat4 Proj;
+    mat4 InvProj;
+} PushConstants;
+
+#define SSAO_SAMPLE_COUNT 48
+#define SSAO_RADIUS 0.2
+
+vec2 GetTextureCoords(ivec2 texelCoords)
+{
+    return (vec2(texelCoords) + 0.5) / vec2(imageSize(aoResult));
+}
+
+float SampleDepth(vec2 uv)
+{
+    return texture(depthBuffer, uv).r;
+}
+
+vec3 ReconstructPosition(vec2 uv, float depth)
+{
+    //To-do: this can apparently be optimized not to do matrix math:
+    //https://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer/
+    vec4 clipPos = vec4(2.0*uv-1.0, depth, 1.0);
+    vec4 viewPos4 = PushConstants.InvProj * clipPos;
+    return viewPos4.xyz / viewPos4.w;
+}
+
+struct Basis{
+    vec3 T;
+    vec3 B;
+    vec3 N;
+};
+
+Basis GetTangentBasis(vec2 uv, vec3 pos0)
+{
+    //To-do: this can be improved to fixed edge artifacts, and optimized with shared memory:
+    //https://wickedengine.net/2019/09/improved-normal-reconstruction-from-depth/
+    //And further:
+    //https://atyuwen.github.io/posts/normal-reconstruction/
+
+    vec2 uv1 = uv + vec2(1,0) / vec2(imageSize(aoResult));
+    vec2 uv2 = uv + vec2(0,1) / vec2(imageSize(aoResult));
+    
+    float depth1 = SampleDepth(uv1);
+    float depth2 = SampleDepth(uv2);
+    
+    vec3 pos1 = ReconstructPosition(uv1, depth1);
+    vec3 pos2 = ReconstructPosition(uv2, depth2);
+
+    //To-do: T and B should probably be orthonormalzied with Gram-Schmidt:
+    vec3 T = normalize(pos1 - pos0);
+    vec3 B = normalize(pos2 - pos0);
+
+    vec3 N = normalize(cross(B, T));
+
+    return Basis(T, B, N);
+}
+
+
+//To-do: sample generation should be optimized
+//and maybe even just done once and cached in a buffer.
+
+//High quality hash functions based on:
+//https://www.shadertoy.com/view/ttc3zr
+
+uint murmurHash13(uvec3 src) {
+    const uint M = 0x5bd1e995u;
+    uint h = 1190494759u;
+    src *= M; src ^= src>>24u; src *= M;
+    h *= M; h ^= src.x; h *= M; h ^= src.y; h *= M; h ^= src.z;
+    h ^= h>>13u; h *= M; h ^= h>>15u;
+    return h;
+}
+
+float hash13(inout uvec3 src) {
+    uint h = murmurHash13(src);
+    src.z += 1;
+
+    return uintBitsToFloat(h & 0x007fffffu | 0x3f800000u) - 1.0;
+}
+
+
+vec3 GenerateSampleOffset(inout uvec3 state)
+{
+    vec3 offset = vec3(
+        2.0 * hash13(state) - 1.0,
+        2.0 * hash13(state) - 1.0,
+        hash13(state)
+    );
+
+    offset = normalize(offset);
+    offset *= hash13(state);
+
+    return offset;
+}
+
+float DepthFromSample(vec3 samplePos)
+{
+    //Transform to clip space:
+    vec4 pos = vec4(samplePos, 1.0);
+    pos = PushConstants.Proj * pos;
+    pos.xyz /= pos.w;
+
+    //Sample depth buffer:
+    vec2 uv = 0.5 * pos.xy + 0.5;
+    float depth = SampleDepth(uv);
+
+    vec3 viewPos = ReconstructPosition(uv, depth);
+
+    return viewPos.z;
+}
+
+float DebugRemapDepth(float depth)
+{
+    const float depthStart = 0.99;
+    return (depth - depthStart)/(1.0 - depthStart);
+}
+
+void main()
+{
+    ivec2 texelCoords = ivec2(gl_GlobalInvocationID.xy);
+
+    vec2 uv = GetTextureCoords(texelCoords);
+    float depth = SampleDepth(uv);
+
+    vec3 pos = ReconstructPosition(uv, depth);
+
+    Basis TBN = GetTangentBasis(uv, pos);
+
+    float acc = 0.0;
+    uvec3 rng_state = uvec3(texelCoords.x, texelCoords.y, 0);
+
+    for (int i=0; i<SSAO_SAMPLE_COUNT; i++)
+    {
+        vec3 offsetTan = GenerateSampleOffset(rng_state);
+        vec3 offset = TBN.T * offsetTan.x + TBN.B * offsetTan.y + TBN.N * offsetTan.z;
+    
+        vec3 samplePos = pos + SSAO_RADIUS * offset;
+        float sampleDepth = DepthFromSample(samplePos);
+    
+        //To-do: bias
+        acc += float(sampleDepth >= samplePos.z);
+    }
+    
+    acc /= float(SSAO_SAMPLE_COUNT);
+    
+    vec4 res = vec4(1.0 - acc, 0.0, 0.0, 0.0);
+
+    imageStore(aoResult, texelCoords, res);
+}

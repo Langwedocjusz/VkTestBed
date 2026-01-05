@@ -26,7 +26,7 @@ struct FrameStats {
     uint32_t NumDispatches = 0;
     size_t MemoryUsage = 0;
     size_t MemoryAllocation = 0;
-    uint32_t FragmentInvocations = 0;
+    uint64_t FragmentInvocations = 0;
     float FragmentPercent = 0.0f;
 };
 

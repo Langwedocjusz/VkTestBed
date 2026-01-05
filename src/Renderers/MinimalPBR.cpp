@@ -524,7 +524,7 @@ void MinimalPbrRenderer::OnImGui()
         static int choice;
         static std::array names{"1x", "2x", "4x", "8x"};
 
-        ImGui::Combo("Multisampling", &choice, names.data(), names.size());
+        ImGui::Combo("Multisampling", &choice, names.data(), static_cast<int32_t>(names.size()));
 
         if (ImGui::Button("Recreate"))
         {

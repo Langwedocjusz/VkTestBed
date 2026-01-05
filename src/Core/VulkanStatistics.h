@@ -9,7 +9,7 @@
 
 struct StatisticsResult {
     std::optional<float> FrameTimeMS;
-    std::optional<uint32_t> FragmentInvocations;
+    std::optional<uint64_t> FragmentInvocations;
 };
 
 class VulkanStatisticsCollector {

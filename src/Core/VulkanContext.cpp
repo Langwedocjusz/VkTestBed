@@ -63,6 +63,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     VkPhysicalDeviceVulkan13Features features13{};
     features13.dynamicRendering = true;
     features13.synchronization2 = true;
+    features13.shaderDemoteToHelperInvocation = true;
 
     PhysicalDevice = vkb::PhysicalDeviceSelector(Instance)
                          .set_surface(Surface)

@@ -26,7 +26,6 @@
 #include <cstdint>
 #include <ranges>
 #include <utility>
-#include <vulkan/vulkan_core.h>
 
 void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive &prim,
                                         const std::string &debugName)
@@ -426,7 +425,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             mCtx, "DepthBufferMSAA", depthBufferInfo, mSwapchainDeletionQueue);
     }
 
-    //if (mEnableAO)
+    // if (mEnableAO)
     {
         // Create target for occlusion computation:
         Image2DInfo aoTargetInfo{
@@ -524,7 +523,8 @@ void MinimalPbrRenderer::OnImGui()
         static int choice;
         static std::array names{"1x", "2x", "4x", "8x"};
 
-        ImGui::Combo("Multisampling", &choice, names.data(), static_cast<int32_t>(names.size()));
+        ImGui::Combo("Multisampling", &choice, names.data(),
+                     static_cast<int32_t>(names.size()));
 
         if (ImGui::Button("Recreate"))
         {

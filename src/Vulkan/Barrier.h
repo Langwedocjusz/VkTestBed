@@ -6,6 +6,9 @@ namespace barrier
 {
 void ImageBarrier(VkCommandBuffer cmd, VkImageMemoryBarrier2 barrier);
 
+// TODO: A lot of those barriers are one-offs with specific usage
+// Maybe it would be better to move their definition to usage site?
+
 // Assumes color target has layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
 void ImageBarrierColorToRender(VkCommandBuffer cmd, VkImage image);
 void ImageBarrierColorToTransfer(VkCommandBuffer cmd, VkImage image);

@@ -14,6 +14,7 @@ layout(push_constant) uniform constants {
 
 #define SSAO_SAMPLE_COUNT 48
 #define SSAO_RADIUS 0.2
+#define SSAO_HEURISTIC_THICKNESS 1.0
 
 vec2 GetTextureCoords(ivec2 texelCoords)
 {
@@ -137,6 +138,7 @@ void main()
     Basis TBN = GetTangentBasis(uv, pos);
 
     float acc = 0.0;
+    
     uvec3 rng_state = uvec3(texelCoords.x, texelCoords.y, 0);
 
     for (int i=0; i<SSAO_SAMPLE_COUNT; i++)
@@ -147,8 +149,10 @@ void main()
         vec3 samplePos = pos + SSAO_RADIUS * offset;
         float sampleDepth = DepthFromSample(samplePos);
     
-        //To-do: bias
-        acc += float(sampleDepth >= samplePos.z);
+        if (abs(pos.z - sampleDepth) < SSAO_HEURISTIC_THICKNESS)
+        {
+            acc += float(sampleDepth >= samplePos.z);
+        }
     }
     
     acc /= float(SSAO_SAMPLE_COUNT);

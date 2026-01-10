@@ -4,6 +4,7 @@
 #include "Vassert.h"
 
 #include "volk.h"
+#include <vulkan/vulkan_core.h>
 
 void vkinit::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
 {
@@ -121,7 +122,7 @@ VkRenderingAttachmentInfo vkinit::CreateAttachmentInfoMSAA(
     if (layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
         attachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
     else
-        attachment.resolveMode = VK_RESOLVE_MODE_NONE;
+        attachment.resolveMode = VK_RESOLVE_MODE_MIN_BIT;
 
     if (clear.has_value())
     {

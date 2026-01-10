@@ -2,6 +2,7 @@
 
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_demote_to_helper_invocation : require
 
 #define USE_NORMAL_MAPPING
 #define SOFT_SHADOWS

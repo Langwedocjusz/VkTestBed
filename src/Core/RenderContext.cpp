@@ -235,6 +235,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         mStatsCollector.TimestampTop(cmd, mFrameInfo.Index);
 
         // 1. Transition render target to rendering:
+        // TODO: Maybe renderer should handle it by itself to make it more flexible
         barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTargetImage().Handle);
 
         // 2. Render to image:

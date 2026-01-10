@@ -1,5 +1,7 @@
 #version 450
 
+#extension GL_EXT_demote_to_helper_invocation : require
+
 layout(location = 0) in vec2 texCoord;
 layout(location = 1) in vec3 normal;
 

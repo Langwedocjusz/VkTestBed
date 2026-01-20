@@ -200,10 +200,26 @@ void MinimalPbrRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    mZPrepassPipeline =
-        PipelineBuilder("MinimalPBRPrepassPipeline")
-            .SetShaderPathVertex("assets/spirv/ZPrepassVert.spv")
-            .SetShaderPathFragment("assets/spirv/ZPrepassFrag.spv")
+    mZPrepassOpaquePipeline =
+        PipelineBuilder("MinimalPBROpaquePrepassPipeline")
+            .SetShaderPathVertex("assets/spirv/ZPrepassOpaqueVert.spv")
+            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+            .SetPushConstantSize(sizeof(mPrepassPCData))
+            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .EnableDepthTest()
+            .SetDepthFormat(mDepthStencilFormat)
+            .SetStencilFormat(mDepthStencilFormat)
+            .SetMultisampling(mMultisample)
+            .Build(mCtx, mPipelineDeletionQueue);
+
+    mZPrepassAlphaPipeline =
+        PipelineBuilder("MinimalPBRAlphaPrepassPipeline")
+            .SetShaderPathVertex("assets/spirv/ZPrepassAlphaVert.spv")
+            .SetShaderPathFragment("assets/spirv/ZPrepassAlphaFrag.spv")
             .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -617,12 +633,12 @@ void MinimalPbrRenderer::DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &d
 }
 
 template <typename MaterialFn, typename InstanceFn>
-void MinimalPbrRenderer::DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                                MaterialFn materialCallback,
-                                                InstanceFn instanceCallback,
-                                                DrawStats &stats)
+void MinimalPbrRenderer::DrawSingleSidedFrustumCulled(VkCommandBuffer cmd,
+                                                      glm::mat4 viewProj,
+                                                      MaterialFn materialCallback,
+                                                      InstanceFn instanceCallback,
+                                                      DrawStats &stats)
 {
-    // Draw single-sided drawables:
     vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
 
     for (auto key : mSingleSidedDrawableKeys)
@@ -636,8 +652,15 @@ void MinimalPbrRenderer::DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 v
         DrawAllInstancesCulled(cmd, drawable, viewProj, materialCallback,
                                instanceCallback, stats);
     }
+}
 
-    // Draw double-sided drawables:
+template <typename MaterialFn, typename InstanceFn>
+void MinimalPbrRenderer::DrawDoubleSidedFrustumCulled(VkCommandBuffer cmd,
+                                                      glm::mat4 viewProj,
+                                                      MaterialFn materialCallback,
+                                                      InstanceFn instanceCallback,
+                                                      DrawStats &stats)
+{
     vkCmdSetCullMode(cmd, VK_CULL_MODE_NONE);
 
     for (auto key : mDoubleSidedDrawableKeys)
@@ -651,6 +674,16 @@ void MinimalPbrRenderer::DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 v
         DrawAllInstancesCulled(cmd, drawable, viewProj, materialCallback,
                                instanceCallback, stats);
     }
+}
+
+template <typename MaterialFn, typename InstanceFn>
+void MinimalPbrRenderer::DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
+                                                MaterialFn materialCallback,
+                                                InstanceFn instanceCallback,
+                                                DrawStats &stats)
+{
+    DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
+    DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
 }
 
 void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
@@ -682,26 +715,41 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
         common::BeginRenderingDepthMSAA(cmd, GetTargetSize(), mDepthStencilMsaa->View,
                                         mDepthStencilBuffer.View, true, true);
 
-    mZPrepassPipeline.Bind(cmd);
-    common::ViewportScissor(cmd, GetTargetSize());
-
-    mZPrepassPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
-
     auto viewProj = mUBOData.CameraViewProjection;
 
+    auto materialCallbackNull = [](VkCommandBuffer cmd, Material &material) {
+        (void)cmd;
+        (void)material;
+    };
+
     auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
-        mZPrepassPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
+        mZPrepassAlphaPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
         stats.NumBinds += 1;
     };
 
     auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
         mPrepassPCData.Model = instance.Transform;
 
-        vkCmdPushConstants(cmd, mZPrepassPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           sizeof(mPrepassPCData), &mPrepassPCData);
+        vkCmdPushConstants(cmd, mZPrepassAlphaPipeline.Layout,
+                           VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
+                           &mPrepassPCData);
     };
 
-    DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
+    mZPrepassOpaquePipeline.Bind(cmd);
+    common::ViewportScissor(cmd, GetTargetSize());
+
+    mZPrepassOpaquePipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+
+    DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallbackNull, instanceCallback,
+                                 stats);
+
+    mZPrepassAlphaPipeline.Bind(cmd);
+    common::ViewportScissor(cmd, GetTargetSize());
+
+    mZPrepassAlphaPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+
+    DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                 stats);
 
     vkCmdEndRendering(cmd);
 }
@@ -848,6 +896,8 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
     }
 
     // Draw to stencil:
+    // To-do: this does no check to see if the current drawable is double sided
+    // and wheter or not the vkCullState is set accordingly.
     {
         if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
         {

@@ -50,17 +50,17 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::Build(VulkanContext 
 {
     if (mComputePath.has_value())
     {
+        vassert(!mVertexPath.has_value(),
+                "Vertex shader path provided in a compute shader.");
+
+        vassert(!mFragmentPath.has_value(),
+                "Fragment shader path provided in a compute shader.");
+
         return BuildCompute(ctx);
     }
 
     else
     {
-        vassert(mVertexPath.has_value(),
-                "Vertex shader path not provided in non-compute shader.");
-
-        vassert(mFragmentPath.has_value(),
-                "Fragment shader path not provided in non-compute shader.");
-
         return BuildGraphics(ctx);
     }
 }
@@ -68,28 +68,41 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::Build(VulkanContext 
 std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
     VulkanContext &ctx)
 {
-    auto vertCode = ReadFileBinary(mVertexPath.value());
-    auto fragCode = ReadFileBinary(mFragmentPath.value());
+    std::vector<VkPipelineShaderStageCreateInfo> res{};
 
-    VkShaderModule vertModule = CreateShaderModule(ctx, vertCode);
-    vassert(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
+    if (mVertexPath.has_value())
+    {
+        auto vertCode = ReadFileBinary(mVertexPath.value());
 
-    VkShaderModule fragModule = CreateShaderModule(ctx, fragCode);
-    vassert(fragModule != VK_NULL_HANDLE, "Failed to create a shader module!");
+        VkShaderModule vertModule = CreateShaderModule(ctx, vertCode);
+        vassert(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
-    VkPipelineShaderStageCreateInfo vertStageInfo = {};
-    vertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertStageInfo.module = vertModule;
-    vertStageInfo.pName = "main";
+        VkPipelineShaderStageCreateInfo vertStageInfo = {};
+        vertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vertStageInfo.module = vertModule;
+        vertStageInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo fragStageInfo = {};
-    fragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragStageInfo.module = fragModule;
-    fragStageInfo.pName = "main";
+        res.push_back(vertStageInfo);
+    }
 
-    return std::vector<VkPipelineShaderStageCreateInfo>{vertStageInfo, fragStageInfo};
+    if (mFragmentPath.has_value())
+    {
+        auto fragCode = ReadFileBinary(mFragmentPath.value());
+
+        VkShaderModule fragModule = CreateShaderModule(ctx, fragCode);
+        vassert(fragModule != VK_NULL_HANDLE, "Failed to create a shader module!");
+
+        VkPipelineShaderStageCreateInfo fragStageInfo = {};
+        fragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        fragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        fragStageInfo.module = fragModule;
+        fragStageInfo.pName = "main";
+
+        res.push_back(fragStageInfo);
+    }
+
+    return res;
 }
 
 std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildCompute(

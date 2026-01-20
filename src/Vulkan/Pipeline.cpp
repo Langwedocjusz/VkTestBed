@@ -265,8 +265,8 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     // Build the shader stages:
     auto shaderStages = ShaderBuilder()
-                            .SetVertexPath(*mVertexPath)
-                            .SetFragmentPath(*mFragmentPath)
+                            .SetVertexPath(mVertexPath)
+                            .SetFragmentPath(mFragmentPath)
                             .Build(ctx);
 
     // Create pipeline layout:

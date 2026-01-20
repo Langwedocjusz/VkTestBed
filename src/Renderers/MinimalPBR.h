@@ -85,16 +85,6 @@ class MinimalPbrRenderer final : public IRenderer {
     void LoadMeshMaterials(const Scene &scene);
     void LoadObjects(const Scene &scene);
 
-    template <typename MaterialFn, typename InstanceFn>
-    void DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &drawable,
-                                glm::mat4 viewProj, MaterialFn materialCallback,
-                                InstanceFn instanceCallback, DrawStats &stats);
-
-    template <typename MaterialFn, typename InstanceFn>
-    void DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                MaterialFn materialCallback, InstanceFn instanceCallback,
-                                DrawStats &stats);
-
     void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
     void Prepass(VkCommandBuffer cmd, DrawStats &stats);
     void AOPass(VkCommandBuffer cmd, DrawStats &stats);
@@ -102,6 +92,26 @@ class MinimalPbrRenderer final : public IRenderer {
     void OutlinePass(VkCommandBuffer cmd, SceneKey highlightedObj);
 
     void DestroyTexture(const Texture &texture);
+
+    template <typename MaterialFn, typename InstanceFn>
+    void DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &drawable,
+                                glm::mat4 viewProj, MaterialFn materialCallback,
+                                InstanceFn instanceCallback, DrawStats &stats);
+
+    template <typename MaterialFn, typename InstanceFn>
+    void DrawSingleSidedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
+                                      MaterialFn materialCallback,
+                                      InstanceFn instanceCallback, DrawStats &stats);
+
+    template <typename MaterialFn, typename InstanceFn>
+    void DrawDoubleSidedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
+                                      MaterialFn materialCallback,
+                                      InstanceFn instanceCallback, DrawStats &stats);
+
+    template <typename MaterialFn, typename InstanceFn>
+    void DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
+                                MaterialFn materialCallback, InstanceFn instanceCallback,
+                                DrawStats &stats);
 
   private:
     // Framebuffer:
@@ -119,7 +129,8 @@ class MinimalPbrRenderer final : public IRenderer {
     VkSampler mSampler2D;
 
     // Graphics pipelines:
-    Pipeline mZPrepassPipeline;
+    Pipeline mZPrepassOpaquePipeline;
+    Pipeline mZPrepassAlphaPipeline;
     Pipeline mAOGenPipeline;
     Pipeline mMainPipeline;
     Pipeline mBackgroundPipeline;

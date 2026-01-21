@@ -40,6 +40,7 @@ class ShadowmapHandler {
     }
 
   private:
+    static constexpr uint32_t mShadowmapResolution = 2048;
     static constexpr VkFormat mShadowmapFormat = VK_FORMAT_D32_SFLOAT;
 
     VulkanContext &mCtx;

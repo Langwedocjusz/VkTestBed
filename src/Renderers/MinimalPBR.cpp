@@ -606,6 +606,10 @@ void MinimalPbrRenderer::DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &d
 {
     using namespace std::views;
 
+    // If there are no instances to draw, bail before binding anything.
+    if (drawable.EarlyBail(viewProj))
+        return;
+
     // Bind drawable geometry buffers:
     drawable.BindGeometryBuffers(cmd);
 
@@ -645,10 +649,6 @@ void MinimalPbrRenderer::DrawSingleSidedFrustumCulled(VkCommandBuffer cmd,
     {
         auto &drawable = mDrawables[key];
 
-        // Bail immediately if there are no instances to draw:
-        if (drawable.EarlyBail(viewProj))
-            continue;
-
         DrawAllInstancesCulled(cmd, drawable, viewProj, materialCallback,
                                instanceCallback, stats);
     }
@@ -666,10 +666,6 @@ void MinimalPbrRenderer::DrawDoubleSidedFrustumCulled(VkCommandBuffer cmd,
     for (auto key : mDoubleSidedDrawableKeys)
     {
         auto &drawable = mDrawables[key];
-
-        // Bail immediately if there are no instances to draw:
-        if (drawable.EarlyBail(viewProj))
-            continue;
 
         DrawAllInstancesCulled(cmd, drawable, viewProj, materialCallback,
                                instanceCallback, stats);

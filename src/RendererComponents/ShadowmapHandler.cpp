@@ -49,10 +49,8 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         Descriptor::Allocate(mCtx, mStaticDescriptorPool, mShadowmapDescriptorSetLayout);
 
     // Create the shadowmap:
-    const uint32_t shadowRes = 2048;
-
     Image2DInfo shadowmapInfo{
-        .Extent = {shadowRes, shadowRes},
+        .Extent = {mShadowmapResolution, mShadowmapResolution},
         .Format = mShadowmapFormat,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -151,6 +149,7 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir)
         minX = std::min(minX, vert.x);
         minY = std::min(minY, vert.y);
         minZ = std::min(minZ, vert.z);
+
         maxX = std::max(maxX, vert.x);
         maxY = std::max(maxY, vert.y);
         maxZ = std::max(maxZ, vert.z);
@@ -160,8 +159,19 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir)
     maxZ += mAddZ;
     minZ -= mSubZ;
 
-    glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+    
+    //Clip XY positions to texel size in world space to avoid shimmering artefact:    }
+    float texelSizeX = (maxX - minX)/mShadowmapResolution;
+    float texelSizeY = (maxY - minY)/mShadowmapResolution;
 
+    minX = std::floor(minX/texelSizeX) * texelSizeX;
+    maxX = std::floor(maxX/texelSizeX) * texelSizeX;
+    minY = std::floor(minY/texelSizeY) * texelSizeY;
+    maxY = std::floor(maxY/texelSizeY) * texelSizeY;
+
+    //Construct the projection matrix:
+    glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+    
     mLightViewProj = lightProj * lightView;
 }
 

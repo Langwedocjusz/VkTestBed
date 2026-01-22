@@ -22,24 +22,38 @@ def process_material(material: dict) -> bool:
 
 
 def get_color(gltf: dict, material: dict, gltf_dir: Path) -> list:
-    # To-do: handle non-texture, color-factor inputs
-    tex_id = material['pbrMetallicRoughness']['baseColorTexture']['index']
+    if 'baseColorTexture' in material['pbrMetallicRoughness']:
+        tex_id = material['pbrMetallicRoughness']['baseColorTexture']['index']
 
-    image_id = gltf['textures'][tex_id]['source']
+        image_id = gltf['textures'][tex_id]['source']
 
-    image_path = gltf_dir / gltf['images'][image_id]['uri']
+        image_path = gltf_dir / gltf['images'][image_id]['uri']    
 
-    with Image.open(image_path) as img:
-        converter = ImageEnhance.Color(img)
-        img2 = converter.enhance(3.0)
+        with Image.open(image_path) as img:
+            converter = ImageEnhance.Color(img)
+            img2 = converter.enhance(3.0)
 
-        imarray = np.array(img2)
+            imarray = np.array(img2)
 
-    alpha = imarray[:,:,3]
+        alpha = imarray[:,:,3]
 
-    r = np.mean(alpha * imarray[:,:,0]) / 255.0
-    g = np.mean(alpha * imarray[:,:,1]) / 255.0
-    b = np.mean(alpha * imarray[:,:,2]) / 255.0
+        r = np.mean(alpha * imarray[:,:,0]) / 255.0
+        g = np.mean(alpha * imarray[:,:,1]) / 255.0
+        b = np.mean(alpha * imarray[:,:,2]) / 255.0
+
+    else:
+        fac = material['pbrMetallicRoughness']['baseColorFactor']
+
+        r, g, b, _ = fac
+
+        gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+
+        def lerp(a, b, t):
+            return a*(1.0-t) + b*t
+
+        r = lerp(gray, r, 3.0)
+        g = lerp(gray, g, 3.0)
+        b = lerp(gray, b, 3.0)
 
     return [r,g,b]
 

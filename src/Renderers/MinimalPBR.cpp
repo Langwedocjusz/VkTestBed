@@ -56,7 +56,7 @@ bool MinimalPbrRenderer::Drawable::EarlyBail(glm::mat4 viewProj)
 
     if (Instances.size() == 1)
     {
-        if (!Bbox.InView(viewProj * Instances[0].Transform))
+        if (!Bbox.IsInView(viewProj * Instances[0].Transform))
         {
             return true;
         }
@@ -67,7 +67,7 @@ bool MinimalPbrRenderer::Drawable::EarlyBail(glm::mat4 viewProj)
 
 bool MinimalPbrRenderer::Drawable::IsVisible(glm::mat4 viewProj, size_t instanceIdx)
 {
-    return Bbox.InView(viewProj * Instances[instanceIdx].Transform);
+    return Bbox.IsInView(viewProj * Instances[instanceIdx].Transform);
 }
 
 void MinimalPbrRenderer::Drawable::BindGeometryBuffers(VkCommandBuffer cmd)
@@ -491,7 +491,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
     auto lightDir = mEnvHandler.GetUboData().LightDir;
-    mShadowmapHandler.OnUpdate(mCamera.GetFrustum(), lightDir);
+    mShadowmapHandler.OnUpdate(mCamera.GetFrustum(), lightDir, mSceneAABB);
 
     // Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
@@ -678,8 +678,10 @@ void MinimalPbrRenderer::DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 v
                                                 InstanceFn instanceCallback,
                                                 DrawStats &stats)
 {
-    DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
-    DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
+    DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                 stats);
+    DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                 stats);
 }
 
 void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
@@ -1027,7 +1029,7 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
 
 void MinimalPbrRenderer::LoadScene(const Scene &scene)
 {
-    if (scene.FullReload())
+    if (scene.FullReloadRequested())
     {
         for (auto &[_, drawable] : mDrawables)
             drawable.Destroy(mCtx);
@@ -1042,22 +1044,22 @@ void MinimalPbrRenderer::LoadScene(const Scene &scene)
         mMaterialDescriptorAllocator.DestroyPools();
     }
 
-    if (scene.UpdateMeshes())
+    if (scene.UpdateMeshesRequested())
         LoadMeshes(scene);
 
-    if (scene.UpdateImages())
+    if (scene.UpdateImagesRequested())
         LoadImages(scene);
 
-    if (scene.UpdateMaterials())
+    if (scene.UpdateMaterialsRequested())
         LoadMaterials(scene);
 
-    if (scene.UpdateMeshMaterials())
+    if (scene.UpdateMeshMaterialsRequested())
         LoadMeshMaterials(scene);
 
-    if (scene.UpdateObjects())
+    if (scene.UpdateObjectsRequested())
         LoadObjects(scene);
 
-    if (scene.UpdateEnvironment())
+    if (scene.UpdateEnvironmentRequested())
         mEnvHandler.LoadEnvironment(scene);
 }
 
@@ -1221,6 +1223,9 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 {
     using namespace std::views;
+
+    //Update scene bounding box:
+    mSceneAABB = scene.TotalAABB;
 
     // Load all object transforms and build object index cache:
     mObjectCache.clear();

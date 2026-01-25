@@ -130,10 +130,10 @@ void HelloRenderer::RecreateSwapchainResources()
 
 void HelloRenderer::LoadScene(const Scene &scene)
 {
-    if (scene.UpdateMeshes())
+    if (scene.UpdateMeshesRequested())
         LoadMeshes(scene);
 
-    if (scene.UpdateObjects())
+    if (scene.UpdateObjectsRequested())
         LoadObjects(scene);
 }
 

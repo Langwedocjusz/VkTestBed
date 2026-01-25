@@ -2,6 +2,7 @@
 
 #include "Camera.h"
 #include "DeletionQueue.h"
+#include "GeometryData.h"
 #include "Pipeline.h"
 #include "VulkanContext.h"
 
@@ -15,7 +16,7 @@ class ShadowmapHandler {
 
     void RebuildPipelines(const Vertex::Layout &vertexLayout,
                           VkDescriptorSetLayout materialDSLayout);
-    void OnUpdate(Frustum camFr, glm::vec3 lightDir);
+    void OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB);
     void OnImGui();
 
     void BeginShadowPass(VkCommandBuffer cmd);
@@ -54,8 +55,8 @@ class ShadowmapHandler {
         glm::mat4 LightMVP;
     } mShadowPCData;
 
-    float mAddZ = 8.0f;
-    float mSubZ = 30.0f;
+    //float mAddZ = 8.0f;
+    //float mSubZ = 30.0f;
     float mShadowDist = 20.0f;
 
     Image mShadowmap;

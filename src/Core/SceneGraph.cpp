@@ -147,6 +147,12 @@ glm::mat4 SceneGraphNode::GetAggregateTransform(glm::mat4 current)
 
 void SceneGraphNode::UpdateTransforms(Scene &scene, glm::mat4 current)
 {
+    UpdateTransformsImpl(scene, current);
+    scene.RecalculateAABB();
+}
+
+void SceneGraphNode::UpdateTransformsImpl(Scene &scene, glm::mat4 current)
+{
     if (IsLeaf())
     {
         auto &obj = scene.Objects[GetObjectKey()];

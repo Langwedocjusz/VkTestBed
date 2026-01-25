@@ -1,0 +1,94 @@
+#include "GeometryData.h"
+#include "Pch.h"
+
+#include <limits>
+
+bool GeometryLayout::IsCompatible(const GeometryLayout &other)
+{
+    bool idxCompat = IndexType == other.IndexType;
+    // To-do: this will be weakened in the future:
+    bool vertCompat = VertexLayout == other.VertexLayout;
+
+    return idxCompat && vertCompat;
+}
+
+std::array<glm::vec3, 8> AABB::GetCorners() const
+{
+    return {
+        Center + Extent * glm::vec3(-1, -1, -1), Center + Extent * glm::vec3(-1, -1, 1),
+        Center + Extent * glm::vec3(-1, 1, -1),  Center + Extent * glm::vec3(-1, 1, 1),
+        Center + Extent * glm::vec3(1, -1, -1),  Center + Extent * glm::vec3(1, -1, 1),
+        Center + Extent * glm::vec3(1, 1, -1),   Center + Extent * glm::vec3(1, 1, 1),
+    };
+}
+
+bool AABB::IsInView(glm::mat4 mvp) const
+{
+    auto corners = GetCorners();
+
+    bool allFront = true;
+    bool allBack = true;
+    bool allLeft = true;
+    bool allRight = true;
+    bool allUp = true;
+    bool allDown = true;
+
+    for (auto corner : corners)
+    {
+        glm::vec4 homogeneous = mvp * glm::vec4(corner, 1.0f);
+
+        allFront = allFront && (homogeneous.z > homogeneous.w);
+        allBack = allBack && (homogeneous.z < 0.0f);
+        allLeft = allLeft && (homogeneous.x < -homogeneous.w);
+        allRight = allRight && (homogeneous.x > homogeneous.w);
+        allUp = allUp && (homogeneous.y > homogeneous.w);
+        allDown = allDown && (homogeneous.y < -homogeneous.w);
+    }
+
+    return !(allFront || allBack || allLeft || allRight || allUp || allDown);
+}
+
+AABB AABB::GetConservativeTransformedAABB(glm::mat4 transform) const
+{
+    auto corners = GetCorners();
+
+    // Transform all corners:
+    for (auto &corner : corners)
+    {
+        auto transformed = transform * glm::vec4(corner, 1.0f);
+        corner = glm::vec3(transformed);
+    }
+
+    // Get extremal coordinates of the transformed corners:
+    auto vmin = glm::vec3(std::numeric_limits<float>::max());
+    auto vmax = glm::vec3(std::numeric_limits<float>::lowest());
+
+    for (auto corner : corners)
+    {
+        vmin = glm::min(vmin, corner);
+        vmax = glm::max(vmax, corner);
+    }
+
+    // Repack into AABB:
+    auto center = 0.5f*(vmax + vmin);
+    auto extent = 0.5f*(vmax - vmin);
+
+    return AABB{.Center = center, .Extent = extent};
+}
+
+[[nodiscard]] AABB AABB::MaxWith(AABB other) const
+{
+    glm::vec3 vmin = glm::min(Center - Extent, other.Center - other.Extent);
+    glm::vec3 vmax = glm::max(Center + Extent, other.Center + other.Extent);
+
+    auto center = 0.5f*(vmax + vmin);
+    auto extent = 0.5f*(vmax - vmin);
+
+    return AABB{.Center = center, .Extent = extent};
+}
+
+GeometryData::GeometryData(const GeometrySpec &spec)
+    : VertexData(spec.VertCount, spec.VertBuffSize, spec.VertAlignment),
+      IndexData(spec.IdxCount, spec.IdxBuffSize, spec.IdxAlignment)
+{
+}

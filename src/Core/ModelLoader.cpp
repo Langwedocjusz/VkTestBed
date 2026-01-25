@@ -117,7 +117,7 @@ static GeometryLayout ToGeoLayout(const ModelConfig &config)
 }
 
 struct VertParsingResult {
-    BoundingBox BBox;
+    AABB BBox;
     bool GenerateTangents = false;
 };
 

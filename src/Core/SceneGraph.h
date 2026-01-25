@@ -45,6 +45,7 @@ class SceneGraphNode {
 
     glm::mat4 GetTransform();
     glm::mat4 GetAggregateTransform(glm::mat4 current = glm::mat4(1.0f));
+    
     void UpdateTransforms(Scene &scene, glm::mat4 current = 1.0f);
 
   public:
@@ -57,6 +58,8 @@ class SceneGraphNode {
     std::string Name;
 
   private:
+    void UpdateTransformsImpl(Scene &scene, glm::mat4 current);
+
     Scene *mScene = nullptr;
     std::variant<ChildrenArray, SceneKey> mPayload;
 };

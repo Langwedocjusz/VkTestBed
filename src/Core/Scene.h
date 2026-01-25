@@ -59,6 +59,8 @@ class Scene {
     std::map<SceneKey, SceneMaterial> Materials;
     std::map<SceneKey, SceneObject> Objects;
 
+    AABB TotalAABB;
+
     struct Environment {
         bool DirLightOn = true;
         glm::vec3 LightDir = glm::vec3(-0.71f, -0.08f, 0.7f);
@@ -69,6 +71,8 @@ class Scene {
     } Env;
 
   public:
+    void RecalculateAABB();
+
     std::pair<SceneKey, SceneMesh &> EmplaceMesh();
     std::pair<SceneKey, ImageData &> EmplaceImage();
     std::pair<SceneKey, SceneMaterial &> EmplaceMaterial();
@@ -85,19 +89,21 @@ class Scene {
         Environment,
     };
 
+    // Ask for update/reload:
     void RequestFullReload();
-    void RequestUpdateAll();
     void RequestUpdate(UpdateFlag flag);
+    void RequestUpdateAll();
     void ClearUpdateFlags();
 
-    [[nodiscard]] bool FullReload() const;
+    // Check if update/reload is scheduled:
+    [[nodiscard]] bool FullReloadRequested() const;
     [[nodiscard]] bool UpdateRequested() const;
-    [[nodiscard]] bool UpdateImages() const;
-    [[nodiscard]] bool UpdateMeshes() const;
-    [[nodiscard]] bool UpdateMeshMaterials() const;
-    [[nodiscard]] bool UpdateMaterials() const;
-    [[nodiscard]] bool UpdateObjects() const;
-    [[nodiscard]] bool UpdateEnvironment() const;
+    [[nodiscard]] bool UpdateImagesRequested() const;
+    [[nodiscard]] bool UpdateMeshesRequested() const;
+    [[nodiscard]] bool UpdateMeshMaterialsRequested() const;
+    [[nodiscard]] bool UpdateMaterialsRequested() const;
+    [[nodiscard]] bool UpdateObjectsRequested() const;
+    [[nodiscard]] bool UpdateEnvironmentRequested() const;
 
   private:
     bool mFullReload = false;

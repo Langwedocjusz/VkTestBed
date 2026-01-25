@@ -9,14 +9,7 @@ struct GeometryLayout {
     Vertex::Layout VertexLayout;
     VkIndexType IndexType;
 
-    bool IsCompatible(const GeometryLayout &other)
-    {
-        bool idxCompat = IndexType == other.IndexType;
-        // To-do: this will be weakened in the future:
-        bool vertCompat = VertexLayout == other.VertexLayout;
-
-        return idxCompat && vertCompat;
-    }
+    bool IsCompatible(const GeometryLayout &other);
 };
 
 struct GeometrySpec {
@@ -62,57 +55,25 @@ struct GeometrySpec {
     }
 };
 
-struct BoundingBox {
+/// Axis aligned bounding box
+struct AABB {
     glm::vec3 Center;
     glm::vec3 Extent;
 
-    bool InView(glm::mat4 transform)
-    {
-        std::array<glm::vec3, 8> corners{
-            Center + Extent * glm::vec3(-1, -1, -1),
-            Center + Extent * glm::vec3(-1, -1, 1),
-            Center + Extent * glm::vec3(-1, 1, -1),
-            Center + Extent * glm::vec3(-1, 1, 1),
-            Center + Extent * glm::vec3(1, -1, -1),
-            Center + Extent * glm::vec3(1, -1, 1),
-            Center + Extent * glm::vec3(1, 1, -1),
-            Center + Extent * glm::vec3(1, 1, 1),
-        };
+    [[nodiscard]] bool IsInView(glm::mat4 mvp) const;
+    [[nodiscard]] AABB GetConservativeTransformedAABB(glm::mat4 transform) const;
 
-        bool allFront = true;
-        bool allBack = true;
-        bool allLeft = true;
-        bool allRight = true;
-        bool allUp = true;
-        bool allDown = true;
+    [[nodiscard]] AABB MaxWith(AABB other) const;
 
-        for (auto corner : corners)
-        {
-            glm::vec4 homogeneous = transform * glm::vec4(corner, 1.0f);
-
-            allFront = allFront && (homogeneous.z > homogeneous.w);
-            allBack = allBack && (homogeneous.z < 0.0f);
-            allLeft = allLeft && (homogeneous.x < -homogeneous.w);
-            allRight = allRight && (homogeneous.x > homogeneous.w);
-            allUp = allUp && (homogeneous.y > homogeneous.w);
-            allDown = allDown && (homogeneous.y < -homogeneous.w);
-        }
-
-        return !(allFront || allBack || allLeft || allRight || allUp || allDown);
-    }
+    [[nodiscard]] std::array<glm::vec3, 8> GetCorners() const;
 };
 
 struct GeometryData {
     GeometryData() = default;
-
-    GeometryData(const GeometrySpec &spec)
-        : VertexData(spec.VertCount, spec.VertBuffSize, spec.VertAlignment),
-          IndexData(spec.IdxCount, spec.IdxBuffSize, spec.IdxAlignment)
-    {
-    }
+    GeometryData(const GeometrySpec &spec);
 
     GeometryLayout Layout;
     OpaqueBuffer VertexData;
     OpaqueBuffer IndexData;
-    BoundingBox BBox;
+    AABB BBox;
 };

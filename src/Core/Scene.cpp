@@ -1,7 +1,42 @@
 #include "Scene.h"
+#include "GeometryData.h"
 #include "Pch.h"
 
 #include "Vassert.h"
+
+void Scene::RecalculateAABB()
+{
+    bool firstIteration = true;
+    AABB bbox{};
+
+    for (auto &[_, obj] : Objects)
+    {
+        if (!obj.Mesh.has_value())
+            continue;
+
+        auto &mesh = Meshes[*obj.Mesh];
+        auto &transform = obj.Transform;
+
+        for (auto &prim : mesh.Primitives)
+        {
+            auto srcBBox = prim.Data.BBox;
+            auto transformedBBox = srcBBox.GetConservativeTransformedAABB(transform);
+
+            if (firstIteration)
+            {
+                bbox = transformedBBox;
+                firstIteration = false;
+            }
+
+            else
+            {
+                bbox = bbox.MaxWith(transformedBBox);
+            }
+        }
+    }
+
+    TotalAABB = bbox;
+}
 
 std::pair<SceneKey, SceneMesh &> Scene::EmplaceMesh()
 {
@@ -75,37 +110,37 @@ void Scene::RequestUpdate(UpdateFlag flag)
     mUpdateFlags.Set(flag);
 }
 
-bool Scene::FullReload() const
+bool Scene::FullReloadRequested() const
 {
     return mFullReload;
 }
 
-bool Scene::UpdateImages() const
+bool Scene::UpdateImagesRequested() const
 {
     return mUpdateFlags[UpdateFlag::Images];
 }
 
-bool Scene::UpdateMeshes() const
+bool Scene::UpdateMeshesRequested() const
 {
     return mUpdateFlags[UpdateFlag::Meshes];
 }
 
-bool Scene::UpdateMeshMaterials() const
+bool Scene::UpdateMeshMaterialsRequested() const
 {
     return mUpdateFlags[UpdateFlag::MeshMaterials];
 }
 
-bool Scene::UpdateMaterials() const
+bool Scene::UpdateMaterialsRequested() const
 {
     return mUpdateFlags[UpdateFlag::Materials];
 }
 
-bool Scene::UpdateObjects() const
+bool Scene::UpdateObjectsRequested() const
 {
     return mUpdateFlags[UpdateFlag::Objects];
 }
 
-bool Scene::UpdateEnvironment() const
+bool Scene::UpdateEnvironmentRequested() const
 {
     return mUpdateFlags[UpdateFlag::Environment];
 }

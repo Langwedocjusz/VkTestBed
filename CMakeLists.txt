@@ -93,6 +93,7 @@ target_sources(${PROJECT_NAME}
         src/Core/Frame.h
         src/Core/Frame.h
         src/Core/GeometryData.h
+        src/Core/GeometryData.cpp
         src/Core/ImageData.h
         src/Core/ImageData.cpp
         src/Core/Keycodes.h

@@ -69,7 +69,7 @@ class MinimalPbrRenderer final : public IRenderer {
         Buffer IndexBuffer;
         uint32_t IndexCount;
 
-        BoundingBox Bbox;
+        AABB Bbox;
         SceneKey MaterialKey = 0;
         std::vector<Instance> Instances;
     };
@@ -232,6 +232,7 @@ class MinimalPbrRenderer final : public IRenderer {
     EnvironmentHandler mEnvHandler;
     // Shadowmap generation:
     ShadowmapHandler mShadowmapHandler;
+    AABB mSceneAABB;
 
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;

@@ -224,19 +224,19 @@ void Minimal3DRenderer::RecreateSwapchainResources()
 
 void Minimal3DRenderer::LoadScene(const Scene &scene)
 {
-    if (scene.UpdateMeshes())
+    if (scene.UpdateMeshesRequested())
         LoadMeshes(scene);
 
-    if (scene.UpdateImages())
+    if (scene.UpdateImagesRequested())
         LoadImages(scene);
 
-    if (scene.UpdateMaterials())
+    if (scene.UpdateMaterialsRequested())
         LoadMaterials(scene);
 
-    if (scene.UpdateMeshMaterials())
+    if (scene.UpdateMeshMaterialsRequested())
         LoadMeshMaterials(scene);
 
-    if (scene.UpdateObjects())
+    if (scene.UpdateObjectsRequested())
         LoadObjects(scene);
 }
 

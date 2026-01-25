@@ -109,7 +109,7 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
                              .Build(mCtx, mPipelineDeletionQueue);
 }
 
-void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir)
+void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB)
 {
     // Construct worldspace coords for the shadow sampling part of the frustum:
     auto GetFarVector = [&](glm::vec4 near, glm::vec4 far) {
@@ -155,30 +155,42 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir)
         maxZ = std::max(maxZ, vert.z);
     }
 
-    // Adjust with user controlled parameters:
-    maxZ += mAddZ;
-    minZ -= mSubZ;
+    // Clip XY positions to texel size in world space to avoid shimmering artefact:
+    float texelSizeX = (maxX - minX) / mShadowmapResolution;
+    float texelSizeY = (maxY - minY) / mShadowmapResolution;
 
+    minX = std::floor(minX / texelSizeX) * texelSizeX;
+    maxX = std::floor(maxX / texelSizeX) * texelSizeX;
+    minY = std::floor(minY / texelSizeY) * texelSizeY;
+    maxY = std::floor(maxY / texelSizeY) * texelSizeY;
+
+    // Update minZ and maxZ values based on scene bounding box:
+
+    //To-do: This is overly conservative. Perfect solution would be to compute a polyhedron
+    // intersection of the AABB with extruded frusum and take min/max over its vertices.
+    auto lightspaceAABB = sceneAABB.GetConservativeTransformedAABB(lightView);
+
+    auto minAABB = lightspaceAABB.Center.z - lightspaceAABB.Extent.z;
+    auto maxAABB = lightspaceAABB.Center.z + lightspaceAABB.Extent.z;
     
-    //Clip XY positions to texel size in world space to avoid shimmering artefact:    }
-    float texelSizeX = (maxX - minX)/mShadowmapResolution;
-    float texelSizeY = (maxY - minY)/mShadowmapResolution;
+    //To-do: This shouldn't be necessary. Wrong coordiantes are used somewhere:
+    minAABB *= -1.0f;
+    maxAABB *= -1.0f;
+    std::swap(minAABB, maxAABB);
+    
+    minZ = std::min(minZ, minAABB);
+    maxZ = std::max(maxZ, maxAABB);
 
-    minX = std::floor(minX/texelSizeX) * texelSizeX;
-    maxX = std::floor(maxX/texelSizeX) * texelSizeX;
-    minY = std::floor(minY/texelSizeY) * texelSizeY;
-    maxY = std::floor(maxY/texelSizeY) * texelSizeY;
-
-    //Construct the projection matrix:
+    // Construct the projection matrix:
     glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-    
+
     mLightViewProj = lightProj * lightView;
 }
 
 void ShadowmapHandler::OnImGui()
 {
-    ImGui::SliderFloat("Add Z", &mAddZ, 0.0f, 10.0f);
-    ImGui::SliderFloat("Sub Z", &mSubZ, 0.0f, 30.0f);
+    //ImGui::SliderFloat("Add Z", &mAddZ, 0.0f, 10.0f);
+    //ImGui::SliderFloat("Sub Z", &mSubZ, 0.0f, 30.0f);
     ImGui::SliderFloat("Shadow Dist", &mShadowDist, 1.0f, 40.0f);
 
     ImGui::Image((ImTextureID)mDebugTextureDescriptorSet, ImVec2(512, 512));

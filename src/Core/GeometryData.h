@@ -65,7 +65,8 @@ struct AABB {
 
     [[nodiscard]] AABB MaxWith(AABB other) const;
 
-    [[nodiscard]] std::array<glm::vec3, 8> GetCorners() const;
+    [[nodiscard]] std::array<glm::vec3, 8> GetVertices() const;
+    [[nodiscard]] static std::array<std::array<size_t,2>, 12> GetEdgesIds();
 };
 
 struct GeometryData {

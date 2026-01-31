@@ -12,19 +12,36 @@ bool GeometryLayout::IsCompatible(const GeometryLayout &other)
     return idxCompat && vertCompat;
 }
 
-std::array<glm::vec3, 8> AABB::GetCorners() const
+std::array<glm::vec3, 8> AABB::GetVertices() const
 {
     return {
-        Center + Extent * glm::vec3(-1, -1, -1), Center + Extent * glm::vec3(-1, -1, 1),
-        Center + Extent * glm::vec3(-1, 1, -1),  Center + Extent * glm::vec3(-1, 1, 1),
-        Center + Extent * glm::vec3(1, -1, -1),  Center + Extent * glm::vec3(1, -1, 1),
-        Center + Extent * glm::vec3(1, 1, -1),   Center + Extent * glm::vec3(1, 1, 1),
+        // clang-format off
+        Center + Extent * glm::vec3(-1, -1, -1), 
+        Center + Extent * glm::vec3( 1, -1, -1),
+        Center + Extent * glm::vec3( 1,  1, -1),  
+        Center + Extent * glm::vec3(-1,  1, -1),
+        Center + Extent * glm::vec3(-1, -1,  1), 
+        Center + Extent * glm::vec3( 1, -1,  1),
+        Center + Extent * glm::vec3( 1,  1,  1),  
+        Center + Extent * glm::vec3(-1,  1,  1),
+        // clang-format on
     };
+}
+
+std::array<std::array<size_t,2>, 12> AABB::GetEdgesIds()
+{
+    return {{
+        // clang-format off
+        {0,1}, {1,2}, {2,3}, {3,0}, // Lower face
+        {4,5}, {5,6}, {6,7}, {7,4}, // Upper face
+        {0,4}, {1,5}, {2,6}, {3,7}  // Corners
+        // clang-format on
+    }};
 }
 
 bool AABB::IsInView(glm::mat4 mvp) const
 {
-    auto corners = GetCorners();
+    auto corners = GetVertices();
 
     bool allFront = true;
     bool allBack = true;
@@ -50,7 +67,7 @@ bool AABB::IsInView(glm::mat4 mvp) const
 
 AABB AABB::GetConservativeTransformedAABB(glm::mat4 transform) const
 {
-    auto corners = GetCorners();
+    auto corners = GetVertices();
 
     // Transform all corners:
     for (auto &corner : corners)

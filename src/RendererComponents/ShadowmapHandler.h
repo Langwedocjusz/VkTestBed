@@ -55,9 +55,8 @@ class ShadowmapHandler {
         glm::mat4 LightMVP;
     } mShadowPCData;
 
-    //float mAddZ = 8.0f;
-    //float mSubZ = 30.0f;
     float mShadowDist = 20.0f;
+    //bool mConservativeFrustum = true;
 
     Image mShadowmap;
     VkImageView mShadowmapView;

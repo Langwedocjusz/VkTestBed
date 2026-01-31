@@ -88,8 +88,8 @@ float CalculateShadowFactor(vec4 lightCoord, vec2 offset)
     vec3 projCoords = lightCoord.xyz / lightCoord.w;
     vec2 uv = (projCoords.xy * 0.5 + 0.5) + offset;
 
-    //if (projCoords.z > 1.0)
-    //    return 1.0;    
+    if (projCoords.z > 1.0)
+        return 1.0;    
 
     float bias = max(DynamicUBO.ShadowBiasMax * (1.0 - dot(InData.Normal, EnvUBO.LightDir)), DynamicUBO.ShadowBiasMin);
     float currentDepth = projCoords.z - bias;

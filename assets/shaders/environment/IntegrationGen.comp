@@ -2,10 +2,8 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-const float PI = 3.14159265359;
-
-#include "common/Pbr.glsl"
-#include "common/PbrIbl.glsl"
+#include "../common/Pbr.glsl"
+#include "../common/PbrIbl.glsl"
 
 layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 

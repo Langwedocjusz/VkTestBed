@@ -4,9 +4,9 @@
 
 const float PI = 3.14159265359;
 
-#include "common/Pbr.glsl"
-#include "common/PbrIbl.glsl"
-#include "common/Cubemap.glsl"
+#include "../common/Pbr.glsl"
+#include "../common/PbrIbl.glsl"
+#include "../common/Cubemap.glsl"
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 

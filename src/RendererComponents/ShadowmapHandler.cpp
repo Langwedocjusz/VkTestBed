@@ -1,12 +1,15 @@
 #include "ShadowmapHandler.h"
+#include "BufferUtils.h"
 #include "Pch.h"
 
 #include "Barrier.h"
 #include "Common.h"
 #include "Descriptor.h"
 #include "ImageUtils.h"
+#include "Pipeline.h"
 #include "Sampler.h"
 
+#include "VertexLayout.h"
 #include "imgui.h"
 
 #include <imgui_impl_vulkan.h>
@@ -16,11 +19,14 @@
 #include <glm/matrix.hpp>
 
 #include <limits>
+#include <vulkan/vulkan_core.h>
 
-static std::optional<glm::vec3> IntersectFace(std::array<glm::vec3, 2> lineSegment, std::array<glm::vec3,4> face);
+// static std::optional<glm::vec3> IntersectFace(std::array<glm::vec3, 2> lineSegment,
+// std::array<glm::vec3,4> face);
 
-ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
-    : mCtx(ctx), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
+ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat, VkFormat debugDepthFormat)
+    : mCtx(ctx), mDebugColorFormat(debugColorFormat), mDebugDepthFormat(debugDepthFormat), mMainDeletionQueue(ctx),
+      mPipelineDeletionQueue(ctx)
 {
     mSamplerShadowmap = SamplerBuilder("MinimalPbrSamplerShadowmap")
                             .SetMagFilter(VK_FILTER_LINEAR)
@@ -42,7 +48,6 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
 
     // Create descriptor set layout for sampling the shadowmap
     // and allocate the corresponding descriptor set:
-
     mShadowmapDescriptorSetLayout =
         DescriptorSetLayoutBuilder("MinimalPBRShadowmapDescriptorLayout")
             .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -85,6 +90,44 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
 
     mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
         mSamplerDebug, mShadowmapView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    // For debug visualization of the shadow frustum:
+    // TODO: This way of making vertex buffer dynamic will probably result in some 
+    // tearing artefacts on camera movement This should really be per-frame-in-flight:
+    auto vertSize = Vertex::GetSize(mDebugGeometryLayout.VertexLayout);
+    VkDeviceSize vertexBufferSize = 16uz * vertSize;
+
+    auto bufUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    auto bufFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                    VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+    mDebugFrustumVertexBuffer = Buffer::Create(mCtx, "ShadowmapDebugFrustumVertexBuffer",
+                                               vertexBufferSize, bufUsage, bufFlags);
+    mMainDeletionQueue.push_back(mDebugFrustumVertexBuffer);
+
+    //Index buffer doesn't need to be dynamic:
+    auto idxCount = 36;
+    OpaqueBuffer indexData(idxCount, idxCount * sizeof(uint16_t), alignof(uint16_t));
+    
+    new (indexData.Data) uint16_t[idxCount]
+    {
+        //Near
+        0,1,2, 1,3,2,
+        //Far
+        6,5,4, 6,7,5,
+        //Left
+        0,6,4, 0,2,6,
+        //Right
+        1,5,7, 1,7,3,
+        //Top
+        0,4,5, 0,5,1,
+        //Bottom
+        2,7,6, 2,3,7
+    };
+    
+    mDebugFrustumIndexBuffer = MakeBuffer::Index(mCtx, "ShadowmapDebugFrustumVertexBuffer", indexData);
+    mMainDeletionQueue.push_back(mDebugFrustumIndexBuffer);
 }
 
 ShadowmapHandler::~ShadowmapHandler()
@@ -98,50 +141,75 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
 {
     mPipelineDeletionQueue.flush();
 
-    mShadowmapPipeline = PipelineBuilder("MinimalPBRShadowmapPipeline")
-                             .SetShaderPathVertex("assets/spirv/ShadowmapVert.spv")
-                             .SetShaderPathFragment("assets/spirv/ShadowmapFrag.spv")
-                             .SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
-                             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
-                             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-                             .SetPushConstantSize(sizeof(mShadowPCData))
-                             .AddDescriptorSetLayout(materialDSLayout)
-                             .EnableDepthTest()
-                             .SetDepthFormat(mShadowmapFormat)
-                             .Build(mCtx, mPipelineDeletionQueue);
+    mShadowmapPipeline =
+        PipelineBuilder("ShadowmapPipeline")
+            .SetShaderPathVertex("assets/spirv/shadows/ShadowmapVert.spv")
+            .SetShaderPathFragment("assets/spirv/shadows/ShadowmapFrag.spv")
+            .SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+            .SetPushConstantSize(sizeof(mShadowPCData))
+            .AddDescriptorSetLayout(materialDSLayout)
+            .EnableDepthTest()
+            .SetDepthFormat(mShadowmapFormat)
+            .Build(mCtx, mPipelineDeletionQueue);
+
+    mDebugPipeline =
+        PipelineBuilder("ShadowmapDebugPipeline")
+            .SetShaderPathVertex("assets/spirv/shadows/ShadowDebugVert.spv")
+            .SetShaderPathFragment("assets/spirv/shadows/ShadowDebugFrag.spv")
+            .SetVertexInput(mDebugGeometryLayout.VertexLayout, 0,
+                            VK_VERTEX_INPUT_RATE_VERTEX)
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE)
+            .SetPushConstantSize(sizeof(mDebugPCData))
+            .SetColorFormat(mDebugColorFormat)
+            .EnableDepthTest()
+            .SetDepthFormat(mDebugDepthFormat)
+            .SetStencilFormat(mDebugDepthFormat)
+            .EnableBlending()
+            .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB)
 {
-    // Construct light view matrix, looking along the light direction:
-    // Up vector doesn't really matter.
-    glm::mat4 lightView = glm::lookAt(lightDir, glm::vec3(0.0f), glm::vec3(0,-1,0));
-
     // Construct worldspace coords for the shadow sampling part of the frustum:
     auto ScaleFarVector = [this](glm::vec4 near, glm::vec4 &far) {
         auto normalized = glm::normalize(glm::vec3(far - near));
         far = near + mShadowDist * glm::vec4(normalized, 0.0f);
     };
 
-    Frustum shadowFrustum = camFr;
-    ScaleFarVector(shadowFrustum.NearTopLeft, shadowFrustum.FarTopLeft);
-    ScaleFarVector(shadowFrustum.NearTopRight, shadowFrustum.FarTopRight);
-    ScaleFarVector(shadowFrustum.NearBottomLeft, shadowFrustum.FarBottomLeft);
-    ScaleFarVector(shadowFrustum.NearBottomRight, shadowFrustum.FarBottomRight);
+
+    if (!mFreezeFrustum)
+    {
+        mShadowFrustum = camFr;
+        ScaleFarVector(mShadowFrustum.NearTopLeft, mShadowFrustum.FarTopLeft);
+        ScaleFarVector(mShadowFrustum.NearTopRight, mShadowFrustum.FarTopRight);
+        ScaleFarVector(mShadowFrustum.NearBottomLeft, mShadowFrustum.FarBottomLeft);
+        ScaleFarVector(mShadowFrustum.NearBottomRight, mShadowFrustum.FarBottomRight);
+
+        auto frustumVerts = mShadowFrustum.GetVertices();
+        std::copy(&frustumVerts[0], &frustumVerts[8], &mVertexBufferData[0]);
+    }
+
+    // Construct light view matrix, looking along the light direction:
+    // Up vector doesn't really matter.
+    glm::mat4 lightView = glm::lookAt(lightDir, glm::vec3(0.0f), glm::vec3(0, -1, 0));
 
     // Transform the shadowed frustum to light view space:
-    auto frustumVertices = shadowFrustum.GetVertices();
+    auto frustumVertices = mShadowFrustum.GetVertices();
 
     for (auto &vert : frustumVertices)
     {
-        //On paper it seems like y coord of the frustum should be flipped
-        //Debug view of the shadowmap also makes more sense when it is done.
-        //But actual shadows in the viewport work better without the filp.
-        //Introducing the flip means sometimes fragments withing frustum (close to camera)
-        //end up sampling outside the shadowmap.
-        //TODO: Understand why.
+        // On paper it seems like y coord of the frustum should be flipped
+        // Debug view of the shadowmap also makes more sense when it is done.
+        // But actual shadows in the viewport work better without the filp.
+        // Introducing the flip means sometimes fragments withing frustum (close to
+        // camera) end up sampling outside the shadowmap.
+        // TODO: Understand why.
 
         vert = lightView * vert;
     }
@@ -175,11 +243,11 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
     maxY = std::floor(maxY / texelSizeY) * texelSizeY;
 
     // Update minZ and maxZ values based on scene bounding box:
-    //if (mConservativeFrustum)
+    if (mFitToScene)
     {
         auto verts = sceneAABB.GetVertices();
 
-        for (auto& vert : verts)
+        for (auto &vert : verts)
         {
             vert.y *= -1.0f;
             vert = glm::vec3(lightView * glm::vec4(vert, 1.0f));
@@ -197,16 +265,17 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
         minZ = std::min(minZ, minAABB);
         maxZ = std::max(maxZ, maxAABB);
     }
-    /*else
+    /*
     {
-        //TODO: Intersection of the AABB with extruded frustum for less conservative Z bounds
+        //TODO: Intersection of the AABB with extruded frustum for less conservative Z
+    bounds
 
         float minAABB = std::numeric_limits<float>::max();
         float maxAABB = std::numeric_limits<float>::lowest();
 
         //Get bounding box vertices in lightspace:
         auto verts = sceneAABB.GetVertices();
-        
+
         for (auto& vert : verts)
         {
             vert.z *= -1.0f;
@@ -230,7 +299,7 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
         auto edgeIds = sceneAABB.GetEdgesIds();
 
         std::array<std::array<glm::vec3, 4>, 6> faces;
-        
+
         {
             //Cube vertices:
             std::array cv{
@@ -277,6 +346,22 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
         maxZ = std::max(maxZ, maxAABB);
     }*/
 
+    if (mDebugView)
+    {
+        auto inverseLightView = glm::inverse(lightView);
+
+        mVertexBufferData[8] = inverseLightView * glm::vec4(minX, maxY, minZ, 1.0f);
+        mVertexBufferData[9] = inverseLightView * glm::vec4(maxX, maxY, minZ, 1.0f);
+        mVertexBufferData[10] = inverseLightView * glm::vec4(minX, minY, minZ, 1.0f);
+        mVertexBufferData[11] = inverseLightView * glm::vec4(maxX, minY, minZ, 1.0f);
+        mVertexBufferData[12] = inverseLightView * glm::vec4(minX, maxY, maxZ, 1.0f);
+        mVertexBufferData[13] = inverseLightView * glm::vec4(maxX, maxY, maxZ, 1.0f);
+        mVertexBufferData[14] = inverseLightView * glm::vec4(minX, minY, maxZ, 1.0f);
+        mVertexBufferData[15] = inverseLightView * glm::vec4(maxX, minY, maxZ, 1.0f);
+
+        Buffer::UploadToMapped(mDebugFrustumVertexBuffer, mVertexBufferData.data(), mVertexBufferData.size() * sizeof(mVertexBufferData[0]));
+    }
+
     // Construct the projection matrix:
     glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
 
@@ -285,8 +370,12 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
 
 void ShadowmapHandler::OnImGui()
 {
-    ImGui::SliderFloat("Shadow Dist", &mShadowDist, 1.0f, 40.0f);
-    //ImGui::Checkbox("Conservative", &mConservativeFrustum);
+    ImGui::Checkbox("Debug View", &mDebugView);
+    ImGui::Checkbox("Freeze Frustum", &mFreezeFrustum);
+    ImGui::Checkbox("Fit to scene", &mFitToScene);
+
+    if (!mFreezeFrustum)
+        ImGui::SliderFloat("Shadow Dist", &mShadowDist, 1.0f, 40.0f);
 
     ImGui::Image((ImTextureID)mDebugTextureDescriptorSet, ImVec2(512, 512));
 }
@@ -322,7 +411,8 @@ void ShadowmapHandler::BindMaterialDS(VkCommandBuffer cmd, VkDescriptorSet mater
     mShadowmapPipeline.BindDescriptorSet(cmd, materialDS, 0);
 }
 
-/*static std::optional<glm::vec3> IntersectFace(std::array<glm::vec3, 2> lineSegment, std::array<glm::vec3,4> face)
+/*static std::optional<glm::vec3> IntersectFace(std::array<glm::vec3, 2> lineSegment,
+std::array<glm::vec3,4> face)
 {
     //Construct ray from line segment:
     auto rayOrigin = lineSegment[0];
@@ -379,3 +469,38 @@ void ShadowmapHandler::BindMaterialDS(VkCommandBuffer cmd, VkDescriptorSet mater
     //If all checks passed return intersection:
     return intersection;
 }*/
+
+void ShadowmapHandler::DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj,
+                                       VkExtent2D extent)
+{
+    if (!mDebugView)
+        return;
+
+    mDebugPipeline.Bind(cmd);
+    common::ViewportScissor(cmd, extent);
+
+    VkBuffer vertBuffer = mDebugFrustumVertexBuffer.Handle;
+    VkDeviceSize vertOffset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
+
+    vkCmdBindIndexBuffer(cmd, mDebugFrustumIndexBuffer.Handle, 0, mDebugGeometryLayout.IndexType);
+
+    mDebugPCData = {
+        .ViewProj = viewProj,
+        .Color = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f),
+    };
+
+    //TODO: Fetch this from somewhere:
+    auto idxCount = 36;
+
+    vkCmdPushConstants(cmd, mDebugPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                           sizeof(mDebugPCData), &mDebugPCData);
+    
+    vkCmdDrawIndexed(cmd, idxCount, 1, 0, 0, 0);
+
+    mDebugPCData.Color = glm::vec4(0.9f, 0.9f, 0.2f, 0.2f);
+    vkCmdPushConstants(cmd, mDebugPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
+                           sizeof(mDebugPCData), &mDebugPCData);
+    
+    vkCmdDrawIndexed(cmd, idxCount, 1, 0, 8, 0);
+}

@@ -1,5 +1,7 @@
 //PBR functions from: https://google.github.io/filament/Filament.md.html
 
+#define PI 3.14159265359
+
 float D_GGX(float NoH, float roughness)
 {
     float a = NoH * roughness;

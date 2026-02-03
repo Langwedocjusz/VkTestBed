@@ -28,7 +28,7 @@ std::array<glm::vec3, 8> AABB::GetVertices() const
     };
 }
 
-std::array<std::array<size_t,2>, 12> AABB::GetEdgesIds()
+std::array<std::array<size_t, 2>, 12> AABB::GetEdgesIds()
 {
     return {{
         // clang-format off
@@ -87,8 +87,8 @@ AABB AABB::GetConservativeTransformedAABB(glm::mat4 transform) const
     }
 
     // Repack into AABB:
-    auto center = 0.5f*(vmax + vmin);
-    auto extent = 0.5f*(vmax - vmin);
+    auto center = 0.5f * (vmax + vmin);
+    auto extent = 0.5f * (vmax - vmin);
 
     return AABB{.Center = center, .Extent = extent};
 }
@@ -98,8 +98,8 @@ AABB AABB::GetConservativeTransformedAABB(glm::mat4 transform) const
     glm::vec3 vmin = glm::min(Center - Extent, other.Center - other.Extent);
     glm::vec3 vmax = glm::max(Center + Extent, other.Center + other.Extent);
 
-    auto center = 0.5f*(vmax + vmin);
-    auto extent = 0.5f*(vmax - vmin);
+    auto center = 0.5f * (vmax + vmin);
+    auto extent = 0.5f * (vmax - vmin);
 
     return AABB{.Center = center, .Extent = extent};
 }

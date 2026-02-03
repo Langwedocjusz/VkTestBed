@@ -93,7 +93,7 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info), mEnvHandler(ctx), mShadowmapHandler(ctx),
+      mDynamicUBO(ctx, info), mEnvHandler(ctx), mShadowmapHandler(ctx, mRenderTargetFormat, mDepthStencilFormat),
       mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
     // Create the texture samplers:
@@ -271,8 +271,8 @@ void MinimalPbrRenderer::RebuildPipelines()
 
     mBackgroundPipeline =
         PipelineBuilder("MinimalPBRBackgroundPipeline")
-            .SetShaderPathVertex("assets/spirv/BackgroundVert.spv")
-            .SetShaderPathFragment("assets/spirv/BackgroundFrag.spv")
+            .SetShaderPathVertex("assets/spirv/environment/BackgroundVert.spv")
+            .SetShaderPathFragment("assets/spirv/environment/BackgroundFrag.spv")
             // No vertex format, since we just hardcode the fullscreen triangle in
             // the vertex shader:
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
@@ -304,8 +304,8 @@ void MinimalPbrRenderer::RebuildPipelines()
 
     mStencilPipeline =
         PipelineBuilder("MinimalPBRStencilPipeline")
-            .SetShaderPathVertex("assets/spirv/StencilVert.spv")
-            .SetShaderPathFragment("assets/spirv/StencilFrag.spv")
+            .SetShaderPathVertex("assets/spirv/outline/StencilVert.spv")
+            .SetShaderPathFragment("assets/spirv/outline/StencilFrag.spv")
             .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -333,8 +333,8 @@ void MinimalPbrRenderer::RebuildPipelines()
 
     mOutlinePipeline =
         PipelineBuilder("MinimalPBRStencilPipeline")
-            .SetShaderPathVertex("assets/spirv/OutlineVert.spv")
-            .SetShaderPathFragment("assets/spirv/OutlineFrag.spv")
+            .SetShaderPathVertex("assets/spirv/outline/OutlineVert.spv")
+            .SetShaderPathFragment("assets/spirv/outline/OutlineFrag.spv")
             .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -352,8 +352,8 @@ void MinimalPbrRenderer::RebuildPipelines()
 
     mObjectIdPipeline =
         PipelineBuilder("MinimalPBRObjectIdPipeline")
-            .SetShaderPathVertex("assets/spirv/ObjectIdVert.spv")
-            .SetShaderPathFragment("assets/spirv/ObjectIdFrag.spv")
+            .SetShaderPathVertex("assets/spirv/outline/ObjectIdVert.spv")
+            .SetShaderPathFragment("assets/spirv/outline/ObjectIdFrag.spv")
             .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -855,6 +855,9 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
     DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
 
+    //TODO: Add ability to turn this off:
+    mShadowmapHandler.DrawDebugShapes(cmd, mUBOData.CameraViewProjection, GetTargetSize());
+
     // Draw the background:
     if (mEnvHandler.HdriEnabled())
     {
@@ -1224,7 +1227,7 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 {
     using namespace std::views;
 
-    //Update scene bounding box:
+    // Update scene bounding box:
     mSceneAABB = scene.TotalAABB;
 
     // Load all object transforms and build object index cache:

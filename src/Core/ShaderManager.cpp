@@ -50,6 +50,16 @@ ShaderManager::ShaderManager(std::string_view srcDir, std::string_view byteDir)
     // Create bytecode dir if it doesn't already exist:
     std::filesystem::create_directory(mBytecodeDir);
 
+    for (auto &subdir : std::filesystem::recursive_directory_iterator(mSourceDir))
+    {
+        if (!subdir.is_directory())
+            continue;
+
+        auto relative = std::filesystem::relative(subdir, mSourceDir);
+        auto rebased = mBytecodeDir / relative;
+        std::filesystem::create_directory(rebased);
+    }
+
     CompileToBytecode();
 
     // Setup directory watcher:

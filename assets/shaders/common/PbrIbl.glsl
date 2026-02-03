@@ -1,6 +1,8 @@
 //Importance sampled low discrepancy monte carlo integration
 //taken from: https://learnopengl.com/PBR/IBL/Specular-IBL
 
+#define PI 3.14159265359
+
 float RadicalInverse_VdC(uint bits) 
 {
     bits = (bits << 16u) | (bits >> 16u);

@@ -194,15 +194,18 @@ PipelineBuilder &PipelineBuilder::SetStencilFormat(VkFormat format)
 
 PipelineBuilder &PipelineBuilder::EnableBlending()
 {
+    mColorBlendAttachment.blendEnable = VK_TRUE;
+    
     mColorBlendAttachment.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
-    mColorBlendAttachment.blendEnable = VK_TRUE;
+    
     mColorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
     mColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     mColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    mColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-    mColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    
+    mColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; 
+    mColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     mColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 
     mColorBlend.logicOpEnable = VK_FALSE;

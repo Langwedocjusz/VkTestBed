@@ -22,7 +22,7 @@ static VkFormat GetFormat(Vertex::AttributeType type)
     std::unreachable();
 }
 
-static uint32_t GetSize(Vertex::AttributeType type)
+static uint32_t GetAttributeSize(Vertex::AttributeType type)
 {
     using enum Vertex::AttributeType;
 
@@ -41,12 +41,12 @@ static uint32_t GetSize(Vertex::AttributeType type)
     std::unreachable();
 }
 
-static uint32_t GetSize(const Vertex::Layout &layout)
+uint32_t Vertex::GetSize(const Vertex::Layout &layout)
 {
     uint32_t res = 0;
 
     for (auto type : layout)
-        res += GetSize(type);
+        res += GetAttributeSize(type);
 
     return res;
 }
@@ -81,7 +81,7 @@ Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const Layout &lay
         res.push_back({static_cast<uint32_t>(res.size()), 0, GetFormat(attributeType),
                        currentOffset});
 
-        currentOffset += GetSize(attributeType);
+        currentOffset += GetAttributeSize(attributeType);
     }
 
     return res;

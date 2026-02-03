@@ -274,35 +274,39 @@ void EnvironmentHandler::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    mEquiRectToCubePipeline = ComputePipelineBuilder("EnvEquToCubePipeline")
-                                  .SetShaderPath("assets/spirv/EquiToCubeComp.spv")
-                                  .AddDescriptorSetLayout(mTexToImgDescriptorSetLayout)
-                                  .Build(mCtx, mPipelineDeletionQueue);
+    mEquiRectToCubePipeline =
+        ComputePipelineBuilder("EnvEquToCubePipeline")
+            .SetShaderPath("assets/spirv/environment/EquiToCubeComp.spv")
+            .AddDescriptorSetLayout(mTexToImgDescriptorSetLayout)
+            .Build(mCtx, mPipelineDeletionQueue);
 
-    mIrradianceSHPipeline = ComputePipelineBuilder("EnvIrradianceSHPipeline")
-                                .SetShaderPath("assets/spirv/IrradianceCalcSHComp.spv")
-                                .AddDescriptorSetLayout(mBackgroundDescrptorSetLayout)
-                                .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
-                                .SetPushConstantSize(sizeof(IrradianceSHPushConstants))
-                                .Build(mCtx, mPipelineDeletionQueue);
+    mIrradianceSHPipeline =
+        ComputePipelineBuilder("EnvIrradianceSHPipeline")
+            .SetShaderPath("assets/spirv/environment/IrradianceCalcSHComp.spv")
+            .AddDescriptorSetLayout(mBackgroundDescrptorSetLayout)
+            .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
+            .SetPushConstantSize(sizeof(IrradianceSHPushConstants))
+            .Build(mCtx, mPipelineDeletionQueue);
 
     mIrradianceReducePipeline =
         ComputePipelineBuilder("EnvIrradianceReducePipeline")
-            .SetShaderPath("assets/spirv/IrradianceReduceComp.spv")
+            .SetShaderPath("assets/spirv/environment/IrradianceReduceComp.spv")
             .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
             .SetPushConstantSize(sizeof(ReducePushConstants))
             .Build(mCtx, mPipelineDeletionQueue);
 
-    mPrefilteredGenPipeline = ComputePipelineBuilder("EnvPrefilteredGenPipeline")
-                                  .SetShaderPath("assets/spirv/PrefilteredGenComp.spv")
-                                  .AddDescriptorSetLayout(mPrefilteredDescriptorSetLayout)
-                                  .SetPushConstantSize(sizeof(PrefilteredPushConstants))
-                                  .Build(mCtx, mPipelineDeletionQueue);
+    mPrefilteredGenPipeline =
+        ComputePipelineBuilder("EnvPrefilteredGenPipeline")
+            .SetShaderPath("assets/spirv/environment/PrefilteredGenComp.spv")
+            .AddDescriptorSetLayout(mPrefilteredDescriptorSetLayout)
+            .SetPushConstantSize(sizeof(PrefilteredPushConstants))
+            .Build(mCtx, mPipelineDeletionQueue);
 
-    mIntegrationGenPipeline = ComputePipelineBuilder("EnvIntegrationPipeline")
-                                  .SetShaderPath("assets/spirv/IntegrationGenComp.spv")
-                                  .AddDescriptorSetLayout(mIntegrationDescriptorSetLayout)
-                                  .Build(mCtx, mPipelineDeletionQueue);
+    mIntegrationGenPipeline =
+        ComputePipelineBuilder("EnvIntegrationPipeline")
+            .SetShaderPath("assets/spirv/environment/IntegrationGenComp.spv")
+            .AddDescriptorSetLayout(mIntegrationDescriptorSetLayout)
+            .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void EnvironmentHandler::LoadEnvironment(const Scene &scene)

@@ -10,7 +10,7 @@
 #include <mutex>
 #include <optional>
 
-// To-do: replace with a more legit unqiue ID setup:
+// TODO: replace with a more legit unqiue ID setup:
 using SceneKey = uint32_t;
 
 class SceneKeyGenerator {

@@ -6,7 +6,7 @@ layout (set = 0, binding = 0, Rgba8) uniform writeonly image2D aoResult;
 
 layout(set = 0, binding = 1) uniform sampler2D depthBuffer;
 
-//To-do: proj can be fetched from camera uniform buffer:
+//TODO: proj can be fetched from camera uniform buffer:
 layout(push_constant) uniform constants {
     mat4 Proj;
     mat4 InvProj;
@@ -28,7 +28,7 @@ float SampleDepth(vec2 uv)
 
 vec3 ReconstructPosition(vec2 uv, float depth)
 {
-    //To-do: this can apparently be optimized not to do matrix math:
+    //TODO: this can apparently be optimized not to do matrix math:
     //https://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer/
     vec4 clipPos = vec4(2.0*uv-1.0, depth, 1.0);
     vec4 viewPos4 = PushConstants.InvProj * clipPos;
@@ -43,7 +43,7 @@ struct Basis{
 
 Basis GetTangentBasis(vec2 uv, vec3 pos0)
 {
-    //To-do: this can be improved to fixed edge artifacts, and optimized with shared memory:
+    //TODO: this can be improved to fixed edge artifacts, and optimized with shared memory:
     //https://wickedengine.net/2019/09/improved-normal-reconstruction-from-depth/
     //And further:
     //https://atyuwen.github.io/posts/normal-reconstruction/
@@ -57,7 +57,7 @@ Basis GetTangentBasis(vec2 uv, vec3 pos0)
     vec3 pos1 = ReconstructPosition(uv1, depth1);
     vec3 pos2 = ReconstructPosition(uv2, depth2);
 
-    //To-do: T and B should probably be orthonormalzied with Gram-Schmidt:
+    //TODO: T and B should probably be orthonormalzied with Gram-Schmidt:
     vec3 T = normalize(pos1 - pos0);
     vec3 B = normalize(pos2 - pos0);
 
@@ -67,7 +67,7 @@ Basis GetTangentBasis(vec2 uv, vec3 pos0)
 }
 
 
-//To-do: sample generation should be optimized
+//TODO: sample generation should be optimized
 //and maybe even just done once and cached in a buffer.
 
 //High quality hash functions based on:

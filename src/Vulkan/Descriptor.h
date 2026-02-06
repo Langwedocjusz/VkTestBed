@@ -42,7 +42,7 @@ class DescriptorUpdater {
   public:
     DescriptorUpdater(VkDescriptorSet descriptorSet);
 
-    // To-do: add support for different buffers
+    // TODO: add support for different buffers
 
     /// Assumes no offset into the buffer
     DescriptorUpdater &WriteUniformBuffer(uint32_t binding, VkBuffer buffer,

@@ -376,7 +376,7 @@ static auto UnpackTransform(fastgltf::Node &node)
 
 void AssetManager::ProcessGltfHierarchy(SceneGraphNode &root)
 {
-    // To-do: Currently we assume gltf holds one scene.
+    // TODO: Currently we assume gltf holds one scene.
     auto &scene = mModel->Gltf.scenes[0];
 
     for (auto nodeIdx : scene.nodeIndices)
@@ -384,7 +384,7 @@ void AssetManager::ProcessGltfHierarchy(SceneGraphNode &root)
         auto &node = mModel->Gltf.nodes[nodeIdx];
         auto [translation, rotation, scale] = UnpackTransform(node);
 
-        // To-do: Only handles first-level nodes that hold meshes
+        // TODO: Only handles first-level nodes that hold meshes
         if (node.meshIndex.has_value())
         {
             auto meshKey = mModel->MeshDict[*node.meshIndex];

@@ -93,7 +93,8 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info), mEnvHandler(ctx), mShadowmapHandler(ctx, mRenderTargetFormat, mDepthStencilFormat),
+      mDynamicUBO(ctx, info), mEnvHandler(ctx),
+      mShadowmapHandler(ctx, mRenderTargetFormat, mDepthStencilFormat),
       mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
     // Create the texture samplers:
@@ -371,7 +372,7 @@ void MinimalPbrRenderer::RebuildPipelines()
 void MinimalPbrRenderer::RecreateSwapchainResources()
 {
     mSwapchainDeletionQueue.flush();
-    // To-do: If multisampling is set back to 1, then multisample target optionals can be
+    // TODO: If multisampling is set back to 1, then multisample target optionals can be
     // set back to nullopt
 
     // Create the render target:
@@ -690,16 +691,39 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
     auto viewProj = mUBOData.LightViewProjection;
 
-    auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
-        mShadowmapHandler.BindMaterialDS(cmd, material.DescriptorSet);
-        stats.NumBinds += 1;
-    };
+    // Draw opaque objects to shadowmap
+    {
+        mShadowmapHandler.BindOpaquePipeline(cmd);
 
-    auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-        mShadowmapHandler.PushConstantTransform(cmd, instance.Transform);
-    };
+        auto materialCallbackNull = [](VkCommandBuffer cmd, Material &material) {
+            (void)cmd;
+            (void)material;
+        };
 
-    DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
+        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+            mShadowmapHandler.PushConstantOpaque(cmd, instance.Transform);
+        };
+
+        DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallbackNull,
+                                     instanceCallback, stats);
+    }
+
+    // Draw alpha tested objects to shadowmap
+    {
+        mShadowmapHandler.BindAlphaPipeline(cmd);
+
+        auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
+            mShadowmapHandler.BindAlphaMaterialDS(cmd, material.DescriptorSet);
+            stats.NumBinds += 1;
+        };
+
+        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+            mShadowmapHandler.PushConstantAlpha(cmd, instance.Transform);
+        };
+
+        DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                     stats);
+    }
 
     mShadowmapHandler.EndShadowPass(cmd);
 }
@@ -715,46 +739,58 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 
     auto viewProj = mUBOData.CameraViewProjection;
 
-    auto materialCallbackNull = [](VkCommandBuffer cmd, Material &material) {
-        (void)cmd;
-        (void)material;
-    };
+    {
+        mZPrepassOpaquePipeline.Bind(cmd);
+        common::ViewportScissor(cmd, GetTargetSize());
 
-    auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
-        mZPrepassAlphaPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
-        stats.NumBinds += 1;
-    };
+        mZPrepassOpaquePipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
 
-    auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-        mPrepassPCData.Model = instance.Transform;
+        auto materialCallback = [](VkCommandBuffer cmd, Material &material) {
+            (void)cmd;
+            (void)material;
+        };
 
-        vkCmdPushConstants(cmd, mZPrepassAlphaPipeline.Layout,
-                           VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
-                           &mPrepassPCData);
-    };
+        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+            mPrepassPCData.Model = instance.Transform;
 
-    mZPrepassOpaquePipeline.Bind(cmd);
-    common::ViewportScissor(cmd, GetTargetSize());
+            vkCmdPushConstants(cmd, mZPrepassOpaquePipeline.Layout,
+                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
+                               &mPrepassPCData);
+        };
 
-    mZPrepassOpaquePipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+        DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                     stats);
+    }
 
-    DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallbackNull, instanceCallback,
-                                 stats);
+    {
+        mZPrepassAlphaPipeline.Bind(cmd);
+        common::ViewportScissor(cmd, GetTargetSize());
 
-    mZPrepassAlphaPipeline.Bind(cmd);
-    common::ViewportScissor(cmd, GetTargetSize());
+        mZPrepassAlphaPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
 
-    mZPrepassAlphaPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+        auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
+            mZPrepassAlphaPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
+            stats.NumBinds += 1;
+        };
 
-    DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
-                                 stats);
+        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+            mPrepassPCData.Model = instance.Transform;
+
+            vkCmdPushConstants(cmd, mZPrepassAlphaPipeline.Layout,
+                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
+                               &mPrepassPCData);
+        };
+
+        DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                     stats);
+    }
 
     vkCmdEndRendering(cmd);
 }
 
 void MinimalPbrRenderer::AOPass(VkCommandBuffer cmd, DrawStats &stats)
 {
-    // To-do: make the layout barriers non-coarse
+    // TODO: make the layout barriers non-coarse
 
     // Transition depth target to be used as texture:
     auto barrierInfoDepth = barrier::ImageLayoutBarrierInfo{
@@ -809,6 +845,7 @@ void MinimalPbrRenderer::AOPass(VkCommandBuffer cmd, DrawStats &stats)
 
 void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 {
+    // Begin rendering:
     bool clearDepth = !mEnablePrepass;
 
     if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
@@ -855,8 +892,11 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
     DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
 
-    //TODO: Add ability to turn this off:
-    mShadowmapHandler.DrawDebugShapes(cmd, mUBOData.CameraViewProjection, GetTargetSize());
+    //At this point debug visuals from the shadow map can optionally be drawn:
+    // TODO: This is kind of ugly, but debug needs to have acces to the main depth buffer.
+    // Think about a cleaner way to inject debug visualization rendering.
+    mShadowmapHandler.DrawDebugShapes(cmd, mUBOData.CameraViewProjection,
+                                      GetTargetSize());
 
     // Draw the background:
     if (mEnvHandler.HdriEnabled())
@@ -897,7 +937,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
     }
 
     // Draw to stencil:
-    // To-do: this does no check to see if the current drawable is double sided
+    // TODO: this does no check to see if the current drawable is double sided
     // and wheter or not the vkCullState is set accordingly.
     {
         if (mMultisample == VK_SAMPLE_COUNT_1_BIT)

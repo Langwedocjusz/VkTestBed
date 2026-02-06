@@ -195,16 +195,16 @@ PipelineBuilder &PipelineBuilder::SetStencilFormat(VkFormat format)
 PipelineBuilder &PipelineBuilder::EnableBlending()
 {
     mColorBlendAttachment.blendEnable = VK_TRUE;
-    
+
     mColorBlendAttachment.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
-    
+
     mColorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
     mColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     mColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    
-    mColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; 
+
+    mColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
     mColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     mColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 
@@ -232,7 +232,7 @@ PipelineBuilder &PipelineBuilder::SetPushConstantSize(uint32_t size)
     VkPushConstantRange pcRange{};
     pcRange.offset = 0;
     pcRange.size = size;
-    // To-do: may expose more granular control over this:
+    // TODO: may expose more granular control over this:
     pcRange.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
 
     mPushConstantRange = pcRange;

@@ -49,7 +49,7 @@ class MinimalPbrRenderer final : public IRenderer {
         glm::mat4 Transform;
     };
 
-    // To-do: This will be remade in RAII fashion when VulkanContext is reworked as a
+    // TODO: This will be remade in RAII fashion when VulkanContext is reworked as a
     // singleton. Currently each drawable would need to hold a reference to it, which
     // aside from memory usage also makes it difficult to make drawables movable-non
     // copyable, as they should be.

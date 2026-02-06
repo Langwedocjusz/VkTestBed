@@ -54,7 +54,7 @@ static auto ImGuiFunctionLoader(const char *function_name, void *ctx)
 {
     const std::string strName{function_name};
 
-    // To-do: this will break if newer versions of imgui use more instance level fns.
+    // TODO: this will break if newer versions of imgui use more instance level fns.
     // Think about a smarter way to do this.
     const std::set<std::string> instanceFns{
         "vkDestroySurfaceKHR",

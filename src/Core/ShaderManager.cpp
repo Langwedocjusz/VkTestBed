@@ -172,7 +172,7 @@ void ShaderManager::CompileToBytecode()
     // include directives:
     auto adjacencyList = GetAdjacencyList(mSourceDir, fileList);
 
-    // To-do: Check if graph represented by the adjacency list is acyclic
+    // TODO: Check if graph represented by the adjacency list is acyclic
 
     // Reverse the adjacency list:
     std::vector<std::vector<size_t>> reverseList(adjacencyList.size());
@@ -224,7 +224,7 @@ void ShaderManager::CompileToBytecode()
             auto dstTime = std::filesystem::last_write_time(dstPath);
             auto srcTime = std::filesystem::last_write_time(srcPath);
 
-            // To-do: this currently only supporst 1-long include chains
+            // TODO: this currently only supporst 1-long include chains
             // It should really traverse the whole include DAG.
             for (auto headerId : adjacencyList[id])
             {
@@ -253,7 +253,7 @@ void ShaderManager::CompileToBytecode()
 
         std::string cmd = "glslc --target-env=vulkan1.3 " + srcDir + " -o " + dstDir;
 
-        // To-do: maybe figure out a nicer way to do this:
+        // TODO: maybe figure out a nicer way to do this:
         system(cmd.c_str());
     }
 }

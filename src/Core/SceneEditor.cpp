@@ -124,7 +124,7 @@ void SceneEditor::EraseMesh(SceneKey mesh)
     mScene.Meshes.erase(mesh);
     GraphRoot.RemoveChildrenWithMesh(mScene, mesh);
 
-    // To-do: Instead of outright removing this prefab
+    // TODO: Instead of outright removing this prefab
     // it should probably only remove the nodes associaded
     // with mesh being erased.
     std::erase_if(mPrefabs, [mesh](const auto &item) {
@@ -240,7 +240,7 @@ void SceneEditor::HandleNodeOp()
     {
     case NodeOp::Move: {
         HandleNodeMove();
-        // To-do: this can be optimized to only update
+        // TODO: this can be optimized to only update
         // affected nodes:
         UpdateTransforms(&GraphRoot);
         break;

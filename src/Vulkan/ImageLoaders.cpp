@@ -13,7 +13,7 @@
 
 static VkDeviceSize BytesPerPixel(VkFormat format)
 {
-    // To-do: handle all formats
+    // TODO: handle all formats
 
     switch (format)
     {

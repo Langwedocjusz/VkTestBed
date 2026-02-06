@@ -33,7 +33,7 @@ Buffer MakeBuffer::TransferDST(VulkanContext &ctx, const std::string &debugName,
     Buffer stagingBuffer = MakeBuffer::Staging(ctx, stagingName, info.Size);
     Buffer::Upload(ctx, stagingBuffer, info.Data, info.Size);
 
-    // To-do: this should probably be done on transfer queue
+    // TODO: this should probably be done on transfer queue
     // if available:
     ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         CopyBufferInfo cp_info{

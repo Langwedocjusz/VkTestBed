@@ -9,11 +9,11 @@
 #define TRANSLUCENCY
 
 //#define SSAO_DEBUG_VIEW
-
-const float PI = 3.1415926535;
+//#define SHADOW_COORD_DEBUG_VIEW
 
 #include "common/Pbr.glsl"
 #include "common/SphericalHarmonics.glsl"
+#include "common/DebugGrid.glsl"
 
 layout(location = 0) in VertexData {
     vec2 TexCoord;
@@ -70,6 +70,9 @@ layout(push_constant) uniform PushConstantsBlock {
     vec4 TransAlpha;
     int DoubleSided;
 } PushConstants;
+
+//Debug grid
+//TODO: move this somewhere
 
 //https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)
@@ -141,6 +144,33 @@ void main()
     if (albedo.a < MatUBO.AlphaCutoff)
         discard;
 
+    //Handle debug views:
+    #ifdef SSAO_DEBUG_VIEW
+    if (DynamicUBO.AOEnabled == 1)
+    {
+        //TODO: maybe texture instead of texelFetch?
+        float ao = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0).r;
+        
+        outColor = vec4(vec3(ao), 1.0);
+        return;
+    }
+    #endif
+
+    #ifdef SHADOW_COORD_DEBUG_VIEW
+    {
+        vec4 lightCoord = InData.LightSpaceFragPos;
+        vec3 projCoords = lightCoord.xyz / lightCoord.w;
+        vec2 uv = (projCoords.xy * 0.5 + 0.5);
+    
+        float diff = 0.8 + 0.2 * dot(InData.Normal, normalize(vec3(1,1,1)));
+
+        vec3 color = diff * debug_grid(uv);
+    
+        outColor = vec4(color, 1.0);
+        return;
+    }
+    #endif
+
     //Sample roughness:
     vec4 roughnesMetallic = texture(rougness_map, InData.TexCoord);
 
@@ -184,7 +214,7 @@ void main()
 
     if (DynamicUBO.AOEnabled == 1)
     {
-        //To-do: maybe texture instead of texelFetch?
+        //TODO: maybe texture instead of texelFetch?
         float ao = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0).r;
         
         res.rgb *= ao;
@@ -230,16 +260,6 @@ void main()
     //Do color correction:
     res.rgb = ACESFilm(res.rgb);
     res.rgb = pow(res.rgb, vec3(1.0/2.2));
-
-    #ifdef SSAO_DEBUG_VIEW
-    if (DynamicUBO.AOEnabled == 1)
-    {
-        //To-do: maybe texture instead of texelFetch?
-        float ao = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0).r;
-        
-        res.rgb = vec3(ao);
-    }
-    #endif
 
     outColor = res;
 }

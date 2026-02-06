@@ -20,7 +20,7 @@ layout(push_constant) uniform constants {
 
 void main()
 {
-    //To-do: This is just idiotic linear summation.
+    //TODO: This is just idiotic linear summation.
     //Since this is done on gpu, it *really* should use
     //some clever parallelized algorithm.
 

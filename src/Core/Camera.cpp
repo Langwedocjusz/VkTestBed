@@ -135,8 +135,12 @@ glm::mat4 Camera::GetViewProjRestrictedRange(float xmin, float xmax, float ymin,
 
 void Camera::OnImGui()
 {
-    // ImGui::Begin("Camera");
-    //
+    ImGui::Begin("Camera");
+    ImGui::SliderFloat("Speed", &mSpeed, 0.1f, 100.0f);
+
+    ImGui::End();
+
+    // Frustum coords debug view:
     // ImGui::Text("NearTopLeft: (%f, %f, %f)", mFrustum.NearTopLeft.x,
     // mFrustum.NearTopLeft.y, mFrustum.NearTopLeft.z); ImGui::Text("NearTopRight: (%f,
     // %f, %f)", mFrustum.NearTopRight.x, mFrustum.NearTopRight.y,
@@ -151,8 +155,6 @@ void Camera::OnImGui()
     // mFrustum.FarBottomLeft.y, mFrustum.FarBottomLeft.z); ImGui::Text("FarBottomRight:
     // (%f, %f, %f)", mFrustum.FarBottomRight.x, mFrustum.FarBottomRight.y,
     // mFrustum.FarBottomRight.z);
-    //
-    // ImGui::End();
 }
 
 void Camera::UpdateVectors()

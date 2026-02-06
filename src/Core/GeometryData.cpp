@@ -6,7 +6,7 @@
 bool GeometryLayout::IsCompatible(const GeometryLayout &other)
 {
     bool idxCompat = IndexType == other.IndexType;
-    // To-do: this will be weakened in the future:
+    // TODO: this will be weakened in the future:
     bool vertCompat = VertexLayout == other.VertexLayout;
 
     return idxCompat && vertCompat;

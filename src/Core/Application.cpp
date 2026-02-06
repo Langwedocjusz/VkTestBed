@@ -121,6 +121,7 @@ void Application::Impl::Run()
 
         // Collect imgui calls
         iminit::BeginGuiFrame();
+        mCamera.OnImGui();
         mRender.OnImGui();
         mSceneGui.OnImGui();
         iminit::FinalizeGuiFrame();
@@ -186,7 +187,7 @@ void Application::Impl::OnEvent(Event::EventVariant event)
 
         if (feedback.IsBackgroundClicked)
         {
-            // To-do: when input buffers are implemented maybe fetch
+            // TODO: when input buffers are implemented maybe fetch
             // mouse pos from there, instead of calling to imgui
             mPickRequested = ImGui::GetMousePos();
         }

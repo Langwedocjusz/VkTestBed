@@ -32,7 +32,7 @@ void FilesystemBrowser::ClearExtensionFilter()
 
 void FilesystemBrowser::OnImGuiRaw(float lowerMargin)
 {
-    // To-do: add icons to make things pretty
+    // TODO: add icons to make things pretty
 
     // Parent Directory button
     if (ImGui::Button("Up"))

@@ -314,7 +314,7 @@ void SceneGui::AddInstancePopup()
             }
         }
 
-        // To-do: maybe move this to the data menu
+        // TODO: maybe move this to the data menu
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         if (ImGui::Selectable("Load Model"))
@@ -401,7 +401,7 @@ void SceneGui::MeshesTab()
             // Material editing gui:
             ImGui::Text("Materials:");
 
-            // To-do: this is kind of ugly:
+            // TODO: this is kind of ugly:
             // static used here because this value is accessed across
             // two different calls of this function.
             struct PrimId {
@@ -426,7 +426,7 @@ void SceneGui::MeshesTab()
                     primToChange = {.Mesh = meshKey, .Idx = primIdx};
                     ImGui::OpenPopup("Select material:");
                 }
-                // To-do: adding new materials
+                // TODO: adding new materials
             }
 
             if (ImGui::BeginPopup("Select material:"))
@@ -567,7 +567,7 @@ void SceneGui::ImagesTab()
                     // Images and materials both need to be flagged
                     // since otherwise renderer ends up with
                     // descriptor pointing to non-existent texture.
-                    // To-do: think about solving this renderer-side
+                    // TODO: think about solving this renderer-side
                     mEditor.RequestUpdate(Scene::UpdateFlag::Images);
                     mEditor.RequestUpdate(Scene::UpdateFlag::Materials);
                 }
@@ -719,7 +719,7 @@ void SceneGui::ObjectPropertiesMenu()
         {
             if (TransformWidget(*mSelectedNode))
             {
-                // To-do: this should only really update
+                // TODO: this should only really update
                 // objects associated with subtree rooted at mSelectedNode
                 // This will require going along the path from root to
                 // mSelectedNode and then propagating as usual.
@@ -734,7 +734,7 @@ void SceneGui::ObjectPropertiesMenu()
             ImGuiIO &io = ImGui::GetIO();
             ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
 
-            // To-do: currently parent transform is hacked in as part of the
+            // TODO: currently parent transform is hacked in as part of the
             // camera 'view'. This avoids numerically unstable inversion
             // of the parent matrix at each step of the transformation.
             // The cost is that now all transformations are done in parent
@@ -771,7 +771,7 @@ void SceneGui::ObjectPropertiesMenu()
                 mSelectedNode->Rotation = glm::eulerAngles(rotation);
                 mSelectedNode->Scale = scale;
 
-                // To-do: optimization, same as above
+                // TODO: optimization, same as above
                 mEditor.UpdateTransforms(&mEditor.GraphRoot);
             }
         }

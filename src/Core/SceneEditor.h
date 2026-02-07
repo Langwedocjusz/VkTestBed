@@ -10,16 +10,16 @@ class SceneEditor {
   public:
     struct NodeOpData {
         SceneGraphNode *SrcParent;
-        int64_t ChildId;
+        int64_t         ChildId;
         SceneGraphNode *DstParent;
 
         SceneGraphNode &GetSourceNode();
-        auto GetSourceNodeIterator();
+        auto            GetSourceNodeIterator();
     };
 
     struct Prefab {
         SceneGraphNode Root;
-        bool IsReady = false;
+        bool           IsReady = false;
     };
 
   public:
@@ -28,10 +28,10 @@ class SceneEditor {
     void OnUpdate();
 
     // Functions to manipulate the underlying scene:
-    SceneObject &GetObject(SceneKey key);
-    SceneMesh &GetMesh(SceneKey key);
-    SceneMaterial &GetMaterial(SceneKey key);
-    ImageData &GetImage(SceneKey key);
+    SceneObject        &GetObject(SceneKey key);
+    SceneMesh          &GetMesh(SceneKey key);
+    SceneMaterial      &GetMaterial(SceneKey key);
+    ImageData          &GetImage(SceneKey key);
     Scene::Environment &GetEnv();
 
     void EraseMesh(SceneKey mesh);
@@ -91,7 +91,7 @@ class SceneEditor {
     void InstancePrefabImpl(SceneGraphNode &source, SceneGraphNode &target);
 
   private:
-    Scene &mScene;
+    Scene       &mScene;
     AssetManager mAssetManager;
 
     // Trees representing mesh hierarchies of imported gltf scenes.

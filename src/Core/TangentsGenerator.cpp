@@ -7,11 +7,11 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 {
     struct TgtData {
         GeometryData *Geo;
-        VertexLayout Layout;
+        VertexLayout  Layout;
     };
 
     TgtData data{
-        .Geo = &geo,
+        .Geo    = &geo,
         .Layout = layout,
     };
 
@@ -19,11 +19,11 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 
     SMikkTSpaceContext ctx;
     ctx.m_pInterface = &interface;
-    ctx.m_pUserData = &data;
+    ctx.m_pUserData  = &data;
 
     interface.m_getNumFaces = [](const SMikkTSpaceContext *ctx) {
         auto data = static_cast<TgtData *>(ctx->m_pUserData);
-        auto geo = data->Geo;
+        auto geo  = data->Geo;
 
         return static_cast<int>(geo->IndexData.Count / 3);
     };
@@ -37,17 +37,17 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 
     interface.m_getPosition = [](const SMikkTSpaceContext *pContext, float fvPosOut[],
                                  const int iFace, const int iVert) {
-        auto data = static_cast<TgtData *>(pContext->m_pUserData);
-        auto geo = data->Geo;
+        auto data   = static_cast<TgtData *>(pContext->m_pUserData);
+        auto geo    = data->Geo;
         auto layout = data->Layout;
 
         // This is evil, but we know that underlying OpaqueBuffers
         // have appropriate alignment
         auto vertFloats = (float *)(geo->VertexData.Data);
-        auto indices = (uint32_t *)(geo->IndexData.Data);
+        auto indices    = (uint32_t *)(geo->IndexData.Data);
 
-        auto indexId = 3 * iFace + iVert;
-        auto index = indices[indexId];
+        auto indexId    = 3 * iFace + iVert;
+        auto index      = indices[indexId];
         auto floatIndex = index * layout.Stride;
 
         fvPosOut[0] = vertFloats[floatIndex + 0];
@@ -57,17 +57,17 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 
     interface.m_getNormal = [](const SMikkTSpaceContext *pContext, float fvNormOut[],
                                const int iFace, const int iVert) {
-        auto data = static_cast<TgtData *>(pContext->m_pUserData);
-        auto geo = data->Geo;
+        auto data   = static_cast<TgtData *>(pContext->m_pUserData);
+        auto geo    = data->Geo;
         auto layout = data->Layout;
 
         // This is evil, but we know that underlying OpaqueBuffers
         // have appropriate alignment
         auto vertFloats = (float *)(geo->VertexData.Data);
-        auto indices = (uint32_t *)(geo->IndexData.Data);
+        auto indices    = (uint32_t *)(geo->IndexData.Data);
 
-        auto indexId = 3 * iFace + iVert;
-        auto index = indices[indexId];
+        auto indexId    = 3 * iFace + iVert;
+        auto index      = indices[indexId];
         auto floatIndex = index * layout.Stride + layout.OffsetNormal;
 
         fvNormOut[0] = vertFloats[floatIndex + 0];
@@ -77,17 +77,17 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
 
     interface.m_getTexCoord = [](const SMikkTSpaceContext *pContext, float fvTexcOut[],
                                  const int iFace, const int iVert) {
-        auto data = static_cast<TgtData *>(pContext->m_pUserData);
-        auto geo = data->Geo;
+        auto data   = static_cast<TgtData *>(pContext->m_pUserData);
+        auto geo    = data->Geo;
         auto layout = data->Layout;
 
         // This is evil, but we know that underlying OpaqueBuffers
         // have appropriate alignment
         auto vertFloats = (float *)(geo->VertexData.Data);
-        auto indices = (uint32_t *)(geo->IndexData.Data);
+        auto indices    = (uint32_t *)(geo->IndexData.Data);
 
-        auto indexId = 3 * iFace + iVert;
-        auto index = indices[indexId];
+        auto indexId    = 3 * iFace + iVert;
+        auto index      = indices[indexId];
         auto floatIndex = index * layout.Stride + layout.OffsetTexCoord;
 
         fvTexcOut[0] = vertFloats[floatIndex + 0];
@@ -97,17 +97,17 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
     interface.m_setTSpaceBasic = [](const SMikkTSpaceContext *pContext,
                                     const float fvTangent[], const float fSign,
                                     const int iFace, const int iVert) {
-        auto data = static_cast<TgtData *>(pContext->m_pUserData);
-        auto geo = data->Geo;
+        auto data   = static_cast<TgtData *>(pContext->m_pUserData);
+        auto geo    = data->Geo;
         auto layout = data->Layout;
 
         // This is evil, but we know that underlying OpaqueBuffers
         // have appropriate alignment
         auto vertFloats = (float *)(geo->VertexData.Data);
-        auto indices = (uint32_t *)(geo->IndexData.Data);
+        auto indices    = (uint32_t *)(geo->IndexData.Data);
 
-        auto indexId = 3 * iFace + iVert;
-        auto index = indices[indexId];
+        auto indexId    = 3 * iFace + iVert;
+        auto index      = indices[indexId];
         auto floatIndex = index * layout.Stride + layout.OffsetTangent;
 
         vertFloats[floatIndex + 0] = fvTangent[0];
@@ -124,17 +124,17 @@ void tangen::GenerateTangents(GeometryData &geo, VertexLayout layout)
             (void)fMagS;
             (void)fMagT;
 
-            auto data = static_cast<TgtData *>(pContext->m_pUserData);
-            auto geo = data->Geo;
+            auto data   = static_cast<TgtData *>(pContext->m_pUserData);
+            auto geo    = data->Geo;
             auto layout = data->Layout;
 
             // This is evil, but we know that underlying OpaqueBuffers
             // have appropriate alignment
             auto vertFloats = (float *)(geo->VertexData.Data);
-            auto indices = (uint32_t *)(geo->IndexData.Data);
+            auto indices    = (uint32_t *)(geo->IndexData.Data);
 
-            auto indexId = 3 * iFace + iVert;
-            auto index = indices[indexId];
+            auto indexId    = 3 * iFace + iVert;
+            auto index      = indices[indexId];
             auto floatIndex = index * layout.Stride + layout.OffsetTangent;
 
             vertFloats[floatIndex + 0] = fvTangent[0];

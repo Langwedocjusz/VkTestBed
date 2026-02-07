@@ -38,23 +38,23 @@ PipelineBuilder::PipelineBuilder(std::string_view debugName)
       mDebugName(debugName)
 {
     // Initialize all vulkan structs:
-    mVertexInput = {};
-    mInputAssembly = {};
-    mRaster = {};
-    mMultisample = {};
+    mVertexInput          = {};
+    mInputAssembly        = {};
+    mRaster               = {};
+    mMultisample          = {};
     mColorBlendAttachment = {};
-    mColorBlend = {};
-    mDepthStencil = {};
+    mColorBlend           = {};
+    mDepthStencil         = {};
 
-    mVertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    mVertexInput.sType   = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     mInputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    mRaster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    mMultisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    mColorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    mDepthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    mRaster.sType        = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    mMultisample.sType   = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    mColorBlend.sType    = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    mDepthStencil.sType  = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 
     // Disable depth and stencil testing by default:
-    mDepthStencil.depthTestEnable = VK_FALSE;
+    mDepthStencil.depthTestEnable   = VK_FALSE;
     mDepthStencil.stencilTestEnable = VK_FALSE;
 
     // Disable blending by default:
@@ -62,18 +62,18 @@ PipelineBuilder::PipelineBuilder(std::string_view debugName)
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
     mColorBlendAttachment.blendEnable = VK_FALSE;
-    mColorBlend.attachmentCount = 1;
-    mColorBlend.pAttachments = &mColorBlendAttachment;
+    mColorBlend.attachmentCount       = 1;
+    mColorBlend.pAttachments          = &mColorBlendAttachment;
 
     // Things that are hardcoded for now:
     mInputAssembly.primitiveRestartEnable = VK_FALSE;
 
-    mRaster.depthClampEnable = VK_FALSE;
-    mRaster.depthBiasEnable = VK_FALSE;
+    mRaster.depthClampEnable        = VK_FALSE;
+    mRaster.depthBiasEnable         = VK_FALSE;
     mRaster.rasterizerDiscardEnable = VK_FALSE;
-    mRaster.lineWidth = 1.0f;
+    mRaster.lineWidth               = 1.0f;
 
-    mMultisample.sampleShadingEnable = VK_FALSE;
+    mMultisample.sampleShadingEnable  = VK_FALSE;
     mMultisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 }
 
@@ -90,10 +90,10 @@ PipelineBuilder &PipelineBuilder::SetShaderPathFragment(std::string_view path)
 }
 
 PipelineBuilder &PipelineBuilder::SetVertexInput(const Vertex::Layout &layout,
-                                                 uint32_t binding,
-                                                 VkVertexInputRate inputRate)
+                                                 uint32_t              binding,
+                                                 VkVertexInputRate     inputRate)
 {
-    mBindingDescription = Vertex::GetBindingDescription(layout, binding, inputRate);
+    mBindingDescription    = Vertex::GetBindingDescription(layout, binding, inputRate);
     mAttributeDescriptions = Vertex::GetAttributeDescriptions(layout);
 
     UpdateVertexInput();
@@ -103,7 +103,7 @@ PipelineBuilder &PipelineBuilder::SetVertexInput(const Vertex::Layout &layout,
 void PipelineBuilder::UpdateVertexInput()
 {
     mVertexInput.vertexBindingDescriptionCount = 1;
-    mVertexInput.pVertexBindingDescriptions = &mBindingDescription;
+    mVertexInput.pVertexBindingDescriptions    = &mBindingDescription;
 
     mVertexInput.vertexAttributeDescriptionCount =
         static_cast<uint32_t>(mAttributeDescriptions.size());
@@ -123,9 +123,9 @@ PipelineBuilder &PipelineBuilder::SetPolygonMode(VkPolygonMode mode)
 }
 
 PipelineBuilder &PipelineBuilder::SetCullMode(VkCullModeFlags cullMode,
-                                              VkFrontFace frontFace)
+                                              VkFrontFace     frontFace)
 {
-    mRaster.cullMode = cullMode;
+    mRaster.cullMode  = cullMode;
     mRaster.frontFace = frontFace;
     return *this;
 }
@@ -138,28 +138,28 @@ PipelineBuilder &PipelineBuilder::RequestDynamicState(VkDynamicState state)
 
 PipelineBuilder &PipelineBuilder::EnableDepthTest(VkCompareOp compareOp)
 {
-    mDepthStencil.depthTestEnable = VK_TRUE;
-    mDepthStencil.depthCompareOp = compareOp;
+    mDepthStencil.depthTestEnable  = VK_TRUE;
+    mDepthStencil.depthCompareOp   = compareOp;
     mDepthStencil.depthWriteEnable = VK_TRUE;
 
     // Hardcoded for now:
     mDepthStencil.depthBoundsTestEnable = VK_FALSE;
-    mDepthStencil.minDepthBounds = 0.0f;
-    mDepthStencil.maxDepthBounds = 1.0f;
+    mDepthStencil.minDepthBounds        = 0.0f;
+    mDepthStencil.maxDepthBounds        = 1.0f;
 
     return *this;
 }
 
 PipelineBuilder &PipelineBuilder::EnableDepthTestNoWrite(VkCompareOp compareOp)
 {
-    mDepthStencil.depthTestEnable = VK_TRUE;
-    mDepthStencil.depthCompareOp = compareOp;
+    mDepthStencil.depthTestEnable  = VK_TRUE;
+    mDepthStencil.depthCompareOp   = compareOp;
     mDepthStencil.depthWriteEnable = VK_FALSE;
 
     // Hardcoded for now:
     mDepthStencil.depthBoundsTestEnable = VK_FALSE;
-    mDepthStencil.minDepthBounds = 0.0f;
-    mDepthStencil.maxDepthBounds = 1.0f;
+    mDepthStencil.minDepthBounds        = 0.0f;
+    mDepthStencil.maxDepthBounds        = 1.0f;
 
     return *this;
 }
@@ -168,8 +168,8 @@ PipelineBuilder &PipelineBuilder::EnableStencilTest(VkStencilOpState front,
                                                     VkStencilOpState back)
 {
     mDepthStencil.stencilTestEnable = VK_TRUE;
-    mDepthStencil.front = front;
-    mDepthStencil.back = back;
+    mDepthStencil.front             = front;
+    mDepthStencil.back              = back;
 
     return *this;
 }
@@ -200,18 +200,18 @@ PipelineBuilder &PipelineBuilder::EnableBlending()
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
 
-    mColorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    mColorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
     mColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     mColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
-    mColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    mColorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
     mColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     mColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 
-    mColorBlend.logicOpEnable = VK_FALSE;
-    mColorBlend.logicOp = VK_LOGIC_OP_COPY;
-    mColorBlend.attachmentCount = 1;
-    mColorBlend.pAttachments = &mColorBlendAttachment;
+    mColorBlend.logicOpEnable     = VK_FALSE;
+    mColorBlend.logicOp           = VK_LOGIC_OP_COPY;
+    mColorBlend.attachmentCount   = 1;
+    mColorBlend.pAttachments      = &mColorBlendAttachment;
     mColorBlend.blendConstants[0] = 0.0f;
     mColorBlend.blendConstants[1] = 0.0f;
     mColorBlend.blendConstants[2] = 0.0f;
@@ -231,7 +231,7 @@ PipelineBuilder &PipelineBuilder::SetPushConstantSize(uint32_t size)
 {
     VkPushConstantRange pcRange{};
     pcRange.offset = 0;
-    pcRange.size = size;
+    pcRange.size   = size;
     // TODO: may expose more granular control over this:
     pcRange.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
 
@@ -287,7 +287,7 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     {
         auto &pcRange = *mPushConstantRange;
 
-        pipelineLayoutInfo.pPushConstantRanges = &pcRange;
+        pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
         pipelineLayoutInfo.pushConstantRangeCount = 1;
     }
 
@@ -303,48 +303,48 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     // Fill in dynamic state info:
     VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(ctx.Swapchain.extent.width);
-    viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    viewport.x          = 0.0f;
+    viewport.y          = 0.0f;
+    viewport.width      = static_cast<float>(ctx.Swapchain.extent.width);
+    viewport.height     = static_cast<float>(ctx.Swapchain.extent.height);
+    viewport.minDepth   = 0.0f;
+    viewport.maxDepth   = 1.0f;
 
     VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = ctx.Swapchain.extent;
+    scissor.offset   = {0, 0};
+    scissor.extent   = ctx.Swapchain.extent;
 
     VkPipelineViewportStateCreateInfo viewport_state = {};
-    viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewport_state.viewportCount = 1;
-    viewport_state.pViewports = &viewport;
-    viewport_state.scissorCount = 1;
-    viewport_state.pScissors = &scissor;
+    viewport_state.pViewports    = &viewport;
+    viewport_state.scissorCount  = 1;
+    viewport_state.pScissors     = &scissor;
 
     std::vector<VkDynamicState> dynStatesVec(mDynamicStates.begin(),
                                              mDynamicStates.end());
 
     VkPipelineDynamicStateCreateInfo dynamicInfo = {};
-    dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicInfo.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicInfo.dynamicStateCount = static_cast<uint32_t>(dynStatesVec.size());
-    dynamicInfo.pDynamicStates = dynStatesVec.data();
+    dynamicInfo.pDynamicStates    = dynStatesVec.data();
 
     // Pipeline creation
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
-    pipelineInfo.pStages = shaderStages.data();
-    pipelineInfo.pVertexInputState = &mVertexInput;
+    pipelineInfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.stageCount          = static_cast<uint32_t>(shaderStages.size());
+    pipelineInfo.pStages             = shaderStages.data();
+    pipelineInfo.pVertexInputState   = &mVertexInput;
     pipelineInfo.pInputAssemblyState = &mInputAssembly;
-    pipelineInfo.pViewportState = &viewport_state;
+    pipelineInfo.pViewportState      = &viewport_state;
     pipelineInfo.pRasterizationState = &mRaster;
-    pipelineInfo.pMultisampleState = &mMultisample;
-    pipelineInfo.pColorBlendState = &mColorBlend;
-    pipelineInfo.pDepthStencilState = &mDepthStencil;
-    pipelineInfo.pDynamicState = &dynamicInfo;
-    pipelineInfo.layout = pipeline.Layout;
-    pipelineInfo.subpass = 0;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.pMultisampleState   = &mMultisample;
+    pipelineInfo.pColorBlendState    = &mColorBlend;
+    pipelineInfo.pDepthStencilState  = &mDepthStencil;
+    pipelineInfo.pDynamicState       = &dynamicInfo;
+    pipelineInfo.layout              = pipeline.Layout;
+    pipelineInfo.subpass             = 0;
+    pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE;
 
     // Vulkan 1.3 Dynamic Rendering:
     // New info struct:
@@ -354,7 +354,7 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     if (mColorFormat.has_value())
     {
-        pipelineRenderingCreateInfo.colorAttachmentCount = 1;
+        pipelineRenderingCreateInfo.colorAttachmentCount    = 1;
         pipelineRenderingCreateInfo.pColorAttachmentFormats = &mColorFormat.value();
     }
 
@@ -413,8 +413,8 @@ ComputePipelineBuilder &ComputePipelineBuilder::AddDescriptorSetLayout(
 ComputePipelineBuilder &ComputePipelineBuilder::SetPushConstantSize(uint32_t size)
 {
     VkPushConstantRange pcRange{};
-    pcRange.offset = 0;
-    pcRange.size = size;
+    pcRange.offset     = 0;
+    pcRange.size       = size;
     pcRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     mPushConstantRange = pcRange;
@@ -456,7 +456,7 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
     {
         auto &pcRange = *mPushConstantRange;
 
-        pipelineLayoutInfo.pPushConstantRanges = &pcRange;
+        pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
         pipelineLayoutInfo.pushConstantRangeCount = 1;
     }
 
@@ -471,9 +471,9 @@ Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
                           mDebugName);
 
     VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.layout = pipeline.Layout;
-    pipelineInfo.stage = shaderStages[0];
+    pipelineInfo.stage  = shaderStages[0];
 
     {
         auto ret = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo,

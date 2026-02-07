@@ -25,13 +25,13 @@ class VulkanContext {
     void ImmediateSubmitGraphics(std::function<void(VkCommandBuffer)> &&function);
 
   public:
-    vkb::Instance Instance;
+    vkb::Instance       Instance;
     vkb::PhysicalDevice PhysicalDevice;
-    vkb::Device Device;
+    vkb::Device         Device;
 
     struct Queues {
         VkQueue Graphics = VK_NULL_HANDLE;
-        VkQueue Present = VK_NULL_HANDLE;
+        VkQueue Present  = VK_NULL_HANDLE;
     } Queues;
 
     struct QueueProperties {
@@ -41,13 +41,13 @@ class VulkanContext {
 
     VmaAllocator Allocator;
 
-    VkSurfaceKHR Surface;
+    VkSurfaceKHR   Surface;
     vkb::Swapchain Swapchain;
 
-    std::vector<VkImage> SwapchainImages;
+    std::vector<VkImage>     SwapchainImages;
     std::vector<VkImageView> SwapchainImageViews;
 
-    bool SwapchainOk = true;
+    bool     SwapchainOk = true;
     uint32_t RequestedWidth;
     uint32_t RequestedHeight;
 

@@ -13,12 +13,12 @@ inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handl
                          const std::string &name)
 {
     VkDebugUtilsObjectNameInfoEXT debugLayoutInfo{};
-    debugLayoutInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+    debugLayoutInfo.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
     debugLayoutInfo.objectType = type;
     // This is ugly, but the only way to use the extension (static cast is too
     // restrictive):
     debugLayoutInfo.objectHandle = (uint64_t)handle;
-    debugLayoutInfo.pObjectName = name.c_str();
+    debugLayoutInfo.pObjectName  = name.c_str();
 
     // ctx.SetDebugUtilsObjectName(ctx.Device.device, &debugLayoutInfo);
     vkSetDebugUtilsObjectNameEXT(ctx.Device.device, &debugLayoutInfo);
@@ -28,9 +28,9 @@ void BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags = 0)
 void EndRecording(VkCommandBuffer buffer);
 
 struct BlitImageInfo {
-    VkImage ImgHandle;
+    VkImage    ImgHandle;
     VkExtent3D Extent;
-    uint32_t NumLayers;
+    uint32_t   NumLayers;
 };
 
 void BlitImageZeroMip(VkCommandBuffer cmd, const Image &src, const Image &dst);

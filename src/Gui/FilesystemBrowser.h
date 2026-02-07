@@ -7,8 +7,8 @@
 
 class FilesystemBrowser {
   public:
-    using CallbackFn = std::function<void()>;
-    using CheckFn = std::function<bool(const std::filesystem::path &)>;
+    using CallbackFn   = std::function<void()>;
+    using CheckFn      = std::function<bool(const std::filesystem::path &)>;
     using ExtensionSet = std::set<std::string>;
 
   public:
@@ -41,7 +41,7 @@ class FilesystemBrowser {
 
   private:
     CallbackFn mCallback;
-    CheckFn mCheck;
+    CheckFn    mCheck;
 
     std::optional<ExtensionSet> mValidExtensions;
 };

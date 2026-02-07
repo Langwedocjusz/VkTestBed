@@ -44,7 +44,7 @@ class UpdateListener : public efsw::FileWatchListener {
 
 ShaderManager::ShaderManager(std::string_view srcDir, std::string_view byteDir)
 {
-    mSourceDir = std::filesystem::current_path() / srcDir;
+    mSourceDir   = std::filesystem::current_path() / srcDir;
     mBytecodeDir = std::filesystem::current_path() / byteDir;
 
     // Create bytecode dir if it doesn't already exist:
@@ -56,14 +56,14 @@ ShaderManager::ShaderManager(std::string_view srcDir, std::string_view byteDir)
             continue;
 
         auto relative = std::filesystem::relative(subdir, mSourceDir);
-        auto rebased = mBytecodeDir / relative;
+        auto rebased  = mBytecodeDir / relative;
         std::filesystem::create_directory(rebased);
     }
 
     CompileToBytecode();
 
     // Setup directory watcher:
-    mFileWatcher = new efsw::FileWatcher();
+    mFileWatcher    = new efsw::FileWatcher();
     mUpdateListener = new UpdateListener([this]() { mCompilationScheduled = true; });
 
     mFileWatcher->addWatch(mSourceDir.string(), mUpdateListener, true);
@@ -77,7 +77,7 @@ bool ShaderManager::CompilationScheduled()
 
 std::optional<std::filesystem::path> ShaderManager::GetDstPath(std::filesystem::path &src)
 {
-    auto parentPath = src.parent_path();
+    auto parentPath    = src.parent_path();
     auto relParentPath = std::filesystem::relative(parentPath, mSourceDir);
 
     auto extension = src.extension();
@@ -99,7 +99,7 @@ std::optional<std::filesystem::path> ShaderManager::GetDstPath(std::filesystem::
 static std::string GetFilename(const std::string &includeLine)
 {
     const auto first = includeLine.find_first_of('\"');
-    const auto last = includeLine.find_last_of('\"');
+    const auto last  = includeLine.find_last_of('\"');
 
     return includeLine.substr(first + 1, last - first - 1);
 }
@@ -110,7 +110,7 @@ static std::vector<size_t> GetIncludedFileIds(
 {
     std::vector<size_t> res;
 
-    const auto &path = fileList.at(id);
+    const auto   &path = fileList.at(id);
     std::ifstream file(path);
 
     const std::regex incRegex("[[:blank:]]*#[[:blank:]]*include[[:blank:]]+\".*\"");
@@ -207,7 +207,7 @@ void ShaderManager::CompileToBytecode()
 
     for (auto id : nonHeaderIds)
     {
-        auto srcPath = fileList.at(id);
+        auto srcPath    = fileList.at(id);
         auto dstPathOpt = GetDstPath(srcPath);
 
         if (!dstPathOpt.has_value())

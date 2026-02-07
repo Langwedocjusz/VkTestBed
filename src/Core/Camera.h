@@ -25,14 +25,14 @@ struct Frustum {
 
     void SetVertices(std::array<glm::vec4, 8> vertices)
     {
-        NearTopLeft = vertices[0];
-        NearTopRight = vertices[1];
-        NearBottomLeft = vertices[2];
+        NearTopLeft     = vertices[0];
+        NearTopRight    = vertices[1];
+        NearBottomLeft  = vertices[2];
         NearBottomRight = vertices[3];
-        FarTopLeft = vertices[4];
-        FarTopRight = vertices[5];
-        FarBottomLeft = vertices[6];
-        FarBottomRight = vertices[7];
+        FarTopLeft      = vertices[4];
+        FarTopRight     = vertices[5];
+        FarBottomLeft   = vertices[6];
+        FarBottomRight  = vertices[7];
     }
 };
 
@@ -115,19 +115,19 @@ class Camera {
     Bitflags<Movement> mMovementFlags;
 
     uint32_t mWidth, mHeight;
-    float mZMin = 0.01f, mZMax = 1000.0f, mFovRadians = glm::radians(45.0f);
+    float    mZMin = 0.01f, mZMax = 1000.0f, mFovRadians = glm::radians(45.0f);
 
     float mSpeed = 1.0f, mSensitivity = 100.0f;
 
     glm::vec3 mPos{0.0f, 0.0f, 0.0f};
-    float mYaw = 0.0f, mPitch = 0.0f;
+    float     mYaw = 0.0f, mPitch = 0.0f;
 
     const glm::vec3 mWorldUp{0.0f, -1.0f, 0.0f};
-    glm::vec3 mFront{0.0f, 0.0f, 1.0f};
-    glm::vec3 mRight{1.0f, 0.0f, 0.0f};
-    glm::vec3 mUp{0.0f, -1.0f, 0.0f};
+    glm::vec3       mFront{0.0f, 0.0f, 1.0f};
+    glm::vec3       mRight{1.0f, 0.0f, 0.0f};
+    glm::vec3       mUp{0.0f, -1.0f, 0.0f};
 
-    bool mMouseInit = true;
+    bool  mMouseInit  = true;
     float mMouseLastX = 0.0f, mMouseLastY = 0.0f;
 
     glm::mat4 mProj;
@@ -135,6 +135,6 @@ class Camera {
     glm::mat4 mViewProj;
     glm::mat4 mInvViewProj;
 
-    Frustum mFrustum;
+    Frustum     mFrustum;
     FrustumBack mFrustumBack;
 };

@@ -13,11 +13,11 @@
 class EnvironmentHandler {
   public:
     struct EnvUBOData {
-        int32_t LightOn = 1;
-        glm::vec3 LightDir = glm::normalize(glm::vec3(1, -1, 1));
-        glm::vec3 LightColor = glm::vec3(1.0);
-        int32_t HdriEnabled = false;
-        float MaxReflectionLod = 0.0f;
+        int32_t   LightOn          = 1;
+        glm::vec3 LightDir         = glm::normalize(glm::vec3(1, -1, 1));
+        glm::vec3 LightColor       = glm::vec3(1.0);
+        int32_t   HdriEnabled      = false;
+        float     MaxReflectionLod = 0.0f;
     };
 
   public:
@@ -69,28 +69,28 @@ class EnvironmentHandler {
 
     // Descriptor sets exposed to the outside world:
     VkDescriptorSetLayout mLightingDescriptorSetLayout;
-    VkDescriptorSet mLightingDescriptorSet;
+    VkDescriptorSet       mLightingDescriptorSet;
 
     VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
-    VkDescriptorSet mBackgroundDescriptorSet;
+    VkDescriptorSet       mBackgroundDescriptorSet;
 
     // Private descriptor sets:
 
     // Descriptor set for generating the cubemap:
     VkDescriptorSetLayout mTexToImgDescriptorSetLayout;
-    VkDescriptorSet mTexToImgDescriptorSet;
+    VkDescriptorSet       mTexToImgDescriptorSet;
 
     // Descriptor set for irradiance reduction buffers:
     VkDescriptorSetLayout mIrradianceDescriptorSetLayout;
-    VkDescriptorSet mIrradianceDescriptorSet;
+    VkDescriptorSet       mIrradianceDescriptorSet;
 
     // Descriptor set for generating the prefiltered map:
     VkDescriptorSetLayout mPrefilteredDescriptorSetLayout;
-    VkDescriptorSet mPrefilteredDescriptorSet;
+    VkDescriptorSet       mPrefilteredDescriptorSet;
 
     // Descriptor set for generating the integration map:
     VkDescriptorSetLayout mIntegrationDescriptorSetLayout;
-    VkDescriptorSet mIntegrationDescriptorSet;
+    VkDescriptorSet       mIntegrationDescriptorSet;
 
     // Compute pipelines for resource generation:
     Pipeline mEquiRectToCubePipeline;
@@ -110,7 +110,7 @@ class EnvironmentHandler {
     struct PrefilteredPushConstants {
         uint32_t CubeResolution;
         uint32_t MipLevel;
-        float Roughness;
+        float    Roughness;
     };
 
     Pipeline mPrefilteredGenPipeline;
@@ -120,7 +120,7 @@ class EnvironmentHandler {
     Buffer mFirstReducionBuffer;
     Buffer mFinalReductionBuffer;
 
-    uint32_t mReduceBlock = 32;
+    uint32_t mReduceBlock    = 32;
     uint32_t mFirstBufferLen = 0;
 
     // Cubemap background texture:
@@ -136,10 +136,10 @@ class EnvironmentHandler {
 
     // Uniform buffer object with environment info for lighting:
     EnvUBOData mEnvUBOData;
-    Buffer mEnvUBO;
+    Buffer     mEnvUBO;
 
     // std::optional<SceneKey> mLastHdri;
     DynamicDescriptorAllocator mDescriptorAllocator;
-    DeletionQueue mDeletionQueue;
-    DeletionQueue mPipelineDeletionQueue;
+    DeletionQueue              mDeletionQueue;
+    DeletionQueue              mPipelineDeletionQueue;
 };

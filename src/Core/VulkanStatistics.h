@@ -8,7 +8,7 @@
 #include <optional>
 
 struct StatisticsResult {
-    std::optional<float> FrameTimeMS;
+    std::optional<float>    FrameTimeMS;
     std::optional<uint64_t> FragmentInvocations;
 };
 
@@ -29,11 +29,11 @@ class VulkanStatisticsCollector {
     VulkanContext &mCtx;
 
     // Timestamps:
-    bool mTimestampSupported;
+    bool  mTimestampSupported;
     float mTimestampPeriod;
 
     struct Timestamp {
-        uint64_t Value = 0;
+        uint64_t Value        = 0;
         uint64_t Availability = 0;
     };
 
@@ -47,7 +47,7 @@ class VulkanStatisticsCollector {
         VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT};
 
     struct Statistic {
-        uint64_t Value = 0;
+        uint64_t Value        = 0;
         uint64_t Availability = 0;
     };
 
@@ -55,12 +55,12 @@ class VulkanStatisticsCollector {
 
     // Combined per frame resources:
     struct FrameResources {
-        VkQueryPool TimestampQueryPool;
+        VkQueryPool     TimestampQueryPool;
         FrameTimestamps Timestamps;
-        bool TimestampsFirstRun = true;
-        bool WriteTimestamps = false;
-        VkQueryPool StatisticsQueryPool;
-        StatisticsData Statistics;
+        bool            TimestampsFirstRun = true;
+        bool            WriteTimestamps    = false;
+        VkQueryPool     StatisticsQueryPool;
+        StatisticsData  Statistics;
     };
 
     std::array<FrameResources, FrameInfo::MaxInFlight> mResources;

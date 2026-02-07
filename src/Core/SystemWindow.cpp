@@ -14,7 +14,7 @@ static SystemWindow::EventHandlerFn sEventCallback = nullptr;
 static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
 {
     auto usrPtr = glfwGetWindowUserPointer(window);
-    auto event = Event::FramebufferResize{.Width = width, .Height = height};
+    auto event  = Event::FramebufferResize{.Width = width, .Height = height};
 
     sEventCallback(usrPtr, event);
 }
@@ -22,7 +22,7 @@ static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
 static void FocusCallback(GLFWwindow *window, int focused)
 {
     auto usrPtr = glfwGetWindowUserPointer(window);
-    auto event = Event::Focus{.Focused = focused};
+    auto event  = Event::Focus{.Focused = focused};
 
     sEventCallback(usrPtr, event);
 }
@@ -30,7 +30,7 @@ static void FocusCallback(GLFWwindow *window, int focused)
 static void CursorEnterCallback(GLFWwindow *window, int entered)
 {
     auto usrPtr = glfwGetWindowUserPointer(window);
-    auto event = Event::CursorEnter{.Entered = entered};
+    auto event  = Event::CursorEnter{.Entered = entered};
 
     sEventCallback(usrPtr, event);
 }
@@ -38,7 +38,7 @@ static void CursorEnterCallback(GLFWwindow *window, int entered)
 static void CursorPosCallback(GLFWwindow *window, double xpos, double ypos)
 {
     auto usrPtr = glfwGetWindowUserPointer(window);
-    auto event = Event::CursorPos{.XPos = xpos, .YPos = ypos};
+    auto event  = Event::CursorPos{.XPos = xpos, .YPos = ypos};
 
     sEventCallback(usrPtr, event);
 }
@@ -46,7 +46,7 @@ static void CursorPosCallback(GLFWwindow *window, double xpos, double ypos)
 static void MouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 {
     auto usrPtr = glfwGetWindowUserPointer(window);
-    auto event = Event::MouseButton{.Button = button, .Action = action, .Mods = mods};
+    auto event  = Event::MouseButton{.Button = button, .Action = action, .Mods = mods};
 
     sEventCallback(usrPtr, event);
 }
@@ -54,7 +54,7 @@ static void MouseButtonCallback(GLFWwindow *window, int button, int action, int 
 static void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 {
     auto usrPtr = glfwGetWindowUserPointer(window);
-    auto event = Event::Scroll{.XOffset = xoffset, .YOffset = yoffset};
+    auto event  = Event::Scroll{.XOffset = xoffset, .YOffset = yoffset};
 
     sEventCallback(usrPtr, event);
 }
@@ -71,7 +71,7 @@ static void KeyCallback(GLFWwindow *window, int key, int scancode, int action, i
 static void CharCallback(GLFWwindow *window, unsigned int codepoint)
 {
     auto usrPtr = glfwGetWindowUserPointer(window);
-    auto event = Event::Char{.Codepoint = codepoint};
+    auto event  = Event::Char{.Codepoint = codepoint};
 
     sEventCallback(usrPtr, event);
 }
@@ -123,11 +123,11 @@ void SystemWindow::SetEventCallback(EventHandlerFn callback)
     sEventCallback = callback;
 }
 
-VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance,
+VkSurfaceKHR SystemWindow::CreateSurface(VkInstance             instance,
                                          VkAllocationCallbacks *allocator)
 {
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkResult err = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
+    VkResult     err = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
 
     vassert(err == VK_SUCCESS, "Failed to create a surface!");
 

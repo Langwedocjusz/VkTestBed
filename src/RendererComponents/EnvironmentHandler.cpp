@@ -45,10 +45,10 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     // Initialize main descriptor allocator:
     {
         std::vector<VkDescriptorPoolSize> poolCounts{
-            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
+            {         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+            {        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+            {        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
         };
 
         mDescriptorAllocator.OnInit(poolCounts);
@@ -126,10 +126,11 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         .Extent = {cubeSize, cubeSize},
         .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+        .Usage  = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                  VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = Image::CalcNumMips(cubeSize, cubeSize),
-        .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+        .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    };
 
     mCubemap = MakeTexture::TextureCube(mCtx, "EnvCubemap", cubemapInfo, mDeletionQueue);
 
@@ -137,14 +138,15 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     constexpr uint32_t prefilteredSize = 256;
     const uint32_t prefilteredMips = Image::CalcNumMips(prefilteredSize, prefilteredSize);
 
-    auto prefilteredInfo =
-        Image2DInfo{.Extent = {prefilteredSize, prefilteredSize},
-                    .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                    .Tiling = VK_IMAGE_TILING_OPTIMAL,
-                    .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                             VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                    .MipLevels = prefilteredMips,
-                    .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    auto prefilteredInfo = Image2DInfo{
+        .Extent = {prefilteredSize, prefilteredSize},
+        .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage  = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
+                 VK_IMAGE_USAGE_SAMPLED_BIT,
+        .MipLevels = prefilteredMips,
+        .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    };
 
     mPrefiltered = MakeTexture::TextureCube(mCtx, "EnvPrefilteredMap", prefilteredInfo,
                                             mDeletionQueue);
@@ -167,10 +169,10 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     constexpr uint32_t integrationSize = 512;
 
     auto integrationInfo = Image2DInfo{
-        .Extent = {integrationSize, integrationSize},
-        .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .Extent    = {integrationSize, integrationSize},
+        .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
+        .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = 1,
     };
 
@@ -315,10 +317,10 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
         static_cast<float>(std::log2(mPrefiltered.Img.Info.extent.width));
 
     mEnvUBOData = EnvUBOData{
-        .LightOn = static_cast<int32_t>(scene.Env.DirLightOn),
-        .LightDir = scene.Env.LightDir,
-        .LightColor = scene.Env.LightColor,
-        .HdriEnabled = scene.Env.HdriImage.has_value(),
+        .LightOn          = static_cast<int32_t>(scene.Env.DirLightOn),
+        .LightDir         = scene.Env.LightDir,
+        .LightColor       = scene.Env.LightColor,
+        .HdriEnabled      = scene.Env.HdriImage.has_value(),
         .MaxReflectionLod = maxPrefilteredLod,
     };
 
@@ -357,9 +359,9 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         // Transition cubemap to use as storage image:
         auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-            .Image = mCubemap.Img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .Image            = mCubemap.Img.Handle,
+            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0,
                                  mCubemap.Img.Info.mipLevels, 0, 6},
         };
@@ -404,7 +406,7 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
         mIrradianceSHPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
 
         IrradianceSHPushConstants pcData{
-            .CubemapRes = mCubemap.Img.Info.extent.width,
+            .CubemapRes  = mCubemap.Img.Info.extent.width,
             .ReduceBlock = mReduceBlock,
         };
 
@@ -441,9 +443,9 @@ void EnvironmentHandler::GeneratePrefilteredMap()
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         // Transition cubemap to transfer source:
         auto srcInfo = barrier::ImageLayoutBarrierInfo{
-            .Image = mCubemap.Img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .Image            = mCubemap.Img.Handle,
+            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0,
                                  mCubemap.Img.Info.mipLevels, 0, 6},
         };
@@ -451,9 +453,9 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
         // Trasition prefiltered map to transfer destination:
         auto dstInfo = barrier::ImageLayoutBarrierInfo{
-            .Image = mPrefiltered.Img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .Image            = mPrefiltered.Img.Handle,
+            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6},
         };
         barrier::ImageLayoutBarrierCoarse(cmd, dstInfo);
@@ -468,9 +470,9 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
         // Transition whole prefiltered map to use as storage image:
         auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-            .Image = mPrefiltered.Img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .Image            = mPrefiltered.Img.Handle,
+            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, numMips, 0, 6},
         };
         barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
@@ -489,8 +491,8 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
             PrefilteredPushConstants pcData{
                 .CubeResolution = mCubemap.Img.Info.extent.width,
-                .MipLevel = mip,
-                .Roughness = roughness,
+                .MipLevel       = mip,
+                .Roughness      = roughness,
             };
 
             // Update prefiltered descriptor to access appropriate mip level
@@ -519,9 +521,9 @@ void EnvironmentHandler::GeneratePrefilteredMap()
     // Transition prefiltered map to be used as a texture:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto dstInfo = barrier::ImageLayoutBarrierInfo{
-            .Image = mPrefiltered.Img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .Image            = mPrefiltered.Img.Handle,
+            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, numMips, 0, 6},
         };
 
@@ -533,9 +535,9 @@ void EnvironmentHandler::GenerateIntegrationMap()
 {
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-            .Image = mIntegration.Img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .Image            = mIntegration.Img.Handle,
+            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
         };
         barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
@@ -560,20 +562,22 @@ void EnvironmentHandler::ResetToBlack()
 {
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto clearImage = [&](Image &img) {
-            VkClearColorValue black = {{0.0f, 0.0f, 0.0f, 1.0f}};
+            VkClearColorValue black = {
+                {0.0f, 0.0f, 0.0f, 1.0f}
+            };
 
             auto range = VkImageSubresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = img.Info.mipLevels,
+                .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel   = 0,
+                .levelCount     = img.Info.mipLevels,
                 .baseArrayLayer = 0,
-                .layerCount = img.Info.arrayLayers,
+                .layerCount     = img.Info.arrayLayers,
             };
 
             auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image = img.Handle,
-                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .Image            = img.Handle,
+                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 .SubresourceRange = range,
             };
             barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);

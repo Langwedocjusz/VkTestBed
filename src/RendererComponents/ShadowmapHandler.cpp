@@ -19,6 +19,7 @@
 #include <glm/matrix.hpp>
 
 #include <limits>
+#include <vulkan/vulkan_core.h>
 
 ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat,
                                    VkFormat debugDepthFormat)
@@ -61,10 +62,10 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = 1,
-        .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
-    mShadowmap = MakeImage::Image2D(mCtx, "Shadowmap", shadowmapInfo);
+    mShadowmap     = MakeImage::Image2D(mCtx, "Shadowmap", shadowmapInfo);
     mShadowmapView = MakeView::View2D(mCtx, "ShadowmapView", mShadowmap, ShadowmapFormat,
                                       VK_IMAGE_ASPECT_DEPTH_BIT);
 
@@ -132,7 +133,8 @@ ShadowmapHandler::~ShadowmapHandler()
 }
 
 void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
-                                        VkDescriptorSetLayout materialDSLayout)
+                                        VkDescriptorSetLayout materialDSLayout,
+                                        VkSampleCountFlagBits debugMultisampling)
 {
     mPipelineDeletionQueue.flush();
 
@@ -178,6 +180,7 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
             .EnableDepthTest()
             .SetDepthFormat(mDebugDepthFormat)
             .SetStencilFormat(mDebugDepthFormat)
+            .SetMultisampling(debugMultisampling)
             .EnableBlending()
             .Build(mCtx, mPipelineDeletionQueue);
 }
@@ -187,7 +190,7 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
     // Construct worldspace coords for the shadow sampling part of the frustum:
     auto ScaleFarVector = [this](glm::vec4 near, glm::vec4 &far) {
         auto normalized = glm::normalize(glm::vec3(far - near));
-        far = near + mShadowDist * glm::vec4(normalized, 0.0f);
+        far             = near + mShadowDist * glm::vec4(normalized, 0.0f);
     };
 
     if (!mFreezeFrustum)
@@ -276,8 +279,8 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
     {
         auto inverseLightView = glm::inverse(lightView);
 
-        mVertexBufferData[8] = inverseLightView * glm::vec4(minX, maxY, minZ, 1.0f);
-        mVertexBufferData[9] = inverseLightView * glm::vec4(maxX, maxY, minZ, 1.0f);
+        mVertexBufferData[8]  = inverseLightView * glm::vec4(minX, maxY, minZ, 1.0f);
+        mVertexBufferData[9]  = inverseLightView * glm::vec4(maxX, maxY, minZ, 1.0f);
         mVertexBufferData[10] = inverseLightView * glm::vec4(minX, minY, minZ, 1.0f);
         mVertexBufferData[11] = inverseLightView * glm::vec4(maxX, minY, minZ, 1.0f);
         mVertexBufferData[12] = inverseLightView * glm::vec4(minX, maxY, maxZ, 1.0f);
@@ -369,7 +372,7 @@ void ShadowmapHandler::DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj,
     mDebugPipeline.Bind(cmd);
     common::ViewportScissor(cmd, extent);
 
-    VkBuffer vertBuffer = mDebugFrustumVertexBuffer.Handle;
+    VkBuffer     vertBuffer = mDebugFrustumVertexBuffer.Handle;
     VkDeviceSize vertOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
@@ -378,7 +381,7 @@ void ShadowmapHandler::DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj,
 
     mDebugPCData = {
         .ViewProj = viewProj,
-        .Color = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f),
+        .Color    = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f),
     };
 
     vkCmdPushConstants(cmd, mDebugPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,

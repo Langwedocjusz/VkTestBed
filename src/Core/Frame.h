@@ -6,10 +6,10 @@
 #include "volk.h"
 
 struct FrameResources {
-    VkFence InFlightFence;
+    VkFence     InFlightFence;
     VkSemaphore ImageAcquiredSemaphore;
 
-    VkCommandPool CommandPool;
+    VkCommandPool   CommandPool;
     VkCommandBuffer CommandBuffer;
 };
 
@@ -18,27 +18,27 @@ struct SwapchainResources {
 };
 
 struct FrameStats {
-    float CPUTime = 0.0f;
-    float GPUTime = 0.0f;
-    uint32_t NumTriangles = 0;
-    uint32_t NumDraws = 0;
-    uint32_t NumBinds = 0;
-    uint32_t NumDispatches = 0;
-    size_t MemoryUsage = 0;
-    size_t MemoryAllocation = 0;
+    float    CPUTime             = 0.0f;
+    float    GPUTime             = 0.0f;
+    uint32_t NumTriangles        = 0;
+    uint32_t NumDraws            = 0;
+    uint32_t NumBinds            = 0;
+    uint32_t NumDispatches       = 0;
+    size_t   MemoryUsage         = 0;
+    size_t   MemoryAllocation    = 0;
     uint64_t FragmentInvocations = 0;
-    float FragmentPercent = 0.0f;
+    float    FragmentPercent     = 0.0f;
 };
 
 struct FrameInfo {
     static constexpr size_t MaxInFlight = 2;
 
     std::array<FrameResources, MaxInFlight> FrameData;
-    std::vector<SwapchainResources> SwapchainData;
+    std::vector<SwapchainResources>         SwapchainData;
 
-    size_t FrameNumber = 0;
-    uint32_t Index = 0;
-    uint32_t ImageIndex = 0;
+    size_t   FrameNumber = 0;
+    uint32_t Index       = 0;
+    uint32_t ImageIndex  = 0;
 
     FrameStats Stats;
 

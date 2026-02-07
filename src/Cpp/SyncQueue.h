@@ -62,6 +62,6 @@ class SyncQueue {
   private:
     std::queue<T> mQueue;
 
-    std::mutex mMutex;
+    std::mutex              mMutex;
     std::condition_variable mCV;
 };

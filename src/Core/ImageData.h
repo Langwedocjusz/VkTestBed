@@ -24,7 +24,7 @@ class ImageData {
     ImageData() = default;
     ~ImageData();
 
-    ImageData(const ImageData &) = delete;
+    ImageData(const ImageData &)            = delete;
     ImageData &operator=(const ImageData &) = delete;
 
     ImageData(ImageData &&) noexcept;
@@ -33,13 +33,13 @@ class ImageData {
     [[nodiscard]] bool IsSinglePixel() const;
 
     [[nodiscard]] glm::vec4 GetPixelData() const;
-    void UpdatePixelData(glm::vec4 v);
+    void                    UpdatePixelData(glm::vec4 v);
 
   public:
     std::string Name;
 
-    int Width = 0;
-    int Height = 0;
+    int      Width  = 0;
+    int      Height = 0;
     VkFormat Format;
 
     void *Data = nullptr;

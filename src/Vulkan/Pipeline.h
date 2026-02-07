@@ -24,7 +24,7 @@ class Pipeline {
                             uint32_t startIdx);
 
   public:
-    VkPipeline Handle;
+    VkPipeline       Handle;
     VkPipelineLayout Layout;
 
   private:
@@ -70,31 +70,31 @@ class PipelineBuilder {
 
   private:
     Pipeline BuildImpl(VulkanContext &ctx);
-    void UpdateVertexInput();
+    void     UpdateVertexInput();
 
   private:
-    std::optional<std::string> mVertexPath = std::nullopt;
+    std::optional<std::string> mVertexPath   = std::nullopt;
     std::optional<std::string> mFragmentPath = std::nullopt;
 
     std::set<VkDynamicState> mDynamicStates;
 
-    VkPipelineVertexInputStateCreateInfo mVertexInput;
+    VkPipelineVertexInputStateCreateInfo   mVertexInput;
     VkPipelineInputAssemblyStateCreateInfo mInputAssembly;
     VkPipelineRasterizationStateCreateInfo mRaster;
-    VkPipelineMultisampleStateCreateInfo mMultisample;
-    VkPipelineColorBlendAttachmentState mColorBlendAttachment;
-    VkPipelineColorBlendStateCreateInfo mColorBlend;
-    VkPipelineDepthStencilStateCreateInfo mDepthStencil;
+    VkPipelineMultisampleStateCreateInfo   mMultisample;
+    VkPipelineColorBlendAttachmentState    mColorBlendAttachment;
+    VkPipelineColorBlendStateCreateInfo    mColorBlend;
+    VkPipelineDepthStencilStateCreateInfo  mDepthStencil;
 
-    std::optional<VkFormat> mColorFormat = std::nullopt;
-    std::optional<VkFormat> mDepthFormat = std::nullopt;
+    std::optional<VkFormat> mColorFormat   = std::nullopt;
+    std::optional<VkFormat> mDepthFormat   = std::nullopt;
     std::optional<VkFormat> mStencilFormat = std::nullopt;
 
     std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
 
     std::optional<VkPushConstantRange> mPushConstantRange = std::nullopt;
 
-    VkVertexInputBindingDescription mBindingDescription;
+    VkVertexInputBindingDescription                mBindingDescription;
     std::vector<VkVertexInputAttributeDescription> mAttributeDescriptions;
 
     std::string mDebugName;
@@ -115,8 +115,8 @@ class ComputePipelineBuilder {
     Pipeline BuildImpl(VulkanContext &ctx);
 
   private:
-    std::optional<std::string> mShaderPath;
+    std::optional<std::string>         mShaderPath;
     std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
     std::optional<VkPushConstantRange> mPushConstantRange;
-    std::string mDebugName;
+    std::string                        mDebugName;
 };

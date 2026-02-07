@@ -23,7 +23,7 @@ class DescriptorSetLayoutBuilder {
 
   private:
     std::vector<VkDescriptorSetLayoutBinding> mBindings;
-    std::string mDebugName;
+    std::string                               mDebugName;
 };
 
 namespace Descriptor
@@ -69,13 +69,13 @@ class DescriptorUpdater {
     };
 
     struct WriteInfo {
-        uint32_t Binding;
+        uint32_t  Binding;
         WriteType Type;
-        size_t InfoId;
+        size_t    InfoId;
     };
 
     std::vector<VkDescriptorBufferInfo> mBufferInfos;
-    std::vector<VkDescriptorImageInfo> mImageInfos;
+    std::vector<VkDescriptorImageInfo>  mImageInfos;
 
     std::vector<WriteInfo> mWriteInfos;
 
@@ -89,7 +89,7 @@ class DynamicDescriptorAllocator {
     DynamicDescriptorAllocator(VulkanContext &ctx);
     void OnInit(std::span<VkDescriptorPoolSize> sizes);
 
-    VkDescriptorSet Allocate(VkDescriptorSetLayout &layout);
+    VkDescriptorSet              Allocate(VkDescriptorSetLayout &layout);
     std::vector<VkDescriptorSet> Allocate(std::span<VkDescriptorSetLayout> layouts);
 
     void ResetPools();
@@ -107,6 +107,6 @@ class DynamicDescriptorAllocator {
     std::vector<VkDescriptorPool> mReadyPools;
     std::vector<VkDescriptorPool> mFullPools;
 
-    uint32_t mSetsPerPool = 32;
+    uint32_t                          mSetsPerPool = 32;
     std::vector<VkDescriptorPoolSize> mCountsPerSet;
 };

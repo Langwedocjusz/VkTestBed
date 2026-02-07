@@ -7,3 +7,12 @@ BraceWrapping:
     AfterStruct: false
     AfterClass: false
 AlwaysBreakTemplateDeclarations: true
+AlignArrayOfStructures: Right
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false

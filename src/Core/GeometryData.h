@@ -7,18 +7,18 @@
 
 struct GeometryLayout {
     Vertex::Layout VertexLayout;
-    VkIndexType IndexType;
+    VkIndexType    IndexType;
 
     bool IsCompatible(const GeometryLayout &other);
 };
 
 struct GeometrySpec {
-    size_t VertCount = 0;
-    size_t VertBuffSize = 0;
+    size_t VertCount     = 0;
+    size_t VertBuffSize  = 0;
     size_t VertAlignment = 4;
-    size_t IdxCount = 0;
-    size_t IdxBuffSize = 0;
-    size_t IdxAlignment = 4;
+    size_t IdxCount      = 0;
+    size_t IdxBuffSize   = 0;
+    size_t IdxAlignment  = 4;
 
     // Builds geometry spec based on vertex size and index type.
     // Assumes vertex alignment is equal to 4.
@@ -37,12 +37,12 @@ struct GeometrySpec {
         }();
 
         return GeometrySpec{
-            .VertCount = vertCount,
-            .VertBuffSize = vertCount * vertSize,
+            .VertCount     = vertCount,
+            .VertBuffSize  = vertCount * vertSize,
             .VertAlignment = 4,
-            .IdxCount = idxCount,
-            .IdxBuffSize = idxCount * sizeof(IdxType),
-            .IdxAlignment = idxAlignment,
+            .IdxCount      = idxCount,
+            .IdxBuffSize   = idxCount * sizeof(IdxType),
+            .IdxAlignment  = idxAlignment,
         };
     }
 
@@ -65,7 +65,7 @@ struct AABB {
 
     [[nodiscard]] AABB MaxWith(AABB other) const;
 
-    [[nodiscard]] std::array<glm::vec3, 8> GetVertices() const;
+    [[nodiscard]] std::array<glm::vec3, 8>                     GetVertices() const;
     [[nodiscard]] static std::array<std::array<size_t, 2>, 12> GetEdgesIds();
 };
 
@@ -74,7 +74,7 @@ struct GeometryData {
     GeometryData(const GeometrySpec &spec);
 
     GeometryLayout Layout;
-    OpaqueBuffer VertexData;
-    OpaqueBuffer IndexData;
-    AABB BBox;
+    OpaqueBuffer   VertexData;
+    OpaqueBuffer   IndexData;
+    AABB           BBox;
 };

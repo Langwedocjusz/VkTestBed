@@ -13,7 +13,7 @@ VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
     // Check for timestamp support:
     auto &limits = mCtx.PhysicalDevice.properties.limits;
 
-    mTimestampPeriod = limits.timestampPeriod;
+    mTimestampPeriod    = limits.timestampPeriod;
     mTimestampSupported = (mTimestampPeriod != 0.0f);
 
     if (!limits.timestampComputeAndGraphics)
@@ -39,8 +39,8 @@ VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
         for (auto &res : mResources)
         {
             VkQueryPoolCreateInfo queryPoolInfo{};
-            queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-            queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+            queryPoolInfo.sType      = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+            queryPoolInfo.queryType  = VK_QUERY_TYPE_TIMESTAMP;
             queryPoolInfo.queryCount = TimestampsPerFrame;
 
             auto queryRes = vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr,
@@ -68,10 +68,10 @@ VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
                 queriedStatistics |= flag;
 
             VkQueryPoolCreateInfo queryPoolInfo{};
-            queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-            queryPoolInfo.queryType = VK_QUERY_TYPE_PIPELINE_STATISTICS;
+            queryPoolInfo.sType              = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+            queryPoolInfo.queryType          = VK_QUERY_TYPE_PIPELINE_STATISTICS;
             queryPoolInfo.pipelineStatistics = queriedStatistics;
-            queryPoolInfo.queryCount = 1;
+            queryPoolInfo.queryCount         = 1;
 
             auto queryRes = vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr,
                                               &res.StatisticsQueryPool);
@@ -94,7 +94,7 @@ VulkanStatisticsCollector::~VulkanStatisticsCollector()
 
 StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
 {
-    auto &res = mResources.at(frameIdx);
+    auto &res        = mResources.at(frameIdx);
     auto &timestamps = res.Timestamps;
 
     StatisticsResult ret{};
@@ -102,7 +102,7 @@ StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
     if (mTimestampSupported)
     {
         // Detect first run:
-        bool firstRun = res.TimestampsFirstRun;
+        bool firstRun          = res.TimestampsFirstRun;
         res.TimestampsFirstRun = false;
 
         // Query for timestamp results from the previous run of this frame:

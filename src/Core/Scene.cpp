@@ -14,17 +14,17 @@ void Scene::RecalculateAABB()
         if (!obj.Mesh.has_value())
             continue;
 
-        auto &mesh = Meshes[*obj.Mesh];
+        auto &mesh      = Meshes[*obj.Mesh];
         auto &transform = obj.Transform;
 
         for (auto &prim : mesh.Primitives)
         {
-            auto srcBBox = prim.Data.BBox;
+            auto srcBBox         = prim.Data.BBox;
             auto transformedBBox = srcBBox.GetConservativeTransformedAABB(transform);
 
             if (firstIteration)
             {
-                bbox = transformedBBox;
+                bbox           = transformedBBox;
                 firstIteration = false;
             }
 
@@ -89,7 +89,7 @@ std::pair<SceneKey, SceneObject &> Scene::EmplaceObject()
 std::pair<SceneKey, SceneObject &> Scene::EmplaceObject(const SceneObject &existing)
 {
     auto [key, obj] = EmplaceObject();
-    obj = existing;
+    obj             = existing;
 
     return {key, obj};
 }

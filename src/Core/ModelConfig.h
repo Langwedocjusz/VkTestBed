@@ -7,11 +7,11 @@ struct ModelConfig {
 
     // Vertex loading:
     bool LoadTexCoord = true;
-    bool LoadNormals = true;
+    bool LoadNormals  = true;
     bool LoadTangents = true;
-    bool LoadColor = false;
+    bool LoadColor    = false;
 
     // Material loading:
     bool FetchRoughness = true;
-    bool FetchNormal = true;
+    bool FetchNormal    = true;
 };

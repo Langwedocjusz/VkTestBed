@@ -10,13 +10,13 @@
 #include <string>
 
 struct Image2DInfo {
-    VkExtent2D Extent;
-    VkFormat Format;
-    VkImageTiling Tiling;
-    VkImageUsageFlags Usage;
-    uint32_t MipLevels;
-    std::optional<VkImageLayout> Layout = std::nullopt;
-    VkSampleCountFlagBits Multisampling = VK_SAMPLE_COUNT_1_BIT;
+    VkExtent2D                   Extent;
+    VkFormat                     Format;
+    VkImageTiling                Tiling;
+    VkImageUsageFlags            Usage;
+    uint32_t                     MipLevels;
+    std::optional<VkImageLayout> Layout        = std::nullopt;
+    VkSampleCountFlagBits        Multisampling = VK_SAMPLE_COUNT_1_BIT;
 };
 
 namespace MakeImage

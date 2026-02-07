@@ -18,7 +18,7 @@ class SystemWindow {
 
     void SetEventCallback(EventHandlerFn callback);
 
-    VkSurfaceKHR CreateSurface(VkInstance instance,
+    VkSurfaceKHR CreateSurface(VkInstance             instance,
                                VkAllocationCallbacks *allocator = nullptr);
 
     bool ShouldClose();

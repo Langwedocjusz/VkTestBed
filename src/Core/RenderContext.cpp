@@ -27,7 +27,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     // Create per frame command pools/buffers and sync-objects:
     for (auto &data : mFrameInfo.FrameData)
     {
-        data.CommandPool = vkinit::CreateCommandPool(mCtx, vkb::QueueType::graphics);
+        data.CommandPool   = vkinit::CreateCommandPool(mCtx, vkb::QueueType::graphics);
         data.CommandBuffer = vkinit::CreateCommandBuffer(mCtx, data.CommandPool);
 
         vkinit::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
@@ -62,23 +62,23 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     Image2DInfo renderTargetInfo{
-        .Extent = VkExtent2D{1, 1},
-        .Format = IRenderer::PickingTargetFormat,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = drawUsage,
+        .Extent    = VkExtent2D{1, 1},
+        .Format    = IRenderer::PickingTargetFormat,
+        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
+        .Usage     = drawUsage,
         .MipLevels = 1,
-        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .Layout    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
     mPicking.Target = MakeTexture::Texture2D(mCtx, "PickingTarget", renderTargetInfo,
                                              mMainDeletionQueue);
 
     Image2DInfo depthBufferInfo{
-        .Extent = VkExtent2D{1, 1},
-        .Format = IRenderer::PickingDepthFormat,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .Extent    = VkExtent2D{1, 1},
+        .Format    = IRenderer::PickingDepthFormat,
+        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
+        .Usage     = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .MipLevels = 1,
-        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .Layout    = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
     mPicking.Depth = MakeTexture::Texture2D(mCtx, "PickingDepthBuffer", depthBufferInfo,
                                             mMainDeletionQueue);
@@ -118,7 +118,7 @@ void RenderContext::OnUpdate(float deltaTime)
     mFrameInfo.Stats.CPUTime = 1000.0f * deltaTime;
 
     // Retrieve info about memory usage:
-    mFrameInfo.Stats.MemoryUsage = 0;
+    mFrameInfo.Stats.MemoryUsage      = 0;
     mFrameInfo.Stats.MemoryAllocation = 0;
 
     std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
@@ -127,7 +127,7 @@ void RenderContext::OnUpdate(float deltaTime)
     for (uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; i++)
     {
         auto implicit = budgets[i].usage - budgets[i].statistics.blockBytes;
-        auto objects = budgets[i].statistics.allocationBytes;
+        auto objects  = budgets[i].statistics.allocationBytes;
 
         mFrameInfo.Stats.MemoryUsage += implicit + objects;
         mFrameInfo.Stats.MemoryAllocation += budgets[i].usage;
@@ -178,13 +178,13 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     // 5. Present the frame to swapchain:
     auto &swapchainData = mFrameInfo.CurrentSwapchainData();
 
-    VkPresentInfoKHR present_info = {};
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    VkPresentInfoKHR present_info   = {};
+    present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = &swapchainData.RenderCompletedSemaphore;
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = &mCtx.Swapchain.swapchain;
-    present_info.pImageIndices = &mFrameInfo.ImageIndex;
+    present_info.pWaitSemaphores    = &swapchainData.RenderCompletedSemaphore;
+    present_info.swapchainCount     = 1;
+    present_info.pSwapchains        = &mCtx.Swapchain.swapchain;
+    present_info.pImageIndices      = &mFrameInfo.ImageIndex;
 
     VkResult result = vkQueuePresentKHR(mCtx.Queues.Present, &present_info);
 
@@ -206,8 +206,8 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 {
     auto &frame = mFrameInfo.CurrentFrameData();
-    auto &swap = mFrameInfo.CurrentSwapchainData();
-    auto &cmd = mFrameInfo.CurrentCmd();
+    auto &swap  = mFrameInfo.CurrentSwapchainData();
+    auto &cmd   = mFrameInfo.CurrentCmd();
 
     auto &swapchainImage = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
 
@@ -218,7 +218,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 
     if (auto fragCount = queryResult.FragmentInvocations)
     {
-        auto targetSize = mRenderer->GetTargetSize();
+        auto targetSize   = mRenderer->GetTargetSize();
         auto targetPixels = targetSize.width * targetSize.height;
 
         mFrameInfo.Stats.FragmentInvocations = *fragCount;
@@ -252,7 +252,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 
         auto swapchainInfo = vkutils::BlitImageInfo{
             .ImgHandle = swapchainImage,
-            .Extent = VkExtent3D{swapExt.width, swapExt.height, 1},
+            .Extent    = VkExtent3D{swapExt.width, swapExt.height, 1},
             .NumLayers = 1,
         };
 
@@ -301,9 +301,9 @@ void RenderContext::CreateSwapchainResources()
         for (auto &img : mCtx.SwapchainImages)
         {
             auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image = img,
-                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .Image            = img,
+                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout        = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                 .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
             };
             barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
@@ -363,9 +363,9 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     mCtx.ImmediateSubmitGraphics([&, x, y](VkCommandBuffer cmd) {
         // Transitions layouts:
         auto info = barrier::ImageLayoutBarrierInfo{
-            .Image = mPicking.Target.Img.Handle,
-            .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .NewLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .Image            = mPicking.Target.Img.Handle,
+            .OldLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .NewLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
         };
         barrier::ImageLayoutBarrierCoarse(cmd, info);
@@ -382,16 +382,16 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         barrier::ImageLayoutBarrierCoarse(cmd, info);
 
         VkBufferImageCopy region{};
-        region.bufferOffset = 0;
-        region.bufferRowLength = 0;
+        region.bufferOffset      = 0;
+        region.bufferRowLength   = 0;
         region.bufferImageHeight = 0;
-        region.imageOffset = {0, 0, 0};
-        region.imageExtent = mPicking.Target.Img.Info.extent;
+        region.imageOffset       = {0, 0, 0};
+        region.imageExtent       = mPicking.Target.Img.Info.extent;
 
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel       = 0;
         region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = 1;
+        region.imageSubresource.layerCount     = 1;
 
         vkCmdCopyImageToBuffer(cmd, mPicking.Target.Img.Handle,
                                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -404,10 +404,10 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     uint32_t R = pixel->R, G = pixel->G, B = pixel->B, A = pixel->A;
 
     uint32_t res = 0;
-    res = res | R << 0;
-    res = res | G << 8;
-    res = res | B << 16;
-    res = res | A << 24;
+    res          = res | R << 0;
+    res          = res | G << 8;
+    res          = res | B << 16;
+    res          = res | A << 24;
 
     // printf("Got ID: %u (from R: %u G: %u B: %u A: %u) \n", res, R, G, B, A);
 

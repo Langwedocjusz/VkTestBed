@@ -29,8 +29,8 @@ class Minimal3DRenderer final : public IRenderer {
     void LoadObjects(const Scene &scene);
 
   private:
-    const float mInternalResolutionScale = 1.0f;
-    const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    const float    mInternalResolutionScale = 1.0f;
+    const VkFormat mRenderTargetFormat      = VK_FORMAT_R8G8B8A8_SRGB;
 
     const VkFormat mDepthFormat = VK_FORMAT_D32_SFLOAT;
     // Image mDepthBuffer;
@@ -44,19 +44,19 @@ class Minimal3DRenderer final : public IRenderer {
 
     GeometryLayout mColoredLayout{
         .VertexLayout = {Vec3, Vec3, Vec3},
-        .IndexType = VK_INDEX_TYPE_UINT32,
+        .IndexType    = VK_INDEX_TYPE_UINT32,
     };
 
     GeometryLayout mTexturedLayout{
         .VertexLayout = {Vec3, Vec2, Vec3},
-        .IndexType = VK_INDEX_TYPE_UINT32,
+        .IndexType    = VK_INDEX_TYPE_UINT32,
     };
 
     struct Drawable {
-        Buffer VertexBuffer;
+        Buffer   VertexBuffer;
         uint32_t VertexCount;
 
-        Buffer IndexBuffer;
+        Buffer   IndexBuffer;
         uint32_t IndexCount;
 
         SceneKey Material;
@@ -69,14 +69,14 @@ class Minimal3DRenderer final : public IRenderer {
     std::map<DrawableKey, Drawable> mColoredDrawables;
     std::map<DrawableKey, Drawable> mTexturedDrawables;
 
-    Texture mDefaultImage;
+    Texture                     mDefaultImage;
     std::map<SceneKey, Texture> mImages;
 
-    VkDescriptorSetLayout mTextureDescriptorSetLayout;
+    VkDescriptorSetLayout      mTextureDescriptorSetLayout;
     DynamicDescriptorAllocator mTextureDescriptorAllocator;
 
     struct Material {
-        float AlphaCutoff = 0.5f;
+        float           AlphaCutoff = 0.5f;
         VkDescriptorSet DescriptorSet;
     };
 

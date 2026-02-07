@@ -24,9 +24,9 @@ class RenderContext {
     void OnRender(std::optional<SceneKey> highlightedObj);
     void OnEvent(Event::EventVariant event);
 
-    void ResizeSwapchain();
-    void LoadScene(Scene &scene);
-    void RebuildPipelines();
+    void     ResizeSwapchain();
+    void     LoadScene(Scene &scene);
+    void     RebuildPipelines();
     SceneKey PickObjectId(float x, float y);
 
   private:
@@ -38,11 +38,11 @@ class RenderContext {
 
   private:
     VulkanContext &mCtx;
-    FrameInfo mFrameInfo;
+    FrameInfo      mFrameInfo;
 
     Camera &mCamera;
 
-    RendererFactory mFactory;
+    RendererFactory            mFactory;
     std::unique_ptr<IRenderer> mRenderer;
 
     // Object picking related data:
@@ -53,7 +53,7 @@ class RenderContext {
         Buffer ReadbackBuffer;
     } mPicking;
 
-    bool mShowStats = false;
+    bool                      mShowStats = false;
     VulkanStatisticsCollector mStatsCollector;
 
     DeletionQueue mMainDeletionQueue;

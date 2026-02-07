@@ -18,7 +18,7 @@ class SceneGui {
     void OnImGui();
     void OnEvent(Event::EventVariant event);
 
-    void SetSelection(SceneKey objKey);
+    void                                  SetSelection(SceneKey objKey);
     [[nodiscard]] std::optional<SceneKey> GetSelection() const;
 
   private:
@@ -43,20 +43,20 @@ class SceneGui {
     std::string GetMaterialName(std::optional<SceneKey> key, std::string_view postfix);
 
   private:
-    SceneEditor &mEditor;
+    SceneEditor  &mEditor;
     const Camera &mCamera;
 
     SceneGraphNode *mSelectedNode = nullptr;
 
     struct DragPayload {
         SceneGraphNode *Parent;
-        int64_t ChildId;
+        int64_t         ChildId;
     };
 
     GizmoMode mGizmoMode = GizmoMode::Translate;
 
-    bool mOpenHdriPopup = false;
-    bool mHdriStillOpen = true;
+    bool              mOpenHdriPopup = false;
+    bool              mHdriStillOpen = true;
     FilesystemBrowser mHdriBrowser;
 
     ModelLoaderGui mModelLoader;

@@ -87,13 +87,13 @@ Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const Layout &lay
     return res;
 }
 
-Vertex::BindingDescription Vertex::GetBindingDescription(const Layout &layout,
-                                                         uint32_t binding,
+Vertex::BindingDescription Vertex::GetBindingDescription(const Layout     &layout,
+                                                         uint32_t          binding,
                                                          VkVertexInputRate inputRate)
 {
     VkVertexInputBindingDescription bindingDescription{};
-    bindingDescription.binding = binding;
-    bindingDescription.stride = GetSize(layout);
+    bindingDescription.binding   = binding;
+    bindingDescription.stride    = GetSize(layout);
     bindingDescription.inputRate = inputRate;
     return bindingDescription;
 }

@@ -21,7 +21,7 @@ std::string ToString(AttributeType type);
 using Layout = std::vector<AttributeType>;
 
 using AttributeDescriptions = std::vector<VkVertexInputAttributeDescription>;
-using BindingDescription = VkVertexInputBindingDescription;
+using BindingDescription    = VkVertexInputBindingDescription;
 
 uint32_t GetSize(const Vertex::Layout &layout);
 

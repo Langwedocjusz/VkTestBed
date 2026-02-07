@@ -88,11 +88,11 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
     };
 
     VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 10;
+    pool_info.sType                      = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets       = 10;
     pool_info.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    pool_info.pPoolSizes = poolSizes.data();
+    pool_info.pPoolSizes    = poolSizes.data();
 
     auto res = vkCreateDescriptorPool(ctx.Device, &pool_info, nullptr, &sDescriptorPool);
 
@@ -103,18 +103,18 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
 
     ImGui_ImplVulkan_InitInfo init_info = {};
 
-    init_info.Instance = ctx.Instance;
+    init_info.Instance       = ctx.Instance;
     init_info.PhysicalDevice = ctx.PhysicalDevice;
-    init_info.Device = ctx.Device;
+    init_info.Device         = ctx.Device;
 
-    init_info.Queue = ctx.Queues.Graphics;
+    init_info.Queue          = ctx.Queues.Graphics;
     init_info.DescriptorPool = sDescriptorPool;
-    init_info.MinImageCount = framesInFlight;
-    init_info.ImageCount = framesInFlight;
+    init_info.MinImageCount  = framesInFlight;
+    init_info.ImageCount     = framesInFlight;
 
     init_info.UseDynamicRendering = true;
-    init_info.CheckVkResultFn = check_vk_result;
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.CheckVkResultFn     = check_vk_result;
+    init_info.MSAASamples         = VK_SAMPLE_COUNT_1_BIT;
 
     // Dynamic rendering data
     init_info.PipelineRenderingCreateInfo = {};
@@ -183,8 +183,8 @@ iminit::EventFeedback iminit::OnEvent(Event::EventVariant event)
                 ctrlPressed = false;
         }
 
-        const float scaleStep = 0.05f;
-        static float scaleFac = 1.0f;
+        const float  scaleStep = 0.05f;
+        static float scaleFac  = 1.0f;
 
         // Scalue ui font:
         if (ctrlPressed && keyEvent.Keycode == VKTB_KEY_EQUAL)
@@ -259,13 +259,13 @@ static void ResetStyle()
 
     style = ImGuiStyle();
 
-    style.WindowRounding = 2.0f;
-    style.ChildRounding = 2.0f;
-    style.FrameRounding = 0.0f;
-    style.PopupRounding = 2.0f;
+    style.WindowRounding    = 2.0f;
+    style.ChildRounding     = 2.0f;
+    style.FrameRounding     = 0.0f;
+    style.PopupRounding     = 2.0f;
     style.ScrollbarRounding = 2.0f;
-    style.GrabRounding = 1.0f;
-    style.TabRounding = 2.0f;
+    style.GrabRounding      = 1.0f;
+    style.TabRounding       = 2.0f;
 
     ImVec4 *colors = ImGui::GetStyle().Colors;
     // clang-format off

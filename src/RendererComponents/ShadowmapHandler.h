@@ -10,6 +10,7 @@
 #include "volk.h"
 
 #include <glm/glm.hpp>
+#include <vulkan/vulkan_core.h>
 
 class ShadowmapHandler {
   public:
@@ -18,7 +19,8 @@ class ShadowmapHandler {
     ~ShadowmapHandler();
 
     void RebuildPipelines(const Vertex::Layout &vertexLayout,
-                          VkDescriptorSetLayout materialDSLayout);
+                          VkDescriptorSetLayout materialDSLayout,
+                          VkSampleCountFlagBits debugMultisampling);
     void OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB);
     void OnImGui();
 
@@ -54,7 +56,7 @@ class ShadowmapHandler {
 
   private:
     static constexpr uint32_t ShadowmapResolution = 2048;
-    static constexpr VkFormat ShadowmapFormat = VK_FORMAT_D32_SFLOAT;
+    static constexpr VkFormat ShadowmapFormat     = VK_FORMAT_D32_SFLOAT;
 
     VulkanContext &mCtx;
 
@@ -64,27 +66,27 @@ class ShadowmapHandler {
     Pipeline mAlphaPipeline;
 
     glm::mat4 mLightViewProj;
-    Frustum mShadowFrustum;
+    Frustum   mShadowFrustum;
 
     struct {
         glm::mat4 LightMVP;
     } mShadowPCData;
 
-    bool mDebugView = false;
+    bool mDebugView     = false;
     bool mFreezeFrustum = false;
-    bool mFitToScene = true;
+    bool mFitToScene    = true;
 
     float mShadowDist = 20.0f;
 
-    Image mShadowmap;
+    Image       mShadowmap;
     VkImageView mShadowmapView;
-    VkSampler mSamplerShadowmap;
+    VkSampler   mSamplerShadowmap;
 
     VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
-    VkDescriptorSet mShadowmapDescriptorSet;
+    VkDescriptorSet       mShadowmapDescriptorSet;
 
     // Descriptor set for sending shadow map view to imgui:
-    VkSampler mSamplerDebug;
+    VkSampler       mSamplerDebug;
     VkDescriptorSet mDebugTextureDescriptorSet;
 
     // Additional pipeline and resources for debug visualization:
@@ -95,11 +97,11 @@ class ShadowmapHandler {
 
     GeometryLayout mDebugGeometryLayout{
         .VertexLayout = {Vertex::AttributeType::Vec4},
-        .IndexType = VK_INDEX_TYPE_UINT16,
+        .IndexType    = VK_INDEX_TYPE_UINT16,
     };
 
     static constexpr size_t NumVertsPerFrustum = 8;
-    static constexpr size_t NumIdxPerFrustum = 36;
+    static constexpr size_t NumIdxPerFrustum   = 36;
 
     std::array<glm::vec4, 2 * NumVertsPerFrustum> mVertexBufferData;
 

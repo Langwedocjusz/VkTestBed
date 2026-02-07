@@ -343,7 +343,7 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     // Based on this post:
     // https://gamedev.stackexchange.com/questions/150191/opengl-calculate-uv-sphere-vertices
 
-    const uint32_t numLatitudeLines = subdivisions;
+    const uint32_t numLatitudeLines  = subdivisions;
     const uint32_t numLongitudeLines = subdivisions;
 
     // One vertex at every latitude-longitude intersection,
@@ -352,7 +352,7 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     const uint32_t numVertices = numLatitudeLines * (numLongitudeLines + 1) + 2;
 
     const uint32_t numTriangles = numLatitudeLines * numLongitudeLines * 2;
-    const uint32_t numIndices = 3 * numTriangles;
+    const uint32_t numIndices   = 3 * numTriangles;
 
     struct Vertex {
         glm::vec3 Position;
@@ -366,26 +366,26 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     GeometryData res(spec);
 
     auto vertices = new (res.VertexData.Data) Vertex[spec.VertCount];
-    auto indices = new (res.IndexData.Data) uint32_t[spec.IdxCount];
+    auto indices  = new (res.IndexData.Data) uint32_t[spec.IdxCount];
 
     // North pole.
     vertices[0] = Vertex{
         .Position = glm::vec3(0.0f, radius, 0.0f),
         .TexCoord = glm::vec2(0.0f, 1.0f),
-        .Normal = glm::vec3(0.0f, 1.0f, 0.0f),
-        .Tangent = glm::vec4(0.0f),
+        .Normal   = glm::vec3(0.0f, 1.0f, 0.0f),
+        .Tangent  = glm::vec4(0.0f),
     };
 
     // South pole.
     vertices[numVertices - 1] = Vertex{
         .Position = glm::vec3(0.0f, -radius, 0.0f),
         .TexCoord = glm::vec2(0.0f, 0.0f),
-        .Normal = glm::vec3(0.0f, -1.0f, 0.0f),
-        .Tangent = glm::vec4(0.0f),
+        .Normal   = glm::vec3(0.0f, -1.0f, 0.0f),
+        .Tangent  = glm::vec4(0.0f),
     };
 
     // +1.0f because there's a gap between the poles and the first parallel.
-    const float latitudeSpacing = 1.0f / (static_cast<float>(numLatitudeLines) + 1.0f);
+    const float latitudeSpacing  = 1.0f / (static_cast<float>(numLatitudeLines) + 1.0f);
     const float longitudeSpacing = 1.0f / static_cast<float>(numLongitudeLines);
 
     // start writing new vertices at position 1
@@ -406,7 +406,7 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
             // theta is a longitude angle (around the equator) in radians.
             // phi is a latitude angle (north or south of the equator).
             float theta = texCoords.x * 2.0f * std::numbers::pi_v<float>;
-            float phi = (texCoords.y - 0.5f) * std::numbers::pi_v<float>;
+            float phi   = (texCoords.y - 0.5f) * std::numbers::pi_v<float>;
 
             // Usual formula for a vector in spherical coordinates.
             // You can exchange x & z to wind the opposite way around the sphere.
@@ -419,8 +419,8 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
             vertices[vertId] = Vertex{
                 .Position = pos,
                 .TexCoord = texCoords,
-                .Normal = glm::normalize(pos),
-                .Tangent = glm::vec4(0.0f),
+                .Normal   = glm::normalize(pos),
+                .Tangent  = glm::vec4(0.0f),
             };
 
             // Proceed to the next vertex.
@@ -466,8 +466,8 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     }
 
     // South pole cap:
-    const uint32_t pole = numVertices - 1;
-    uint32_t bottomRow = (numLatitudeLines - 1) * rowLength + 1;
+    const uint32_t pole      = numVertices - 1;
+    uint32_t       bottomRow = (numLatitudeLines - 1) * rowLength + 1;
 
     for (uint32_t i = 0; i < numLongitudeLines; i++)
     {
@@ -479,10 +479,10 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     // Generate the tangents:
     {
         auto layout = tangen::VertexLayout{
-            .Stride = 3 + 2 + 3 + 4,
+            .Stride         = 3 + 2 + 3 + 4,
             .OffsetTexCoord = 3,
-            .OffsetNormal = 5,
-            .OffsetTangent = 8,
+            .OffsetNormal   = 5,
+            .OffsetTangent  = 8,
         };
 
         tangen::GenerateTangents(res, layout);
@@ -492,9 +492,9 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     using enum ::Vertex::AttributeType;
 
     res.Layout.VertexLayout = {Vec3, Vec2, Vec3, Vec4};
-    res.Layout.IndexType = VK_INDEX_TYPE_UINT32;
-    res.BBox.Center = glm::vec3(0.0f);
-    res.BBox.Extent = glm::vec3(radius);
+    res.Layout.IndexType    = VK_INDEX_TYPE_UINT32;
+    res.BBox.Center         = glm::vec3(0.0f);
+    res.BBox.Extent         = glm::vec3(radius);
 
     return res;
 }

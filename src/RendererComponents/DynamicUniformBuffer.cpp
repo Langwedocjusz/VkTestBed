@@ -16,7 +16,7 @@ DynamicUniformBuffer::~DynamicUniformBuffer()
     mDeletionQueue.flush();
 }
 
-void DynamicUniformBuffer::OnInit(std::string_view debugName,
+void DynamicUniformBuffer::OnInit(std::string_view   debugName,
                                   VkShaderStageFlags stageFlags, VkDeviceSize bufferSize)
 {
     vassert(!mInitialized, "Already initialized!");

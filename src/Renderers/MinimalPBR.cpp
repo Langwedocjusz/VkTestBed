@@ -34,11 +34,11 @@ void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive
 
     // Create Vertex buffer:
     VertexBuffer = MakeBuffer::Vertex(ctx, debugName, geo.VertexData);
-    VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
+    VertexCount  = static_cast<uint32_t>(geo.VertexData.Count);
 
     // Create Index buffer:
     IndexBuffer = MakeBuffer::Index(ctx, debugName, geo.IndexData);
-    IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
+    IndexCount  = static_cast<uint32_t>(geo.IndexData.Count);
 
     Bbox = prim.Data.BBox;
 }
@@ -72,7 +72,7 @@ bool MinimalPbrRenderer::Drawable::IsVisible(glm::mat4 viewProj, size_t instance
 
 void MinimalPbrRenderer::Drawable::BindGeometryBuffers(VkCommandBuffer cmd)
 {
-    VkBuffer vertBuffer = VertexBuffer.Handle;
+    VkBuffer     vertBuffer = VertexBuffer.Handle;
     VkDeviceSize vertOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
@@ -123,16 +123,16 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     {
         std::vector<VkDescriptorPoolSize> poolCounts{
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+            {        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
         };
 
         mMaterialDescriptorAllocator.OnInit(poolCounts);
     }
 
     // Create the default textures:
-    auto albedoData = ImageData::SinglePixel(Pixel{255, 255, 255, 255}, false);
+    auto albedoData    = ImageData::SinglePixel(Pixel{255, 255, 255, 255}, false);
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0}, true);
-    auto normalData = ImageData::SinglePixel(Pixel{128, 128, 255, 0}, true);
+    auto normalData    = ImageData::SinglePixel(Pixel{128, 128, 255, 0}, true);
 
     mDefaultAlbedo = TextureLoaders::LoadTexture2D(mCtx, "DefaultAlbedo", albedoData);
     mDefaultRoughness =
@@ -151,7 +151,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     // Build descriptor sets for AO:
     std::vector<VkDescriptorPoolSize> poolCounts{
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+        {         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
     };
 
     mAODescriptorPool = Descriptor::InitPool(mCtx, 2, poolCounts);
@@ -291,16 +291,16 @@ void MinimalPbrRenderer::RebuildPipelines()
     // Rebuild env handler pipelines as well:
     mEnvHandler.RebuildPipelines();
     mShadowmapHandler.RebuildPipelines(mGeometryLayout.VertexLayout,
-                                       mMaterialDescriptorSetLayout);
+                                       mMaterialDescriptorSetLayout, mMultisample);
 
     VkStencilOpState stencilWriteState{
-        .failOp = VK_STENCIL_OP_REPLACE,
-        .passOp = VK_STENCIL_OP_REPLACE,
+        .failOp      = VK_STENCIL_OP_REPLACE,
+        .passOp      = VK_STENCIL_OP_REPLACE,
         .depthFailOp = VK_STENCIL_OP_REPLACE,
-        .compareOp = VK_COMPARE_OP_ALWAYS,
+        .compareOp   = VK_COMPARE_OP_ALWAYS,
         .compareMask = ~0u,
-        .writeMask = ~0u,
-        .reference = 1,
+        .writeMask   = ~0u,
+        .reference   = 1,
     };
 
     mStencilPipeline =
@@ -323,13 +323,13 @@ void MinimalPbrRenderer::RebuildPipelines()
             .Build(mCtx, mPipelineDeletionQueue);
 
     VkStencilOpState stencilOutlineState{
-        .failOp = VK_STENCIL_OP_KEEP,
-        .passOp = VK_STENCIL_OP_REPLACE,
+        .failOp      = VK_STENCIL_OP_KEEP,
+        .passOp      = VK_STENCIL_OP_REPLACE,
         .depthFailOp = VK_STENCIL_OP_KEEP,
-        .compareOp = VK_COMPARE_OP_NOT_EQUAL,
+        .compareOp   = VK_COMPARE_OP_NOT_EQUAL,
         .compareMask = ~0u,
-        .writeMask = 0u,
-        .reference = 1,
+        .writeMask   = 0u,
+        .reference   = 1,
     };
 
     mOutlinePipeline =
@@ -380,11 +380,11 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
-    uint32_t width = ScaleResolution(mCtx.Swapchain.extent.width);
+    uint32_t width  = ScaleResolution(mCtx.Swapchain.extent.width);
     uint32_t height = ScaleResolution(mCtx.Swapchain.extent.height);
 
     VkExtent2D drawExtent{
-        .width = width,
+        .width  = width,
         .height = height,
     };
 
@@ -393,12 +393,12 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     Image2DInfo renderTargetInfo{
-        .Extent = drawExtent,
-        .Format = mRenderTargetFormat,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = drawUsage,
+        .Extent    = drawExtent,
+        .Format    = mRenderTargetFormat,
+        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
+        .Usage     = drawUsage,
         .MipLevels = 1,
-        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .Layout    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
     mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
                                            mSwapchainDeletionQueue);
@@ -413,12 +413,12 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         mEnableAO ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : targetDepthLayout;
 
     Image2DInfo depthBufferInfo{
-        .Extent = drawExtent,
-        .Format = mDepthStencilFormat,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = depthUsage,
+        .Extent    = drawExtent,
+        .Format    = mDepthStencilFormat,
+        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
+        .Usage     = depthUsage,
         .MipLevels = 1,
-        .Layout = initialDepthLayout,
+        .Layout    = initialDepthLayout,
     };
     mDepthStencilBuffer = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
                                                  mSwapchainDeletionQueue);
@@ -432,13 +432,13 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
     {
         renderTargetInfo.Multisampling = mMultisample;
-        renderTargetInfo.Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        mRenderTargetMsaa = MakeTexture::Texture2D(
+        renderTargetInfo.Layout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        mRenderTargetMsaa              = MakeTexture::Texture2D(
             mCtx, "RenderTargetMSAA", renderTargetInfo, mSwapchainDeletionQueue);
 
         depthBufferInfo.Multisampling = mMultisample;
-        depthBufferInfo.Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        mDepthStencilMsaa = MakeTexture::Texture2D(
+        depthBufferInfo.Layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        mDepthStencilMsaa             = MakeTexture::Texture2D(
             mCtx, "DepthBufferMSAA", depthBufferInfo, mSwapchainDeletionQueue);
     }
 
@@ -446,12 +446,12 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     {
         // Create target for occlusion computation:
         Image2DInfo aoTargetInfo{
-            .Extent = drawExtent,
-            .Format = VK_FORMAT_R8G8B8A8_UNORM,
-            .Tiling = VK_IMAGE_TILING_OPTIMAL,
-            .Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Extent    = drawExtent,
+            .Format    = VK_FORMAT_R8G8B8A8_UNORM,
+            .Tiling    = VK_IMAGE_TILING_OPTIMAL,
+            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             .MipLevels = 1,
-            .Layout = VK_IMAGE_LAYOUT_GENERAL,
+            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
         mAOTarget = MakeTexture::Texture2D(mCtx, "AOTarget", aoTargetInfo,
                                            mSwapchainDeletionQueue);
@@ -465,19 +465,18 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         // Transition depth buffer and ao target to correct layouts:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image = mDepthStencilBuffer.Img.Handle,
-                .OldLayout = initialDepthLayout,
-                .NewLayout = targetDepthLayout,
+                .Image            = mDepthStencilBuffer.Img.Handle,
+                .OldLayout        = initialDepthLayout,
+                .NewLayout        = targetDepthLayout,
                 .SubresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT |
-                                         VK_IMAGE_ASPECT_STENCIL_BIT,
-                                     0, 1, 0, 1},
+                                         VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1},
             };
             barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
 
             auto barrierInfoAO = barrier::ImageLayoutBarrierInfo{
-                .Image = mAOTarget.Img.Handle,
-                .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                .Image            = mAOTarget.Img.Handle,
+                .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
+                .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
             };
             barrier::ImageLayoutBarrierCoarse(cmd, barrierInfoAO);
@@ -496,9 +495,9 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 
     // Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
-    mUBOData.LightViewProjection = mShadowmapHandler.GetViewProj();
-    mUBOData.ViewPos = mCamera.GetPos();
-    mUBOData.AOEnabled = mEnableAO;
+    mUBOData.LightViewProjection  = mShadowmapHandler.GetViewProj();
+    mUBOData.ViewPos              = mCamera.GetPos();
+    mUBOData.AOEnabled            = mEnableAO;
 }
 
 void MinimalPbrRenderer::OnImGui()
@@ -537,7 +536,7 @@ void MinimalPbrRenderer::OnImGui()
     {
         ImGui::SliderFloat("Internal Res Scale", &mInternalResolutionScale, 0.25f, 2.0f);
 
-        static int choice;
+        static int        choice;
         static std::array names{"1x", "2x", "4x", "8x"};
 
         ImGui::Combo("Multisampling", &choice, names.data(),
@@ -594,13 +593,13 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
         OutlinePass(cmd, *highlightedObj);
 
     mFrame.Stats.NumTriangles = stats.NumIdx / 3;
-    mFrame.Stats.NumDraws = stats.NumDraws;
-    mFrame.Stats.NumBinds = stats.NumBinds;
+    mFrame.Stats.NumDraws     = stats.NumDraws;
+    mFrame.Stats.NumBinds     = stats.NumBinds;
 }
 
 template <typename MaterialFn, typename InstanceFn>
 void MinimalPbrRenderer::DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &drawable,
-                                                glm::mat4 viewProj,
+                                                glm::mat4  viewProj,
                                                 MaterialFn materialCallback,
                                                 InstanceFn instanceCallback,
                                                 DrawStats &stats)
@@ -639,10 +638,10 @@ void MinimalPbrRenderer::DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &d
 
 template <typename MaterialFn, typename InstanceFn>
 void MinimalPbrRenderer::DrawSingleSidedFrustumCulled(VkCommandBuffer cmd,
-                                                      glm::mat4 viewProj,
-                                                      MaterialFn materialCallback,
-                                                      InstanceFn instanceCallback,
-                                                      DrawStats &stats)
+                                                      glm::mat4       viewProj,
+                                                      MaterialFn      materialCallback,
+                                                      InstanceFn      instanceCallback,
+                                                      DrawStats      &stats)
 {
     vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
 
@@ -657,10 +656,10 @@ void MinimalPbrRenderer::DrawSingleSidedFrustumCulled(VkCommandBuffer cmd,
 
 template <typename MaterialFn, typename InstanceFn>
 void MinimalPbrRenderer::DrawDoubleSidedFrustumCulled(VkCommandBuffer cmd,
-                                                      glm::mat4 viewProj,
-                                                      MaterialFn materialCallback,
-                                                      InstanceFn instanceCallback,
-                                                      DrawStats &stats)
+                                                      glm::mat4       viewProj,
+                                                      MaterialFn      materialCallback,
+                                                      InstanceFn      instanceCallback,
+                                                      DrawStats      &stats)
 {
     vkCmdSetCullMode(cmd, VK_CULL_MODE_NONE);
 
@@ -794,9 +793,9 @@ void MinimalPbrRenderer::AOPass(VkCommandBuffer cmd, DrawStats &stats)
 
     // Transition depth target to be used as texture:
     auto barrierInfoDepth = barrier::ImageLayoutBarrierInfo{
-        .Image = mDepthStencilBuffer.Img.Handle,
-        .OldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .Image            = mDepthStencilBuffer.Img.Handle,
+        .OldLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         .SubresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0,
                              1, 0, 1},
     };
@@ -804,9 +803,9 @@ void MinimalPbrRenderer::AOPass(VkCommandBuffer cmd, DrawStats &stats)
 
     // Transition AO target to be used as storage image:
     auto barrierInfoAO = barrier::ImageLayoutBarrierInfo{
-        .Image = mAOTarget.Img.Handle,
-        .OldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .Image            = mAOTarget.Img.Handle,
+        .OldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
         .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
     };
     barrier::ImageLayoutBarrierCoarse(cmd, barrierInfoAO);
@@ -816,7 +815,7 @@ void MinimalPbrRenderer::AOPass(VkCommandBuffer cmd, DrawStats &stats)
     mAOGenPipeline.BindDescriptorSet(cmd, mAOGenDescriptorSet, 0);
     stats.NumBinds += 1;
 
-    mAOGenPCData = {.Proj = mCamera.GetProj(),
+    mAOGenPCData = {.Proj    = mCamera.GetProj(),
                     .InvProj = glm::inverse(mCamera.GetProj())};
 
     vkCmdPushConstants(cmd, mAOGenPipeline.Layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
@@ -824,7 +823,7 @@ void MinimalPbrRenderer::AOPass(VkCommandBuffer cmd, DrawStats &stats)
 
     float localSizeX = 32.0f, localSizeY = 32.0f;
 
-    auto targetWidth = static_cast<float>(mAOTarget.Img.Info.extent.width);
+    auto targetWidth  = static_cast<float>(mAOTarget.Img.Info.extent.width);
     auto targetHeight = static_cast<float>(mAOTarget.Img.Info.extent.height);
 
     auto dispCountX = static_cast<uint32_t>(std::ceil(targetWidth / localSizeX));
@@ -883,7 +882,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     };
 
     auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-        mMainPCData.Model = instance.Transform;
+        mMainPCData.Model  = instance.Transform;
         mMainPCData.Normal = glm::transpose(glm::inverse(instance.Transform));
 
         vkCmdPushConstants(cmd, mMainPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
@@ -892,9 +891,9 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
     DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
 
-    //At this point debug visuals from the shadow map can optionally be drawn:
-    // TODO: This is kind of ugly, but debug needs to have acces to the main depth buffer.
-    // Think about a cleaner way to inject debug visualization rendering.
+    // At this point debug visuals from the shadow map can optionally be drawn:
+    //  TODO: This is kind of ugly, but debug needs to have acces to the main depth
+    //  buffer. Think about a cleaner way to inject debug visualization rendering.
     mShadowmapHandler.DrawDebugShapes(cmd, mUBOData.CameraViewProjection,
                                       GetTargetSize());
 
@@ -971,7 +970,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             mStencilPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             // Push per-instance data:
-            auto &model = drawable.Instances.at(instanceId).Transform;
+            auto &model          = drawable.Instances.at(instanceId).Transform;
             mOutlinePCData.Model = model;
 
             vkCmdPushConstants(cmd, mStencilPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
@@ -1019,7 +1018,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             mOutlinePipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             // Push per-instance data:
-            auto &model = drawable.Instances.at(instanceId).Transform;
+            auto &model          = drawable.Instances.at(instanceId).Transform;
             mOutlinePCData.Model = model;
 
             vkCmdPushConstants(cmd, mOutlinePipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
@@ -1058,7 +1057,7 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     };
 
     auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Instance &instance) {
-        mObjectIdPCData.Model = viewProj * instance.Transform;
+        mObjectIdPCData.Model    = viewProj * instance.Transform;
         mObjectIdPCData.ObjectId = instance.ObjectId;
 
         vkCmdPushConstants(cmd, mObjectIdPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
@@ -1135,7 +1134,7 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
         auto &drawable = item.second;
 
         auto meshKey = item.first.first;
-        bool erase = scene.Meshes.count(meshKey) == 0;
+        bool erase   = scene.Meshes.count(meshKey) == 0;
 
         if (erase)
             drawable.Destroy(mCtx);
@@ -1183,7 +1182,7 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
     for (auto &[key, sceneMat] : scene.Materials)
     {
         const bool firstLoad = mMaterials.count(key) == 0;
-        auto &mat = mMaterials[key];
+        auto      &mat       = mMaterials[key];
 
         // Only allocate new descriptor set on first load:
         if (firstLoad)
@@ -1217,9 +1216,9 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
             return def;
         };
 
-        auto &albedo = GetTexture(sceneMat.Albedo, mDefaultAlbedo);
+        auto &albedo    = GetTexture(sceneMat.Albedo, mDefaultAlbedo);
         auto &roughness = GetTexture(sceneMat.Roughness, mDefaultRoughness);
-        auto &normal = GetTexture(sceneMat.Normal, mDefaultNormal);
+        auto &normal    = GetTexture(sceneMat.Normal, mDefaultNormal);
 
         // Update the descriptor set:
         DescriptorUpdater(mat.DescriptorSet)
@@ -1246,8 +1245,8 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 
             if (mDrawables.count(drawableKey) != 0)
             {
-                auto matKey = *prim.Material;
-                auto &mat = mMaterials[matKey];
+                auto  matKey = *prim.Material;
+                auto &mat    = mMaterials[matKey];
 
                 auto &drawable = mDrawables[drawableKey];
 

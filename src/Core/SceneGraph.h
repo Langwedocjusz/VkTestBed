@@ -21,7 +21,7 @@ class SceneGraphNode {
     // Create node meant as prefab holding only one object:
     SceneGraphNode(SceneKey meshKey);
 
-    SceneGraphNode(const SceneGraphNode &) = delete;
+    SceneGraphNode(const SceneGraphNode &)            = delete;
     SceneGraphNode &operator=(const SceneGraphNode &) = delete;
 
     SceneGraphNode(SceneGraphNode &&) noexcept;
@@ -29,10 +29,10 @@ class SceneGraphNode {
 
     ~SceneGraphNode();
 
-    [[nodiscard]] bool IsLeaf() const;
+    [[nodiscard]] bool     IsLeaf() const;
     [[nodiscard]] SceneKey GetObjectKey() const;
 
-    ChildrenArray &GetChildren();
+    ChildrenArray                     &GetChildren();
     [[nodiscard]] const ChildrenArray &GetChildrenConst() const;
 
     /// Emplaces a non-leaf node as child
@@ -41,7 +41,7 @@ class SceneGraphNode {
     SceneGraphNode &EmplaceChild(SceneKey key);
 
     [[nodiscard]] bool SubTreeContains(SceneKey key) const;
-    void RemoveChildrenWithMesh(Scene &scene, SceneKey mesh);
+    void               RemoveChildrenWithMesh(Scene &scene, SceneKey mesh);
 
     glm::mat4 GetTransform();
     glm::mat4 GetAggregateTransform(glm::mat4 current = glm::mat4(1.0f));
@@ -52,14 +52,14 @@ class SceneGraphNode {
     SceneGraphNode *Parent = nullptr;
 
     glm::vec3 Translation = {0.0f, 0.0f, 0.0f};
-    glm::vec3 Rotation = {0.0f, 0.0f, 0.0f};
-    glm::vec3 Scale = {1.0f, 1.0f, 1.0f};
+    glm::vec3 Rotation    = {0.0f, 0.0f, 0.0f};
+    glm::vec3 Scale       = {1.0f, 1.0f, 1.0f};
 
     std::string Name;
 
   private:
     void UpdateTransformsImpl(Scene &scene, glm::mat4 current);
 
-    Scene *mScene = nullptr;
+    Scene                                *mScene = nullptr;
     std::variant<ChildrenArray, SceneKey> mPayload;
 };

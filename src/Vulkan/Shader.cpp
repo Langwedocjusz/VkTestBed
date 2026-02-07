@@ -15,7 +15,7 @@ static std::vector<char> ReadFileBinary(const std::string &filename)
         vpanic("Failed to open file: " + filename);
     }
 
-    size_t file_size = (size_t)file.tellg();
+    size_t            file_size = (size_t)file.tellg();
     std::vector<char> buffer(file_size);
 
     file.seekg(0);
@@ -26,12 +26,12 @@ static std::vector<char> ReadFileBinary(const std::string &filename)
     return buffer;
 }
 
-static VkShaderModule CreateShaderModule(VulkanContext &ctx,
+static VkShaderModule CreateShaderModule(VulkanContext           &ctx,
                                          const std::vector<char> &code)
 {
     VkShaderModuleCreateInfo create_info = {};
-    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    create_info.codeSize = code.size();
+    create_info.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create_info.codeSize                 = code.size();
     create_info.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
     VkShaderModule shaderModule;
@@ -78,10 +78,10 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
         vassert(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
         VkPipelineShaderStageCreateInfo vertStageInfo = {};
-        vertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        vertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vertStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vertStageInfo.stage  = VK_SHADER_STAGE_VERTEX_BIT;
         vertStageInfo.module = vertModule;
-        vertStageInfo.pName = "main";
+        vertStageInfo.pName  = "main";
 
         res.push_back(vertStageInfo);
     }
@@ -94,10 +94,10 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
         vassert(fragModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
         VkPipelineShaderStageCreateInfo fragStageInfo = {};
-        fragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        fragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        fragStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        fragStageInfo.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
         fragStageInfo.module = fragModule;
-        fragStageInfo.pName = "main";
+        fragStageInfo.pName  = "main";
 
         res.push_back(fragStageInfo);
     }
@@ -114,10 +114,10 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildCompute(
     vassert(computeModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
     VkPipelineShaderStageCreateInfo computeStageInfo = {};
-    computeStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    computeStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    computeStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    computeStageInfo.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
     computeStageInfo.module = computeModule;
-    computeStageInfo.pName = "main";
+    computeStageInfo.pName  = "main";
 
     return std::vector<VkPipelineShaderStageCreateInfo>{computeStageInfo};
 }

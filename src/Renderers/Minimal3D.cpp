@@ -126,7 +126,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
         for (auto &[_, drawable] : mColoredDrawables)
         {
-            VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
+            VkBuffer     vertBuffer = drawable.VertexBuffer.Handle;
             VkDeviceSize vertOffset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
@@ -151,7 +151,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
         for (auto &[_, drawable] : mTexturedDrawables)
         {
-            VkBuffer vertBuffer = drawable.VertexBuffer.Handle;
+            VkBuffer     vertBuffer = drawable.VertexBuffer.Handle;
             VkDeviceSize vertOffset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
@@ -166,7 +166,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
                 PushConstantData pcData{
                     .AlphaCutoff = glm::vec4(material.AlphaCutoff),
-                    .Transform = transform,
+                    .Transform   = transform,
                 };
 
                 vkCmdPushConstants(cmd, mTexturedPipeline.Layout,
@@ -186,11 +186,11 @@ void Minimal3DRenderer::RecreateSwapchainResources()
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
-    uint32_t width = ScaleResolution(mCtx.Swapchain.extent.width);
+    uint32_t width  = ScaleResolution(mCtx.Swapchain.extent.width);
     uint32_t height = ScaleResolution(mCtx.Swapchain.extent.height);
 
     VkExtent2D drawExtent{
-        .width = width,
+        .width  = width,
         .height = height,
     };
 
@@ -199,24 +199,24 @@ void Minimal3DRenderer::RecreateSwapchainResources()
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     Image2DInfo renderTargetInfo{
-        .Extent = drawExtent,
-        .Format = mRenderTargetFormat,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = drawUsage,
+        .Extent    = drawExtent,
+        .Format    = mRenderTargetFormat,
+        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
+        .Usage     = drawUsage,
         .MipLevels = 1,
-        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .Layout    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
     mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
                                            mSwapchainDeletionQueue);
 
     // Create depth buffer:
     Image2DInfo depthBufferInfo{
-        .Extent = drawExtent,
-        .Format = mDepthFormat,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .Extent    = drawExtent,
+        .Format    = mDepthFormat,
+        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
+        .Usage     = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .MipLevels = 1,
-        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .Layout    = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
     mRenderTarget = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
                                            mSwapchainDeletionQueue);
@@ -255,11 +255,11 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
                              const std::string &debugName) {
         // Create Vertex buffer:
         drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData);
-        drawable.VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
+        drawable.VertexCount  = static_cast<uint32_t>(geo.VertexData.Count);
 
         // Create Index buffer:
         drawable.IndexBuffer = MakeBuffer::Index(mCtx, debugName, geo.IndexData);
-        drawable.IndexCount = static_cast<uint32_t>(geo.IndexData.Count);
+        drawable.IndexCount  = static_cast<uint32_t>(geo.IndexData.Count);
 
         mSceneDeletionQueue.push_back(drawable.VertexBuffer);
         mSceneDeletionQueue.push_back(drawable.IndexBuffer);

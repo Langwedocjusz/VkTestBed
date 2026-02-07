@@ -18,10 +18,10 @@ class ModelLoaderGui {
   private:
     SceneEditor &mEditor;
 
-    bool mFilePopup = false;
+    bool mFilePopup   = false;
     bool mImportPopup = false;
 
-    bool mFileMenuOpen = true;
+    bool mFileMenuOpen   = true;
     bool mImportMenuOpen = true;
 
     ModelConfig mModelConfig;

@@ -8,7 +8,7 @@
 
 class ThreadPool {
   public:
-    using Task = std::function<void()>;
+    using Task    = std::function<void()>;
     using OptTask = std::optional<Task>;
 
   public:

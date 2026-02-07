@@ -33,7 +33,7 @@ void SubmitQueue(VkQueue queue, VkCommandBuffer cmd, VkFence fence,
                  VkSemaphore signalSemaphore);
 
 void SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFence fence,
-                 std::span<VkSemaphore> waitSemaphores,
+                 std::span<VkSemaphore>          waitSemaphores,
                  std::span<VkPipelineStageFlags> waitStages,
-                 std::span<VkSemaphore> signalSemaphores);
+                 std::span<VkSemaphore>          signalSemaphores);
 } // namespace common

@@ -23,9 +23,9 @@ void ImageBarrierDepthToRender(VkCommandBuffer cmd, VkImage depthImage);
 void ImageBarrierDepthToSample(VkCommandBuffer cmd, VkImage depthImage);
 
 struct ImageLayoutBarrierInfo {
-    VkImage Image;
-    VkImageLayout OldLayout;
-    VkImageLayout NewLayout;
+    VkImage                 Image;
+    VkImageLayout           OldLayout;
+    VkImageLayout           NewLayout;
     VkImageSubresourceRange SubresourceRange;
 };
 

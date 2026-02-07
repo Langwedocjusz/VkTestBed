@@ -27,21 +27,21 @@ class HelloRenderer final : public IRenderer {
     void LoadObjects(const Scene &scene);
 
   private:
-    const float mInternalResolutionScale = 1.0f;
-    const VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    const float    mInternalResolutionScale = 1.0f;
+    const VkFormat mRenderTargetFormat      = VK_FORMAT_R8G8B8A8_SRGB;
 
     Pipeline mGraphicsPipeline;
 
     GeometryLayout mGeometryLayout{
         .VertexLayout = {Vertex::AttributeType::Vec3, Vertex::AttributeType::Vec3},
-        .IndexType = VK_INDEX_TYPE_UINT16,
+        .IndexType    = VK_INDEX_TYPE_UINT16,
     };
 
     struct Drawable {
-        Buffer VertexBuffer;
+        Buffer   VertexBuffer;
         uint32_t VertexCount;
 
-        Buffer IndexBuffer;
+        Buffer   IndexBuffer;
         uint32_t IndexCount;
 
         SceneKey Instances;

@@ -46,18 +46,18 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const std::string &debugName
     auto [imageSize, extent] = GetSizeExtent(data);
 
     Image2DInfo imgInfo{
-        .Extent = extent,
-        .Format = data.Format,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .Extent    = extent,
+        .Format    = data.Format,
+        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
+        .Usage     = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = 1,
     };
 
     Image img = MakeImage::Image2D(ctx, debugName, imgInfo);
 
     ImageUploadInfo uploadInfo{
-        .Data = data.Data,
-        .Size = imageSize,
+        .Data      = data.Data,
+        .Size      = imageSize,
         .DstLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
@@ -75,7 +75,7 @@ Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, const std::string &debugN
         .Extent = extent,
         .Format = data.Format,
         .Tiling = VK_IMAGE_TILING_OPTIMAL,
-        .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+        .Usage  = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                  VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = Image::CalcNumMips(data.Width, data.Height),
     };
@@ -83,8 +83,8 @@ Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, const std::string &debugN
     Image img = MakeImage::Image2D(ctx, debugName, imgInfo);
 
     ImageUploadInfo uploadInfo{
-        .Data = data.Data,
-        .Size = imageSize,
+        .Data      = data.Data,
+        .Size      = imageSize,
         .DstLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
@@ -106,9 +106,9 @@ Texture TextureLoaders::LoadTexture2D(VulkanContext &ctx, const std::string &deb
     return res;
 }
 
-Texture TextureLoaders::LoadTexture2DMipped(VulkanContext &ctx,
+Texture TextureLoaders::LoadTexture2DMipped(VulkanContext     &ctx,
                                             const std::string &debugName,
-                                            const ImageData &data)
+                                            const ImageData   &data)
 {
     Texture res{};
 

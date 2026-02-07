@@ -12,7 +12,7 @@ namespace vkinit
 void CreateSignalledFence(VulkanContext &ctx, VkFence &fence);
 void CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore);
 
-VkCommandPool CreateCommandPool(VulkanContext &ctx, vkb::QueueType qtype);
+VkCommandPool   CreateCommandPool(VulkanContext &ctx, vkb::QueueType qtype);
 VkCommandBuffer CreateCommandBuffer(VulkanContext &ctx, VkCommandPool pool);
 
 void AllocateCommandBuffers(VulkanContext &ctx, std::span<VkCommandBuffer> buffers,
@@ -26,15 +26,15 @@ VkRenderingAttachmentInfo CreateAttachmentInfoMSAA(
     VkImageView viewMsaa, VkImageView viewResolve, VkImageLayout layout,
     std::optional<VkClearValue> clear = std::nullopt);
 
-VkRenderingInfo CreateRenderingInfo(VkExtent2D extent,
+VkRenderingInfo CreateRenderingInfo(VkExtent2D                 extent,
                                     VkRenderingAttachmentInfo &colorAttachment);
 
-VkRenderingInfo CreateRenderingInfo(VkExtent2D extent,
+VkRenderingInfo CreateRenderingInfo(VkExtent2D                 extent,
                                     VkRenderingAttachmentInfo &colorAttachment,
                                     VkRenderingAttachmentInfo &depthAttachment,
-                                    bool hasStencil);
+                                    bool                       hasStencil);
 
-VkRenderingInfo CreateRenderingInfo(VkExtent2D extent,
+VkRenderingInfo CreateRenderingInfo(VkExtent2D                 extent,
                                     VkRenderingAttachmentInfo &depthAttachment,
-                                    bool hasStencil);
+                                    bool                       hasStencil);
 }; // namespace vkinit

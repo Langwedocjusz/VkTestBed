@@ -30,13 +30,15 @@ std::array<glm::vec3, 8> AABB::GetVertices() const
 
 std::array<std::array<size_t, 2>, 12> AABB::GetEdgesIds()
 {
-    return {{
-        // clang-format off
+    return {
+        {
+         // clang-format off
         {0,1}, {1,2}, {2,3}, {3,0}, // Lower face
         {4,5}, {5,6}, {6,7}, {7,4}, // Upper face
         {0,4}, {1,5}, {2,6}, {3,7}  // Corners
-        // clang-format on
-    }};
+                  // clang-format on
+        }
+    };
 }
 
 bool AABB::IsInView(glm::mat4 mvp) const
@@ -44,22 +46,22 @@ bool AABB::IsInView(glm::mat4 mvp) const
     auto corners = GetVertices();
 
     bool allFront = true;
-    bool allBack = true;
-    bool allLeft = true;
+    bool allBack  = true;
+    bool allLeft  = true;
     bool allRight = true;
-    bool allUp = true;
-    bool allDown = true;
+    bool allUp    = true;
+    bool allDown  = true;
 
     for (auto corner : corners)
     {
         glm::vec4 homogeneous = mvp * glm::vec4(corner, 1.0f);
 
         allFront = allFront && (homogeneous.z > homogeneous.w);
-        allBack = allBack && (homogeneous.z < 0.0f);
-        allLeft = allLeft && (homogeneous.x < -homogeneous.w);
+        allBack  = allBack && (homogeneous.z < 0.0f);
+        allLeft  = allLeft && (homogeneous.x < -homogeneous.w);
         allRight = allRight && (homogeneous.x > homogeneous.w);
-        allUp = allUp && (homogeneous.y > homogeneous.w);
-        allDown = allDown && (homogeneous.y < -homogeneous.w);
+        allUp    = allUp && (homogeneous.y > homogeneous.w);
+        allDown  = allDown && (homogeneous.y < -homogeneous.w);
     }
 
     return !(allFront || allBack || allLeft || allRight || allUp || allDown);
@@ -73,7 +75,7 @@ AABB AABB::GetConservativeTransformedAABB(glm::mat4 transform) const
     for (auto &corner : corners)
     {
         auto transformed = transform * glm::vec4(corner, 1.0f);
-        corner = glm::vec3(transformed);
+        corner           = glm::vec3(transformed);
     }
 
     // Get extremal coordinates of the transformed corners:

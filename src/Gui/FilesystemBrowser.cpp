@@ -103,7 +103,7 @@ void FilesystemBrowser::ImGuiLoadPopup(const std::string &name, bool &open)
 {
     if (ImGui::BeginPopupModal(name.c_str(), &open))
     {
-        constexpr size_t maxNameLength = 40;
+        constexpr size_t  maxNameLength = 40;
         const std::string buttonText{"Load"};
 
         ImGuiStyle &style = ImGui::GetStyle();

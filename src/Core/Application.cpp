@@ -26,25 +26,25 @@ class Application::Impl {
     void OnEvent(Event::EventVariant event);
 
   private:
-    SystemWindow mWindow;
+    SystemWindow  mWindow;
     VulkanContext mCtx;
 
-    Camera mCamera;
+    Camera        mCamera;
     RenderContext mRender;
 
-    Scene mScene;
+    Scene       mScene;
     SceneEditor mSceneEditor;
-    SceneGui mSceneGui;
+    SceneGui    mSceneGui;
 
     ShaderManager mShaderManager;
 
-    float mDeltaTimeSeconds = 0.0f;
+    float            mDeltaTimeSeconds = 0.0f;
     Timer::TimePoint mOldTime;
 
     std::optional<ImVec2> mPickRequested = std::nullopt;
 
-    bool mCursorCaptured = false;
-    bool mStillResizing = false;
+    bool mCursorCaptured  = false;
+    bool mStillResizing   = false;
     bool mResizeRequested = false;
 };
 
@@ -72,14 +72,14 @@ void Application::Impl::Run()
     while (!mWindow.ShouldClose())
     {
         // Update delta time:
-        auto currentTime = Timer::Now();
+        auto currentTime  = Timer::Now();
         mDeltaTimeSeconds = Timer::GetDiffSeconds(currentTime, mOldTime);
-        mOldTime = currentTime;
+        mOldTime          = currentTime;
 
         // Recreate swapchain and related resources if necessary:
         bool handleResize = false;
-        handleResize = handleResize || !mCtx.SwapchainOk;
-        handleResize = handleResize || (!mStillResizing && mResizeRequested);
+        handleResize      = handleResize || !mCtx.SwapchainOk;
+        handleResize      = handleResize || (!mStillResizing && mResizeRequested);
 
         mStillResizing = false;
 
@@ -103,7 +103,7 @@ void Application::Impl::Run()
         // Handle object picking if requested:
         if (mPickRequested.has_value())
         {
-            auto pos = *mPickRequested;
+            auto pos       = *mPickRequested;
             mPickRequested = std::nullopt;
 
             auto pickedId = mRender.PickObjectId(pos.x, pos.y);
@@ -145,10 +145,10 @@ void Application::Impl::OnEvent(Event::EventVariant event)
     {
         auto resize = std::get<Event::FramebufferResize>(event);
 
-        mCtx.RequestedWidth = resize.Width;
+        mCtx.RequestedWidth  = resize.Width;
         mCtx.RequestedHeight = resize.Height;
 
-        mStillResizing = true;
+        mStillResizing   = true;
         mResizeRequested = true;
 
         return;

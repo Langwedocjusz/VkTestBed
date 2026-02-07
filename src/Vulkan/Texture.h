@@ -3,6 +3,6 @@
 #include "Image.h"
 
 struct Texture {
-    Image Img;
+    Image       Img;
     VkImageView View;
 };

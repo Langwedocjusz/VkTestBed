@@ -27,14 +27,14 @@ struct AssetManager::Model {
     {
     }
 
-    ModelConfig Config;
-    bool &IsReady;
-    fastgltf::Asset Gltf;
-    std::vector<ImageTaskData> ImgData;
+    ModelConfig                    Config;
+    bool                          &IsReady;
+    fastgltf::Asset                Gltf;
+    std::vector<ImageTaskData>     ImgData;
     std::vector<PrimitiveTaskData> PrimData;
-    std::map<size_t, SceneKey> MeshDict;
-    std::atomic_int64_t TasksLeft;
-    Timer::TimePoint StartTime;
+    std::map<size_t, SceneKey>     MeshDict;
+    std::atomic_int64_t            TasksLeft;
+    Timer::TimePoint               StartTime;
 };
 
 AssetManager::AssetManager(Scene &scene) : mScene(scene)
@@ -55,7 +55,7 @@ void AssetManager::LoadModel(const ModelConfig &config, SceneGraphNode &root,
 
     // 1. Update the state
     mModelStage = ModelStage::Parsing;
-    mModel = std::make_unique<Model>(config, isReady);
+    mModel      = std::make_unique<Model>(config, isReady);
 
     // 2. Launch an async task to parse gltf and emplace new
     // elements in the scene
@@ -84,7 +84,7 @@ void AssetManager::OnUpdate()
                 if (data.Path)
                 {
                     auto pathStr = data.Path->string();
-                    img = ImageData::ImportSTB(pathStr.c_str(), data.Unorm);
+                    img          = ImageData::ImportSTB(pathStr.c_str(), data.Unorm);
                 }
                 else
                     img = ImageData::SinglePixel(data.BaseColor, data.Unorm);
@@ -102,7 +102,7 @@ void AssetManager::OnUpdate()
                 auto &mesh = mScene.Meshes[data.SceneMesh];
                 auto &prim = mesh.Primitives[data.ScenePrim];
 
-                auto &srcMesh = mModel->Gltf.meshes[data.GltfMesh];
+                auto &srcMesh      = mModel->Gltf.meshes[data.GltfMesh];
                 auto &srcPrimitive = srcMesh.primitives[data.GltfPrim];
 
                 prim.Data = ModelLoader::LoadPrimitive(mModel->Gltf, mModel->Config,
@@ -130,7 +130,7 @@ void AssetManager::OnUpdate()
             mModel->IsReady = true;
 
             // Print message:
-            auto now = Timer::Now();
+            auto now  = Timer::Now();
             auto time = Timer::GetDiffSeconds(now, mModel->StartTime);
             std::cout << "Finished loading model (took " << time << " [s])\n";
 
@@ -152,8 +152,8 @@ void AssetManager::LoadHdri(const std::filesystem::path &path)
         {
             mHDRI.LastPath = path;
 
-            auto pathStr = path.string();
-            mScene.Env.HdriImage = ImageData::ImportEXR(pathStr.c_str());
+            auto pathStr           = path.string();
+            mScene.Env.HdriImage   = ImageData::ImportEXR(pathStr.c_str());
             mScene.Env.ReloadImage = true;
 
             mScene.RequestUpdate(Scene::UpdateFlag::Images);
@@ -202,7 +202,7 @@ void AssetManager::PreprocessGltfAssets()
     using namespace std::views;
 
     const std::filesystem::path workingDir = mModel->Config.Filepath.parent_path();
-    const std::string baseName = mModel->Config.Filepath.stem().string();
+    const std::string           baseName   = mModel->Config.Filepath.stem().string();
 
     // Gather ids of the mesh materials:
     std::map<size_t, SceneKey> keyMap;
@@ -212,7 +212,7 @@ void AssetManager::PreprocessGltfAssets()
     {
         // Create new scene material:
         auto [matKey, mat] = mScene.EmplaceMaterial();
-        mat.Name = baseName + std::to_string(id);
+        mat.Name           = baseName + std::to_string(id);
 
         keyMap[id] = matKey;
 
@@ -236,10 +236,10 @@ void AssetManager::PreprocessGltfAssets()
         // Handle albedo:
         {
             auto [imgKey, img] = mScene.EmplaceImage();
-            mat.Albedo = imgKey;
+            mat.Albedo         = imgKey;
 
             auto &albedoInfo = material.pbrData.baseColorTexture;
-            auto albedoPath = GetTexturePath(mModel->Gltf, albedoInfo, workingDir);
+            auto  albedoPath = GetTexturePath(mModel->Gltf, albedoInfo, workingDir);
 
             auto &fac = material.pbrData.baseColorFactor;
 
@@ -251,11 +251,11 @@ void AssetManager::PreprocessGltfAssets()
             };
 
             mModel->ImgData.push_back(ImageTaskData{
-                .ImageKey = imgKey,
-                .Path = albedoPath,
+                .ImageKey  = imgKey,
+                .Path      = albedoPath,
                 .BaseColor = baseColor,
-                .Name = mat.Name + " Albedo",
-                .Unorm = false,
+                .Name      = mat.Name + " Albedo",
+                .Unorm     = false,
             });
         }
 
@@ -263,10 +263,10 @@ void AssetManager::PreprocessGltfAssets()
         if (mModel->Config.FetchRoughness)
         {
             auto [imgKey, img] = mScene.EmplaceImage();
-            mat.Roughness = imgKey;
+            mat.Roughness      = imgKey;
 
             auto &roughnessInfo = material.pbrData.metallicRoughnessTexture;
-            auto roughnessPath = GetTexturePath(mModel->Gltf, roughnessInfo, workingDir);
+            auto  roughnessPath = GetTexturePath(mModel->Gltf, roughnessInfo, workingDir);
 
             auto baseColor = Pixel{
                 .R = PixelChannelFromFloat(0.0f),
@@ -276,11 +276,11 @@ void AssetManager::PreprocessGltfAssets()
             };
 
             mModel->ImgData.push_back(ImageTaskData{
-                .ImageKey = imgKey,
-                .Path = roughnessPath,
+                .ImageKey  = imgKey,
+                .Path      = roughnessPath,
                 .BaseColor = baseColor,
-                .Name = mat.Name + " Roughness",
-                .Unorm = true,
+                .Name      = mat.Name + " Roughness",
+                .Unorm     = true,
             });
         }
 
@@ -288,19 +288,19 @@ void AssetManager::PreprocessGltfAssets()
         if (mModel->Config.FetchNormal)
         {
             auto &normalInfo = material.normalTexture;
-            auto normalPath = GetTexturePath(mModel->Gltf, normalInfo, workingDir);
+            auto  normalPath = GetTexturePath(mModel->Gltf, normalInfo, workingDir);
 
             if (normalPath.has_value())
             {
                 auto [imgKey, img] = mScene.EmplaceImage();
-                mat.Normal = imgKey;
+                mat.Normal         = imgKey;
 
                 mModel->ImgData.push_back(ImageTaskData{
-                    .ImageKey = imgKey,
-                    .Path = normalPath,
+                    .ImageKey  = imgKey,
+                    .Path      = normalPath,
                     .BaseColor = Pixel{},
-                    .Name = mat.Name + " Normal",
-                    .Unorm = true,
+                    .Name      = mat.Name + " Normal",
+                    .Unorm     = true,
                 });
             }
         }
@@ -311,7 +311,7 @@ void AssetManager::PreprocessGltfAssets()
     {
         // Create the new mesh:
         auto [meshKey, mesh] = mScene.EmplaceMesh();
-        mesh.Name = std::format("{} {}", baseName, gltfMesh.name);
+        mesh.Name            = std::format("{} {}", baseName, gltfMesh.name);
 
         // Update mesh dictionary:
         mModel->MeshDict[gltfMeshId] = meshKey;
@@ -333,8 +333,8 @@ void AssetManager::PreprocessGltfAssets()
             mModel->PrimData.push_back(PrimitiveTaskData{
                 .SceneMesh = meshKey,
                 .ScenePrim = mesh.Primitives.size() - 1,
-                .GltfMesh = gltfMeshId,
-                .GltfPrim = gltfPrimId,
+                .GltfMesh  = gltfMeshId,
+                .GltfPrim  = gltfPrimId,
             });
         }
     }
@@ -366,7 +366,7 @@ static auto UnpackTransform(fastgltf::Node &node)
 
     auto translation = glm::vec3(t.x(), t.y(), t.z());
 
-    auto quat = glm::quat(r.w(), r.x(), r.y(), r.z());
+    auto quat     = glm::quat(r.w(), r.x(), r.y(), r.z());
     auto rotation = glm::eulerAngles(quat);
 
     auto scale = glm::vec3(s.x(), s.y(), s.z());
@@ -381,7 +381,7 @@ void AssetManager::ProcessGltfHierarchy(SceneGraphNode &root)
 
     for (auto nodeIdx : scene.nodeIndices)
     {
-        auto &node = mModel->Gltf.nodes[nodeIdx];
+        auto &node                          = mModel->Gltf.nodes[nodeIdx];
         auto [translation, rotation, scale] = UnpackTransform(node);
 
         // TODO: Only handles first-level nodes that hold meshes
@@ -389,11 +389,11 @@ void AssetManager::ProcessGltfHierarchy(SceneGraphNode &root)
         {
             auto meshKey = mModel->MeshDict[*node.meshIndex];
 
-            auto &prefabNode = root.EmplaceChild(meshKey);
+            auto &prefabNode       = root.EmplaceChild(meshKey);
             prefabNode.Translation = translation;
-            prefabNode.Rotation = rotation;
-            prefabNode.Scale = scale;
-            prefabNode.Name = node.name;
+            prefabNode.Rotation    = rotation;
+            prefabNode.Scale       = scale;
+            prefabNode.Name        = node.name;
         }
     }
 }

@@ -50,7 +50,7 @@ void ModelLoaderGui::ModelLoaderGui::OnImGui()
 
     ImportMenu();
 
-    mFileMenuOpen = true;
+    mFileMenuOpen   = true;
     mImportMenuOpen = true;
 }
 

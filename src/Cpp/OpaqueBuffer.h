@@ -5,9 +5,9 @@
 #include <new>
 
 struct OpaqueBuffer {
-    size_t Count = 0;
-    size_t Size = 0;
-    uint8_t *Data = nullptr;
+    size_t   Count = 0;
+    size_t   Size  = 0;
+    uint8_t *Data  = nullptr;
 
     OpaqueBuffer() = default;
 
@@ -20,7 +20,7 @@ struct OpaqueBuffer {
 #endif
     }
 
-    OpaqueBuffer(const OpaqueBuffer &) = delete;
+    OpaqueBuffer(const OpaqueBuffer &)            = delete;
     OpaqueBuffer &operator=(const OpaqueBuffer &) = delete;
 
     OpaqueBuffer(OpaqueBuffer &&other) noexcept
@@ -32,8 +32,8 @@ struct OpaqueBuffer {
     OpaqueBuffer &operator=(OpaqueBuffer &&other) noexcept
     {
         Count = other.Count;
-        Size = other.Size;
-        Data = other.Data;
+        Size  = other.Size;
+        Data  = other.Data;
 
         other.Data = nullptr;
 

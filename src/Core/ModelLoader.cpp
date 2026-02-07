@@ -14,10 +14,10 @@
 #include <limits>
 
 static fastgltf::Asset GetAsset(const std::filesystem::path &path,
-                                bool loadBuffers = false)
+                                bool                         loadBuffers = false)
 {
     fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_diffuse_transmission);
-    auto data = fastgltf::GltfDataBuffer::FromPath(path);
+    auto             data = fastgltf::GltfDataBuffer::FromPath(path);
 
     vassert(data.error() == fastgltf::Error::None,
             "Failed to load a gltf file: " + path.string());
@@ -45,9 +45,9 @@ fastgltf::Asset ModelLoader::GetGltfWithBuffers(const std::filesystem::path &fil
     return GetAsset(filepath, true);
 }
 
-static fastgltf::Accessor &GetAttributeAccessor(fastgltf::Asset &gltf,
+static fastgltf::Accessor &GetAttributeAccessor(fastgltf::Asset     &gltf,
                                                 fastgltf::Primitive &primitive,
-                                                std::string_view name)
+                                                std::string_view     name)
 {
     return gltf.accessors[primitive.findAttribute(name)->accessorIndex];
 }
@@ -67,10 +67,10 @@ static size_t GetVertexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primiti
 static tangen::VertexLayout GetLayout(const ModelConfig &config)
 {
     tangen::VertexLayout res{
-        .Stride = 3,
+        .Stride         = 3,
         .OffsetTexCoord = 3,
-        .OffsetNormal = 3,
-        .OffsetTangent = 3,
+        .OffsetNormal   = 3,
+        .OffsetTangent  = 3,
     };
 
     if (config.LoadTexCoord)
@@ -121,7 +121,7 @@ struct VertParsingResult {
     bool GenerateTangents = false;
 };
 
-static VertParsingResult RetrieveVertices(fastgltf::Asset &gltf,
+static VertParsingResult RetrieveVertices(fastgltf::Asset     &gltf,
                                           fastgltf::Primitive &primitive,
                                           const ModelConfig &config, GeometryData &geo)
 {
@@ -241,7 +241,7 @@ static void RetrieveIndices(fastgltf::Asset &gltf, fastgltf::Primitive &primitiv
 {
     auto &accessor = gltf.accessors[primitive.indicesAccessor.value()];
 
-    auto Indices = new (geo.IndexData.Data) uint32_t[accessor.count];
+    auto   Indices = new (geo.IndexData.Data) uint32_t[accessor.count];
     size_t current = 0;
 
     fastgltf::iterateAccessor<std::uint32_t>(gltf, accessor, [&](std::uint32_t idx) {
@@ -254,21 +254,21 @@ GeometryData ModelLoader::LoadPrimitive(fastgltf::Asset &gltf, const ModelConfig
                                         fastgltf::Primitive &primitive)
 {
     // Retrieve essential info about the mesh primitive:
-    auto layout = GetLayout(config);
+    auto layout   = GetLayout(config);
     auto vertSize = layout.Stride * sizeof(float);
 
     const size_t vertCount = GetVertexCount(gltf, primitive);
-    const size_t idxCount = GetIndexCount(gltf, primitive);
+    const size_t idxCount  = GetIndexCount(gltf, primitive);
 
     // Allocate memory for vertex and index data:
     const auto spec = GeometrySpec::BuildS<uint32_t>(vertSize, vertCount, idxCount);
 
-    auto geo = GeometryData(spec);
+    auto geo   = GeometryData(spec);
     geo.Layout = ToGeoLayout(config);
 
     // Retrieve the data:
     auto vertRes = RetrieveVertices(gltf, primitive, config, geo);
-    geo.BBox = vertRes.BBox;
+    geo.BBox     = vertRes.BBox;
 
     RetrieveIndices(gltf, primitive, geo);
 

@@ -10,7 +10,7 @@ void barrier::ImageBarrier(VkCommandBuffer cmd, VkImageMemoryBarrier2 barrier)
     depInfo.pNext = nullptr;
 
     depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &barrier;
+    depInfo.pImageMemoryBarriers    = &barrier;
 
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
@@ -20,10 +20,10 @@ void barrier::ImageBarrierColorToRender(VkCommandBuffer cmd, VkImage image)
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -41,10 +41,10 @@ void barrier::ImageBarrierColorToTransfer(VkCommandBuffer cmd, VkImage image)
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -64,10 +64,10 @@ void barrier::ImageBarrierSwapchainToTransfer(VkCommandBuffer cmd, VkImage image
 
     // TODO: I don't quite understand this, but this cannot just be none
     // as that creates a WRITE_AFTER_READ hazard with vkAcquireImageKHR
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -85,7 +85,7 @@ void barrier::ImageBarrierSwapchainToRender(VkCommandBuffer cmd, VkImage image)
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -108,10 +108,10 @@ void barrier::ImageBarrierSwapchainToPresent(VkCommandBuffer cmd, VkImage image)
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_NONE;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_NONE;
     barrier.dstAccessMask = VK_ACCESS_2_NONE;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -129,10 +129,10 @@ void barrier::ImageBarrierDepthToRender(VkCommandBuffer cmd, VkImage depthImage)
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_NONE;
     barrier.srcAccessMask = VK_ACCESS_2_NONE;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -150,10 +150,10 @@ void barrier::ImageBarrierDepthToSample(VkCommandBuffer cmd, VkImage depthImage)
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
@@ -171,16 +171,16 @@ void barrier::ImageLayoutBarrierCoarse(VkCommandBuffer cmd, ImageLayoutBarrierIn
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.oldLayout = info.OldLayout;
-    barrier.newLayout = info.NewLayout;
-    barrier.image = info.Image;
+    barrier.oldLayout        = info.OldLayout;
+    barrier.newLayout        = info.NewLayout;
+    barrier.image            = info.Image;
     barrier.subresourceRange = info.SubresourceRange;
 
     // Suboptimal barrier usage - block everything:
     barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 
     ImageBarrier(cmd, barrier);
 }

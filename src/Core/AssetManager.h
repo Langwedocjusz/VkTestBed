@@ -25,18 +25,18 @@ class AssetManager {
 
   private:
     struct ImageTaskData {
-        SceneKey ImageKey;
+        SceneKey                             ImageKey;
         std::optional<std::filesystem::path> Path;
-        Pixel BaseColor;
-        std::string Name;
-        bool Unorm;
+        Pixel                                BaseColor;
+        std::string                          Name;
+        bool                                 Unorm;
     };
 
     struct PrimitiveTaskData {
         SceneKey SceneMesh;
-        size_t ScenePrim;
-        int64_t GltfMesh;
-        int64_t GltfPrim;
+        size_t   ScenePrim;
+        int64_t  GltfMesh;
+        int64_t  GltfPrim;
     };
 
   private:
@@ -56,7 +56,7 @@ class AssetManager {
     ModelStage mModelStage = ModelStage::Idle;
 
     struct {
-        ImageTaskData Data;
+        ImageTaskData                        Data;
         std::optional<std::filesystem::path> LastPath;
     } mHDRI;
 

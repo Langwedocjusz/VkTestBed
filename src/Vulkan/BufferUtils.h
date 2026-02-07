@@ -9,10 +9,10 @@
 namespace MakeBuffer
 {
 struct TransferDSTInfo {
-    VkBufferUsageFlags Usage;
+    VkBufferUsageFlags       Usage;
     VmaAllocationCreateFlags CreateFlags;
-    VkDeviceSize Size;
-    const void *Data;
+    VkDeviceSize             Size;
+    const void              *Data;
 };
 
 Buffer Staging(VulkanContext &ctx, const std::string &debugName, VkDeviceSize size);

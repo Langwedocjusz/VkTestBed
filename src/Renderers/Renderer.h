@@ -18,17 +18,17 @@ class IRenderer {
 
     virtual ~IRenderer() {};
 
-    virtual void OnUpdate([[maybe_unused]] float deltaTime) = 0;
-    virtual void OnImGui() = 0;
+    virtual void OnUpdate([[maybe_unused]] float deltaTime)                        = 0;
+    virtual void OnImGui()                                                         = 0;
     virtual void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) = 0;
 
-    virtual void RecreateSwapchainResources() = 0;
-    virtual void RebuildPipelines() = 0;
-    virtual void LoadScene(const Scene &scene) = 0;
+    virtual void RecreateSwapchainResources()                          = 0;
+    virtual void RebuildPipelines()                                    = 0;
+    virtual void LoadScene(const Scene &scene)                         = 0;
     virtual void RenderObjectId(VkCommandBuffer cmd, float x, float y) = 0;
 
     static constexpr VkFormat PickingTargetFormat = VK_FORMAT_R8G8B8A8_UINT;
-    static constexpr VkFormat PickingDepthFormat = VK_FORMAT_D32_SFLOAT;
+    static constexpr VkFormat PickingDepthFormat  = VK_FORMAT_D32_SFLOAT;
 
   public:
     void DestroySwapchainResources()
@@ -52,8 +52,8 @@ class IRenderer {
 
   protected:
     VulkanContext &mCtx;
-    FrameInfo &mFrame;
-    Camera &mCamera;
+    FrameInfo     &mFrame;
+    Camera        &mCamera;
 
     Texture mRenderTarget;
 

@@ -5,15 +5,15 @@
 
 bool imutils::CloseButton(const char *name, ImVec2 pos)
 {
-    ImGuiWindow *window = ImGui::GetCurrentWindow();
-    ImGuiID windowId = window->GetID(name);
+    ImGuiWindow *window   = ImGui::GetCurrentWindow();
+    ImGuiID      windowId = window->GetID(name);
 
     ImGuiID id = ImGui::GetIDWithSeed("#CLOSE", nullptr, windowId);
 
     return ImGui::CloseButton(id, pos);
 }
 
-imutils::NodeDeletableState imutils::TreeNodeExDeletable(const char *name,
+imutils::NodeDeletableState imutils::TreeNodeExDeletable(const char        *name,
                                                          ImGuiTreeNodeFlags flags)
 {
     NodeDeletableState res;
@@ -25,7 +25,7 @@ imutils::NodeDeletableState imutils::TreeNodeExDeletable(const char *name,
         ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
 
     res.IsOpen = ImGui::TreeNodeEx(name, flags);
-    auto data = g.LastItemData;
+    auto data  = g.LastItemData;
 
     if (imutils::CloseButton(name, closeButtonPos))
     {
@@ -52,7 +52,7 @@ imutils::NodeCopyDeletableState imutils::TreeNodeExDeleteCopyAble(
     plusButtonPos.y -= g.Style.FramePadding.y;
 
     res.IsOpen = ImGui::TreeNodeEx(name.c_str(), flags);
-    auto data = g.LastItemData;
+    auto data  = g.LastItemData;
 
     if (ImGui::IsItemClicked())
     {
@@ -89,10 +89,10 @@ void imutils::DisplayStats(FrameStats &stats)
         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 
-    const int location = 1;
-    const float PAD = 10.0f;
+    const int            location = 1;
+    const float          PAD      = 10.0f;
     const ImGuiViewport *viewport = ImGui::GetMainViewport();
-    ImVec2 work_pos =
+    ImVec2               work_pos =
         viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
     ImVec2 work_size = viewport->WorkSize;
     ImVec2 window_pos, window_pos_pivot;

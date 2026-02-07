@@ -30,12 +30,12 @@ class SamplerBuilder {
   private:
     std::optional<VkCompareOp> mCompareOp = std::nullopt;
 
-    VkFilter mMagFiler = VK_FILTER_LINEAR;
-    VkFilter mMinFiler = VK_FILTER_LINEAR;
+    VkFilter             mMagFiler    = VK_FILTER_LINEAR;
+    VkFilter             mMinFiler    = VK_FILTER_LINEAR;
     VkSamplerAddressMode mAddressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    VkSamplerMipmapMode mMipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    VkBorderColor mBorderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    float mMaxLod = 0.0f;
+    VkSamplerMipmapMode  mMipmapMode  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    VkBorderColor        mBorderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    float                mMaxLod      = 0.0f;
 
     std::string mDebugName;
 };

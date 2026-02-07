@@ -37,8 +37,8 @@ Buffer MakeBuffer::TransferDST(VulkanContext &ctx, const std::string &debugName,
     // if available:
     ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         CopyBufferInfo cp_info{
-            .Src = stagingBuffer.Handle,
-            .Dst = buff.Handle,
+            .Src  = stagingBuffer.Handle,
+            .Dst  = buff.Handle,
             .Size = info.Size,
         };
 
@@ -56,10 +56,10 @@ Buffer MakeBuffer::Vertex(VulkanContext &ctx, const std::string &debugName,
     Buffer res;
 
     TransferDSTInfo info{
-        .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .Usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .CreateFlags = 0,
-        .Size = buf.Size,
-        .Data = buf.Data,
+        .Size        = buf.Size,
+        .Data        = buf.Data,
     };
 
     res = MakeBuffer::TransferDST(ctx, debugName, info);
@@ -73,10 +73,10 @@ Buffer MakeBuffer::Index(VulkanContext &ctx, const std::string &debugName,
     Buffer res;
 
     TransferDSTInfo info{
-        .Usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        .Usage       = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .CreateFlags = 0,
-        .Size = buf.Size,
-        .Data = buf.Data,
+        .Size        = buf.Size,
+        .Data        = buf.Data,
     };
 
     res = MakeBuffer::TransferDST(ctx, debugName, info);

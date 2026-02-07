@@ -16,7 +16,7 @@
 
 void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
 {
-    mWidth = width;
+    mWidth  = width;
     mHeight = height;
 
     ProcessKeyboard(deltatime);
@@ -31,7 +31,7 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
     // OpenGL and Vulkan:
     mProj[1][1] *= -1;
 
-    mViewProj = mProj * mView;
+    mViewProj    = mProj * mView;
     mInvViewProj = glm::inverse(mViewProj);
 
     auto GetCorner = [&](glm::vec4 v) {
@@ -40,22 +40,22 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
     };
 
     mFrustum = Frustum{
-        .NearTopLeft = GetCorner(glm::vec4(-1.0f, -1.0f, 0.0f, 1.0f)),
-        .NearTopRight = GetCorner(glm::vec4(1.0f, -1.0f, 0.0f, 1.0f)),
-        .NearBottomLeft = GetCorner(glm::vec4(-1.0f, 1.0f, 0.0f, 1.0f)),
+        .NearTopLeft     = GetCorner(glm::vec4(-1.0f, -1.0f, 0.0f, 1.0f)),
+        .NearTopRight    = GetCorner(glm::vec4(1.0f, -1.0f, 0.0f, 1.0f)),
+        .NearBottomLeft  = GetCorner(glm::vec4(-1.0f, 1.0f, 0.0f, 1.0f)),
         .NearBottomRight = GetCorner(glm::vec4(1.0f, 1.0f, 0.0f, 1.0f)),
-        .FarTopLeft = GetCorner(glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f)),
-        .FarTopRight = GetCorner(glm::vec4(1.0f, -1.0f, 1.0f, 1.0f)),
-        .FarBottomLeft = GetCorner(glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f)),
-        .FarBottomRight = GetCorner(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)),
+        .FarTopLeft      = GetCorner(glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f)),
+        .FarTopRight     = GetCorner(glm::vec4(1.0f, -1.0f, 1.0f, 1.0f)),
+        .FarBottomLeft   = GetCorner(glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f)),
+        .FarBottomRight  = GetCorner(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)),
     };
 
     // Not doing the final perspective division makes
     // the cubemap coordinates more stable:
     mFrustumBack = FrustumBack{
-        .TopLeft = mInvViewProj * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
-        .TopRight = mInvViewProj * glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
-        .BottomLeft = mInvViewProj * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
+        .TopLeft     = mInvViewProj * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
+        .TopRight    = mInvViewProj * glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
+        .BottomLeft  = mInvViewProj * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
         .BottomRight = mInvViewProj * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
     };
 }
@@ -93,7 +93,7 @@ glm::mat4 Camera::ProjPerspective()
 
 glm::mat4 Camera::ProjOrthogonal()
 {
-    auto width = static_cast<float>(mWidth);
+    auto width  = static_cast<float>(mWidth);
     auto height = static_cast<float>(mHeight);
 
     float sx = 1.0f, sy = 1.0f;
@@ -112,18 +112,18 @@ glm::mat4 Camera::GetViewProjRestrictedRange(float xmin, float xmax, float ymin,
     // Default perspective camera near plane:
     const float aspect = static_cast<float>(mWidth) / static_cast<float>(mHeight);
 
-    const float camTop = glm::tan(0.5f * mFovRadians) * mZMin;
+    const float camTop    = glm::tan(0.5f * mFovRadians) * mZMin;
     const float camBottom = -camTop;
-    const float camRight = aspect * camTop;
-    const float camLeft = -camRight;
+    const float camRight  = aspect * camTop;
+    const float camLeft   = -camRight;
 
     // Rectangle covering provided limits:
     auto lerp = [](float x, float y, float t) { return (1.0f - t) * x + t * y; };
 
-    float left = lerp(camLeft, camRight, xmin);
-    float right = lerp(camLeft, camRight, xmax);
+    float left   = lerp(camLeft, camRight, xmin);
+    float right  = lerp(camLeft, camRight, xmax);
     float bottom = lerp(camBottom, camTop, ymin);
-    float top = lerp(camBottom, camTop, ymax);
+    float top    = lerp(camBottom, camTop, ymax);
 
     // Construct projection for given frustum:
     // auto proj = glm::frustumLH_ZO(left, right, bottom, top, mZMin, mZMax);
@@ -163,7 +163,7 @@ void Camera::UpdateVectors()
 
     mFront = rot * glm::vec3(0, 0, 1);
     mRight = glm::normalize(glm::cross(mFront, mWorldUp));
-    mUp = glm::normalize(glm::cross(mRight, mFront));
+    mUp    = glm::normalize(glm::cross(mRight, mFront));
 }
 
 void Camera::ProcessKeyboard(float deltatime)
@@ -241,7 +241,7 @@ void Camera::OnMouseMoved(float x, float y)
     {
         mMouseLastX = xpos;
         mMouseLastY = ypos;
-        mMouseInit = false;
+        mMouseInit  = false;
     }
 
     float xoffset = xpos - mMouseLastX;

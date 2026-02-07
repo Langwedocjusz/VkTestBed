@@ -25,59 +25,59 @@ class SceneKeyGenerator {
 };
 
 struct ScenePrimitive {
-    GeometryData Data;
+    GeometryData            Data;
     std::optional<SceneKey> Material;
 };
 
 struct SceneMesh {
-    std::string Name;
+    std::string                 Name;
     std::vector<ScenePrimitive> Primitives;
 };
 
 struct SceneMaterial {
     std::string Name;
 
-    std::optional<SceneKey> Albedo = std::nullopt;
+    std::optional<SceneKey> Albedo    = std::nullopt;
     std::optional<SceneKey> Roughness = std::nullopt;
-    std::optional<SceneKey> Normal = std::nullopt;
+    std::optional<SceneKey> Normal    = std::nullopt;
 
-    bool DoubleSided = false;
+    bool  DoubleSided = false;
     float AlphaCutoff = 0.5f;
 
     std::optional<glm::vec3> TranslucentColor;
 };
 
 struct SceneObject {
-    std::optional<SceneKey> Mesh = std::nullopt;
-    glm::mat4 Transform = glm::mat4(1.0f);
+    std::optional<SceneKey> Mesh      = std::nullopt;
+    glm::mat4               Transform = glm::mat4(1.0f);
 };
 
 class Scene {
   public:
-    std::map<SceneKey, ImageData> Images;
-    std::map<SceneKey, SceneMesh> Meshes;
+    std::map<SceneKey, ImageData>     Images;
+    std::map<SceneKey, SceneMesh>     Meshes;
     std::map<SceneKey, SceneMaterial> Materials;
-    std::map<SceneKey, SceneObject> Objects;
+    std::map<SceneKey, SceneObject>   Objects;
 
     AABB TotalAABB;
 
     struct Environment {
-        bool DirLightOn = true;
-        glm::vec3 LightDir = glm::vec3(-0.71f, -0.08f, 0.7f);
+        bool      DirLightOn = true;
+        glm::vec3 LightDir   = glm::vec3(-0.71f, -0.08f, 0.7f);
         glm::vec3 LightColor = glm::vec3(1.0f, 1.0f, 0.8f);
 
-        mutable bool ReloadImage = false;
+        mutable bool             ReloadImage = false;
         std::optional<ImageData> HdriImage;
     } Env;
 
   public:
     void RecalculateAABB();
 
-    std::pair<SceneKey, SceneMesh &> EmplaceMesh();
-    std::pair<SceneKey, ImageData &> EmplaceImage();
+    std::pair<SceneKey, SceneMesh &>     EmplaceMesh();
+    std::pair<SceneKey, ImageData &>     EmplaceImage();
     std::pair<SceneKey, SceneMaterial &> EmplaceMaterial();
-    std::pair<SceneKey, SceneObject &> EmplaceObject();
-    std::pair<SceneKey, SceneObject &> EmplaceObject(const SceneObject &existing);
+    std::pair<SceneKey, SceneObject &>   EmplaceObject();
+    std::pair<SceneKey, SceneObject &>   EmplaceObject(const SceneObject &existing);
 
     enum class UpdateFlag
     {
@@ -106,7 +106,7 @@ class Scene {
     [[nodiscard]] bool UpdateEnvironmentRequested() const;
 
   private:
-    bool mFullReload = false;
+    bool                 mFullReload = false;
     Bitflags<UpdateFlag> mUpdateFlags;
 
     SceneKeyGenerator mImageKeyGenerator;

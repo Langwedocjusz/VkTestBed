@@ -66,7 +66,7 @@ SceneGraphNode &SceneGraphNode::EmplaceChild()
 {
     GetChildren().push_back(std::make_unique<SceneGraphNode>(mScene));
 
-    auto &child = *GetChildren().back();
+    auto &child  = *GetChildren().back();
     child.Parent = this;
 
     return child;
@@ -76,7 +76,7 @@ SceneGraphNode &SceneGraphNode::EmplaceChild(SceneKey key)
 {
     GetChildren().push_back(std::make_unique<SceneGraphNode>(mScene, key));
 
-    auto &child = *GetChildren().back();
+    auto &child  = *GetChildren().back();
     child.Parent = this;
 
     return child;
@@ -127,8 +127,8 @@ void SceneGraphNode::RemoveChildrenWithMesh(Scene &scene, SceneKey mesh)
 glm::mat4 SceneGraphNode::GetTransform()
 {
     auto translation = glm::translate(glm::mat4(1.0f), Translation);
-    auto rotation = glm::toMat4(glm::quat(Rotation));
-    auto scale = glm::scale(glm::mat4(1.0f), Scale);
+    auto rotation    = glm::toMat4(glm::quat(Rotation));
+    auto scale       = glm::scale(glm::mat4(1.0f), Scale);
 
     return translation * rotation * scale;
 }

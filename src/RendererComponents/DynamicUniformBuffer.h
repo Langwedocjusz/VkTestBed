@@ -31,13 +31,13 @@ class DynamicUniformBuffer {
   private:
     bool mInitialized = false;
 
-    VkDescriptorSetLayout mDescriptorSetLayout;
-    VkDescriptorPool mDescriptorPool;
+    VkDescriptorSetLayout        mDescriptorSetLayout;
+    VkDescriptorPool             mDescriptorPool;
     std::vector<VkDescriptorSet> mDescriptorSets;
 
     std::vector<Buffer> mUniformBuffers;
 
     VulkanContext &mCtx;
-    FrameInfo &mFrame;
-    DeletionQueue mDeletionQueue;
+    FrameInfo     &mFrame;
+    DeletionQueue  mDeletionQueue;
 };

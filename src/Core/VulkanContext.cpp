@@ -18,7 +18,7 @@ static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
         vpanic(queue.error().message());
 
     auto propVector = ctx.PhysicalDevice.get_queue_families();
-    properties = propVector[idx.value()];
+    properties      = propVector[idx.value()];
 
     return queue.value();
 }
@@ -57,12 +57,12 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     features.samplerAnisotropy = true;
 
     VkPhysicalDeviceVulkan12Features features12{};
-    features12.descriptorIndexing = true;
+    features12.descriptorIndexing  = true;
     features12.bufferDeviceAddress = true;
 
     VkPhysicalDeviceVulkan13Features features13{};
-    features13.dynamicRendering = true;
-    features13.synchronization2 = true;
+    features13.dynamicRendering               = true;
+    features13.synchronization2               = true;
     features13.shaderDemoteToHelperInvocation = true;
 
     PhysicalDevice = vkb::PhysicalDeviceSelector(Instance)
@@ -92,13 +92,13 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     {
         VmaVulkanFunctions vulkanFunctions{};
         vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
-        vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+        vulkanFunctions.vkGetDeviceProcAddr   = vkGetDeviceProcAddr;
 
         VmaAllocatorCreateInfo allocatorCreateInfo = {};
-        allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
-        allocatorCreateInfo.physicalDevice = PhysicalDevice;
-        allocatorCreateInfo.device = Device;
-        allocatorCreateInfo.instance = Instance;
+        allocatorCreateInfo.vulkanApiVersion       = VK_API_VERSION_1_3;
+        allocatorCreateInfo.physicalDevice         = PhysicalDevice;
+        allocatorCreateInfo.device                 = Device;
+        allocatorCreateInfo.instance               = Instance;
         allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
         allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
 
@@ -113,8 +113,8 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
         auto graphics_idx = Device.get_queue_index(vkb::QueueType::graphics).value();
 
         VkCommandPoolCreateInfo poolInfo = {};
-        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.queueFamilyIndex = graphics_idx;
+        poolInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.queueFamilyIndex        = graphics_idx;
         // To allow resetting individual buffers:
         poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
@@ -162,7 +162,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
 
     Swapchain = swapRet.value();
 
-    SwapchainImages = Swapchain.get_images().value();
+    SwapchainImages     = Swapchain.get_images().value();
     SwapchainImageViews = Swapchain.get_image_views().value();
 }
 
@@ -172,9 +172,9 @@ void VulkanContext::ImmediateSubmitGraphics(
     VkCommandBuffer buffer;
 
     VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = mImmGraphicsCommandPool;
+    allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool        = mImmGraphicsCommandPool;
     allocInfo.commandBufferCount = 1;
 
     vkAllocateCommandBuffers(Device, &allocInfo, &buffer);
@@ -186,9 +186,9 @@ void VulkanContext::ImmediateSubmitGraphics(
     vkutils::EndRecording(buffer);
 
     VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &buffer;
+    submitInfo.pCommandBuffers    = &buffer;
 
     vkQueueSubmit(Queues.Graphics, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(Queues.Graphics);

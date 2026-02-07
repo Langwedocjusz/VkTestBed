@@ -22,6 +22,6 @@ class RendererFactory {
 
   private:
     VulkanContext &mCtx;
-    FrameInfo &mInfo;
-    Camera &mCamera;
+    FrameInfo     &mInfo;
+    Camera        &mCamera;
 };

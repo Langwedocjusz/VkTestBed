@@ -12,12 +12,12 @@
 #include <variant>
 
 struct VkAllocatedImage {
-    VkImage Handle;
+    VkImage       Handle;
     VmaAllocation Allocation;
 };
 
 struct VkAllocatedBuffer {
-    VkBuffer Handle;
+    VkBuffer      Handle;
     VmaAllocation Allocation;
 };
 
@@ -68,6 +68,6 @@ class DeletionQueue {
     void flush();
 
   private:
-    VulkanContext &mCtx;
+    VulkanContext             &mCtx;
     std::deque<DeletionObject> mDeletionObjects;
 };

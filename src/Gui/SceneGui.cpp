@@ -201,7 +201,7 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
     if (ImGui::BeginDragDropSource())
     {
         DragPayload payload{
-            .Parent = parent,
+            .Parent  = parent,
             .ChildId = childId,
         };
 
@@ -224,7 +224,7 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
         // Schedule node deletion:
         auto opData = SceneEditor::NodeOpData{
             .SrcParent = parent,
-            .ChildId = childId,
+            .ChildId   = childId,
             .DstParent = nullptr,
         };
 
@@ -235,7 +235,7 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
     {
         auto opData = SceneEditor::NodeOpData{
             .SrcParent = parent,
-            .ChildId = childId,
+            .ChildId   = childId,
             .DstParent = parent,
         };
 
@@ -273,7 +273,7 @@ void SceneGui::HandleSceneDropPayload(SceneGraphNode &node)
         {
             auto opData = SceneEditor::NodeOpData{
                 .SrcParent = payload->Parent,
-                .ChildId = payload->ChildId,
+                .ChildId   = payload->ChildId,
                 .DstParent = &node,
             };
 
@@ -294,7 +294,7 @@ void SceneGui::AddInstancePopup()
         if (ImGui::Selectable("Empty Group"))
         {
             auto &groupNode = mEditor.GraphRoot.EmplaceChild();
-            groupNode.Name = "Group";
+            groupNode.Name  = "Group";
         }
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
@@ -406,7 +406,7 @@ void SceneGui::MeshesTab()
             // two different calls of this function.
             struct PrimId {
                 SceneKey Mesh;
-                int64_t Idx;
+                int64_t  Idx;
             };
 
             static std::optional<PrimId> primToChange = std::nullopt;
@@ -416,7 +416,7 @@ void SceneGui::MeshesTab()
                 auto id = prim.Material;
 
                 const std::string matName = id ? mEditor.GetMaterial(*id).Name : "None";
-                const std::string suffix = "##mat" + mesh.Name + std::to_string(primIdx);
+                const std::string suffix  = "##mat" + mesh.Name + std::to_string(primIdx);
 
                 ImGui::Text("Material %lu: ", primIdx);
                 ImGui::SameLine();
@@ -438,7 +438,7 @@ void SceneGui::MeshesTab()
                         if (ImGui::Selectable(mat.Name.c_str()))
                         {
                             auto &originMesh = mEditor.GetMesh((*primToChange).Mesh);
-                            auto &prim = originMesh.Primitives[(*primToChange).Idx];
+                            auto &prim       = originMesh.Primitives[(*primToChange).Idx];
 
                             prim.Material = id;
                             mEditor.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
@@ -465,7 +465,7 @@ void SceneGui::MeshesTab()
 }
 
 std::string SceneGui::GetMaterialName(std::optional<SceneKey> key,
-                                      std::string_view postfix)
+                                      std::string_view        postfix)
 {
     if (!key.has_value())
         return std::format("##{}", postfix);
@@ -478,11 +478,11 @@ std::string SceneGui::GetMaterialName(std::optional<SceneKey> key,
 void SceneGui::MaterialsTab()
 {
     auto KeyImageSelection = [this](std::optional<SceneKey> &key,
-                                    const std::string &keyName) {
+                                    const std::string       &keyName) {
         ImGui::Text("%s", keyName.c_str());
         ImGui::SameLine();
 
-        auto popupName = std::format("Select {}", keyName);
+        auto popupName      = std::format("Select {}", keyName);
         auto selectableText = GetMaterialName(key, keyName);
 
         if (ImGui::Selectable(selectableText.c_str()))
@@ -592,7 +592,7 @@ void SceneGui::EnvironmentTab()
         mEditor.RequestUpdate(Scene::UpdateFlag::Environment);
     }
 
-    static float phi = 2.359f;
+    static float phi   = 2.359f;
     static float theta = 1.650f;
 
     ImGui::SliderFloat("Azimuth", &phi, 0.0f, 6.28f);
@@ -638,7 +638,7 @@ void SceneGui::EnvironmentTab()
 
     if (ImGui::Button("Clear hdri", size))
     {
-        env.HdriImage = std::nullopt;
+        env.HdriImage   = std::nullopt;
         env.ReloadImage = true;
 
         mEditor.ClearCachedHDRI();
@@ -684,12 +684,12 @@ static bool TransformWidget(SceneGraphNode &node)
     };
 
     auto prevTrans = node.Translation;
-    auto prevRot = node.Rotation;
-    auto prevScl = node.Scale;
+    auto prevRot   = node.Rotation;
+    auto prevScl   = node.Scale;
 
     auto transPtr = glm::value_ptr(node.Translation);
-    auto rotPtr = glm::value_ptr(node.Rotation);
-    auto sclPtr = glm::value_ptr(node.Scale);
+    auto rotPtr   = glm::value_ptr(node.Rotation);
+    auto sclPtr   = glm::value_ptr(node.Scale);
 
     const float speed = 0.01f;
 
@@ -702,9 +702,9 @@ static bool TransformWidget(SceneGraphNode &node)
     clampPositive(node.Scale.z);
 
     bool changed = false;
-    changed = changed || (prevTrans != node.Translation);
-    changed = changed || (prevRot != node.Rotation);
-    changed = changed || (prevScl != node.Scale);
+    changed      = changed || (prevTrans != node.Translation);
+    changed      = changed || (prevRot != node.Rotation);
+    changed      = changed || (prevScl != node.Scale);
 
     return changed;
 }
@@ -751,7 +751,7 @@ void SceneGui::ObjectPropertiesMenu()
             proj[1][1] *= -1.0f;
 
             auto mode = ImGuizmo::MODE::WORLD;
-            auto op = TranslateMode(mGizmoMode);
+            auto op   = TranslateMode(mGizmoMode);
 
             bool manipulated =
                 ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), op, mode,
@@ -768,8 +768,8 @@ void SceneGui::ObjectPropertiesMenu()
                                perspective);
 
                 mSelectedNode->Translation = translation;
-                mSelectedNode->Rotation = glm::eulerAngles(rotation);
-                mSelectedNode->Scale = scale;
+                mSelectedNode->Rotation    = glm::eulerAngles(rotation);
+                mSelectedNode->Scale       = scale;
 
                 // TODO: optimization, same as above
                 mEditor.UpdateTransforms(&mEditor.GraphRoot);

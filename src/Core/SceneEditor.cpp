@@ -13,7 +13,7 @@
 SceneGraphNode &SceneEditor::NodeOpData::GetSourceNode()
 {
     auto &children = SrcParent->GetChildren();
-    auto &ptr = children[ChildId];
+    auto &ptr      = children[ChildId];
     return *ptr;
 }
 
@@ -38,24 +38,24 @@ SceneEditor::SceneEditor(Scene &scene)
     roughness.Name = "Test Roughness";
 
     auto [matKey, mat] = scene.EmplaceMaterial();
-    mat.Name = "Test Material";
-    mat.Albedo = albedoKey;
-    mat.Roughness = roughnessKey;
+    mat.Name           = "Test Material";
+    mat.Albedo         = albedoKey;
+    mat.Roughness      = roughnessKey;
 
     // Add test cube:
     {
         // Emplace mesh:
         auto [meshKey, mesh] = mScene.EmplaceMesh();
 
-        mesh.Name = "Test Cube";
-        auto &prim = mesh.Primitives.emplace_back();
-        prim.Data = primitive::TexturedCubeWithTangent();
+        mesh.Name     = "Test Cube";
+        auto &prim    = mesh.Primitives.emplace_back();
+        prim.Data     = primitive::TexturedCubeWithTangent();
         prim.Material = matKey;
 
         // Construct prefab:
         auto [_, prefab] = EmplacePrefab(meshKey);
         prefab.Root.Name = "Test Cube";
-        prefab.IsReady = true;
+        prefab.IsReady   = true;
     }
 
     // Add test sphere:
@@ -63,15 +63,15 @@ SceneEditor::SceneEditor(Scene &scene)
         // Emplace mesh:
         auto [meshKey, mesh] = mScene.EmplaceMesh();
 
-        mesh.Name = "Test Sphere";
-        auto &prim = mesh.Primitives.emplace_back();
-        prim.Data = primitive::TexturedSphereWithTangent(0.5f, 24);
+        mesh.Name     = "Test Sphere";
+        auto &prim    = mesh.Primitives.emplace_back();
+        prim.Data     = primitive::TexturedSphereWithTangent(0.5f, 24);
         prim.Material = matKey;
 
         // Construct prefab:
         auto [_, prefab] = EmplacePrefab(meshKey);
         prefab.Root.Name = "Test Sphere";
-        prefab.IsReady = true;
+        prefab.IsReady   = true;
     }
 
     // Request update:
@@ -176,7 +176,7 @@ SceneKey SceneEditor::EmplaceObject(std::optional<SceneKey> mesh)
 
 SceneKey SceneEditor::DuplicateObject(SceneKey obj)
 {
-    auto &oldObj = GetObject(obj);
+    auto &oldObj  = GetObject(obj);
     auto [key, _] = mScene.EmplaceObject(oldObj);
     return key;
 }
@@ -196,7 +196,7 @@ void SceneEditor::LoadModel(const ModelConfig &config)
     auto [_, prefab] = EmplacePrefab();
 
     auto &root = prefab.Root;
-    root.Name = config.Filepath.stem().string();
+    root.Name  = config.Filepath.stem().string();
 
     mAssetManager.LoadModel(config, root, prefab.IsReady);
 }
@@ -291,10 +291,10 @@ void SceneEditor::CopyNodeTree(SceneGraphNode &source, SceneGraphNode &target)
             return target.EmplaceChild();
     }();
 
-    newNode.Name = source.Name;
+    newNode.Name        = source.Name;
     newNode.Translation = source.Translation;
-    newNode.Rotation = source.Rotation;
-    newNode.Scale = source.Scale;
+    newNode.Rotation    = source.Rotation;
+    newNode.Scale       = source.Scale;
 
     if (!source.IsLeaf())
     {
@@ -314,7 +314,7 @@ void SceneEditor::HandleNodeCopy()
 void SceneEditor::HandleNodeDelete()
 {
     auto &children = mNodeOpData.SrcParent->GetChildren();
-    auto it = mNodeOpData.GetSourceNodeIterator();
+    auto  it       = mNodeOpData.GetSourceNodeIterator();
 
     children.erase(it);
 }
@@ -329,14 +329,14 @@ std::pair<SceneKey, SceneEditor::Prefab &> SceneEditor::EmplacePrefab(
     if (meshKey)
     {
         mPrefabs.emplace(key, SceneEditor::Prefab{
-                                  .Root = SceneGraphNode(*meshKey),
+                                  .Root    = SceneGraphNode(*meshKey),
                                   .IsReady = false,
                               });
     }
     else
     {
         mPrefabs.emplace(key, SceneEditor::Prefab{
-                                  .Root = SceneGraphNode(),
+                                  .Root    = SceneGraphNode(),
                                   .IsReady = false,
                               });
     }
@@ -357,10 +357,10 @@ void SceneEditor::InstancePrefabImpl(SceneGraphNode &source, SceneGraphNode &tar
             return target.EmplaceChild();
     }();
 
-    newNode.Name = source.Name;
+    newNode.Name        = source.Name;
     newNode.Translation = source.Translation;
-    newNode.Rotation = source.Rotation;
-    newNode.Scale = source.Scale;
+    newNode.Rotation    = source.Rotation;
+    newNode.Scale       = source.Scale;
 
     if (!source.IsLeaf())
     {

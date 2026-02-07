@@ -12,14 +12,14 @@ Buffer Buffer::Create(VulkanContext &ctx, const std::string &debugName, VkDevice
 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
+    bufferInfo.size  = size;
     bufferInfo.usage = usage;
     // Hardcoded for now:
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    allocCreateInfo.flags = flags;
+    allocCreateInfo.usage                   = VMA_MEMORY_USAGE_AUTO;
+    allocCreateInfo.flags                   = flags;
 
     vmaCreateBuffer(ctx.Allocator, &bufferInfo, &allocCreateInfo, &buf.Handle,
                     &buf.Allocation, &buf.AllocInfo);
@@ -49,7 +49,7 @@ void Buffer::CopyBuffer(VkCommandBuffer cmd, CopyBufferInfo info)
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0;
     copyRegion.dstOffset = 0;
-    copyRegion.size = info.Size;
+    copyRegion.size      = info.Size;
 
     vkCmdCopyBuffer(cmd, info.Src, info.Dst, 1, &copyRegion);
 }

@@ -28,24 +28,24 @@ class MinimalPbrRenderer final : public IRenderer {
 
   private:
     struct DrawStats {
-        uint32_t NumIdx = 0;
+        uint32_t NumIdx   = 0;
         uint32_t NumDraws = 0;
         uint32_t NumBinds = 0;
     };
 
     struct Material {
         VkDescriptorSet DescriptorSet;
-        Buffer UBO;
+        Buffer          UBO;
 
         struct {
-            float AlphaCutoff = 0.5f;
+            float     AlphaCutoff      = 0.5f;
             glm::vec3 TranslucentColor = glm::vec3(0.0f);
-            int32_t DoubleSided = 0;
+            int32_t   DoubleSided      = 0;
         } UboData;
     };
 
     struct Instance {
-        SceneKey ObjectId;
+        SceneKey  ObjectId;
         glm::mat4 Transform;
     };
 
@@ -63,14 +63,14 @@ class MinimalPbrRenderer final : public IRenderer {
         void BindGeometryBuffers(VkCommandBuffer cmd);
         void Draw(VkCommandBuffer cmd);
 
-        Buffer VertexBuffer;
+        Buffer   VertexBuffer;
         uint32_t VertexCount;
 
-        Buffer IndexBuffer;
+        Buffer   IndexBuffer;
         uint32_t IndexCount;
 
-        AABB Bbox;
-        SceneKey MaterialKey = 0;
+        AABB                  Bbox;
+        SceneKey              MaterialKey = 0;
         std::vector<Instance> Instances;
     };
 
@@ -121,9 +121,9 @@ class MinimalPbrRenderer final : public IRenderer {
     std::optional<Texture> mRenderTargetMsaa;
     std::optional<Texture> mDepthStencilMsaa;
 
-    Texture mDepthStencilBuffer;
+    Texture     mDepthStencilBuffer;
     VkImageView mDepthOnlyView;
-    Texture mAOTarget;
+    Texture     mAOTarget;
 
     // Common resources:
     VkSampler mSampler2D;
@@ -161,28 +161,28 @@ class MinimalPbrRenderer final : public IRenderer {
 
     struct {
         glm::mat4 Model;
-        uint32_t ObjectId;
+        uint32_t  ObjectId;
     } mObjectIdPCData;
 
     // Images for materials:
-    Texture mDefaultAlbedo;
-    Texture mDefaultRoughness;
-    Texture mDefaultNormal;
+    Texture                     mDefaultAlbedo;
+    Texture                     mDefaultRoughness;
+    Texture                     mDefaultNormal;
     std::map<SceneKey, Texture> mImages;
 
     // Descriptors for materials:
-    VkDescriptorSetLayout mMaterialDescriptorSetLayout;
-    DynamicDescriptorAllocator mMaterialDescriptorAllocator;
+    VkDescriptorSetLayout        mMaterialDescriptorSetLayout;
+    DynamicDescriptorAllocator   mMaterialDescriptorAllocator;
     std::map<SceneKey, Material> mMaterials;
 
     // AO descriptors:
     VkDescriptorPool mAODescriptorPool;
     // Generation:
     VkDescriptorSetLayout mAOGenDescriptorSetLayout;
-    VkDescriptorSet mAOGenDescriptorSet;
+    VkDescriptorSet       mAOGenDescriptorSet;
     // Usage:
     VkDescriptorSetLayout mAOUsageDescriptorSetLayout;
-    VkDescriptorSet mAOUsageDescriptorSet;
+    VkDescriptorSet       mAOUsageDescriptorSet;
 
     // Drawables:
     using enum Vertex::AttributeType;
@@ -191,7 +191,7 @@ class MinimalPbrRenderer final : public IRenderer {
 
     GeometryLayout mGeometryLayout{
         .VertexLayout = {Vec3, Vec2, Vec3, Vec4},
-        .IndexType = IndexType,
+        .IndexType    = IndexType,
     };
 
     std::map<DrawableKey, Drawable> mDrawables;
@@ -209,21 +209,21 @@ class MinimalPbrRenderer final : public IRenderer {
     std::map<SceneKey, std::vector<std::pair<DrawableKey, size_t>>> mObjectCache;
 
     // Some renderer settings:
-    float mInternalResolutionScale = 1.0f;
-    VkSampleCountFlagBits mMultisample = VK_SAMPLE_COUNT_1_BIT;
-    bool mEnablePrepass = true;
-    bool mEnableAO = false;
+    float                 mInternalResolutionScale = 1.0f;
+    VkSampleCountFlagBits mMultisample             = VK_SAMPLE_COUNT_1_BIT;
+    bool                  mEnablePrepass           = true;
+    bool                  mEnableAO                = false;
 
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct UBOData {
         glm::mat4 CameraViewProjection;
         glm::mat4 LightViewProjection;
         glm::vec3 ViewPos;
-        float DirectionalFactor = 3.0f;
-        float EnvironmentFactor = 0.05f;
-        float ShadowBiasMin = 0.001f;
-        float ShadowBiasMax = 0.003f;
-        int AOEnabled = 0;
+        float     DirectionalFactor = 3.0f;
+        float     EnvironmentFactor = 0.05f;
+        float     ShadowBiasMin     = 0.001f;
+        float     ShadowBiasMax     = 0.003f;
+        int       AOEnabled         = 0;
     } mUBOData;
 
     DynamicUniformBuffer mDynamicUBO;
@@ -232,7 +232,7 @@ class MinimalPbrRenderer final : public IRenderer {
     EnvironmentHandler mEnvHandler;
     // Shadowmap generation:
     ShadowmapHandler mShadowmapHandler;
-    AABB mSceneAABB;
+    AABB             mSceneAABB;
 
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;

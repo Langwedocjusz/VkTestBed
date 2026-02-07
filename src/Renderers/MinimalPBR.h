@@ -114,18 +114,18 @@ class MinimalPbrRenderer final : public IRenderer {
                                 DrawStats &stats);
 
   private:
-    // Framebuffer:
-    static constexpr VkFormat mRenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
-    static constexpr VkFormat mDepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+    // Various render targets:
+    static constexpr VkFormat RenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    static constexpr VkFormat DepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
     std::optional<Texture> mRenderTargetMsaa;
     std::optional<Texture> mDepthStencilMsaa;
 
+    Texture     mAOTarget;
     Texture     mDepthStencilBuffer;
     VkImageView mDepthOnlyView;
-    Texture     mAOTarget;
 
-    // Common resources:
+    // Common sampler:
     VkSampler mSampler2D;
 
     // Graphics pipelines:
@@ -164,18 +164,11 @@ class MinimalPbrRenderer final : public IRenderer {
         uint32_t  ObjectId;
     } mObjectIdPCData;
 
-    // Images for materials:
-    Texture                     mDefaultAlbedo;
-    Texture                     mDefaultRoughness;
-    Texture                     mDefaultNormal;
-    std::map<SceneKey, Texture> mImages;
-
     // Descriptors for materials:
-    VkDescriptorSetLayout        mMaterialDescriptorSetLayout;
-    DynamicDescriptorAllocator   mMaterialDescriptorAllocator;
-    std::map<SceneKey, Material> mMaterials;
+    VkDescriptorSetLayout      mMaterialDescriptorSetLayout;
+    DynamicDescriptorAllocator mMaterialDescriptorAllocator;
 
-    // AO descriptors:
+    // Descriptors for AO:
     VkDescriptorPool mAODescriptorPool;
     // Generation:
     VkDescriptorSetLayout mAOGenDescriptorSetLayout;
@@ -184,9 +177,8 @@ class MinimalPbrRenderer final : public IRenderer {
     VkDescriptorSetLayout mAOUsageDescriptorSetLayout;
     VkDescriptorSet       mAOUsageDescriptorSet;
 
-    // Drawables:
+    // Supported geometry specification:
     using enum Vertex::AttributeType;
-
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
 
     GeometryLayout mGeometryLayout{
@@ -194,7 +186,17 @@ class MinimalPbrRenderer final : public IRenderer {
         .IndexType    = IndexType,
     };
 
+    // Default material textures:
+    Texture mDefaultAlbedo;
+    Texture mDefaultRoughness;
+    Texture mDefaultNormal;
+
+    // Containers into which scene resources are loaded:
+    std::map<SceneKey, Texture>     mImages;
+    std::map<SceneKey, Material>    mMaterials;
     std::map<DrawableKey, Drawable> mDrawables;
+
+    // More granular drawable subset for various tasks:
 
     // Drawable keys separated by wheter the underlying material is double sided:
     std::vector<DrawableKey> mSingleSidedDrawableKeys;
@@ -209,10 +211,10 @@ class MinimalPbrRenderer final : public IRenderer {
     std::map<SceneKey, std::vector<std::pair<DrawableKey, size_t>>> mObjectCache;
 
     // Some renderer settings:
-    float                 mInternalResolutionScale = 1.0f;
-    VkSampleCountFlagBits mMultisample             = VK_SAMPLE_COUNT_1_BIT;
     bool                  mEnablePrepass           = true;
     bool                  mEnableAO                = false;
+    float                 mInternalResolutionScale = 1.0f;
+    VkSampleCountFlagBits mMultisample             = VK_SAMPLE_COUNT_1_BIT;
 
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct UBOData {

@@ -94,10 +94,10 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
       mDynamicUBO(ctx, info), mEnvHandler(ctx),
-      mShadowmapHandler(ctx, mRenderTargetFormat, mDepthStencilFormat),
+      mShadowmapHandler(ctx, RenderTargetFormat, DepthStencilFormat),
       mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
-    // Create the texture samplers:
+    // Create the texture sampler:
     mSampler2D = SamplerBuilder("MinimalPbrSampler2D")
                      .SetMagFilter(VK_FILTER_LINEAR)
                      .SetMinFilter(VK_FILTER_LINEAR)
@@ -109,22 +109,20 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     // Create descriptor set layout for sampling material textures:
     mMaterialDescriptorSetLayout =
         DescriptorSetLayoutBuilder("MinimalPBRMaterialDescriptorLayout")
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
-            .AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
-            .AddBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
-            .AddBinding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddCombinedSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddCombinedSampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddUniformBuffer(3, VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx, mMainDeletionQueue);
 
     // Initialize descriptor allocator for materials:
     {
-        std::vector<VkDescriptorPoolSize> poolCounts{
+        // clang-format off
+        std::array<VkDescriptorPoolSize, 2> poolCounts{{
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
             {        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-        };
+        }};
+        // clang-format on
 
         mMaterialDescriptorAllocator.OnInit(poolCounts);
     }
@@ -143,35 +141,34 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     mMainDeletionQueue.push_back(mDefaultRoughness);
     mMainDeletionQueue.push_back(mDefaultNormal);
 
-    // Build dynamic uniform buffers & descriptors:
+    // Build the dynamic uniform buffer:
     auto stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-
     mDynamicUBO.OnInit("MinimalPBRDynamicUBO", stages, sizeof(mUBOData));
 
     // Build descriptor sets for AO:
-    std::vector<VkDescriptorPoolSize> poolCounts{
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
-        {         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-    };
+    {
+        // clang-format off
+        std::array<VkDescriptorPoolSize, 2> poolCounts{{
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
+            {         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+        }};
+        // clang-format on
 
-    mAODescriptorPool = Descriptor::InitPool(mCtx, 2, poolCounts);
-    mMainDeletionQueue.push_back(mAODescriptorPool);
+        mAODescriptorPool = Descriptor::InitPool(mCtx, 2, poolCounts);
+        mMainDeletionQueue.push_back(mAODescriptorPool);
+    }
 
-    mAOGenDescriptorSetLayout =
-        DescriptorSetLayoutBuilder("MinimalPBRAOGenDSLayout")
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-            .AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        VK_SHADER_STAGE_COMPUTE_BIT)
-            .Build(mCtx, mMainDeletionQueue);
+    mAOGenDescriptorSetLayout = DescriptorSetLayoutBuilder("MinimalPBRAOGenDSLayout")
+                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                                    .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                    .Build(mCtx, mMainDeletionQueue);
 
     mAOGenDescriptorSet =
         Descriptor::Allocate(mCtx, mAODescriptorPool, mAOGenDescriptorSetLayout);
 
-    mAOUsageDescriptorSetLayout =
-        DescriptorSetLayoutBuilder("MinimalPBRAOUsageDSLayout")
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
-            .Build(mCtx, mMaterialDeletionQueue);
+    mAOUsageDescriptorSetLayout = DescriptorSetLayoutBuilder("MinimalPBRAOUsageDSLayout")
+                                      .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
+                                      .Build(mCtx, mMaterialDeletionQueue);
 
     mAOUsageDescriptorSet =
         Descriptor::Allocate(mCtx, mAODescriptorPool, mAOUsageDescriptorSetLayout);
@@ -212,8 +209,8 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPushConstantSize(sizeof(mPrepassPCData))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .EnableDepthTest()
-            .SetDepthFormat(mDepthStencilFormat)
-            .SetStencilFormat(mDepthStencilFormat)
+            .SetDepthFormat(DepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
             .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
@@ -230,8 +227,8 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest()
-            .SetDepthFormat(mDepthStencilFormat)
-            .SetStencilFormat(mDepthStencilFormat)
+            .SetDepthFormat(DepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
             .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
@@ -257,7 +254,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetColorFormat(mRenderTargetFormat)
+            .SetColorFormat(RenderTargetFormat)
             .SetPushConstantSize(sizeof(mMainPCData))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
@@ -265,8 +262,8 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mAOUsageDescriptorSetLayout)
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest(mainCompareOp)
-            .SetDepthFormat(mDepthStencilFormat)
-            .SetStencilFormat(mDepthStencilFormat)
+            .SetDepthFormat(DepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
             .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
@@ -279,12 +276,12 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(mRenderTargetFormat)
+            .SetColorFormat(RenderTargetFormat)
             .SetPushConstantSize(sizeof(FrustumBack))
             .AddDescriptorSetLayout(mEnvHandler.GetBackgroundDSLayout())
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
-            .SetDepthFormat(mDepthStencilFormat)
-            .SetStencilFormat(mDepthStencilFormat)
+            .SetDepthFormat(DepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
             .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
@@ -312,10 +309,10 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .EnableStencilTest(stencilWriteState, stencilWriteState)
-            .SetStencilFormat(mDepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
             .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
-            .SetDepthFormat(mDepthStencilFormat)
-            .SetStencilFormat(mDepthStencilFormat)
+            .SetDepthFormat(DepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
             .SetPushConstantSize(sizeof(mOutlinePCData))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
@@ -340,11 +337,11 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(mRenderTargetFormat)
+            .SetColorFormat(RenderTargetFormat)
             .EnableStencilTest(stencilOutlineState, stencilOutlineState)
-            .SetStencilFormat(mDepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
             .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
-            .SetDepthFormat(mDepthStencilFormat)
+            .SetDepthFormat(DepthStencilFormat)
             .SetPushConstantSize(sizeof(mOutlinePCData))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
@@ -394,7 +391,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
 
     Image2DInfo renderTargetInfo{
         .Extent    = drawExtent,
-        .Format    = mRenderTargetFormat,
+        .Format    = RenderTargetFormat,
         .Tiling    = VK_IMAGE_TILING_OPTIMAL,
         .Usage     = drawUsage,
         .MipLevels = 1,
@@ -414,7 +411,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
 
     Image2DInfo depthBufferInfo{
         .Extent    = drawExtent,
-        .Format    = mDepthStencilFormat,
+        .Format    = DepthStencilFormat,
         .Tiling    = VK_IMAGE_TILING_OPTIMAL,
         .Usage     = depthUsage,
         .MipLevels = 1,
@@ -458,8 +455,8 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
 
         // Update AO descriptor to point to depth buffer
         DescriptorUpdater(mAOGenDescriptorSet)
-            .WriteImageStorage(0, mAOTarget.View)
-            .WriteImageSampler(1, mDepthOnlyView, mSampler2D)
+            .WriteStorageImage(0, mAOTarget.View)
+            .WriteCombinedSampler(1, mDepthOnlyView, mSampler2D)
             .Update(mCtx);
 
         // Transition depth buffer and ao target to correct layouts:
@@ -483,7 +480,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         });
 
         DescriptorUpdater(mAOUsageDescriptorSet)
-            .WriteImageSampler(0, mAOTarget.View, mSampler2D)
+            .WriteCombinedSampler(0, mAOTarget.View, mSampler2D)
             .Update(mCtx);
     }
 }
@@ -1222,9 +1219,9 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
 
         // Update the descriptor set:
         DescriptorUpdater(mat.DescriptorSet)
-            .WriteImageSampler(0, albedo.View, mSampler2D)
-            .WriteImageSampler(1, roughness.View, mSampler2D)
-            .WriteImageSampler(2, normal.View, mSampler2D)
+            .WriteCombinedSampler(0, albedo.View, mSampler2D)
+            .WriteCombinedSampler(1, roughness.View, mSampler2D)
+            .WriteCombinedSampler(2, normal.View, mSampler2D)
             .WriteUniformBuffer(3, mat.UBO.Handle, sizeof(mat.UboData))
             .Update(mCtx);
     }

@@ -18,9 +18,11 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t bind
                                                                    uint32_t stages)
 {
     VkDescriptorSetLayoutBinding layoutBinding{};
+
     layoutBinding.binding        = binding;
     layoutBinding.descriptorType = type;
     layoutBinding.stageFlags     = stages;
+
     // Hardcoded for now:
     layoutBinding.descriptorCount    = 1;
     layoutBinding.pImmutableSamplers = nullptr;
@@ -28,6 +30,30 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t bind
     mBindings.push_back(layoutBinding);
 
     return *this;
+}
+
+DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddUniformBuffer(uint32_t binding,
+                                                                         uint32_t stages)
+{
+    return AddBinding(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stages);
+}
+
+DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageBuffer(uint32_t binding,
+                                                                         uint32_t stages)
+{
+    return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stages);
+}
+
+DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddCombinedSampler(
+    uint32_t binding, uint32_t stages)
+{
+    return AddBinding(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, stages);
+}
+
+DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageImage(uint32_t binding,
+                                                                        uint32_t stages)
+{
+    return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stages);
 }
 
 VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
@@ -140,9 +166,9 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t     binding,
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteShaderStorageBuffer(uint32_t     binding,
-                                                               VkBuffer     buffer,
-                                                               VkDeviceSize size)
+DescriptorUpdater &DescriptorUpdater::WriteStorageBuffer(uint32_t     binding,
+                                                         VkBuffer     buffer,
+                                                         VkDeviceSize size)
 {
     auto &bufferInfo  = mBufferInfos.emplace_back();
     bufferInfo.buffer = buffer;
@@ -158,11 +184,12 @@ DescriptorUpdater &DescriptorUpdater::WriteShaderStorageBuffer(uint32_t     bind
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteImageSampler(uint32_t    binding,
-                                                        VkImageView imageView,
-                                                        VkSampler   sampler)
+DescriptorUpdater &DescriptorUpdater::WriteCombinedSampler(uint32_t    binding,
+                                                           VkImageView imageView,
+                                                           VkSampler   sampler)
 {
-    auto &imageInfo       = mImageInfos.emplace_back();
+    auto &imageInfo = mImageInfos.emplace_back();
+
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo.imageView   = imageView;
     imageInfo.sampler     = sampler;
@@ -176,10 +203,11 @@ DescriptorUpdater &DescriptorUpdater::WriteImageSampler(uint32_t    binding,
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteImageStorage(uint32_t    binding,
+DescriptorUpdater &DescriptorUpdater::WriteStorageImage(uint32_t    binding,
                                                         VkImageView imageView)
 {
-    auto &imageInfo       = mImageInfos.emplace_back();
+    auto &imageInfo = mImageInfos.emplace_back();
+
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     imageInfo.imageView   = imageView;
 

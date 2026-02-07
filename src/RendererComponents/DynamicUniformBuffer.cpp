@@ -25,28 +25,29 @@ void DynamicUniformBuffer::OnInit(std::string_view   debugName,
 
     // Create descriptor sets:
     //  Descriptor layout
-    mDescriptorSetLayout =
-        DescriptorSetLayoutBuilder(debugName)
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stageFlags)
-            .Build(mCtx, mDeletionQueue);
+    mDescriptorSetLayout = DescriptorSetLayoutBuilder(debugName)
+                               .AddUniformBuffer(0, stageFlags)
+                               .Build(mCtx, mDeletionQueue);
 
     // Descriptor pool
-    uint32_t maxSets = mCtx.Swapchain.image_count;
+    uint32_t numBuffers = mCtx.Swapchain.image_count;
 
-    std::vector<VkDescriptorPoolSize> poolCounts{
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, maxSets},
-    };
+    // clang-format off
+    std::array<VkDescriptorPoolSize, 1> poolCounts{{
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, numBuffers},
+    }};
+    // clang-format on
 
-    mDescriptorPool = Descriptor::InitPool(mCtx, maxSets, poolCounts);
+    mDescriptorPool = Descriptor::InitPool(mCtx, numBuffers, poolCounts);
     mDeletionQueue.push_back(mDescriptorPool);
 
     // Descriptor sets allocation
-    std::vector<VkDescriptorSetLayout> layouts(maxSets, mDescriptorSetLayout);
+    std::vector<VkDescriptorSetLayout> layouts(numBuffers, mDescriptorSetLayout);
 
     mDescriptorSets = Descriptor::Allocate(mCtx, mDescriptorPool, layouts);
 
     // Create Uniform Buffers:
-    mUniformBuffers.resize(maxSets);
+    mUniformBuffers.resize(numBuffers);
 
     for (auto &uniformBuffer : mUniformBuffers)
     {

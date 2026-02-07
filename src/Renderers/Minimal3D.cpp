@@ -20,8 +20,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     // Create descriptor set layout for sampling textures
     mTextureDescriptorSetLayout =
         DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx, mMainDeletionQueue);
 
     // Initialize descriptor allocator for materials
@@ -337,7 +336,7 @@ void Minimal3DRenderer::LoadMaterials(const Scene &scene)
 
         // Update the descriptor set:
         DescriptorUpdater(mat.DescriptorSet)
-            .WriteImageSampler(0, texture.View, mSampler)
+            .WriteCombinedSampler(0, texture.View, mSampler)
             .Update(mCtx);
     }
 }

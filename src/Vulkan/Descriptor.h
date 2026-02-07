@@ -12,13 +12,18 @@ class DescriptorSetLayoutBuilder {
   public:
     DescriptorSetLayoutBuilder(std::string_view debugName);
 
-    DescriptorSetLayoutBuilder &AddBinding(uint32_t binding, VkDescriptorType type,
-                                           uint32_t stages);
+    DescriptorSetLayoutBuilder &AddUniformBuffer(uint32_t binding, uint32_t stages);
+    DescriptorSetLayoutBuilder &AddStorageBuffer(uint32_t binding, uint32_t stages);
+    DescriptorSetLayoutBuilder &AddCombinedSampler(uint32_t binding, uint32_t stages);
+    DescriptorSetLayoutBuilder &AddStorageImage(uint32_t binding, uint32_t stages);
 
     VkDescriptorSetLayout Build(VulkanContext &ctx);
     VkDescriptorSetLayout Build(VulkanContext &ctx, DeletionQueue &queue);
 
   private:
+    DescriptorSetLayoutBuilder &AddBinding(uint32_t binding, VkDescriptorType type,
+                                           uint32_t stages);
+
     VkDescriptorSetLayout BuildImpl(VulkanContext &ctx);
 
   private:
@@ -48,14 +53,14 @@ class DescriptorUpdater {
     DescriptorUpdater &WriteUniformBuffer(uint32_t binding, VkBuffer buffer,
                                           VkDeviceSize size);
 
-    DescriptorUpdater &WriteShaderStorageBuffer(uint32_t binding, VkBuffer buffer,
-                                                VkDeviceSize size);
+    DescriptorUpdater &WriteStorageBuffer(uint32_t binding, VkBuffer buffer,
+                                          VkDeviceSize size);
 
     /// Uses combined sampler, with read only optimal layout
-    DescriptorUpdater &WriteImageSampler(uint32_t binding, VkImageView imageView,
-                                         VkSampler sampler);
+    DescriptorUpdater &WriteCombinedSampler(uint32_t binding, VkImageView imageView,
+                                            VkSampler sampler);
 
-    DescriptorUpdater &WriteImageStorage(uint32_t binding, VkImageView imageView);
+    DescriptorUpdater &WriteStorageImage(uint32_t binding, VkImageView imageView);
 
     void Update(VulkanContext &ctx);
 

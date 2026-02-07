@@ -10,7 +10,6 @@
 #include "volk.h"
 
 #include <glm/glm.hpp>
-#include <vulkan/vulkan_core.h>
 
 class ShadowmapHandler {
   public:
@@ -18,11 +17,12 @@ class ShadowmapHandler {
                      VkFormat debugDepthFormat);
     ~ShadowmapHandler();
 
+    void OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB);
+    void OnImGui();
+
     void RebuildPipelines(const Vertex::Layout &vertexLayout,
                           VkDescriptorSetLayout materialDSLayout,
                           VkSampleCountFlagBits debugMultisampling);
-    void OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB);
-    void OnImGui();
 
     void BeginShadowPass(VkCommandBuffer cmd);
 
@@ -55,6 +55,9 @@ class ShadowmapHandler {
     void DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj, VkExtent2D extent);
 
   private:
+    [[nodiscard]] VkExtent2D GetExtent() const;
+
+  private:
     static constexpr uint32_t ShadowmapResolution = 2048;
     static constexpr VkFormat ShadowmapFormat     = VK_FORMAT_D32_SFLOAT;
 
@@ -78,15 +81,16 @@ class ShadowmapHandler {
 
     float mShadowDist = 20.0f;
 
-    Image       mShadowmap;
-    VkImageView mShadowmapView;
-    VkSampler   mSamplerShadowmap;
+    // Image       mShadowmap;
+    // VkImageView mShadowmapView;
+    Texture   mShadowmap;
+    VkSampler mSampler;
 
     VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
     VkDescriptorSet       mShadowmapDescriptorSet;
 
     // Descriptor set for sending shadow map view to imgui:
-    VkSampler       mSamplerDebug;
+    VkSampler       mDebugSampler;
     VkDescriptorSet mDebugTextureDescriptorSet;
 
     // Additional pipeline and resources for debug visualization:

@@ -65,6 +65,10 @@ class EnvironmentHandler {
     void ResetToBlack();
 
   private:
+    static constexpr uint32_t CubemapSize     = 1024;
+    static constexpr uint32_t PrefilteredSize = 256;
+    static constexpr uint32_t IntegrationSize = 512;
+
     VulkanContext &mCtx;
 
     // Descriptor sets exposed to the outside world:
@@ -138,7 +142,6 @@ class EnvironmentHandler {
     EnvUBOData mEnvUBOData;
     Buffer     mEnvUBO;
 
-    // std::optional<SceneKey> mLastHdri;
     DynamicDescriptorAllocator mDescriptorAllocator;
     DeletionQueue              mDeletionQueue;
     DeletionQueue              mPipelineDeletionQueue;

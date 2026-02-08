@@ -30,7 +30,6 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         auto cubemapInfo = Image2DInfo{
             .Extent    = {CubemapSize, CubemapSize},
             .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .Tiling    = VK_IMAGE_TILING_OPTIMAL,
             .Usage     = usage,
             .MipLevels = Image::CalcNumMips(CubemapSize),
             .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
@@ -50,7 +49,6 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         auto prefilteredInfo = Image2DInfo{
             .Extent    = {PrefilteredSize, PrefilteredSize},
             .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .Tiling    = VK_IMAGE_TILING_OPTIMAL,
             .Usage     = usage,
             .MipLevels = prefilteredMips,
             .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
@@ -77,11 +75,9 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     // Create BRDF integration map:
     {
         auto integrationInfo = Image2DInfo{
-            .Extent    = {IntegrationSize, IntegrationSize},
-            .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            .MipLevels = 1,
+            .Extent = {IntegrationSize, IntegrationSize},
+            .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
+            .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         };
 
         mIntegration = MakeTexture::Texture2D(mCtx, "EnvIntegrationMap", integrationInfo,

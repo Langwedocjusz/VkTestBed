@@ -1,7 +1,7 @@
 #include "MinimalPBR.h"
-#include "Barrier.h"
 #include "Pch.h"
 
+#include "Barrier.h"
 #include "BufferUtils.h"
 #include "Camera.h"
 #include "Common.h"
@@ -390,12 +390,10 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     Image2DInfo renderTargetInfo{
-        .Extent    = drawExtent,
-        .Format    = RenderTargetFormat,
-        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-        .Usage     = drawUsage,
-        .MipLevels = 1,
-        .Layout    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .Extent = drawExtent,
+        .Format = RenderTargetFormat,
+        .Usage  = drawUsage,
+        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
     mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
                                            mSwapchainDeletionQueue);
@@ -410,12 +408,10 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         mEnableAO ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : targetDepthLayout;
 
     Image2DInfo depthBufferInfo{
-        .Extent    = drawExtent,
-        .Format    = DepthStencilFormat,
-        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-        .Usage     = depthUsage,
-        .MipLevels = 1,
-        .Layout    = initialDepthLayout,
+        .Extent = drawExtent,
+        .Format = DepthStencilFormat,
+        .Usage  = depthUsage,
+        .Layout = initialDepthLayout,
     };
     mDepthStencilBuffer = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
                                                  mSwapchainDeletionQueue);
@@ -430,12 +426,14 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     {
         renderTargetInfo.Multisampling = mMultisample;
         renderTargetInfo.Layout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        mRenderTargetMsaa              = MakeTexture::Texture2D(
+
+        mRenderTargetMsaa = MakeTexture::Texture2D(
             mCtx, "RenderTargetMSAA", renderTargetInfo, mSwapchainDeletionQueue);
 
         depthBufferInfo.Multisampling = mMultisample;
         depthBufferInfo.Layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        mDepthStencilMsaa             = MakeTexture::Texture2D(
+
+        mDepthStencilMsaa = MakeTexture::Texture2D(
             mCtx, "DepthBufferMSAA", depthBufferInfo, mSwapchainDeletionQueue);
     }
 
@@ -443,12 +441,10 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     {
         // Create target for occlusion computation:
         Image2DInfo aoTargetInfo{
-            .Extent    = drawExtent,
-            .Format    = VK_FORMAT_R8G8B8A8_UNORM,
-            .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            .MipLevels = 1,
-            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
+            .Extent = drawExtent,
+            .Format = VK_FORMAT_R8G8B8A8_UNORM,
+            .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Layout = VK_IMAGE_LAYOUT_GENERAL,
         };
         mAOTarget = MakeTexture::Texture2D(mCtx, "AOTarget", aoTargetInfo,
                                            mSwapchainDeletionQueue);
@@ -492,7 +488,7 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 
     // Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
-    mUBOData.LightViewProjection  = mShadowmapHandler.GetViewProj();
+    mUBOData.LightViewProjections = mShadowmapHandler.GetViewProj();
     mUBOData.ViewPos              = mCamera.GetPos();
     mUBOData.AOEnabled            = mEnableAO;
 }
@@ -683,45 +679,37 @@ void MinimalPbrRenderer::DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 v
 
 void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 {
-    mShadowmapHandler.BeginShadowPass(cmd);
-
-    auto viewProj = mUBOData.LightViewProjection;
-
-    // Draw opaque objects to shadowmap
-    {
-        mShadowmapHandler.BindOpaquePipeline(cmd);
-
-        auto materialCallbackNull = [](VkCommandBuffer cmd, Material &material) {
+    auto drawOpaque = [&](VkCommandBuffer cmd, glm::mat4 viewProj) {
+        auto materialCallback = [](VkCommandBuffer cmd, Material &material) {
             (void)cmd;
             (void)material;
         };
 
-        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-            mShadowmapHandler.PushConstantOpaque(cmd, instance.Transform);
+        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance) {
+            auto mvp = viewProj * instance.Transform;
+            mShadowmapHandler.PushConstantOpaque(cmd, mvp);
         };
 
-        DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallbackNull,
-                                     instanceCallback, stats);
-    }
+        DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                     stats);
+    };
 
-    // Draw alpha tested objects to shadowmap
-    {
-        mShadowmapHandler.BindAlphaPipeline(cmd);
-
-        auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
+    auto drawAlpha = [&](VkCommandBuffer cmd, glm::mat4 viewProj) {
+        auto materialCallback = [&](VkCommandBuffer cmd, Material &material) {
             mShadowmapHandler.BindAlphaMaterialDS(cmd, material.DescriptorSet);
             stats.NumBinds += 1;
         };
 
-        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-            mShadowmapHandler.PushConstantAlpha(cmd, instance.Transform);
+        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance) {
+            auto mvp = viewProj * instance.Transform;
+            mShadowmapHandler.PushConstantAlpha(cmd, mvp);
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
                                      stats);
-    }
+    };
 
-    mShadowmapHandler.EndShadowPass(cmd);
+    mShadowmapHandler.DrawShadowmaps(cmd, drawOpaque, drawAlpha);
 }
 
 void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)

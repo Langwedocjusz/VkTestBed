@@ -62,23 +62,19 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     Image2DInfo renderTargetInfo{
-        .Extent    = VkExtent2D{1, 1},
-        .Format    = IRenderer::PickingTargetFormat,
-        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-        .Usage     = drawUsage,
-        .MipLevels = 1,
-        .Layout    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .Extent = VkExtent2D{1, 1},
+        .Format = IRenderer::PickingTargetFormat,
+        .Usage  = drawUsage,
+        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
     mPicking.Target = MakeTexture::Texture2D(mCtx, "PickingTarget", renderTargetInfo,
                                              mMainDeletionQueue);
 
     Image2DInfo depthBufferInfo{
-        .Extent    = VkExtent2D{1, 1},
-        .Format    = IRenderer::PickingDepthFormat,
-        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-        .Usage     = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        .MipLevels = 1,
-        .Layout    = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .Extent = VkExtent2D{1, 1},
+        .Format = IRenderer::PickingDepthFormat,
+        .Usage  = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
     mPicking.Depth = MakeTexture::Texture2D(mCtx, "PickingDepthBuffer", depthBufferInfo,
                                             mMainDeletionQueue);

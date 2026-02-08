@@ -124,7 +124,8 @@ void barrier::ImageBarrierSwapchainToPresent(VkCommandBuffer cmd, VkImage image)
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::ImageBarrierDepthToRender(VkCommandBuffer cmd, VkImage depthImage)
+void barrier::ImageBarrierDepthToRender(VkCommandBuffer cmd, VkImage depthImage,
+                                        uint32_t numLayers)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -140,12 +141,13 @@ void barrier::ImageBarrierDepthToRender(VkCommandBuffer cmd, VkImage depthImage)
 
     barrier.image = depthImage;
     barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, numLayers};
 
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::ImageBarrierDepthToSample(VkCommandBuffer cmd, VkImage depthImage)
+void barrier::ImageBarrierDepthToSample(VkCommandBuffer cmd, VkImage depthImage,
+                                        uint32_t numLayers)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -161,7 +163,7 @@ void barrier::ImageBarrierDepthToSample(VkCommandBuffer cmd, VkImage depthImage)
 
     barrier.image = depthImage;
     barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, numLayers};
 
     ImageBarrier(cmd, barrier);
 }

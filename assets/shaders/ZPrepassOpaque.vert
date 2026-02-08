@@ -6,7 +6,7 @@ layout(location = 0) in vec3 aPosition;
 
 layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     mat4 CameraViewProjection;
-    mat4 LightViewProjection;
+    mat4 LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
     vec3 ViewPos;
     float DirectionalFactor;
     float EnvironmentFactor;

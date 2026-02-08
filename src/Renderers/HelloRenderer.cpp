@@ -116,12 +116,10 @@ void HelloRenderer::RecreateSwapchainResources()
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     Image2DInfo renderTargetInfo{
-        .Extent    = drawExtent,
-        .Format    = mRenderTargetFormat,
-        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-        .Usage     = drawUsage,
-        .MipLevels = 1,
-        .Layout    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .Extent = drawExtent,
+        .Format = mRenderTargetFormat,
+        .Usage  = drawUsage,
+        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
 
     mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,

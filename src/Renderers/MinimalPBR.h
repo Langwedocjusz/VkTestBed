@@ -218,14 +218,14 @@ class MinimalPbrRenderer final : public IRenderer {
 
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct UBOData {
-        glm::mat4 CameraViewProjection;
-        glm::mat4 LightViewProjection;
-        glm::vec3 ViewPos;
-        float     DirectionalFactor = 3.0f;
-        float     EnvironmentFactor = 0.05f;
-        float     ShadowBiasMin     = 0.001f;
-        float     ShadowBiasMax     = 0.003f;
-        int       AOEnabled         = 0;
+        glm::mat4                  CameraViewProjection;
+        ShadowmapHandler::Matrices LightViewProjections;
+        glm::vec3                  ViewPos;
+        float                      DirectionalFactor = 3.0f;
+        float                      EnvironmentFactor = 0.05f;
+        float                      ShadowBiasMin     = 0.001f;
+        float                      ShadowBiasMax     = 0.003f;
+        int                        AOEnabled         = 0;
     } mUBOData;
 
     DynamicUniformBuffer mDynamicUBO;

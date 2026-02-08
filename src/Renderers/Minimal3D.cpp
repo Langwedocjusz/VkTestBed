@@ -198,24 +198,20 @@ void Minimal3DRenderer::RecreateSwapchainResources()
     drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     Image2DInfo renderTargetInfo{
-        .Extent    = drawExtent,
-        .Format    = mRenderTargetFormat,
-        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-        .Usage     = drawUsage,
-        .MipLevels = 1,
-        .Layout    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .Extent = drawExtent,
+        .Format = mRenderTargetFormat,
+        .Usage  = drawUsage,
+        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
     mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
                                            mSwapchainDeletionQueue);
 
     // Create depth buffer:
     Image2DInfo depthBufferInfo{
-        .Extent    = drawExtent,
-        .Format    = mDepthFormat,
-        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-        .Usage     = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        .MipLevels = 1,
-        .Layout    = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .Extent = drawExtent,
+        .Format = mDepthFormat,
+        .Usage  = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
     mRenderTarget = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
                                            mSwapchainDeletionQueue);

@@ -27,7 +27,7 @@ layout(location = 0) out vec4 outColor;
 
 layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     mat4 CameraViewProjection;
-    mat4 LightViewProjection;
+    mat4 LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
     vec3 ViewPos;
     float DirectionalFactor;
     float EnvironmentFactor;
@@ -51,7 +51,7 @@ layout(std140, set = 1, binding = 1) readonly buffer SHBuffer {
 layout(set = 1, binding = 2) uniform samplerCube prefilteredMap;
 layout(set = 1, binding = 3) uniform sampler2D integrationMap;
 
-layout(set = 2, binding = 0) uniform sampler2DShadow shadowMap;
+layout(set = 2, binding = 0) uniform sampler2DArrayShadow shadowMap;
 
 layout(set = 3, binding = 0) uniform sampler2D aoMap;
 
@@ -97,7 +97,7 @@ float CalculateShadowFactor(vec4 lightCoord, vec2 offset)
     float bias = max(DynamicUBO.ShadowBiasMax * (1.0 - dot(InData.Normal, EnvUBO.LightDir)), DynamicUBO.ShadowBiasMin);
     float currentDepth = projCoords.z - bias;
 
-    float shadow = texture(shadowMap, vec3(uv, currentDepth));
+    float shadow = texture(shadowMap, vec4(uv, 0.0, currentDepth));
 
     return shadow;
 }

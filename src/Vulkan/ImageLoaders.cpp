@@ -46,11 +46,9 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const std::string &debugName
     auto [imageSize, extent] = GetSizeExtent(data);
 
     Image2DInfo imgInfo{
-        .Extent    = extent,
-        .Format    = data.Format,
-        .Tiling    = VK_IMAGE_TILING_OPTIMAL,
-        .Usage     = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        .MipLevels = 1,
+        .Extent = extent,
+        .Format = data.Format,
+        .Usage  = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
     };
 
     Image img = MakeImage::Image2D(ctx, debugName, imgInfo);
@@ -74,7 +72,6 @@ Image ImageLoaders::LoadImage2DMip(VulkanContext &ctx, const std::string &debugN
     Image2DInfo imgInfo{
         .Extent = extent,
         .Format = data.Format,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage  = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                  VK_IMAGE_USAGE_SAMPLED_BIT,
         .MipLevels = Image::CalcNumMips(data.Width, data.Height),

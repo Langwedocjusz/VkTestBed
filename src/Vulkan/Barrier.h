@@ -19,8 +19,10 @@ void ImageBarrierSwapchainToRender(VkCommandBuffer cmd, VkImage image);
 void ImageBarrierSwapchainToPresent(VkCommandBuffer cmd, VkImage image);
 
 // Assumes depth target has layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-void ImageBarrierDepthToRender(VkCommandBuffer cmd, VkImage depthImage);
-void ImageBarrierDepthToSample(VkCommandBuffer cmd, VkImage depthImage);
+void ImageBarrierDepthToRender(VkCommandBuffer cmd, VkImage depthImage,
+                               uint32_t numLayers = 1);
+void ImageBarrierDepthToSample(VkCommandBuffer cmd, VkImage depthImage,
+                               uint32_t numLayers = 1);
 
 struct ImageLayoutBarrierInfo {
     VkImage                 Image;

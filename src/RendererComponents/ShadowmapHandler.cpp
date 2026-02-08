@@ -14,6 +14,7 @@
 #include <imgui_impl_vulkan.h>
 
 #include <glm/ext/matrix_clip_space.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/matrix.hpp>
 
@@ -24,18 +25,31 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
     : mCtx(ctx), mDebugColorFormat(debugColorFormat), mDebugDepthFormat(debugDepthFormat),
       mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
 {
-    // Create the shadowmap:
+    // Create the shadowmap base texture:
     Image2DInfo shadowmapInfo{
         .Extent = {ShadowmapResolution, ShadowmapResolution},
         .Format = ShadowmapFormat,
-        .Tiling = VK_IMAGE_TILING_OPTIMAL,
         .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        .MipLevels = 1,
-        .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
-    mShadowmap = MakeTexture::Texture2D(mCtx, "Shadowmap", shadowmapInfo);
+    mShadowmap =
+        MakeTexture::Texture2DArray(mCtx, "Shadowmap", shadowmapInfo, NumCascades);
     mMainDeletionQueue.push_back(mShadowmap);
+
+    // Create per-level views for rendering:
+    for (uint32_t i = 0; i < NumCascades; i++)
+    {
+        std::string name        = "ShadowmapView" + std::to_string(i);
+        auto        format      = shadowmapInfo.Format;
+        auto        aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        mCascadeViews[i] = MakeView::ViewArraySingleLayer(mCtx, name, mShadowmap.Img,
+                                                          format, aspectFlags, i);
+    }
+
+    for (auto& view : mCascadeViews)
+        mMainDeletionQueue.push_back(view);
 
     // Create a sampler for the shadowmap:
     mSampler = SamplerBuilder("MinimalPbrSamplerShadowmap")
@@ -83,8 +97,9 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
                             .SetMaxLod(12.0f)
                             .Build(mCtx, mMainDeletionQueue);
 
+        // TODO: for no only preview first cascade
         mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
-            mDebugSampler, mShadowmap.View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            mDebugSampler, mCascadeViews[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
     // Create Vertex Buffer for debug vizualiztion:
@@ -195,33 +210,48 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
             .Build(mCtx, mPipelineDeletionQueue);
 }
 
-void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB)
+Frustum ShadowmapHandler::ScaleCameraFrustum(Frustum camFrustum, float distNear,
+                                             float distFar) const
 {
-    // Construct worldspace coords for the shadow sampling part of the frustum:
-    auto ScaleFarVector = [this](glm::vec4 near, glm::vec4 &far) {
-        auto normalized = glm::normalize(glm::vec3(far - near));
-        far             = near + mShadowDist * glm::vec4(normalized, 0.0f);
+    auto ScaleVecs = [=](glm::vec4 nearVec, glm::vec4 farVec) {
+        auto diff3 = glm::normalize(glm::vec3(farVec - nearVec));
+        auto diff4 = glm::vec4(diff3, 0.0f);
+
+        auto newNear = nearVec + distNear * diff4;
+        auto newFar  = nearVec + distFar * diff4;
+
+        return std::pair{newNear, newFar};
     };
 
-    if (!mFreezeFrustum)
-    {
-        mShadowFrustum = camFr;
-        ScaleFarVector(mShadowFrustum.NearTopLeft, mShadowFrustum.FarTopLeft);
-        ScaleFarVector(mShadowFrustum.NearTopRight, mShadowFrustum.FarTopRight);
-        ScaleFarVector(mShadowFrustum.NearBottomLeft, mShadowFrustum.FarBottomLeft);
-        ScaleFarVector(mShadowFrustum.NearBottomRight, mShadowFrustum.FarBottomRight);
+    auto [NearBottomLeft, FarBottomLeft] =
+        ScaleVecs(camFrustum.NearBottomLeft, camFrustum.FarBottomLeft);
 
-        auto frustumVerts = mShadowFrustum.GetVertices();
+    auto [NearBottomRight, FarBottomRight] =
+        ScaleVecs(camFrustum.NearBottomRight, camFrustum.FarBottomRight);
 
-        std::copy(&frustumVerts[0], &frustumVerts[8], &mVertexBufferData[0]);
-    }
+    auto [NearTopLeft, FarTopLeft] =
+        ScaleVecs(camFrustum.NearTopLeft, camFrustum.FarTopLeft);
 
-    // Construct light view matrix, looking along the light direction:
-    // Up vector doesn't really matter.
-    glm::mat4 lightView = glm::lookAt(lightDir, glm::vec3(0.0f), glm::vec3(0, -1, 0));
+    auto [NearTopRight, FarTopRight] =
+        ScaleVecs(camFrustum.NearTopRight, camFrustum.FarTopRight);
 
-    // Transform the shadowed frustum to light view space:
-    auto frustumVertices = mShadowFrustum.GetVertices();
+    return Frustum{
+        .NearTopLeft     = NearTopLeft,
+        .NearTopRight    = NearTopRight,
+        .NearBottomLeft  = NearBottomLeft,
+        .NearBottomRight = NearBottomRight,
+        .FarTopLeft      = FarTopLeft,
+        .FarTopRight     = FarTopRight,
+        .FarBottomLeft   = FarBottomLeft,
+        .FarBottomRight  = FarBottomRight,
+    };
+}
+
+ShadowVolume ShadowmapHandler::GetBoundingVolume(Frustum   shadowFrustum,
+                                                 glm::mat4 lightView) const
+{
+    // Transform the shadow frustum vertices to light view space:
+    auto frustumVertices = shadowFrustum.GetVertices();
 
     for (auto &vert : frustumVertices)
     {
@@ -259,9 +289,23 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
     minY = std::floor(minY / texelSizeY) * texelSizeY;
     maxY = std::floor(maxY / texelSizeY) * texelSizeY;
 
+    return ShadowVolume{
+        .MinX = minX,
+        .MaxX = maxX,
+        .MinY = minY,
+        .MaxY = maxY,
+        .MinZ = minZ,
+        .MaxZ = maxZ,
+    };
+}
+
+ShadowVolume ShadowmapHandler::FitVolumeToScene(ShadowVolume volume, AABB sceneAABB,
+                                                glm::mat4 lightView) const
+{
     // Update minZ and maxZ values based on scene bounding box:
     if (mFitToScene)
     {
+        // Transform AABB vers to light-view space:
         auto verts = sceneAABB.GetVertices();
 
         for (auto &vert : verts)
@@ -272,6 +316,9 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
             vert = glm::vec3(lightView * glm::vec4(vert, 1.0f));
         }
 
+        // Take min-max of their positions to update volume values.
+        // This is overly conservative as doing min-max of the
+        // intersection between sceneAABB and volume would be sufficient.
         auto minAABB = std::numeric_limits<float>::max();
         auto maxAABB = std::numeric_limits<float>::lowest();
 
@@ -281,31 +328,83 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
             maxAABB = std::max(maxAABB, vert.z);
         }
 
-        minZ = std::min(minZ, minAABB);
-        maxZ = std::max(maxZ, maxAABB);
+        volume.MinZ = std::min(volume.MinZ, minAABB);
+        volume.MaxZ = std::max(volume.MaxZ, maxAABB);
     }
 
-    if (mDebugView)
+    return volume;
+}
+
+void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB)
+{
+    // Construct light view matrix, looking along the light direction:
+    // Up vector doesn't really matter - it changes rotation of the resulting
+    // shadowmap about the light dir - which is mostly irrelevant,
+    // as sampling coords will change covariantly.
+    glm::mat4 lightView = glm::lookAt(lightDir, glm::vec3(0.0f), glm::vec3(0, -1, 0));
+
+    for (size_t idx = 0; idx < NumCascades; idx++)
     {
-        auto inverseLightView = glm::inverse(lightView);
+        auto &frustum       = mShadowFrustums[idx];
+        auto &lightViewProj = mLightViewProjs[idx];
 
-        mVertexBufferData[8]  = inverseLightView * glm::vec4(minX, maxY, minZ, 1.0f);
-        mVertexBufferData[9]  = inverseLightView * glm::vec4(maxX, maxY, minZ, 1.0f);
-        mVertexBufferData[10] = inverseLightView * glm::vec4(minX, minY, minZ, 1.0f);
-        mVertexBufferData[11] = inverseLightView * glm::vec4(maxX, minY, minZ, 1.0f);
-        mVertexBufferData[12] = inverseLightView * glm::vec4(minX, maxY, maxZ, 1.0f);
-        mVertexBufferData[13] = inverseLightView * glm::vec4(maxX, maxY, maxZ, 1.0f);
-        mVertexBufferData[14] = inverseLightView * glm::vec4(minX, minY, maxZ, 1.0f);
-        mVertexBufferData[15] = inverseLightView * glm::vec4(maxX, minY, maxZ, 1.0f);
+        // Construct worldspace coords for the shadow sampling part of the frustum:
+        if (!mFreezeFrustum)
+        {
+            //TODO: This is totally ad hoc, also hardcodes number of cascades:
+            const std::array<float,4> distances{
+                0.0f, mShadowDist, 2.0f * mShadowDist, 4.0f * mShadowDist
+            };
 
-        Buffer::UploadToMapped(mDebugFrustumVertexBuffer, mVertexBufferData.data(),
-                               mVertexBufferData.size() * sizeof(mVertexBufferData[0]));
+            frustum = ScaleCameraFrustum(camFr, distances[idx], distances[idx+1]);
+        }
+
+        // Construct light-aligned volume thightly bounding the shadowed frustum:
+        ShadowVolume vol = GetBoundingVolume(frustum, lightView);
+
+        // Extend the Z range of constructed volume to fit entire scene range:
+        vol = FitVolumeToScene(vol, sceneAABB, lightView);
+
+        // Construct the projection matrix:
+        glm::mat4 lightProj =
+            glm::ortho(vol.MinX, vol.MaxX, vol.MinY, vol.MaxY, vol.MinZ, vol.MaxZ);
+
+        lightViewProj = lightProj * lightView;
+
+        // Update debug view vertex data:
+        // TODO: Only visualizes first cascade:
+        if (mDebugView && idx == 0)
+        {
+            // Copy frustum verts
+            auto frustumVerts = mShadowFrustums[idx].GetVertices();
+            std::copy(&frustumVerts[0], &frustumVerts[8], &mVertexBufferData[0]);
+
+            // Copy bounding volume verts, transformed back to world-space:
+            auto invLightView = glm::inverse(lightView);
+
+            mVertexBufferData[8] =
+                invLightView * glm::vec4(vol.MinX, vol.MaxY, vol.MinZ, 1.0f);
+            mVertexBufferData[9] =
+                invLightView * glm::vec4(vol.MaxX, vol.MaxY, vol.MinZ, 1.0f);
+            mVertexBufferData[10] =
+                invLightView * glm::vec4(vol.MinX, vol.MinY, vol.MinZ, 1.0f);
+            mVertexBufferData[11] =
+                invLightView * glm::vec4(vol.MaxX, vol.MinY, vol.MinZ, 1.0f);
+            mVertexBufferData[12] =
+                invLightView * glm::vec4(vol.MinX, vol.MaxY, vol.MaxZ, 1.0f);
+            mVertexBufferData[13] =
+                invLightView * glm::vec4(vol.MaxX, vol.MaxY, vol.MaxZ, 1.0f);
+            mVertexBufferData[14] =
+                invLightView * glm::vec4(vol.MinX, vol.MinY, vol.MaxZ, 1.0f);
+            mVertexBufferData[15] =
+                invLightView * glm::vec4(vol.MaxX, vol.MinY, vol.MaxZ, 1.0f);
+
+            // Update gpu-visible buffer:
+            Buffer::UploadToMapped(mDebugFrustumVertexBuffer, mVertexBufferData.data(),
+                                   mVertexBufferData.size() *
+                                       sizeof(mVertexBufferData[0]));
+        }
     }
-
-    // Construct the projection matrix:
-    glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-
-    mLightViewProj = lightProj * lightView;
 }
 
 void ShadowmapHandler::OnImGui()
@@ -328,41 +427,17 @@ VkExtent2D ShadowmapHandler::GetExtent() const
     return VkExtent2D{width, height};
 }
 
-void ShadowmapHandler::BeginShadowPass(VkCommandBuffer cmd)
+void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp)
 {
-    barrier::ImageBarrierDepthToRender(cmd, mShadowmap.Img.Handle);
-    common::BeginRenderingDepth(cmd, GetExtent(), mShadowmap.View, false, true);
-}
-
-void ShadowmapHandler::BindOpaquePipeline(VkCommandBuffer cmd)
-{
-    mOpaquePipeline.Bind(cmd);
-    common::ViewportScissor(cmd, GetExtent());
-}
-
-void ShadowmapHandler::BindAlphaPipeline(VkCommandBuffer cmd)
-{
-    mAlphaPipeline.Bind(cmd);
-    common::ViewportScissor(cmd, GetExtent());
-}
-
-void ShadowmapHandler::EndShadowPass(VkCommandBuffer cmd)
-{
-    vkCmdEndRendering(cmd);
-    barrier::ImageBarrierDepthToSample(cmd, mShadowmap.Img.Handle);
-}
-
-void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 transform)
-{
-    mShadowPCData.LightMVP = mLightViewProj * transform;
+    mShadowPCData.LightMVP = mvp;
 
     vkCmdPushConstants(cmd, mOpaquePipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
                        sizeof(mShadowPCData), &mShadowPCData);
 }
 
-void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 transform)
+void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp)
 {
-    mShadowPCData.LightMVP = mLightViewProj * transform;
+    mShadowPCData.LightMVP = mvp;
 
     vkCmdPushConstants(cmd, mAlphaPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
                        sizeof(mShadowPCData), &mShadowPCData);

@@ -1,6 +1,8 @@
 #pragma once
 
+#include "Barrier.h"
 #include "Camera.h"
+#include "Common.h"
 #include "DeletionQueue.h"
 #include "GeometryData.h"
 #include "Pipeline.h"
@@ -11,7 +13,20 @@
 
 #include <glm/glm.hpp>
 
+struct ShadowVolume {
+    float MinX;
+    float MaxX;
+    float MinY;
+    float MaxY;
+    float MinZ;
+    float MaxZ;
+};
+
 class ShadowmapHandler {
+  public:
+    static constexpr size_t NumCascades = 3;
+    using Matrices                      = std::array<glm::mat4, NumCascades>;
+
   public:
     ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat,
                      VkFormat debugDepthFormat);
@@ -24,25 +39,46 @@ class ShadowmapHandler {
                           VkDescriptorSetLayout materialDSLayout,
                           VkSampleCountFlagBits debugMultisampling);
 
-    void BeginShadowPass(VkCommandBuffer cmd);
+    // Draw all shadowmap cascades using user-provided drawing functions:
+    template <typename OpaqueFn, typename AlphaFn>
+    void DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque, AlphaFn drawAlpha)
+    {
+        barrier::ImageBarrierDepthToRender(cmd, mShadowmap.Img.Handle, NumCascades);
 
-    void BindOpaquePipeline(VkCommandBuffer cmd);
-    void BindAlphaPipeline(VkCommandBuffer cmd);
+        // TODO: for now we are just issuing render commands 3 times - for each cascade.
+        // This can be optimized to one render pass, for example with usage of the
+        // multiview extension.
+        for (size_t idx = 0; idx < NumCascades; idx++)
+        {
+            auto viewProj = mLightViewProjs[idx];
 
-    void EndShadowPass(VkCommandBuffer cmd);
+            common::BeginRenderingDepth(cmd, GetExtent(), mCascadeViews[idx], false, true);
 
-    /// Descriptor set being bound is assumed to have albedo map as its first binding.
-    /// It is also assumed that transparency is stored in the a channel.
+            mOpaquePipeline.Bind(cmd);
+            common::ViewportScissor(cmd, GetExtent());
+            drawOpaque(cmd, viewProj);
+
+            mAlphaPipeline.Bind(cmd);
+            common::ViewportScissor(cmd, GetExtent());
+            drawAlpha(cmd, viewProj);
+
+            vkCmdEndRendering(cmd);
+        }
+
+        barrier::ImageBarrierDepthToSample(cmd, mShadowmap.Img.Handle, NumCascades);
+    }
+
+    // For building drawing functions in the renderer:
+
+    // Deliver per-object (pre-multiplied) MVP matrix to the shaders via push constant:
+    void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp);
+    void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp);
+
+    // Bind descriptor set used to sample per-material alpha.
+    // Descriptor set being bound is assumed to have albedo map as its first binding.
+    // It is also assumed that transparency is stored in the 'a' channel.
     void BindAlphaMaterialDS(VkCommandBuffer cmd, VkDescriptorSet materialDS);
 
-    /// Delivers per-object transform matrix to the shaders via push constant
-    void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 transform);
-    void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 transform);
-
-    [[nodiscard]] glm::mat4 GetViewProj() const
-    {
-        return mLightViewProj;
-    }
     [[nodiscard]] VkDescriptorSetLayout GetDSLayout() const
     {
         return mShadowmapDescriptorSetLayout;
@@ -51,11 +87,23 @@ class ShadowmapHandler {
     {
         return mShadowmapDescriptorSet;
     }
+    [[nodiscard]] Matrices GetViewProj() const
+    {
+        return mLightViewProjs;
+    }
 
     void DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj, VkExtent2D extent);
 
   private:
     [[nodiscard]] VkExtent2D GetExtent() const;
+
+    [[nodiscard]] Frustum      ScaleCameraFrustum(Frustum camFrustum, float distNear,
+                                                  float distFar) const;
+    [[nodiscard]] ShadowVolume GetBoundingVolume(Frustum   shadowFrustum,
+                                                 glm::mat4 lightView) const;
+    /// Scene AABB is take to be in world coords
+    [[nodiscard]] ShadowVolume FitVolumeToScene(ShadowVolume volume, AABB sceneAABB,
+                                                glm::mat4 lightView) const;
 
   private:
     static constexpr uint32_t ShadowmapResolution = 2048;
@@ -65,15 +113,15 @@ class ShadowmapHandler {
 
     VkDescriptorPool mStaticDescriptorPool;
 
-    Pipeline mOpaquePipeline;
-    Pipeline mAlphaPipeline;
-
-    glm::mat4 mLightViewProj;
-    Frustum   mShadowFrustum;
+    Matrices                         mLightViewProjs;
+    std::array<Frustum, NumCascades> mShadowFrustums;
 
     struct {
         glm::mat4 LightMVP;
     } mShadowPCData;
+
+    Pipeline mOpaquePipeline;
+    Pipeline mAlphaPipeline;
 
     bool mDebugView     = false;
     bool mFreezeFrustum = false;
@@ -81,10 +129,11 @@ class ShadowmapHandler {
 
     float mShadowDist = 20.0f;
 
-    // Image       mShadowmap;
-    // VkImageView mShadowmapView;
+    // Main (multi layer) shadowmap texture and corresponding sampler:
     Texture   mShadowmap;
     VkSampler mSampler;
+    // Single layer views for rendering subsequent cascades:
+    std::array<VkImageView, NumCascades> mCascadeViews;
 
     VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
     VkDescriptorSet       mShadowmapDescriptorSet;

@@ -17,7 +17,7 @@ layout(location = 0) out VertexData {
 
 layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     mat4 CameraViewProjection;
-    mat4 LightViewProjection;
+    mat4 LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
     vec3 ViewPos;
     float DirectionalFactor;
     float EnvironmentFactor;
@@ -44,5 +44,5 @@ void main() {
 
     OutData.FragPos = vec3(PushConstants.Model * vec4(aPosition, 1.0));
 
-    OutData.LightSpaceFragPos = Ubo.LightViewProjection * vec4(OutData.FragPos, 1.0);
+    OutData.LightSpaceFragPos = Ubo.LightViewProjection[0] * vec4(OutData.FragPos, 1.0);
 }

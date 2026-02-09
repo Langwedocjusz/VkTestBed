@@ -20,7 +20,8 @@ layout(location = 0) in VertexData {
     vec3 Normal;
     vec4 Tangent;
     vec3 FragPos;
-    vec4 LightSpaceFragPos;
+    float FragDistance;
+    //vec4 LightSpaceFragPos;
 } InData;
 
 layout(location = 0) out vec4 outColor;
@@ -28,6 +29,7 @@ layout(location = 0) out vec4 outColor;
 layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     mat4 CameraViewProjection;
     mat4 LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
+    float CascadeBounds[3];
     vec3 ViewPos;
     float DirectionalFactor;
     float EnvironmentFactor;
@@ -86,7 +88,26 @@ vec3 ACESFilm(vec3 x)
     return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
 }
 
-float CalculateShadowFactor(vec4 lightCoord, vec2 offset)
+uint GetCascadeIdx()
+{
+    uint cascadeIdx = 0;
+
+    for (int i=0; i<3; i++)
+    {
+        //TODO: Multiplication by 0.8 hides the hole between
+        //cascades in most circumstances, but this is
+        //a temporary hack, should be solve in a more systematic way.
+        if (InData.FragDistance < 0.8*DynamicUBO.CascadeBounds[i])
+        {
+             cascadeIdx = i;
+             break;
+        }   
+    }
+
+    return cascadeIdx;
+}
+
+float CalculateShadowFactor(vec4 lightCoord, vec2 offset, uint cascadeIdx)
 {
     vec3 projCoords = lightCoord.xyz / lightCoord.w;
     vec2 uv = (projCoords.xy * 0.5 + 0.5) + offset;
@@ -97,12 +118,12 @@ float CalculateShadowFactor(vec4 lightCoord, vec2 offset)
     float bias = max(DynamicUBO.ShadowBiasMax * (1.0 - dot(InData.Normal, EnvUBO.LightDir)), DynamicUBO.ShadowBiasMin);
     float currentDepth = projCoords.z - bias;
 
-    float shadow = texture(shadowMap, vec4(uv, 0.0, currentDepth));
+    float shadow = texture(shadowMap, vec4(uv, cascadeIdx, currentDepth));
 
     return shadow;
 }
 
-float FilterPCF(vec4 lightCoord)
+float FilterPCF(vec4 lightCoord, uint cascadeIdx)
 {
     vec2 texScale = 1.0 / vec2(textureSize(shadowMap, 0));
 
@@ -112,7 +133,7 @@ float FilterPCF(vec4 lightCoord)
     {
         for (float x = -1.5; x <= 1.5; x += 1.0)
         {
-            sum += CalculateShadowFactor(lightCoord, texScale * vec2(x,y));
+            sum += CalculateShadowFactor(lightCoord, texScale * vec2(x,y), cascadeIdx);
         }
     }
 
@@ -158,13 +179,17 @@ void main()
 
     #ifdef SHADOW_COORD_DEBUG_VIEW
     {
-        vec4 lightCoord = InData.LightSpaceFragPos;
+        uint cascadeIdx = GetCascadeIdx();
+
+        vec4 lightCoord = DynamicUBO.LightViewProjection[cascadeIdx] * vec4(InData.FragPos, 1.0);
         vec3 projCoords = lightCoord.xyz / lightCoord.w;
         vec2 uv = (projCoords.xy * 0.5 + 0.5);
     
         float diff = 0.8 + 0.2 * dot(InData.Normal, normalize(vec3(1,1,1)));
 
-        vec3 color = diff * debug_grid(uv);
+        const vec3 okColors[3] = vec3[3](vec3(1.0,0.5,0.5),vec3(0.5,1.0,0.5), vec3(0.5,0.5,1.0));
+
+        vec3 color = diff * debug_grid(uv, okColors[cascadeIdx]);
     
         outColor = vec4(color, 1.0);
         return;
@@ -237,10 +262,13 @@ void main()
         float shadow = 1.0;
         if (dirResponse != vec3(0) || (MatUBO.DoubleSided == 1))
         {
+            uint cascadeIdx = GetCascadeIdx();
+            vec4 lightPos = DynamicUBO.LightViewProjection[cascadeIdx] * vec4(InData.FragPos, 1.0);
+
             #ifdef SOFT_SHADOWS
-            shadow = FilterPCF(InData.LightSpaceFragPos);
+            shadow = FilterPCF(lightPos, cascadeIdx);
             #else
-            shadow = CalculateShadowFactor(InData.LightSpaceFragPos, vec2(0));
+            shadow = CalculateShadowFactor(lightPos, vec2(0), cascadeIdx);
             #endif
             shadow = pow(shadow, 2.2);
         }

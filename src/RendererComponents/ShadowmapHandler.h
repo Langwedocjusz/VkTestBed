@@ -25,7 +25,9 @@ struct ShadowVolume {
 class ShadowmapHandler {
   public:
     static constexpr size_t NumCascades = 3;
-    using Matrices                      = std::array<glm::mat4, NumCascades>;
+    
+    using Matrices = std::array<glm::mat4, NumCascades>;
+    using Bounds   = std::array<float, NumCascades>;
 
   public:
     ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat,
@@ -91,6 +93,12 @@ class ShadowmapHandler {
     {
         return mLightViewProjs;
     }
+    [[nodiscard]] Bounds GetBounds() const
+    {
+        //TODO: This is ad hoc.
+        return {mShadowDist, 2.0f * mShadowDist, 4.0f * mShadowDist};
+    }
+
 
     void DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj, VkExtent2D extent);
 

@@ -489,6 +489,7 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     // Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
     mUBOData.LightViewProjections = mShadowmapHandler.GetViewProj();
+    mUBOData.CascadeBounds        = mShadowmapHandler.GetBounds();
     mUBOData.ViewPos              = mCamera.GetPos();
     mUBOData.AOEnabled            = mEnableAO;
 }

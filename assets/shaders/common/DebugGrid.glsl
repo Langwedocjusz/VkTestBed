@@ -27,12 +27,12 @@ float multistripes(float t)
     return main*secondary;
 }
 
-vec3 debug_grid(vec2 uv)
+vec3 debug_grid(vec2 uv, vec3 ok_col)
 {
     bool ok_x = (0.0 < uv.x && uv.x < 1.0);
     bool ok_y = (0.0 < uv.y && uv.y < 1.0);
     
-    vec3 base_col = (ok_x && ok_y) ? vec3(0.5,1.0,0.5) : vec3(0.95);
+    vec3 base_col = (ok_x && ok_y) ? ok_col : vec3(0.95);
 
     float grid = multistripes(uv.x) * multistripes(uv.y);
 

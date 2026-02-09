@@ -220,6 +220,7 @@ class MinimalPbrRenderer final : public IRenderer {
     struct UBOData {
         glm::mat4                  CameraViewProjection;
         ShadowmapHandler::Matrices LightViewProjections;
+        ShadowmapHandler::Bounds   CascadeBounds;
         glm::vec3                  ViewPos;
         float                      DirectionalFactor = 3.0f;
         float                      EnvironmentFactor = 0.05f;

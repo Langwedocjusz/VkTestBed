@@ -178,8 +178,8 @@ float KernelSSAO(vec3 pos, Basis TBN, inout uvec3 rngState)
 
 float KernelHBAO(vec3 pos, Basis TBN, inout uvec3 rngState)
 {
-    #define HBAO_DIRECTIONS 8
-    #define HBAO_SAMPLES_PER_DIR 6
+    #define HBAO_DIRECTIONS 10
+    #define HBAO_SAMPLES_PER_DIR 10
     #define HBAO_RADIUS 0.05
 
     #define PI 3.1415926535
@@ -190,20 +190,35 @@ float KernelHBAO(vec3 pos, Basis TBN, inout uvec3 rngState)
     {
         float current = 1.0;
 
-        float phi = 2.0 * PI * float(dirIdx)/float(HBAO_DIRECTIONS);
-        phi += GenerateSampleOffset(rngState).z;
+        float phi = float(dirIdx)/float(HBAO_DIRECTIONS);
+        phi += hash13(rngState);
+        phi *= 2.0 * PI;
         
         vec3 offset = vec3(cos(phi), sin(phi), 0.0);
 
         for (int sampleIdx=0; sampleIdx < HBAO_SAMPLES_PER_DIR; sampleIdx++)
         {
-            float radius = 0.001 + HBAO_RADIUS * float(sampleIdx)/float(HBAO_SAMPLES_PER_DIR);
+            float radius = float(sampleIdx+1)/float(HBAO_SAMPLES_PER_DIR);
+            radius *= HBAO_RADIUS;
 
             vec3 samplePos = pos + radius * offset;
             float sampleDepth = DepthFromSample(samplePos);
+            
+            vec3 projPos = vec3(samplePos.xy, sampleDepth);
+            vec3 horizon = normalize(projPos - pos);
 
-            float delta = sampleDepth - pos.z;
-            float visibility = radius / sqrt(radius*radius + delta*delta);
+            //Intersection beneath horizon:
+            if (dot(TBN.N, horizon) < 0.0)
+                continue;
+
+            vec3 tangent = normalize(horizon - dot(horizon, TBN.N) * TBN.N);
+
+            float visibility = dot(tangent, horizon);
+
+            if (visibility < 0.0)
+                visibility = 0.5;
+            
+            visibility = max(0.0, visibility);
 
             current = min(current, visibility);
         }

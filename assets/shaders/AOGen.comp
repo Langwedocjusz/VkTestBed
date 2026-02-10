@@ -12,10 +12,6 @@ layout(push_constant) uniform constants {
     mat4 InvProj;
 } PushConstants;
 
-#define SSAO_SAMPLE_COUNT 48
-#define SSAO_RADIUS 0.2
-#define SSAO_HEURISTIC_THICKNESS 1.0
-
 vec2 GetTextureCoords(ivec2 texelCoords)
 {
     return (vec2(texelCoords) + 0.5) / vec2(imageSize(aoResult));
@@ -153,24 +149,17 @@ float DebugRemapDepth(float depth)
     return (depth - depthStart)/(1.0 - depthStart);
 }
 
-void main()
+float KernelSSAO(vec3 pos, Basis TBN, inout uvec3 rngState)
 {
-    ivec2 texelCoords = ivec2(gl_GlobalInvocationID.xy);
-
-    vec2 uv = GetTextureCoords(texelCoords);
-    float depth = SampleDepth(uv);
-
-    vec3 pos = ReconstructPosition(uv, depth);
-
-    Basis TBN = GetTangentBasis(uv, pos, depth);
+    #define SSAO_SAMPLE_COUNT 48
+    #define SSAO_RADIUS 0.2
+    #define SSAO_HEURISTIC_THICKNESS 1.0
 
     float acc = 0.0;
     
-    uvec3 rng_state = uvec3(texelCoords.x, texelCoords.y, 0);
-
     for (int i=0; i<SSAO_SAMPLE_COUNT; i++)
     {
-        vec3 offsetTan = GenerateSampleOffset(rng_state);
+        vec3 offsetTan = GenerateSampleOffset(rngState);
         vec3 offset = TBN.T * offsetTan.x + TBN.B * offsetTan.y + TBN.N * offsetTan.z;
     
         vec3 samplePos = pos + SSAO_RADIUS * offset;
@@ -183,8 +172,67 @@ void main()
     }
     
     acc /= float(SSAO_SAMPLE_COUNT);
+
+    return 1.0 - acc;
+}
+
+float KernelHBAO(vec3 pos, Basis TBN, inout uvec3 rngState)
+{
+    #define HBAO_DIRECTIONS 8
+    #define HBAO_SAMPLES_PER_DIR 6
+    #define HBAO_RADIUS 0.05
+
+    #define PI 3.1415926535
+
+    float acc = 0.0;
+
+    for (int dirIdx=0; dirIdx<HBAO_DIRECTIONS; dirIdx++)
+    {
+        float current = 1.0;
+
+        float phi = 2.0 * PI * float(dirIdx)/float(HBAO_DIRECTIONS);
+        phi += GenerateSampleOffset(rngState).z;
+        
+        vec3 offset = vec3(cos(phi), sin(phi), 0.0);
+
+        for (int sampleIdx=0; sampleIdx < HBAO_SAMPLES_PER_DIR; sampleIdx++)
+        {
+            float radius = 0.001 + HBAO_RADIUS * float(sampleIdx)/float(HBAO_SAMPLES_PER_DIR);
+
+            vec3 samplePos = pos + radius * offset;
+            float sampleDepth = DepthFromSample(samplePos);
+
+            float delta = sampleDepth - pos.z;
+            float visibility = radius / sqrt(radius*radius + delta*delta);
+
+            current = min(current, visibility);
+        }
+
+        acc += current;
+    }
+
+    acc /= float(HBAO_DIRECTIONS);
+
+    return acc;
+}
+
+
+void main()
+{
+    ivec2 texelCoords = ivec2(gl_GlobalInvocationID.xy);
     
-    vec4 res = vec4(1.0 - acc, 0.0, 0.0, 0.0);
+    uvec3 rngState = uvec3(texelCoords.x, texelCoords.y, 0);
+
+    vec2 uv = GetTextureCoords(texelCoords);
+    float depth = SampleDepth(uv);
+
+    vec3 pos = ReconstructPosition(uv, depth);
+    Basis TBN = GetTangentBasis(uv, pos, depth);
+
+    float ao = KernelSSAO(pos, TBN, rngState);
+    //float ao = KernelHBAO(pos, TBN, rngState);
+    
+    vec4 res = vec4(ao, 0.0, 0.0, 0.0);
 
     imageStore(aoResult, texelCoords, res);
 }

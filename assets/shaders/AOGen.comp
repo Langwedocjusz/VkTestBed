@@ -41,25 +41,52 @@ struct Basis{
     vec3 N;
 };
 
-Basis GetTangentBasis(vec2 uv, vec3 pos0)
+Basis GetTangentBasis(vec2 uv, vec3 pos0, float depth0)
 {
-    //TODO: this can be improved to fixed edge artifacts, and optimized with shared memory:
+    //Imporved normal reconstruction from depth, based on:
     //https://wickedengine.net/2019/09/improved-normal-reconstruction-from-depth/
+    
+    //TODO: This can be optimized with shared memory as in original blog.
     //And further:
     //https://atyuwen.github.io/posts/normal-reconstruction/
 
-    vec2 uv1 = uv + vec2(1,0) / vec2(imageSize(aoResult));
-    vec2 uv2 = uv + vec2(0,1) / vec2(imageSize(aoResult));
-    
-    float depth1 = SampleDepth(uv1);
-    float depth2 = SampleDepth(uv2);
-    
-    vec3 pos1 = ReconstructPosition(uv1, depth1);
-    vec3 pos2 = ReconstructPosition(uv2, depth2);
+    vec2 denom = 1.0 / vec2(imageSize(aoResult));
 
+    vec2 uvLeft   = uv - denom * vec2(1,0);
+    vec2 uvRight  = uv + denom * vec2(1,0);
+    vec2 uvBottom = uv - denom * vec2(0,1);
+    vec2 uvTop    = uv + denom * vec2(0,1);
+
+    float depthLeft   = SampleDepth(uvLeft);
+    float depthRight  = SampleDepth(uvRight);
+    float depthBottom = SampleDepth(uvBottom);
+    float depthTop    = SampleDepth(uvTop);
+
+    bool pickRight = abs(depthRight - depth0) < abs(depthLeft   - depth0);
+    bool pickTop   = abs(depthTop   - depth0) < abs(depthBottom - depth0);
+
+    bool swapOrientation = pickRight ^^ pickTop;
+
+    vec3 posHorizontal = pickRight 
+                       ? ReconstructPosition(uvRight, depthRight) 
+                       : ReconstructPosition(uvLeft, depthLeft);
+
+    vec3 posVertical = pickTop
+                     ? ReconstructPosition(uvTop, depthTop) 
+                     : ReconstructPosition(uvBottom, depthBottom);
+
+    vec3 T, B;
+    
+    if (swapOrientation)
+    {
+        T = normalize(posVertical - pos0);
+        B = normalize(posHorizontal - pos0);
+    }
+    else {
+        T = normalize(posHorizontal - pos0);
+        B = normalize(posVertical - pos0);
+    }
     //TODO: T and B should probably be orthonormalzied with Gram-Schmidt:
-    vec3 T = normalize(pos1 - pos0);
-    vec3 B = normalize(pos2 - pos0);
 
     vec3 N = normalize(cross(B, T));
 
@@ -135,7 +162,7 @@ void main()
 
     vec3 pos = ReconstructPosition(uv, depth);
 
-    Basis TBN = GetTangentBasis(uv, pos);
+    Basis TBN = GetTangentBasis(uv, pos, depth);
 
     float acc = 0.0;
     

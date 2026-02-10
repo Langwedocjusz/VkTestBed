@@ -56,7 +56,10 @@ class Camera {
     {
         return mPos;
     }
-
+    [[nodiscard]] glm::vec3 GetFront() const
+    {
+        return mFront;
+    }
     [[nodiscard]] glm::mat4 GetProj() const
     {
         return mProj;

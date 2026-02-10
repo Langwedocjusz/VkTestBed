@@ -94,10 +94,7 @@ uint GetCascadeIdx()
 
     for (int i=0; i<3; i++)
     {
-        //TODO: Multiplication by 0.8 hides the hole between
-        //cascades in most circumstances, but this is
-        //a temporary hack, should be solve in a more systematic way.
-        if (InData.FragDistance < 0.8*DynamicUBO.CascadeBounds[i])
+        if (InData.FragDistance < DynamicUBO.CascadeBounds[i])
         {
              cascadeIdx = i;
              break;

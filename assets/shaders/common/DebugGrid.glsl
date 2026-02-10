@@ -17,14 +17,16 @@ float stripes(float t, float freq, float width, float eps)
 float multistripes(float t)
 {
     const float eps = 0.02;
-    const float width = 0.1;
+    const float width = 0.05;
     
     float main = stripes(t, 1.0, width, eps);
     float secondary = stripes(t, 10.0, 0.2*width, eps);
+    float tertiary = stripes(t, 100.0, 0.04*width, eps);
     
     secondary = mix(secondary, 1.0, 0.5);
+    tertiary = mix(tertiary, 1.0, 0.75);
     
-    return main*secondary;
+    return main*secondary*tertiary;
 }
 
 vec3 debug_grid(vec2 uv, vec3 ok_col)

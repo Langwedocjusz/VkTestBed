@@ -25,7 +25,7 @@ struct ShadowVolume {
 class ShadowmapHandler {
   public:
     static constexpr size_t NumCascades = 3;
-    
+
     using Matrices = std::array<glm::mat4, NumCascades>;
     using Bounds   = std::array<float, NumCascades>;
 
@@ -34,7 +34,7 @@ class ShadowmapHandler {
                      VkFormat debugDepthFormat);
     ~ShadowmapHandler();
 
-    void OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB);
+    void OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lightDir, AABB sceneAABB);
     void OnImGui();
 
     void RebuildPipelines(const Vertex::Layout &vertexLayout,
@@ -54,7 +54,8 @@ class ShadowmapHandler {
         {
             auto viewProj = mLightViewProjs[idx];
 
-            common::BeginRenderingDepth(cmd, GetExtent(), mCascadeViews[idx], false, true);
+            common::BeginRenderingDepth(cmd, GetExtent(), mCascadeViews[idx], false,
+                                        true);
 
             mOpaquePipeline.Bind(cmd);
             common::ViewportScissor(cmd, GetExtent());
@@ -95,10 +96,8 @@ class ShadowmapHandler {
     }
     [[nodiscard]] Bounds GetBounds() const
     {
-        //TODO: This is ad hoc.
-        return {mShadowDist, 2.0f * mShadowDist, 4.0f * mShadowDist};
+        return mBounds;
     }
-
 
     void DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj, VkExtent2D extent);
 
@@ -122,6 +121,7 @@ class ShadowmapHandler {
     VkDescriptorPool mStaticDescriptorPool;
 
     Matrices                         mLightViewProjs;
+    Bounds                           mBounds;
     std::array<Frustum, NumCascades> mShadowFrustums;
 
     struct {
@@ -135,7 +135,7 @@ class ShadowmapHandler {
     bool mFreezeFrustum = false;
     bool mFitToScene    = true;
 
-    float mShadowDist = 20.0f;
+    float mShadowDist = 10.0f;
 
     // Main (multi layer) shadowmap texture and corresponding sampler:
     Texture   mShadowmap;

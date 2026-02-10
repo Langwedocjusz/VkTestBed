@@ -48,7 +48,7 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
                                                           format, aspectFlags, i);
     }
 
-    for (auto& view : mCascadeViews)
+    for (auto &view : mCascadeViews)
         mMainDeletionQueue.push_back(view);
 
     // Create a sampler for the shadowmap:
@@ -335,13 +335,27 @@ ShadowVolume ShadowmapHandler::FitVolumeToScene(ShadowVolume volume, AABB sceneA
     return volume;
 }
 
-void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAABB)
+void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lightDir,
+                                AABB sceneAABB)
 {
     // Construct light view matrix, looking along the light direction:
     // Up vector doesn't really matter - it changes rotation of the resulting
     // shadowmap about the light dir - which is mostly irrelevant,
     // as sampling coords will change covariantly.
     glm::mat4 lightView = glm::lookAt(lightDir, glm::vec3(0.0f), glm::vec3(0, -1, 0));
+
+    // TODO: This is totally ad hoc, also hardcodes number of cascades:
+    const std::array<float, 4> distances{0.0f, mShadowDist, 2.0f * mShadowDist,
+                                         4.0f * mShadowDist};
+
+    // Calculate max bounds for use in shaders:
+    {
+        const auto  diff3      = glm::vec3(camFr.FarTopRight - camFr.NearTopRight);
+        const float projFactor = glm::dot(frontDir, glm::normalize(diff3));
+
+        for (size_t i = 0; i < NumCascades; i++)
+            mBounds[i] = projFactor * distances[i + 1];
+    }
 
     for (size_t idx = 0; idx < NumCascades; idx++)
     {
@@ -351,12 +365,7 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 lightDir, AABB sceneAAB
         // Construct worldspace coords for the shadow sampling part of the frustum:
         if (!mFreezeFrustum)
         {
-            //TODO: This is totally ad hoc, also hardcodes number of cascades:
-            const std::array<float,4> distances{
-                0.0f, mShadowDist, 2.0f * mShadowDist, 4.0f * mShadowDist
-            };
-
-            frustum = ScaleCameraFrustum(camFr, distances[idx], distances[idx+1]);
+            frustum = ScaleCameraFrustum(camFr, distances[idx], distances[idx + 1]);
         }
 
         // Construct light-aligned volume thightly bounding the shadowed frustum:

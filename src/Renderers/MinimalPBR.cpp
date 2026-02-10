@@ -484,7 +484,8 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
     auto lightDir = mEnvHandler.GetUboData().LightDir;
-    mShadowmapHandler.OnUpdate(mCamera.GetFrustum(), lightDir, mSceneAABB);
+    mShadowmapHandler.OnUpdate(mCamera.GetFrustum(), mCamera.GetFront(), lightDir,
+                               mSceneAABB);
 
     // Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();

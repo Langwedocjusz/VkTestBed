@@ -344,9 +344,10 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lig
     // as sampling coords will change covariantly.
     glm::mat4 lightView = glm::lookAt(lightDir, glm::vec3(0.0f), glm::vec3(0, -1, 0));
 
-    // TODO: This is totally ad hoc, also hardcodes number of cascades:
-    const std::array<float, 4> distances{0.0f, mShadowDist, 2.0f * mShadowDist,
-                                         4.0f * mShadowDist};
+    // Make each cascade twice as big as the last:
+    // TODO: Hardcodes number of cascades:
+    const std::array<float, 4> distances{0.0f, mShadowDist, 3.0f * mShadowDist,
+                                         7.0f * mShadowDist};
 
     // Calculate max bounds for use in shaders:
     {

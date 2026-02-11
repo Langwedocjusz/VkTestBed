@@ -224,6 +224,7 @@ class MinimalPbrRenderer final : public IRenderer {
         ShadowmapHandler::Matrices LightViewProjections;
         ShadowmapHandler::Bounds   CascadeBounds;
         glm::vec3                  ViewPos;
+        glm::vec3                  ViewFront;
         float                      DirectionalFactor = 3.0f;
         float                      EnvironmentFactor = 0.05f;
         float                      ShadowBiasMin     = 0.001f;

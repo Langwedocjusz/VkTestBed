@@ -31,6 +31,7 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     mat4 LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
     float CascadeBounds[3];
     vec3 ViewPos;
+    vec3 ViewFront;
     float DirectionalFactor;
     float EnvironmentFactor;
     float ShadowBiasMin;
@@ -94,7 +95,13 @@ uint GetCascadeIdx()
 
     for (int i=0; i<3; i++)
     {
-        if (InData.FragDistance < DynamicUBO.CascadeBounds[i])
+        float maxDist = DynamicUBO.CascadeBounds[i];
+
+        vec3 viewDir = normalize(InData.FragPos - DynamicUBO.ViewPos);
+
+        float projDist = InData.FragDistance * dot(viewDir, DynamicUBO.ViewFront);
+
+        if (projDist < maxDist)
         {
              cascadeIdx = i;
              break;

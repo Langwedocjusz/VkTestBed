@@ -21,6 +21,7 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     mat4 LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
     float CascadeBounds[3];
     vec3 ViewPos;
+    vec3 ViewFront;
     float DirectionalFactor;
     float EnvironmentFactor;
     float ShadowBiasMin;

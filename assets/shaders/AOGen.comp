@@ -165,6 +165,7 @@ float KernelSSAO(vec3 pos, Basis TBN, inout uvec3 rngState)
         vec3 samplePos = pos + SSAO_RADIUS * offset;
         float sampleDepth = DepthFromSample(samplePos);
     
+        //TODO: continuous attenuation function would remove cutoff artefacts.
         if (abs(pos.z - sampleDepth) < SSAO_HEURISTIC_THICKNESS)
         {
             acc += float(sampleDepth >= samplePos.z);

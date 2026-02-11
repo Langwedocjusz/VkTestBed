@@ -501,6 +501,7 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     mUBOData.LightViewProjections = mShadowmapHandler.GetViewProj();
     mUBOData.CascadeBounds        = mShadowmapHandler.GetBounds();
     mUBOData.ViewPos              = mCamera.GetPos();
+    mUBOData.ViewFront            = mCamera.GetFront();
     mUBOData.AOEnabled            = mEnableAO;
 }
 

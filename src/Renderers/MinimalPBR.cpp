@@ -106,6 +106,15 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                      .SetMaxLod(12.0f)
                      .Build(mCtx, mMainDeletionQueue);
 
+    // For ao clamp to edge is required to avoid artefacts near screen edges:
+    mAOSampler = SamplerBuilder("MinimalPbrSampler2D")
+                     .SetMagFilter(VK_FILTER_LINEAR)
+                     .SetMinFilter(VK_FILTER_LINEAR)
+                     .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+                     .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
+                     .SetMaxLod(12.0f)
+                     .Build(mCtx, mMainDeletionQueue);
+
     // Create descriptor set layout for sampling material textures:
     mMaterialDescriptorSetLayout =
         DescriptorSetLayoutBuilder("MinimalPBRMaterialDescriptorLayout")
@@ -452,7 +461,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         // Update AO descriptor to point to depth buffer
         DescriptorUpdater(mAOGenDescriptorSet)
             .WriteStorageImage(0, mAOTarget.View)
-            .WriteCombinedSampler(1, mDepthOnlyView, mSampler2D)
+            .WriteCombinedSampler(1, mDepthOnlyView, mAOSampler)
             .Update(mCtx);
 
         // Transition depth buffer and ao target to correct layouts:

@@ -180,9 +180,12 @@ float KernelHBAO(vec3 pos, Basis TBN, inout uvec3 rngState)
 {
     #define HBAO_DIRECTIONS 10
     #define HBAO_SAMPLES_PER_DIR 10
-    #define HBAO_RADIUS 0.05
+    #define HBAO_RADIUS 0.2
+    #define HBAO_THICKNESS_HEURISTIC 1.0
 
     #define PI 3.1415926535
+
+    const vec3 view = vec3(0,0,1);
 
     float acc = 0.0;
 
@@ -205,8 +208,22 @@ float KernelHBAO(vec3 pos, Basis TBN, inout uvec3 rngState)
             float sampleDepth = DepthFromSample(samplePos);
             
             vec3 projPos = vec3(samplePos.xy, sampleDepth);
-            vec3 horizon = normalize(projPos - pos);
+            vec3 diff = projPos - pos; 
 
+            //TODO: Without the heuristic, with inverse scaling
+            //current implementation exhibits HORRIBLE haloing.
+            //With this heuristic it is visibly view dependend.
+            //There might still be something wrong with the kernel,
+            //since in reference materials there was no such problem,
+            //even without the distance-based sample attenuation
+            //(which is not yet added).
+            float skipTreshold = HBAO_THICKNESS_HEURISTIC/abs(pos.z);
+
+            if (abs(diff.z) > skipTreshold)
+                continue;
+            
+            vec3 horizon = normalize(diff);
+            
             //Intersection beneath horizon:
             if (dot(TBN.N, horizon) < 0.0)
                 continue;
@@ -214,9 +231,6 @@ float KernelHBAO(vec3 pos, Basis TBN, inout uvec3 rngState)
             vec3 tangent = normalize(horizon - dot(horizon, TBN.N) * TBN.N);
 
             float visibility = dot(tangent, horizon);
-
-            if (visibility < 0.0)
-                visibility = 0.5;
             
             visibility = max(0.0, visibility);
 
@@ -246,8 +260,8 @@ void main()
 
     float ao = KernelSSAO(pos, TBN, rngState);
     //float ao = KernelHBAO(pos, TBN, rngState);
-    
-    vec4 res = vec4(ao, 0.0, 0.0, 0.0);
+
+    vec4 res = vec4(0.5*TBN.N+0.5, ao);
 
     imageStore(aoResult, texelCoords, res);
 }

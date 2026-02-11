@@ -167,9 +167,15 @@ void main()
     if (DynamicUBO.AOEnabled == 1)
     {
         //TODO: maybe texture instead of texelFetch?
-        float ao = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0).r;
-        
+        vec4 aoSample = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0);
+
+        float ao = aoSample.a;
         outColor = vec4(vec3(ao), 1.0);
+        
+        //Preview reconstructed normals:
+        //vec3 norm = 2.0 * aoSample.rgb - 1.0;
+        //outColor = vec4(norm, 1.0);
+        
         return;
     }
     #endif
@@ -237,7 +243,7 @@ void main()
     if (DynamicUBO.AOEnabled == 1)
     {
         //TODO: maybe texture instead of texelFetch?
-        float ao = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0).r;
+        float ao = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0).a;
         
         res.rgb *= ao;
     }

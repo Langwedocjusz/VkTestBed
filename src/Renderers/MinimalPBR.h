@@ -177,6 +177,8 @@ class MinimalPbrRenderer final : public IRenderer {
     VkDescriptorSetLayout mAOUsageDescriptorSetLayout;
     VkDescriptorSet       mAOUsageDescriptorSet;
 
+    VkSampler mAOSampler;
+
     // Supported geometry specification:
     using enum Vertex::AttributeType;
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;

@@ -174,6 +174,7 @@ void main()
         
         //Preview reconstructed normals:
         //vec3 norm = 2.0 * aoSample.rgb - 1.0;
+        //vec3 norm = aoSample.rgb;
         //outColor = vec4(norm, 1.0);
         
         return;

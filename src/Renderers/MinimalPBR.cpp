@@ -1156,7 +1156,7 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
             DestroyTexture(texture);
         }
 
-        texture = TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData);
+        texture = TextureLoaders::LoadTexture2D(mCtx, "MaterialTexture", imgData);
         imgData.IsUpToDate = true;
     }
 

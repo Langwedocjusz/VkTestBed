@@ -10,6 +10,31 @@
 #include "volk.h"
 
 #include <cmath>
+#include <utility>
+#include <iostream>
+
+// TODO: This is also in ImageData. Unduplicate this:
+static VkDeviceSize BytesPerPixel(VkFormat format)
+{
+    // TODO: handle all formats
+    switch (format)
+    {
+    case VK_FORMAT_R8G8B8A8_SRGB:
+        return 4;
+    case VK_FORMAT_R8G8B8A8_UNORM:
+        return 4;
+    case VK_FORMAT_BC7_SRGB_BLOCK:
+        return 1;
+    case VK_FORMAT_BC7_UNORM_BLOCK:
+        return 1;
+    case VK_FORMAT_R32G32B32A32_SFLOAT:
+        return 16;
+    default:
+        vpanic("Unsupported or invalid format!");
+    }
+
+    std::unreachable();
+}
 
 uint32_t Image::CalcNumMips(uint32_t size)
 {
@@ -63,6 +88,10 @@ VkImageView Image::CreateView(VulkanContext &ctx, const std::string &debugName,
 
 void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
 {
+    // Sanity checks - we only support singular 2D images atm:
+    vassert(img.Info.extent.depth == 1);
+    vassert(img.Info.arrayLayers == 1);
+
     // Create buffer and upload image data
     Buffer stagingBuffer =
         MakeBuffer::Staging(ctx, "ImageUploadStagingBuffer", info.Size);
@@ -81,24 +110,67 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
 
         barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
 
-        // Copy buffer to image
-        // Assumes that we are copying to entire image
-        VkBufferImageCopy region{};
-        region.bufferOffset      = 0;
-        region.bufferRowLength   = 0;
-        region.bufferImageHeight = 0;
-        region.imageOffset       = {0, 0, 0};
-        region.imageExtent       = img.Info.extent;
-        // Assumes that image is color (not depth/stencil)
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        // Assumes that we are targeting mip level zero,
-        // and that we have single image (not array)
-        region.imageSubresource.mipLevel       = 0;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount     = 1;
+        //TODO: This is still broken with compressed textures. Figure out why.
+        if (info.AllMips)
+        {
+            // Multiple copy regions - one per mip level:
+            std::vector<VkBufferImageCopy> regions{};
+            VkDeviceSize                   currentOffset = 0;
 
-        vkCmdCopyBufferToImage(cmd, stagingBuffer.Handle, img.Handle,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+            auto bytesPerPixel = BytesPerPixel(img.Info.format);
+
+            for (size_t lvl = 0; lvl < img.Info.mipLevels; lvl++)
+            {
+                VkBufferImageCopy region{};
+
+                auto width  = img.Info.extent.width >> lvl;
+                auto height = img.Info.extent.height >> lvl;
+
+                region.imageExtent.width         = width;
+                region.imageExtent.height        = height;
+                region.imageExtent.depth         = 1;
+                region.imageSubresource.mipLevel = lvl;
+                region.bufferOffset              = currentOffset;
+
+                region.bufferRowLength   = 0;
+                region.bufferImageHeight = 0;
+                region.imageOffset       = {0, 0, 0};
+                // Assumes that image is color (not depth/stencil)
+                region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                // Assumes that we have single image (not array)
+                region.imageSubresource.baseArrayLayer = 0;
+                region.imageSubresource.layerCount     = 1;
+
+                regions.push_back(region);
+
+                currentOffset += width * height * bytesPerPixel;
+            }
+
+            vkCmdCopyBufferToImage(cmd, stagingBuffer.Handle, img.Handle,
+                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regions.size(),
+                                   regions.data());
+        }
+        else
+        {
+            // Single copy region targeting mip 0:
+            VkBufferImageCopy region{};
+
+            region.imageExtent               = img.Info.extent;
+            region.imageSubresource.mipLevel = 0;
+            region.bufferOffset              = 0;
+
+            region.bufferRowLength   = 0;
+            region.bufferImageHeight = 0;
+            region.imageOffset       = {0, 0, 0};
+            // Assumes that image is color (not depth/stencil)
+            region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            // Assumes that we have single image (not array)
+            region.imageSubresource.baseArrayLayer = 0;
+            region.imageSubresource.layerCount     = 1;
+
+            vkCmdCopyBufferToImage(cmd, stagingBuffer.Handle, img.Handle,
+                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        }
 
         // Transition layout to whatever is needed
         barrierInfo.OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;

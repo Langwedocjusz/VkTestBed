@@ -51,7 +51,8 @@ class ImageData {
     MipStrategy Mips   = MipStrategy::DoNothing;
     VkFormat    Format;
 
-    void *Data = nullptr;
+    void        *Data = nullptr;
+    VkDeviceSize Size = 0;
 
     mutable bool IsUpToDate = false;
 

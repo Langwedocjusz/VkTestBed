@@ -2,6 +2,7 @@
 #include "Pch.h"
 
 #include "Vassert.h"
+#include "vulkan/vulkan_core.h"
 
 #define KHRONOS_STATIC
 #include "ktx.h"
@@ -14,6 +15,29 @@
 #include "tinyexr.h"
 
 #include <filesystem>
+#include <utility>
+
+static VkDeviceSize BytesPerPixel(VkFormat format)
+{
+    // TODO: handle all formats
+    switch (format)
+    {
+    case VK_FORMAT_R8G8B8A8_SRGB:
+        return 4;
+    case VK_FORMAT_R8G8B8A8_UNORM:
+        return 4;
+    case VK_FORMAT_BC7_SRGB_BLOCK:
+        return 1;
+    case VK_FORMAT_BC7_UNORM_BLOCK:
+        return 1;
+    case VK_FORMAT_R32G32B32A32_SFLOAT:
+        return 16;
+    default:
+        vpanic("Unsupported or invalid format!");
+    }
+
+    std::unreachable();
+}
 
 ImageData ImageData::SinglePixel(Pixel p, bool unorm)
 {
@@ -21,12 +45,13 @@ ImageData ImageData::SinglePixel(Pixel p, bool unorm)
 
     auto res = ImageData();
 
+    res.Name   = "SinglePixel";
     res.Width  = 1;
     res.Height = 1;
     res.Mips   = MipStrategy::DoNothing;
     res.Format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
     res.Data   = static_cast<void *>(data);
-    res.Name   = "SinglePixel";
+    res.Size   = BytesPerPixel(res.Format);
     res.mType  = Type::Pixel;
 
     return res;
@@ -51,6 +76,8 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
         ktx_uint32_t baseWidth  = texture->baseWidth;
         ktx_uint32_t baseHeight = texture->baseHeight;
 
+        ktx_size_t dataSize = ktxTexture_GetDataSize(texture);
+
         // TODO: Support more image types
         // ktx_uint32_t baseDepth = texture->baseDepth;
         // ktx_uint32_t numLevels = texture->numLevels;
@@ -60,23 +87,26 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
 
         ktx_uint8_t *image = ktxTexture_GetData(texture);
 
+        VkFormat format = ktxTexture_GetVkFormat(texture);
+
+        //TODO: this is a horrible hack:
+        if (unorm && (format == VK_FORMAT_BC7_SRGB_BLOCK))
+            format = VK_FORMAT_BC7_UNORM_BLOCK;
+
         res.Width  = baseWidth;
         res.Height = baseHeight;
         res.Mips   = mips;
-        res.Format = ktxTexture_GetVkFormat(texture);
+        res.Format = format;
         res.Data   = static_cast<void *>(image);
+        res.Size   = dataSize;
         res.mType  = Type::Ktx;
 
         // Store texture handle to use when freeing memory:
         res.mExtra = static_cast<void *>(texture);
-
-        // ...
-        // Do something with the texture image.
-        // ...
     }
     else
     {
-        int width, height, channels;
+        int32_t width, height, channels;
 
         //'STBI_rgb_alpha' forces 4 channels, even if source image has less:
         stbi_uc *pixels = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
@@ -89,6 +119,7 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
         res.Mips   = MipStrategy::Generate;
         res.Format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
         res.Data   = static_cast<void *>(pixels);
+        res.Size   = width * height * BytesPerPixel(res.Format);
         res.mType  = Type::Stb;
     }
 
@@ -97,46 +128,53 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
 
 ImageData ImageData::ImportHDRI(const char *path)
 {
-    int         width, height;
+    int32_t     width, height;
     float      *data;
     const char *err = nullptr;
 
-    int ret = LoadEXR(&data, &width, &height, path, &err);
+    int32_t ret = LoadEXR(&data, &width, &height, path, &err);
 
     vassert(ret == TINYEXR_SUCCESS,
             "Error when trying to open image: " + std::string(path));
 
     auto res = ImageData();
 
+    res.Name   = std::filesystem::path(path).stem().string();
     res.Width  = width;
     res.Height = height;
     res.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
     res.Data   = static_cast<void *>(data);
-    res.Name   = std::filesystem::path(path).stem().string();
+    res.Size   = width * height * BytesPerPixel(res.Format);
     res.mType  = Type::Exr;
 
     return res;
 }
 
 ImageData::ImageData(ImageData &&other) noexcept
-    : Width(other.Width), Height(other.Height), Format(other.Format), Data(other.Data),
-      mType(other.mType)
+    : Name(std::move(other.Name)), Width(other.Width), Height(other.Height),
+      Mips(other.Mips), Format(other.Format), Data(other.Data), Size(other.Size),
+      IsUpToDate(other.IsUpToDate), mType(other.mType), mExtra(other.mExtra)
 {
-    other.Data  = nullptr;
-    other.mType = Type::None;
+    other.Data   = nullptr;
+    other.mType  = Type::None;
+    other.mExtra = nullptr;
 }
 
 ImageData &ImageData::operator=(ImageData &&other) noexcept
 {
+    Name   = std::move(other.Name);
     Width  = other.Width;
     Height = other.Height;
+    Mips   = other.Mips;
     Format = other.Format;
     Data   = other.Data;
-    Name   = std::move(other.Name);
+    Size   = other.Size;
     mType  = other.mType;
+    mExtra = other.mExtra;
 
-    other.Data  = nullptr;
-    other.mType = Type::None;
+    other.Data   = nullptr;
+    other.mType  = Type::None;
+    other.mExtra = nullptr;
 
     return *this;
 }

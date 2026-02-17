@@ -299,7 +299,7 @@ void Minimal3DRenderer::LoadImages(const Scene &scene)
 
         auto &texture = mImages[key];
 
-        texture = TextureLoaders::LoadTexture2DMipped(mCtx, "MaterialTexture", imgData);
+        texture = TextureLoaders::LoadTexture2D(mCtx, "MaterialTexture", imgData);
 
         mSceneDeletionQueue.push_back(texture);
     }

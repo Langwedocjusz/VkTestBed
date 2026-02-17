@@ -8,6 +8,7 @@ struct ImageUploadInfo {
     const void   *Data;
     VkDeviceSize  Size;
     VkImageLayout DstLayout;
+    bool          AllMips = false;
 };
 
 struct Image {

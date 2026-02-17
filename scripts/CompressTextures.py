@@ -49,6 +49,8 @@ def main():
             f'compressonatorcli -fd BC7 {org_path} {new_path}'
         ], shell=True)
 
+        image['uri'] = new_uri
+
     # Save gltf json with updated image URIs:
     with open(out_dir / in_gltf_path.name, 'w') as file:
         json.dump(gltf, file, indent=4)

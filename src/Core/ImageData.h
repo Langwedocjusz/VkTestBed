@@ -12,14 +12,21 @@ struct Pixel {
     uint8_t A;
 };
 
+enum class MipStrategy
+{
+    DoNothing,
+    Generate,
+    Load,
+};
+
 /// An owning handle to cpu side image data
 class ImageData {
   public:
     static ImageData SinglePixel(Pixel p, bool unorm);
     // Uses c_str as that is what is passed to the underlying libraries anyway
     // and using filesystem::path measurably bloats the compile time.
-    static ImageData ImportSTB(const char *path, bool unorm);
-    static ImageData ImportEXR(const char *path);
+    static ImageData ImportImage(const char *path, bool unorm);
+    static ImageData ImportHDRI(const char *path);
 
     ImageData() = default;
     ~ImageData();
@@ -38,9 +45,11 @@ class ImageData {
   public:
     std::string Name;
 
-    int      Width  = 0;
-    int      Height = 0;
-    VkFormat Format;
+    // TODO: At the moment we only support single layer 2D images
+    uint32_t    Width  = 0;
+    uint32_t    Height = 0;
+    MipStrategy Mips   = MipStrategy::DoNothing;
+    VkFormat    Format;
 
     void *Data = nullptr;
 
@@ -55,7 +64,11 @@ class ImageData {
         Pixel,
         Stb,
         Exr,
+        Ktx,
     };
 
     Type mType = Type::None;
+
+    // Extra storage for backend-dependent data:
+    void *mExtra;
 };

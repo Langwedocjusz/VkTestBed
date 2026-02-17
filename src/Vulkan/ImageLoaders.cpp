@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <utility>
+#include <vulkan/vulkan_core.h>
 
 static VkDeviceSize BytesPerPixel(VkFormat format)
 {
@@ -21,6 +22,10 @@ static VkDeviceSize BytesPerPixel(VkFormat format)
         return 4;
     case VK_FORMAT_R8G8B8A8_UNORM:
         return 4;
+    case VK_FORMAT_BC7_SRGB_BLOCK:
+        return 1;
+    case VK_FORMAT_BC7_UNORM_BLOCK:
+        return 1;
     case VK_FORMAT_R32G32B32A32_SFLOAT:
         return 16;
     default:
@@ -43,6 +48,9 @@ static std::tuple<VkDeviceSize, VkExtent2D> GetSizeExtent(const ImageData &data)
 Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const std::string &debugName,
                                 const ImageData &data)
 {
+    // TODO: This logic results in corrupted textures when trying
+    // to load compressed textures with pregenerated mips.
+
     auto [imageSize, extent] = GetSizeExtent(data);
 
     Image2DInfo imgInfo{

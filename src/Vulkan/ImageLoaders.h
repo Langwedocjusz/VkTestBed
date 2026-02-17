@@ -9,6 +9,8 @@
 
 namespace ImageLoaders
 {
+//TODO: This api is nonsense, as imagedata now stores information
+//about wether or not mips should be generated/loaded etc.
 Image LoadImage2D(VulkanContext &ctx, const std::string &debugName,
                   const ImageData &data);
 

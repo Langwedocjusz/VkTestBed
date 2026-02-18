@@ -3,6 +3,7 @@
 
 #include "Vassert.h"
 #include "vulkan/vulkan_core.h"
+#include <iostream>
 
 #define KHRONOS_STATIC
 #include "ktx.h"
@@ -85,11 +86,26 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
 
         auto mips = texture->generateMipmaps ? MipStrategy::Generate : MipStrategy::Load;
 
+        if (mips == MipStrategy::Load)
+        {
+            res.NumMips = texture->numLevels;
+
+            for (size_t lvl=0; lvl<res.NumMips; lvl++)
+            {
+                ktx_size_t offset{0};
+                auto ret = ktxTexture_GetImageOffset(texture, lvl, 0, 0, &offset);
+
+                vassert(ret == KTX_SUCCESS);
+
+                res.MipOffsets.push_back(offset);
+            }
+        }
+
         ktx_uint8_t *image = ktxTexture_GetData(texture);
 
         VkFormat format = ktxTexture_GetVkFormat(texture);
 
-        //TODO: this is a horrible hack:
+        // TODO: this is a horrible hack:
         if (unorm && (format == VK_FORMAT_BC7_SRGB_BLOCK))
             format = VK_FORMAT_BC7_UNORM_BLOCK;
 
@@ -152,7 +168,8 @@ ImageData ImageData::ImportHDRI(const char *path)
 
 ImageData::ImageData(ImageData &&other) noexcept
     : Name(std::move(other.Name)), Width(other.Width), Height(other.Height),
-      Mips(other.Mips), Format(other.Format), Data(other.Data), Size(other.Size),
+      Mips(other.Mips), NumMips(other.NumMips), MipOffsets(std::move(other.MipOffsets)),
+      Format(other.Format), Data(other.Data), Size(other.Size),
       IsUpToDate(other.IsUpToDate), mType(other.mType), mExtra(other.mExtra)
 {
     other.Data   = nullptr;
@@ -162,15 +179,17 @@ ImageData::ImageData(ImageData &&other) noexcept
 
 ImageData &ImageData::operator=(ImageData &&other) noexcept
 {
-    Name   = std::move(other.Name);
-    Width  = other.Width;
-    Height = other.Height;
-    Mips   = other.Mips;
-    Format = other.Format;
-    Data   = other.Data;
-    Size   = other.Size;
-    mType  = other.mType;
-    mExtra = other.mExtra;
+    Name       = std::move(other.Name);
+    Width      = other.Width;
+    Height     = other.Height;
+    Mips       = other.Mips;
+    NumMips    = other.NumMips;
+    MipOffsets = std::move(other.MipOffsets);
+    Format     = other.Format;
+    Data       = other.Data;
+    Size       = other.Size;
+    mType      = other.mType;
+    mExtra     = other.mExtra;
 
     other.Data   = nullptr;
     other.mType  = Type::None;

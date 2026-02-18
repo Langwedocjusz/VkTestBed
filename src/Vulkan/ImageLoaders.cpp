@@ -29,22 +29,29 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const std::string &debugName
         .Usage  = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
     };
 
-    if (data.Mips != MipStrategy::DoNothing)
-        imgInfo.MipLevels = Image::CalcNumMips(data.Width, data.Height);
+    if (data.Mips == MipStrategy::Load)
+        imgInfo.MipLevels = data.NumMips;
 
     if (data.Mips == MipStrategy::Generate)
+    {
+        imgInfo.MipLevels = Image::CalcNumMips(data.Width, data.Height);
         imgInfo.Usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        
+    }
+
     Image img = MakeImage::Image2D(ctx, debugName, imgInfo);
 
     ImageUploadInfo uploadInfo{
         .Data      = data.Data,
         .Size      = data.Size,
         .DstLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .MipOffsets = {},
     };
 
     if (data.Mips == MipStrategy::Load)
+    {
         uploadInfo.AllMips = true;
+        uploadInfo.MipOffsets = data.MipOffsets;
+    }
 
     Image::UploadToImage(ctx, img, uploadInfo);
 

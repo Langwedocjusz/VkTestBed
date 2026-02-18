@@ -46,10 +46,12 @@ class ImageData {
     std::string Name;
 
     // TODO: At the moment we only support single layer 2D images
-    uint32_t    Width  = 0;
-    uint32_t    Height = 0;
-    MipStrategy Mips   = MipStrategy::DoNothing;
-    VkFormat    Format;
+    uint32_t            Width   = 0;
+    uint32_t            Height  = 0;
+    MipStrategy         Mips    = MipStrategy::DoNothing;
+    size_t              NumMips = 1;
+    std::vector<size_t> MipOffsets;
+    VkFormat            Format;
 
     void        *Data = nullptr;
     VkDeviceSize Size = 0;

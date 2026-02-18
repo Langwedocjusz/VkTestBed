@@ -10,31 +10,8 @@
 #include "volk.h"
 
 #include <cmath>
-#include <utility>
 #include <iostream>
-
-// TODO: This is also in ImageData. Unduplicate this:
-static VkDeviceSize BytesPerPixel(VkFormat format)
-{
-    // TODO: handle all formats
-    switch (format)
-    {
-    case VK_FORMAT_R8G8B8A8_SRGB:
-        return 4;
-    case VK_FORMAT_R8G8B8A8_UNORM:
-        return 4;
-    case VK_FORMAT_BC7_SRGB_BLOCK:
-        return 1;
-    case VK_FORMAT_BC7_UNORM_BLOCK:
-        return 1;
-    case VK_FORMAT_R32G32B32A32_SFLOAT:
-        return 16;
-    default:
-        vpanic("Unsupported or invalid format!");
-    }
-
-    std::unreachable();
-}
+#include <utility>
 
 uint32_t Image::CalcNumMips(uint32_t size)
 {
@@ -110,18 +87,20 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
 
         barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
 
-        //TODO: This is still broken with compressed textures. Figure out why.
+        // TODO: This is still broken with compressed textures. Figure out why.
         if (info.AllMips)
         {
             // Multiple copy regions - one per mip level:
             std::vector<VkBufferImageCopy> regions{};
-            VkDeviceSize                   currentOffset = 0;
-
-            auto bytesPerPixel = BytesPerPixel(img.Info.format);
 
             for (size_t lvl = 0; lvl < img.Info.mipLevels; lvl++)
             {
                 VkBufferImageCopy region{};
+
+                auto currentOffset = info.MipOffsets[lvl];
+
+                region.imageSubresource.mipLevel = lvl;
+                region.bufferOffset              = currentOffset;
 
                 auto width  = img.Info.extent.width >> lvl;
                 auto height = img.Info.extent.height >> lvl;
@@ -129,8 +108,6 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
                 region.imageExtent.width         = width;
                 region.imageExtent.height        = height;
                 region.imageExtent.depth         = 1;
-                region.imageSubresource.mipLevel = lvl;
-                region.bufferOffset              = currentOffset;
 
                 region.bufferRowLength   = 0;
                 region.bufferImageHeight = 0;
@@ -142,8 +119,6 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
                 region.imageSubresource.layerCount     = 1;
 
                 regions.push_back(region);
-
-                currentOffset += width * height * bytesPerPixel;
             }
 
             vkCmdCopyBufferToImage(cmd, stagingBuffer.Handle, img.Handle,

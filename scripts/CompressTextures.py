@@ -46,7 +46,7 @@ def main():
         new_path = out_dir / new_uri
 
         subprocess.call([
-            f'compressonatorcli -fd BC7 {org_path} {new_path}'
+            f'compressonatorcli -fd BC7 -mipsize 1 {org_path} {new_path}'
         ], shell=True)
 
         image['uri'] = new_uri

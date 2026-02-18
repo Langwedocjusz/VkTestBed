@@ -2,13 +2,15 @@
 
 #include "VulkanContext.h"
 
+#include <span>
 #include <string>
 
 struct ImageUploadInfo {
-    const void   *Data;
-    VkDeviceSize  Size;
-    VkImageLayout DstLayout;
-    bool          AllMips = false;
+    const void         *Data;
+    VkDeviceSize        Size;
+    VkImageLayout       DstLayout;
+    bool                AllMips = false;
+    std::span<const size_t> MipOffsets;
 };
 
 struct Image {

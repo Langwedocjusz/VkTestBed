@@ -45,6 +45,8 @@ def main():
         org_path = in_gltf_path.parent / org_uri
         new_path = out_dir / new_uri
 
+        os.makedirs(new_path.parent, exist_ok=True)
+
         subprocess.call([
             f'compressonatorcli -fd BC7 -mipsize 1 {org_path} {new_path}'
         ], shell=True)

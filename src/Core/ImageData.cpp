@@ -2,8 +2,6 @@
 #include "Pch.h"
 
 #include "Vassert.h"
-#include "vulkan/vulkan_core.h"
-#include <iostream>
 
 #define KHRONOS_STATIC
 #include "ktx.h"
@@ -108,6 +106,9 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
         // TODO: this is a horrible hack:
         if (unorm && (format == VK_FORMAT_BC7_SRGB_BLOCK))
             format = VK_FORMAT_BC7_UNORM_BLOCK;
+
+        if (!unorm && (format == VK_FORMAT_BC7_UNORM_BLOCK))
+            format = VK_FORMAT_BC7_SRGB_BLOCK;
 
         res.Width  = baseWidth;
         res.Height = baseHeight;

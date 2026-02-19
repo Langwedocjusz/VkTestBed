@@ -164,7 +164,7 @@ void SceneGraphNode::UpdateTransformsImpl(Scene &scene, glm::mat4 current)
     {
         for (auto &child : GetChildren())
         {
-            child->UpdateTransforms(scene, current * GetTransform());
+            child->UpdateTransformsImpl(scene, current * GetTransform());
         }
     }
 }

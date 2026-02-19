@@ -968,7 +968,9 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
             // Push per-instance data:
             auto &model          = drawable.Instances.at(instanceId).Transform;
+            
             mOutlinePCData.Model = model;
+            mOutlinePCData.Normal = glm::transpose(glm::inverse(model));
 
             vkCmdPushConstants(cmd, mStencilPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
                                0, sizeof(mOutlinePCData), &mOutlinePCData);

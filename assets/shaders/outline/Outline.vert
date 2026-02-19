@@ -25,15 +25,20 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
 
 layout(push_constant) uniform constants {
     mat4 Model;
+    mat4 Normal;
 } PushConstants;
 
 void main() {
     const float outlineFactor = 0.01;
-    vec3 position = aPosition + outlineFactor * aNormal;
 
-    mat4 MVP = Ubo.CameraViewProjection * PushConstants.Model;
+    vec4 position = PushConstants.Model * vec4(aPosition, 1.0);  
+    vec3 normal = normalize(mat3(PushConstants.Normal) * aNormal);
+    
+    position.xyz += outlineFactor * normal;
 
+    position = Ubo.CameraViewProjection * position;
+
+    gl_Position = position;
+    
     OutData.TexCoord = aTexCoord;
-
-    gl_Position = MVP * vec4(position, 1.0);
 }

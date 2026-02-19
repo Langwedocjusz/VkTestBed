@@ -157,6 +157,7 @@ class MinimalPbrRenderer final : public IRenderer {
 
     struct {
         glm::mat4 Model;
+        glm::mat4 Normal;
     } mOutlinePCData;
 
     struct {

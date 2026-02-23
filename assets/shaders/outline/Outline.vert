@@ -25,14 +25,22 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
 
 layout(push_constant) uniform constants {
     mat4 Model;
-    mat4 Normal;
 } PushConstants;
+
+// Using adjugate transform matrix to transform normal vectors:
+// Credit to Inigo Quilez: https://www.shadertoy.com/view/3s33zj
+mat3 adjugate(mat4 m)
+{
+    return mat3(cross(m[1].xyz, m[2].xyz), 
+                cross(m[2].xyz, m[0].xyz), 
+                cross(m[0].xyz, m[1].xyz));
+}
 
 void main() {
     const float outlineFactor = 0.01;
 
     vec4 position = PushConstants.Model * vec4(aPosition, 1.0);  
-    vec3 normal = normalize(mat3(PushConstants.Normal) * aNormal);
+    vec3 normal = normalize(adjugate(PushConstants.Model) * aNormal);
     
     position.xyz += outlineFactor * normal;
 

@@ -21,7 +21,6 @@ layout(location = 0) in VertexData {
     vec4 Tangent;
     vec3 FragPos;
     float FragDistance;
-    //vec4 LightSpaceFragPos;
 } InData;
 
 layout(location = 0) out vec4 outColor;
@@ -68,14 +67,9 @@ layout(scalar, set = 4, binding = 3) uniform MatUBOBlock {
     int DoubleSided;
 } MatUBO;
 
-layout(push_constant) uniform PushConstantsBlock {
-    mat4 Transform;
-    vec4 TransAlpha;
-    int DoubleSided;
+layout(push_constant) uniform constants {
+    mat4 Model;
 } PushConstants;
-
-//Debug grid
-//TODO: move this somewhere
 
 //https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)

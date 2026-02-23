@@ -880,7 +880,6 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
     auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
         mMainPCData.Model  = instance.Transform;
-        mMainPCData.Normal = glm::transpose(glm::inverse(instance.Transform));
 
         vkCmdPushConstants(cmd, mMainPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
                            sizeof(mMainPCData), &mMainPCData);
@@ -970,7 +969,6 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             auto &model          = drawable.Instances.at(instanceId).Transform;
             
             mOutlinePCData.Model = model;
-            mOutlinePCData.Normal = glm::transpose(glm::inverse(model));
 
             vkCmdPushConstants(cmd, mStencilPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
                                0, sizeof(mOutlinePCData), &mOutlinePCData);

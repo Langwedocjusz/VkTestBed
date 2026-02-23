@@ -13,7 +13,6 @@ layout(location = 0) out VertexData {
     vec4 Tangent;
     vec3 FragPos;
     float FragDistance;
-    //vec4 LightSpaceFragPos;
 } OutData;
 
 layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
@@ -30,24 +29,31 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
 
 layout(push_constant) uniform constants {
     mat4 Model;
-    mat4 Normal;
 } PushConstants;
+
+// Using adjugate transform matrix to transform normal vectors:
+// Credit to Inigo Quilez: https://www.shadertoy.com/view/3s33zj
+mat3 adjugate(mat4 m)
+{
+    return mat3(cross(m[1].xyz, m[2].xyz), 
+                cross(m[2].xyz, m[0].xyz), 
+                cross(m[0].xyz, m[1].xyz));
+}
 
 void main() {
     mat4 MVP = Ubo.CameraViewProjection * PushConstants.Model;
 
+    vec3 normal = normalize(adjugate(PushConstants.Model) * aNormal);
+    
+    vec3 tangent = vec3(PushConstants.Model * vec4(aTangent.xyz, 0.0));
+    float bitangentSign = aTangent.w;
+
     gl_Position = MVP * vec4(aPosition, 1.0);
 
     OutData.TexCoord = aTexCoord;
-    OutData.Normal = normalize(mat3(PushConstants.Normal) * aNormal);
-    OutData.Tangent = aTangent;
-
-    if (aTangent.xyz != vec3(0))
-        OutData.Tangent.xyz = normalize(mat3(PushConstants.Normal) * aTangent.xyz);
+    OutData.Normal = normal;
+    OutData.Tangent = vec4(tangent, bitangentSign);
 
     OutData.FragPos = vec3(PushConstants.Model * vec4(aPosition, 1.0));
-
     OutData.FragDistance = length(OutData.FragPos - Ubo.ViewPos);
-
-    //OutData.LightSpaceFragPos = Ubo.LightViewProjection[0] * vec4(OutData.FragPos, 1.0);
 }

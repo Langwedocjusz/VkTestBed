@@ -150,14 +150,10 @@ class MinimalPbrRenderer final : public IRenderer {
 
     struct {
         glm::mat4 Model;
-        // In principle this could be a mat3, but that somehow
-        // breaks the push constant data layout...
-        glm::mat4 Normal;
     } mMainPCData;
 
     struct {
         glm::mat4 Model;
-        glm::mat4 Normal;
     } mOutlinePCData;
 
     struct {

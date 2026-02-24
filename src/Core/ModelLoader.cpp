@@ -67,32 +67,39 @@ static size_t GetVertexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primiti
 
 static tangen::VertexLayout GetLayout(const ModelConfig &config)
 {
-    tangen::VertexLayout res{
-        .Stride         = 3,
-        .OffsetTexCoord = 3,
-        .OffsetNormal   = 3,
-        .OffsetTangent  = 3,
-    };
+    uint32_t stride        = 3;
+    uint32_t offsetTex     = 3;
+    uint32_t offsetNormal  = 3;
+    uint32_t offsetTangent = 3;
 
     if (config.LoadTexCoord)
     {
-        res.Stride += 2;
-        res.OffsetNormal += 2;
-        res.OffsetTangent += 2;
+        stride += 2;
+        offsetNormal += 2;
+        offsetTangent += 2;
     }
 
     if (config.LoadNormals)
     {
-        res.Stride += 3;
-        res.OffsetTangent += 3;
+        stride += 3;
+        offsetTangent += 3;
     }
 
     if (config.LoadTangents)
     {
-        res.Stride += 4;
+        stride += 4;
     }
 
-    return res;
+    // TODO: support loading colors...
+
+    return tangen::VertexLayout{
+        .Stride         = stride,
+        .OffsetPos      = {0, 1, 2},
+        .OffsetTexCoord = {offsetTex, offsetTex + 1},
+        .OffsetNormal   = {offsetNormal, offsetNormal + 1, offsetNormal + 2},
+        .OffsetTangent  = {offsetTangent, offsetTangent + 1, offsetTangent + 2,
+                           offsetTangent + 3},
+    };
 }
 
 static GeometryLayout ToGeoLayout(const ModelConfig &config)
@@ -161,10 +168,10 @@ static VertParsingResult RetrieveVertices(fastgltf::Asset     &gltf,
 
             fastgltf::iterateAccessorWithIndex<glm::vec2>(
                 gltf, texcoordAccessor, [&](glm::vec2 v, size_t index) {
-                    auto idx = layout.Stride * index + layout.OffsetTexCoord;
+                    auto baseIdx = layout.Stride * index;
 
-                    data[idx + 0] = v.x;
-                    data[idx + 1] = v.y;
+                    data[baseIdx + layout.OffsetTexCoord[0]] = v.x;
+                    data[baseIdx + layout.OffsetTexCoord[1]] = v.y;
                 });
         }
 
@@ -186,11 +193,11 @@ static VertParsingResult RetrieveVertices(fastgltf::Asset     &gltf,
 
             fastgltf::iterateAccessorWithIndex<glm::vec3>(
                 gltf, normalAccessor, [&](glm::vec3 v, size_t index) {
-                    auto idx = layout.Stride * index + layout.OffsetNormal;
+                    auto baseIdx = layout.Stride * index;
 
-                    data[idx + 0] = v.x;
-                    data[idx + 1] = v.y;
-                    data[idx + 2] = v.z;
+                    data[baseIdx + layout.OffsetNormal[0]] = v.x;
+                    data[baseIdx + layout.OffsetNormal[1]] = v.y;
+                    data[baseIdx + layout.OffsetNormal[2]] = v.z;
                 });
         }
 
@@ -213,12 +220,12 @@ static VertParsingResult RetrieveVertices(fastgltf::Asset     &gltf,
 
             fastgltf::iterateAccessorWithIndex<glm::vec4>(
                 gltf, tangentAccessor, [&](glm::vec4 v, size_t index) {
-                    auto idx = layout.Stride * index + layout.OffsetTangent;
+                    auto baseIdx = layout.Stride * index;
 
-                    data[idx + 0] = v.x;
-                    data[idx + 1] = v.y;
-                    data[idx + 2] = v.z;
-                    data[idx + 3] = v.w;
+                    data[baseIdx + layout.OffsetTangent[0]] = v.x;
+                    data[baseIdx + layout.OffsetTangent[1]] = v.y;
+                    data[baseIdx + layout.OffsetTangent[2]] = v.z;
+                    data[baseIdx + layout.OffsetTangent[3]] = v.w;
                 });
         }
         else
@@ -226,6 +233,8 @@ static VertParsingResult RetrieveVertices(fastgltf::Asset     &gltf,
             res.GenerateTangents = true;
         }
     }
+
+    // TODO: Support loading colors...
 
     return res;
 }

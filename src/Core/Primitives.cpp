@@ -136,9 +136,10 @@ static GeometryData TexturedCubeImpl(bool withTangents)
         // Generate the tangents:
         auto layout = tangen::VertexLayout{
             .Stride         = 3 + 2 + 3 + 4,
-            .OffsetTexCoord = 3,
-            .OffsetNormal   = 5,
-            .OffsetTangent  = 8,
+            .OffsetPos      = {0, 1, 2},
+            .OffsetTexCoord = {3, 4},
+            .OffsetNormal   = {5, 6, 7},
+            .OffsetTangent  = {8, 9, 10, 11},
         };
 
         tangen::GenerateTangents(res, layout);
@@ -306,9 +307,10 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     {
         auto layout = tangen::VertexLayout{
             .Stride         = 3 + 2 + 3 + 4,
-            .OffsetTexCoord = 3,
-            .OffsetNormal   = 5,
-            .OffsetTangent  = 8,
+            .OffsetPos      = {0, 1, 2},
+            .OffsetTexCoord = {3, 4},
+            .OffsetNormal   = {5, 6, 7},
+            .OffsetTangent  = {8, 9, 10, 11},
         };
 
         tangen::GenerateTangents(res, layout);

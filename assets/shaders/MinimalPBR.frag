@@ -10,6 +10,7 @@
 
 //#define SSAO_DEBUG_VIEW
 //#define SHADOW_COORD_DEBUG_VIEW
+//#define NO_ALBEDO_DEBUG_VIEW
 
 #include "common/Pbr.glsl"
 #include "common/SphericalHarmonics.glsl"
@@ -164,6 +165,10 @@ void main()
         discard;
 
     //Handle debug views:
+    #ifdef NO_ALBEDO_DEBUG_VIEW
+    albedo.rgb = vec3(1);
+    #endif
+
     #ifdef SSAO_DEBUG_VIEW
     if (DynamicUBO.AOEnabled == 1)
     {

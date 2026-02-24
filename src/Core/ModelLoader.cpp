@@ -1,14 +1,15 @@
 #include "ModelLoader.h"
 #include "Pch.h"
 
+#include "GeometryData.h"
 #include "TangentsGenerator.h"
+#include "Vassert.h"
+#include "VertexLayout.h"
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
-
-#include "Vassert.h"
 
 #include <iostream>
 #include <limits>
@@ -96,24 +97,17 @@ static tangen::VertexLayout GetLayout(const ModelConfig &config)
 
 static GeometryLayout ToGeoLayout(const ModelConfig &config)
 {
-    using enum Vertex::AttributeType;
+    auto vertexLaout = Vertex::Layout{
+        .HasTexCoord = config.LoadTexCoord,
+        .HasNormal   = config.LoadNormals,
+        .HasTangent  = config.LoadTangents,
+        .HasColor    = config.LoadColor,
+    };
 
-    GeometryLayout layout{};
-
-    layout.VertexLayout.push_back(Vec3);
-
-    if (config.LoadTexCoord)
-        layout.VertexLayout.push_back(Vec2);
-
-    if (config.LoadNormals)
-        layout.VertexLayout.push_back(Vec3);
-
-    if (config.LoadTangents)
-        layout.VertexLayout.push_back(Vec4);
-
-    layout.IndexType = VK_INDEX_TYPE_UINT32;
-
-    return layout;
+    return GeometryLayout{
+        .VertexLayout = vertexLaout,
+        .IndexType    = VK_INDEX_TYPE_UINT32,
+    };
 }
 
 struct VertParsingResult {

@@ -171,7 +171,7 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
             if (mDrawables.count(drawableKey) != 0)
                 continue;
 
-            if (mGeometryLayout.IsCompatible(prim.Data.Layout))
+            if (mGeometryLayout == prim.Data.Layout)
             {
                 auto &drawable = mDrawables[drawableKey];
 

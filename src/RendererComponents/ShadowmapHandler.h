@@ -157,7 +157,7 @@ class ShadowmapHandler {
     VkFormat mDebugDepthFormat;
 
     GeometryLayout mDebugGeometryLayout{
-        .VertexLayout = {Vertex::AttributeType::Vec4},
+        .VertexLayout = {},
         .IndexType    = VK_INDEX_TYPE_UINT16,
     };
 

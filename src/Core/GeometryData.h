@@ -5,13 +5,44 @@
 
 #include <glm/glm.hpp>
 
+struct GeometrySpec;
+
+/// Aggregate of vertex layout with index type information.
 struct GeometryLayout {
     Vertex::Layout VertexLayout;
     VkIndexType    IndexType;
 
-    bool IsCompatible(const GeometryLayout &other);
+    bool operator==(const GeometryLayout &other);
 };
 
+/// Axis aligned bounding box
+struct AABB {
+    glm::vec3 Center;
+    glm::vec3 Extent;
+
+    [[nodiscard]] bool IsInView(glm::mat4 mvp) const;
+    [[nodiscard]] AABB GetConservativeTransformedAABB(glm::mat4 transform) const;
+
+    [[nodiscard]] AABB MaxWith(AABB other) const;
+
+    [[nodiscard]] std::array<glm::vec3, 8>                     GetVertices() const;
+    [[nodiscard]] static std::array<std::array<size_t, 2>, 12> GetEdgesIds();
+};
+
+/// Wrapper aroung (owning) buffers for vertex and index data
+/// also contains the bounding box and geometry layout.
+struct GeometryData {
+    GeometryData() = default;
+    GeometryData(const GeometrySpec &spec);
+
+    GeometryLayout Layout;
+    OpaqueBuffer   VertexData;
+    OpaqueBuffer   IndexData;
+    AABB           BBox;
+};
+
+/// Geometry specification, i.e. minimal information to correctly
+/// allocate opaque memory buffers for vertex and index data.
 struct GeometrySpec {
     size_t VertCount     = 0;
     size_t VertBuffSize  = 0;
@@ -53,28 +84,4 @@ struct GeometrySpec {
     {
         return BuildS<IdxType>(sizeof(VertType), vertCount, idxCount);
     }
-};
-
-/// Axis aligned bounding box
-struct AABB {
-    glm::vec3 Center;
-    glm::vec3 Extent;
-
-    [[nodiscard]] bool IsInView(glm::mat4 mvp) const;
-    [[nodiscard]] AABB GetConservativeTransformedAABB(glm::mat4 transform) const;
-
-    [[nodiscard]] AABB MaxWith(AABB other) const;
-
-    [[nodiscard]] std::array<glm::vec3, 8>                     GetVertices() const;
-    [[nodiscard]] static std::array<std::array<size_t, 2>, 12> GetEdgesIds();
-};
-
-struct GeometryData {
-    GeometryData() = default;
-    GeometryData(const GeometrySpec &spec);
-
-    GeometryLayout Layout;
-    OpaqueBuffer   VertexData;
-    OpaqueBuffer   IndexData;
-    AABB           BBox;
 };

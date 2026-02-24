@@ -3,11 +3,16 @@
 
 #include <limits>
 
-bool GeometryLayout::IsCompatible(const GeometryLayout &other)
+GeometryData::GeometryData(const GeometrySpec &spec)
+    : VertexData(spec.VertCount, spec.VertBuffSize, spec.VertAlignment),
+      IndexData(spec.IdxCount, spec.IdxBuffSize, spec.IdxAlignment)
 {
-    bool idxCompat = IndexType == other.IndexType;
-    // TODO: this will be weakened in the future:
-    bool vertCompat = VertexLayout == other.VertexLayout;
+}
+
+bool GeometryLayout::operator==(const GeometryLayout &other)
+{
+    const bool vertCompat = VertexLayout == other.VertexLayout;
+    const bool idxCompat  = IndexType == other.IndexType;
 
     return idxCompat && vertCompat;
 }
@@ -104,10 +109,4 @@ AABB AABB::GetConservativeTransformedAABB(glm::mat4 transform) const
     auto extent = 0.5f * (vmax - vmin);
 
     return AABB{.Center = center, .Extent = extent};
-}
-
-GeometryData::GeometryData(const GeometrySpec &spec)
-    : VertexData(spec.VertCount, spec.VertBuffSize, spec.VertAlignment),
-      IndexData(spec.IdxCount, spec.IdxBuffSize, spec.IdxAlignment)
-{
 }

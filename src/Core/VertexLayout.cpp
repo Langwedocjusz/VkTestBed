@@ -1,87 +1,78 @@
 #include "VertexLayout.h"
 #include "Pch.h"
 
-#include <utility>
-
-static VkFormat GetFormat(Vertex::AttributeType type)
+bool Vertex::Layout::operator==(const Layout &other)
 {
-    using enum Vertex::AttributeType;
+    bool res = true;
 
-    switch (type)
-    {
-    case Float:
-        return VK_FORMAT_R32_SFLOAT;
-    case Vec2:
-        return VK_FORMAT_R32G32_SFLOAT;
-    case Vec3:
-        return VK_FORMAT_R32G32B32_SFLOAT;
-    case Vec4:
-        return VK_FORMAT_R32G32B32A32_SFLOAT;
-    }
-
-    std::unreachable();
-}
-
-static uint32_t GetAttributeSize(Vertex::AttributeType type)
-{
-    using enum Vertex::AttributeType;
-
-    switch (type)
-    {
-    case Float:
-        return 4;
-    case Vec2:
-        return 8;
-    case Vec3:
-        return 12;
-    case Vec4:
-        return 16;
-    }
-
-    std::unreachable();
-}
-
-uint32_t Vertex::GetSize(const Vertex::Layout &layout)
-{
-    uint32_t res = 0;
-
-    for (auto type : layout)
-        res += GetAttributeSize(type);
+    res = (HasTexCoord == other.HasTexCoord) && res;
+    res = (HasNormal == other.HasNormal) && res;
+    res = (HasTangent == other.HasTangent) && res;
+    res = (HasColor == other.HasColor) && res;
 
     return res;
 }
 
-std::string Vertex::ToString(AttributeType type)
+uint32_t Vertex::GetSize(const Vertex::Layout &layout)
 {
-    using enum AttributeType;
+    uint32_t res = 3 * sizeof(float);
 
-    switch (type)
-    {
-    case Float:
-        return "float";
-    case Vec2:
-        return "vec2";
-    case Vec3:
-        return "vec3";
-    case Vec4:
-        return "vec4";
-    }
+    if (layout.HasTexCoord)
+        res += 2 * sizeof(float);
 
-    std::unreachable();
+    if (layout.HasNormal)
+        res += 3 * sizeof(float);
+
+    if (layout.HasTangent)
+        res += 4 * sizeof(float);
+
+    if (layout.HasColor)
+        res += 4 * sizeof(float);
+
+    return res;
 }
 
 Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const Layout &layout)
 {
     AttributeDescriptions res;
+    uint32_t              offset = 0;
 
-    uint32_t currentOffset = 0;
+    auto NewDescription = [&res, &offset](VkFormat format) {
+        return VkVertexInputAttributeDescription{
+            .location = static_cast<uint32_t>(res.size()),
+            .binding  = 0,
+            .format   = format,
+            .offset   = offset,
+        };
+    };
 
-    for (auto attributeType : layout)
+    // Add position:
+    res.push_back(NewDescription(VK_FORMAT_R32G32B32_SFLOAT));
+    offset += 3 * sizeof(float);
+
+    // Conditionally add other attributes:
+    if (layout.HasTexCoord)
     {
-        res.push_back({static_cast<uint32_t>(res.size()), 0, GetFormat(attributeType),
-                       currentOffset});
+        res.push_back(NewDescription(VK_FORMAT_R32G32_SFLOAT));
+        offset += 2 * sizeof(float);
+    }
 
-        currentOffset += GetAttributeSize(attributeType);
+    if (layout.HasNormal)
+    {
+        res.push_back(NewDescription(VK_FORMAT_R32G32B32_SFLOAT));
+        offset += 3 * sizeof(float);
+    }
+
+    if (layout.HasTangent)
+    {
+        res.push_back(NewDescription(VK_FORMAT_R32G32B32A32_SFLOAT));
+        offset += 4 * sizeof(float);
+    }
+
+    if (layout.HasColor)
+    {
+        res.push_back(NewDescription(VK_FORMAT_R32G32B32A32_SFLOAT));
+        offset += 4 * sizeof(float);
     }
 
     return res;

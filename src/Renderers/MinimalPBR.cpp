@@ -879,7 +879,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     };
 
     auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-        mMainPCData.Model  = instance.Transform;
+        mMainPCData.Model = instance.Transform;
 
         vkCmdPushConstants(cmd, mMainPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
                            sizeof(mMainPCData), &mMainPCData);
@@ -966,8 +966,8 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             mStencilPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             // Push per-instance data:
-            auto &model          = drawable.Instances.at(instanceId).Transform;
-            
+            auto &model = drawable.Instances.at(instanceId).Transform;
+
             mOutlinePCData.Model = model;
 
             vkCmdPushConstants(cmd, mStencilPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
@@ -1116,7 +1116,7 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
             if (mDrawables.count(drawableKey) != 0)
                 continue;
 
-            if (mGeometryLayout.IsCompatible(prim.Data.Layout))
+            if (mGeometryLayout == prim.Data.Layout)
             {
                 const auto debugName = mesh.Name + std::to_string(primIdx);
 

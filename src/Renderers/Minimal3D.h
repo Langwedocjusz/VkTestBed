@@ -6,6 +6,7 @@
 #include "Renderer.h"
 #include "Scene.h"
 #include "Texture.h"
+#include "VertexLayout.h"
 
 class Minimal3DRenderer final : public IRenderer {
   public:
@@ -33,22 +34,18 @@ class Minimal3DRenderer final : public IRenderer {
     const VkFormat mRenderTargetFormat      = VK_FORMAT_R8G8B8A8_SRGB;
 
     const VkFormat mDepthFormat = VK_FORMAT_D32_SFLOAT;
-    // Image mDepthBuffer;
-    // VkImageView mDepthBufferView;
-    Texture mDepthBuffer;
+    Texture        mDepthBuffer;
 
     Pipeline mColoredPipeline;
     Pipeline mTexturedPipeline;
 
-    using enum Vertex::AttributeType;
-
     GeometryLayout mColoredLayout{
-        .VertexLayout = {Vec3, Vec3, Vec3},
+        .VertexLayout = Vertex::Layout{.HasNormal = true, .HasColor = true},
         .IndexType    = VK_INDEX_TYPE_UINT32,
     };
 
     GeometryLayout mTexturedLayout{
-        .VertexLayout = {Vec3, Vec2, Vec3},
+        .VertexLayout = Vertex::Layout{.HasTexCoord = true, .HasNormal = true},
         .IndexType    = VK_INDEX_TYPE_UINT32,
     };
 

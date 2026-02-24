@@ -1,7 +1,6 @@
 #include "ShadowmapHandler.h"
 #include "Pch.h"
 
-#include "Barrier.h"
 #include "BufferUtils.h"
 #include "Common.h"
 #include "Descriptor.h"

@@ -10,6 +10,7 @@
 #include "Scene.h"
 #include "ShadowmapHandler.h"
 #include "Texture.h"
+#include "VertexLayout.h"
 #include "VulkanContext.h"
 
 class MinimalPbrRenderer final : public IRenderer {
@@ -177,12 +178,12 @@ class MinimalPbrRenderer final : public IRenderer {
     VkSampler mAOSampler;
 
     // Supported geometry specification:
-    using enum Vertex::AttributeType;
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
 
     GeometryLayout mGeometryLayout{
-        .VertexLayout = {Vec3, Vec2, Vec3, Vec4},
-        .IndexType    = IndexType,
+        .VertexLayout =
+            Vertex::Layout{.HasTexCoord = true, .HasNormal = true, .HasTangent = true},
+        .IndexType = IndexType,
     };
 
     // Default material textures:

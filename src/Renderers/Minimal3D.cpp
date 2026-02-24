@@ -273,14 +273,14 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 
             const auto primName = mesh.Name + std::to_string(primIdx);
 
-            if (mColoredLayout.IsCompatible(prim.Data.Layout))
+            if (mColoredLayout == prim.Data.Layout)
             {
                 auto &drawable = mColoredDrawables[drawableKey];
 
                 CreateBuffers(drawable, prim.Data, primName);
             }
 
-            if (mTexturedLayout.IsCompatible(prim.Data.Layout))
+            if (mTexturedLayout == prim.Data.Layout)
             {
                 auto &drawable = mTexturedDrawables[drawableKey];
 

@@ -67,49 +67,63 @@ static size_t GetVertexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primiti
 
 static tangen::VertexLayout GetLayout(const ModelConfig &config)
 {
-    uint32_t stride        = 3;
-    uint32_t offsetTex     = 3;
-    uint32_t offsetNormal  = 3;
-    uint32_t offsetTangent = 3;
-
-    if (config.LoadTexCoord)
-    {
-        stride += 2;
-        offsetNormal += 2;
-        offsetTangent += 2;
-    }
-
-    if (config.LoadNormals)
-    {
-        stride += 3;
-        offsetTangent += 3;
-    }
-
-    if (config.LoadTangents)
-    {
-        stride += 4;
-    }
-
-    // TODO: support loading colors...
+    // TODO: PushLayout code:
+    //uint32_t stride        = 3;
+    //uint32_t offsetTex     = 3;
+    //uint32_t offsetNormal  = 3;
+    //uint32_t offsetTangent = 3;
+    //
+    //if (config.LoadTexCoord)
+    //{
+    //    stride += 2;
+    //    offsetNormal += 2;
+    //    offsetTangent += 2;
+    //}
+    //
+    //if (config.LoadNormals)
+    //{
+    //    stride += 3;
+    //    offsetTangent += 3;
+    //}
+    //
+    //if (config.LoadTangents)
+    //{
+    //    stride += 4;
+    //}
+    //
+    //// TODO: support loading colors...
+    //
+    //return tangen::VertexLayout{
+    //    .Stride         = stride,
+    //    .OffsetPos      = {0, 1, 2},
+    //    .OffsetTexCoord = {offsetTex, offsetTex + 1},
+    //    .OffsetNormal   = {offsetNormal, offsetNormal + 1, offsetNormal + 2},
+    //    .OffsetTangent  = {offsetTangent, offsetTangent + 1, offsetTangent + 2,
+    //                       offsetTangent + 3},
+    //};
+    (void)config;
 
     return tangen::VertexLayout{
-        .Stride         = stride,
-        .OffsetPos      = {0, 1, 2},
-        .OffsetTexCoord = {offsetTex, offsetTex + 1},
-        .OffsetNormal   = {offsetNormal, offsetNormal + 1, offsetNormal + 2},
-        .OffsetTangent  = {offsetTangent, offsetTangent + 1, offsetTangent + 2,
-                           offsetTangent + 3},
+        .Stride = 12,
+        .OffsetPos = {0,1,2},
+        .OffsetTexCoord = {3, 7},
+        .OffsetNormal = {4,5,6},
+        .OffsetTangent = {8,9,10,11},
     };
 }
 
 static GeometryLayout ToGeoLayout(const ModelConfig &config)
 {
-    Vertex::Layout vertexLayout = Vertex::PushLayout{
-        .HasTexCoord = config.LoadTexCoord,
-        .HasNormal   = config.LoadNormals,
-        .HasTangent  = config.LoadTangents,
-        .HasColor    = config.LoadColor,
-    };
+    // TODO: PushLayout code:
+    //Vertex::Layout vertexLayout = Vertex::PushLayout{
+    //    .HasTexCoord = config.LoadTexCoord,
+    //    .HasNormal   = config.LoadNormals,
+    //    .HasTangent  = config.LoadTangents,
+    //    .HasColor    = config.LoadColor,
+    //};
+    (void)config;
+
+    Vertex::Layout vertexLayout = Vertex::PullLayout::Naive;
 
     return GeometryLayout{
         .VertexLayout = vertexLayout,

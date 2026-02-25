@@ -22,6 +22,7 @@
 #include <imgui.h>
 
 #include "volk.h"
+#include "vulkan/vulkan_core.h"
 
 #include <cstdint>
 #include <ranges>
@@ -33,8 +34,21 @@ void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive
     auto &geo = prim.Data;
 
     // Create Vertex buffer:
-    VertexBuffer = MakeBuffer::Vertex(ctx, debugName, geo.VertexData);
-    VertexCount  = static_cast<uint32_t>(geo.VertexData.Count);
+    // TODO: restore this codepath:
+    //VertexBuffer = MakeBuffer::Vertex(ctx, debugName, geo.VertexData);
+    //VertexCount  = static_cast<uint32_t>(geo.VertexData.Count);
+
+    VertexBuffer = MakeBuffer::VertexStorage(ctx, debugName, geo.VertexData);
+    VertexCount = static_cast<uint32_t>(geo.VertexData.Count);
+
+    // Retrieve vertex buffer address:
+	VkBufferDeviceAddressInfo deviceAdressInfo{ 
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, 
+        .pNext = nullptr,
+        .buffer = VertexBuffer.Handle,
+    };
+	
+    VertexAddress = vkGetBufferDeviceAddress(ctx.Device, &deviceAdressInfo);
 
     // Create Index buffer:
     IndexBuffer = MakeBuffer::Index(ctx, debugName, geo.IndexData);
@@ -210,7 +224,8 @@ void MinimalPbrRenderer::RebuildPipelines()
     mZPrepassOpaquePipeline =
         PipelineBuilder("MinimalPBROpaquePrepassPipeline")
             .SetShaderPathVertex("assets/spirv/ZPrepassOpaqueVert.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            //TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -227,7 +242,8 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRAlphaPrepassPipeline")
             .SetShaderPathVertex("assets/spirv/ZPrepassAlphaVert.spv")
             .SetShaderPathFragment("assets/spirv/ZPrepassAlphaFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            //TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -258,7 +274,8 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRMainPipeline")
             .SetShaderPathVertex("assets/spirv/MinimalPBRVert.spv")
             .SetShaderPathFragment("assets/spirv/MinimalPBRFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            //TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -313,7 +330,8 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRStencilPipeline")
             .SetShaderPathVertex("assets/spirv/outline/StencilVert.spv")
             .SetShaderPathFragment("assets/spirv/outline/StencilFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            //TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -342,7 +360,8 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRStencilPipeline")
             .SetShaderPathVertex("assets/spirv/outline/OutlineVert.spv")
             .SetShaderPathFragment("assets/spirv/outline/OutlineFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            //TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -361,7 +380,8 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRObjectIdPipeline")
             .SetShaderPathVertex("assets/spirv/outline/ObjectIdVert.spv")
             .SetShaderPathFragment("assets/spirv/outline/ObjectIdFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            //TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -630,7 +650,7 @@ void MinimalPbrRenderer::DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &d
             continue;
 
         // Callback for per-instance binds:
-        instanceCallback(cmd, instance);
+        instanceCallback(cmd, instance, drawable.VertexAddress);
 
         drawable.Draw(cmd);
 
@@ -697,9 +717,9 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
             (void)material;
         };
 
-        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance) {
+        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
             auto mvp = viewProj * instance.Transform;
-            mShadowmapHandler.PushConstantOpaque(cmd, mvp);
+            mShadowmapHandler.PushConstantOpaque(cmd, mvp, vertexAddress);
         };
 
         DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -712,9 +732,9 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
             stats.NumBinds += 1;
         };
 
-        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance) {
+        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
             auto mvp = viewProj * instance.Transform;
-            mShadowmapHandler.PushConstantAlpha(cmd, mvp);
+            mShadowmapHandler.PushConstantAlpha(cmd, mvp, vertexAddress);
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -746,8 +766,9 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
             (void)material;
         };
 
-        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
             mPrepassPCData.Model = instance.Transform;
+            mPrepassPCData.VertexBuffer = vertexAddress;
 
             vkCmdPushConstants(cmd, mZPrepassOpaquePipeline.Layout,
                                VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
@@ -769,8 +790,9 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
             stats.NumBinds += 1;
         };
 
-        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
             mPrepassPCData.Model = instance.Transform;
+            mPrepassPCData.VertexBuffer = vertexAddress;
 
             vkCmdPushConstants(cmd, mZPrepassAlphaPipeline.Layout,
                                VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
@@ -878,8 +900,9 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         stats.NumBinds += 1;
     };
 
-    auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
+    auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
         mMainPCData.Model = instance.Transform;
+        mMainPCData.VertexBuffer = vertexAddress;
 
         vkCmdPushConstants(cmd, mMainPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
                            sizeof(mMainPCData), &mMainPCData);
@@ -969,6 +992,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             auto &model = drawable.Instances.at(instanceId).Transform;
 
             mOutlinePCData.Model = model;
+            mOutlinePCData.VertexBuffer = drawable.VertexAddress;
 
             vkCmdPushConstants(cmd, mStencilPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
                                0, sizeof(mOutlinePCData), &mOutlinePCData);
@@ -1017,6 +1041,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             // Push per-instance data:
             auto &model          = drawable.Instances.at(instanceId).Transform;
             mOutlinePCData.Model = model;
+            mOutlinePCData.VertexBuffer = drawable.VertexAddress;
 
             vkCmdPushConstants(cmd, mOutlinePipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
                                0, sizeof(mOutlinePCData), &mOutlinePCData);
@@ -1053,8 +1078,9 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
         mObjectIdPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
     };
 
-    auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Instance &instance) {
+    auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
         mObjectIdPCData.Model    = viewProj * instance.Transform;
+        mObjectIdPCData.VertexBuffer = vertexAddress;
         mObjectIdPCData.ObjectId = instance.ObjectId;
 
         vkCmdPushConstants(cmd, mObjectIdPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,

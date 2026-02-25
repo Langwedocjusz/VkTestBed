@@ -10,6 +10,7 @@
 #include "VulkanContext.h"
 
 #include "volk.h"
+#include "vulkan/vulkan_core.h"
 
 #include <glm/glm.hpp>
 
@@ -74,8 +75,8 @@ class ShadowmapHandler {
     // For building drawing functions in the renderer:
 
     // Deliver per-object (pre-multiplied) MVP matrix to the shaders via push constant:
-    void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp);
-    void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp);
+    void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer);
+    void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer);
 
     // Bind descriptor set used to sample per-material alpha.
     // Descriptor set being bound is assumed to have albedo map as its first binding.
@@ -126,6 +127,7 @@ class ShadowmapHandler {
 
     struct {
         glm::mat4 LightMVP;
+        VkDeviceAddress VertexBuffer;
     } mShadowPCData;
 
     Pipeline mOpaquePipeline;
@@ -157,7 +159,7 @@ class ShadowmapHandler {
     VkFormat mDebugDepthFormat;
 
     GeometryLayout mDebugGeometryLayout{
-        .VertexLayout = {},
+        .VertexLayout = Vertex::PushLayout{},
         .IndexType    = VK_INDEX_TYPE_UINT16,
     };
 

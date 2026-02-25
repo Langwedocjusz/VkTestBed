@@ -160,12 +160,15 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
                                         VkDescriptorSetLayout materialDSLayout,
                                         VkSampleCountFlagBits debugMultisampling)
 {
+    (void)vertexLayout; //TODO: Remove this
+
     mPipelineDeletionQueue.flush();
 
     mOpaquePipeline =
         PipelineBuilder("ShadowmapPipeline")
             .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
-            .SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            //TODO: restore this code in separate path:
+            //.SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
@@ -179,7 +182,8 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
         PipelineBuilder("ShadowmapPipeline")
             .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
             .SetShaderPathFragment("assets/spirv/shadows/ShadowmapAlphaFrag.spv")
-            .SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            //TODO: restore this code in separate path:
+            //.SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
@@ -436,17 +440,19 @@ VkExtent2D ShadowmapHandler::GetExtent() const
     return VkExtent2D{width, height};
 }
 
-void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp)
+void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer)
 {
     mShadowPCData.LightMVP = mvp;
+    mShadowPCData.VertexBuffer = vertexBuffer;
 
     vkCmdPushConstants(cmd, mOpaquePipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
                        sizeof(mShadowPCData), &mShadowPCData);
 }
 
-void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp)
+void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer)
 {
     mShadowPCData.LightMVP = mvp;
+    mShadowPCData.VertexBuffer = vertexBuffer;
 
     vkCmdPushConstants(cmd, mAlphaPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
                        sizeof(mShadowPCData), &mShadowPCData);

@@ -23,6 +23,6 @@ Buffer TransferDST(VulkanContext &ctx, const std::string &debugName,
                    TransferDSTInfo info);
 
 Buffer Vertex(VulkanContext &ctx, const std::string &debugName, const OpaqueBuffer &buf);
-
+Buffer VertexStorage(VulkanContext &ctx, const std::string &debugName, const OpaqueBuffer &buf);
 Buffer Index(VulkanContext &ctx, const std::string &debugName, const OpaqueBuffer &buf);
 } // namespace MakeBuffer

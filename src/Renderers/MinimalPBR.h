@@ -12,6 +12,8 @@
 #include "Texture.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
+#include "vulkan/vulkan_core.h"
+#include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
   public:
@@ -69,6 +71,11 @@ class MinimalPbrRenderer final : public IRenderer {
 
         Buffer   IndexBuffer;
         uint32_t IndexCount;
+
+        //TODO: this is only for vertex pulling code-path
+        //maybe this should be lumped together with vertex 
+        //(storage) buffer?
+        VkDeviceAddress VertexAddress;
 
         AABB                  Bbox;
         SceneKey              MaterialKey = 0;
@@ -142,6 +149,7 @@ class MinimalPbrRenderer final : public IRenderer {
     // Push-constant structs for all pipelines:
     struct {
         glm::mat4 Model;
+        VkDeviceAddress VertexBuffer;
     } mPrepassPCData;
 
     struct {
@@ -151,14 +159,17 @@ class MinimalPbrRenderer final : public IRenderer {
 
     struct {
         glm::mat4 Model;
+        VkDeviceAddress VertexBuffer;
     } mMainPCData;
 
     struct {
         glm::mat4 Model;
+        VkDeviceAddress VertexBuffer;
     } mOutlinePCData;
 
     struct {
         glm::mat4 Model;
+        VkDeviceAddress VertexBuffer;
         uint32_t  ObjectId;
     } mObjectIdPCData;
 
@@ -181,9 +192,11 @@ class MinimalPbrRenderer final : public IRenderer {
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
 
     GeometryLayout mGeometryLayout{
-        .VertexLayout = Vertex::PushLayout{.HasTexCoord = true,
-                                           .HasNormal   = true,
-                                           .HasTangent  = true},
+        // TODO: re-add this:
+        //.VertexLayout = Vertex::PushLayout{.HasTexCoord = true,
+        //                                   .HasNormal   = true,
+        //                                   .HasTangent  = true},
+        .VertexLayout = Vertex::PullLayout::Naive,
         .IndexType    = IndexType,
     };
 

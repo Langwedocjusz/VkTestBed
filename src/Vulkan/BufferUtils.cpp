@@ -53,8 +53,6 @@ Buffer MakeBuffer::TransferDST(VulkanContext &ctx, const std::string &debugName,
 Buffer MakeBuffer::Vertex(VulkanContext &ctx, const std::string &debugName,
                           const OpaqueBuffer &buf)
 {
-    Buffer res;
-
     TransferDSTInfo info{
         .Usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .CreateFlags = 0,
@@ -62,16 +60,24 @@ Buffer MakeBuffer::Vertex(VulkanContext &ctx, const std::string &debugName,
         .Data        = buf.Data,
     };
 
-    res = MakeBuffer::TransferDST(ctx, debugName, info);
+    return MakeBuffer::TransferDST(ctx, debugName, info);
+}
 
-    return res;
+Buffer MakeBuffer::VertexStorage(VulkanContext &ctx, const std::string &debugName, const OpaqueBuffer &buf)
+{
+    TransferDSTInfo info{
+        .Usage       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .CreateFlags = 0,
+        .Size        = buf.Size,
+        .Data        = buf.Data,
+    };
+
+    return MakeBuffer::TransferDST(ctx, debugName, info);
 }
 
 Buffer MakeBuffer::Index(VulkanContext &ctx, const std::string &debugName,
                          const OpaqueBuffer &buf)
 {
-    Buffer res;
-
     TransferDSTInfo info{
         .Usage       = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .CreateFlags = 0,
@@ -79,7 +85,5 @@ Buffer MakeBuffer::Index(VulkanContext &ctx, const std::string &debugName,
         .Data        = buf.Data,
     };
 
-    res = MakeBuffer::TransferDST(ctx, debugName, info);
-
-    return res;
+    return MakeBuffer::TransferDST(ctx, debugName, info);
 }

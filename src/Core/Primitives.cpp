@@ -4,6 +4,7 @@
 #include "GeometryData.h"
 #include "TangentsGenerator.h"
 
+#include "VertexLayout.h"
 #include "volk.h"
 
 #include <cmath>
@@ -146,7 +147,7 @@ static GeometryData TexturedCubeImpl(bool withTangents)
     }
 
     // Fill in the layout:
-    res.Layout.VertexLayout = {
+    res.Layout.VertexLayout = ::Vertex::PushLayout{
         .HasTexCoord = true, .HasNormal = true, .HasTangent = withTangents};
     res.Layout.IndexType = VK_INDEX_TYPE_UINT32;
     res.BBox.Center      = glm::vec3(0.0f);
@@ -317,8 +318,8 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     }
 
     // Fill in the layout:
-    res.Layout.VertexLayout = {
-        .HasTexCoord = true, .HasNormal = true, .HasTangent = true};
+    res.Layout.VertexLayout =
+        ::Vertex::PushLayout{.HasTexCoord = true, .HasNormal = true, .HasTangent = true};
     res.Layout.IndexType = VK_INDEX_TYPE_UINT32;
     res.BBox.Center      = glm::vec3(0.0f);
     res.BBox.Extent      = glm::vec3(radius);

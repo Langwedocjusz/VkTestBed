@@ -33,7 +33,7 @@ class HelloRenderer final : public IRenderer {
     Pipeline mGraphicsPipeline;
 
     GeometryLayout mGeometryLayout{
-        .VertexLayout = Vertex::Layout{.HasColor = true},
+        .VertexLayout = Vertex::PushLayout{.HasColor = true},
         .IndexType    = VK_INDEX_TYPE_UINT16,
     };
 

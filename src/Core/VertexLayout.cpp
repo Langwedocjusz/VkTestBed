@@ -1,19 +1,41 @@
 #include "VertexLayout.h"
 #include "Pch.h"
 
-bool Vertex::Layout::operator==(const Layout &other)
+bool operator==(const Vertex::PushLayout &lhs, const Vertex::PushLayout &rhs)
 {
     bool res = true;
 
-    res = (HasTexCoord == other.HasTexCoord) && res;
-    res = (HasNormal == other.HasNormal) && res;
-    res = (HasTangent == other.HasTangent) && res;
-    res = (HasColor == other.HasColor) && res;
+    res = res && (lhs.HasTexCoord == rhs.HasTexCoord);
+    res = res && (lhs.HasNormal == rhs.HasNormal);
+    res = res && (lhs.HasTangent == rhs.HasTangent);
+    res = res && (lhs.HasColor == rhs.HasColor);
 
     return res;
 }
 
-uint32_t Vertex::GetSize(const Vertex::Layout &layout)
+//TODO: This code shouldn't be necessary. Equivalent code should be generated
+//by variant itself, but somehow that doesn't work for now.
+bool operator==(const Vertex::Layout &lhs, const Vertex::Layout &rhs)
+{
+    const bool lpush = std::holds_alternative<Vertex::PushLayout>(lhs);
+    const bool rpush = std::holds_alternative<Vertex::PushLayout>(rhs);
+
+    const bool lpull = !lpush;
+    const bool rpull = !rpush;
+
+    if (lpush && rpush)
+    {
+        return std::get<Vertex::PushLayout>(lhs) == std::get<Vertex::PushLayout>(rhs);
+    }
+    else if (lpull && rpull)
+    {
+        return std::get<Vertex::PullLayout>(lhs) == std::get<Vertex::PullLayout>(rhs);
+    }
+    
+    return false;
+}
+
+uint32_t Vertex::GetSize(const Vertex::PushLayout &layout)
 {
     uint32_t res = 3 * sizeof(float);
 
@@ -32,7 +54,7 @@ uint32_t Vertex::GetSize(const Vertex::Layout &layout)
     return res;
 }
 
-Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const Layout &layout)
+Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const PushLayout &layout)
 {
     AttributeDescriptions res;
     uint32_t              offset = 0;
@@ -78,7 +100,7 @@ Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const Layout &lay
     return res;
 }
 
-Vertex::BindingDescription Vertex::GetBindingDescription(const Layout     &layout,
+Vertex::BindingDescription Vertex::GetBindingDescription(const PushLayout &layout,
                                                          uint32_t          binding,
                                                          VkVertexInputRate inputRate)
 {

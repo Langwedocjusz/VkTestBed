@@ -181,9 +181,10 @@ class MinimalPbrRenderer final : public IRenderer {
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
 
     GeometryLayout mGeometryLayout{
-        .VertexLayout =
-            Vertex::Layout{.HasTexCoord = true, .HasNormal = true, .HasTangent = true},
-        .IndexType = IndexType,
+        .VertexLayout = Vertex::PushLayout{.HasTexCoord = true,
+                                           .HasNormal   = true,
+                                           .HasTangent  = true},
+        .IndexType    = IndexType,
     };
 
     // Default material textures:

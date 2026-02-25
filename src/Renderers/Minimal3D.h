@@ -40,12 +40,12 @@ class Minimal3DRenderer final : public IRenderer {
     Pipeline mTexturedPipeline;
 
     GeometryLayout mColoredLayout{
-        .VertexLayout = Vertex::Layout{.HasNormal = true, .HasColor = true},
+        .VertexLayout = Vertex::PushLayout{.HasNormal = true, .HasColor = true},
         .IndexType    = VK_INDEX_TYPE_UINT32,
     };
 
     GeometryLayout mTexturedLayout{
-        .VertexLayout = Vertex::Layout{.HasTexCoord = true, .HasNormal = true},
+        .VertexLayout = Vertex::PushLayout{.HasTexCoord = true, .HasNormal = true},
         .IndexType    = VK_INDEX_TYPE_UINT32,
     };
 

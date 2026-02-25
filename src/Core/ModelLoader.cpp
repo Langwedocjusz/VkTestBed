@@ -104,7 +104,7 @@ static tangen::VertexLayout GetLayout(const ModelConfig &config)
 
 static GeometryLayout ToGeoLayout(const ModelConfig &config)
 {
-    auto vertexLaout = Vertex::Layout{
+    Vertex::Layout vertexLayout = Vertex::PushLayout{
         .HasTexCoord = config.LoadTexCoord,
         .HasNormal   = config.LoadNormals,
         .HasTangent  = config.LoadTangents,
@@ -112,7 +112,7 @@ static GeometryLayout ToGeoLayout(const ModelConfig &config)
     };
 
     return GeometryLayout{
-        .VertexLayout = vertexLaout,
+        .VertexLayout = vertexLayout,
         .IndexType    = VK_INDEX_TYPE_UINT32,
     };
 }

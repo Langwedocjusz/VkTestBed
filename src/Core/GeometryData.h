@@ -11,9 +11,9 @@ struct GeometrySpec;
 struct GeometryLayout {
     Vertex::Layout VertexLayout;
     VkIndexType    IndexType;
-
-    bool operator==(const GeometryLayout &other);
 };
+
+bool operator==(const GeometryLayout &lhs, const GeometryLayout &rhs);
 
 /// Axis aligned bounding box
 struct AABB {

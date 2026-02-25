@@ -3,9 +3,11 @@
 
 #include "Shader.h"
 #include "Vassert.h"
+#include "VertexLayout.h"
 #include "VkUtils.h"
 
 #include "volk.h"
+#include <variant>
 
 Pipeline Pipeline::MakePipeline(VkPipelineBindPoint bindPoint)
 {
@@ -93,8 +95,13 @@ PipelineBuilder &PipelineBuilder::SetVertexInput(const Vertex::Layout &layout,
                                                  uint32_t              binding,
                                                  VkVertexInputRate     inputRate)
 {
-    mBindingDescription    = Vertex::GetBindingDescription(layout, binding, inputRate);
-    mAttributeDescriptions = Vertex::GetAttributeDescriptions(layout);
+    vassert(std::holds_alternative<Vertex::PushLayout>(layout),
+            "Pipeline vertex input can only be used with push layouts.");
+
+    auto &pushLayout = std::get<Vertex::PushLayout>(layout);
+
+    mBindingDescription = Vertex::GetBindingDescription(pushLayout, binding, inputRate);
+    mAttributeDescriptions = Vertex::GetAttributeDescriptions(pushLayout);
 
     UpdateVertexInput();
     return *this;

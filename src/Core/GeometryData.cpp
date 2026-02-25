@@ -1,5 +1,6 @@
 #include "GeometryData.h"
 #include "Pch.h"
+#include "VertexLayout.h"
 
 #include <limits>
 
@@ -9,10 +10,10 @@ GeometryData::GeometryData(const GeometrySpec &spec)
 {
 }
 
-bool GeometryLayout::operator==(const GeometryLayout &other)
+bool operator==(const GeometryLayout &lhs, const GeometryLayout &rhs)
 {
-    const bool vertCompat = VertexLayout == other.VertexLayout;
-    const bool idxCompat  = IndexType == other.IndexType;
+    const bool vertCompat = lhs.VertexLayout == rhs.VertexLayout;
+    const bool idxCompat  = lhs.IndexType == rhs.IndexType;
 
     return idxCompat && vertCompat;
 }

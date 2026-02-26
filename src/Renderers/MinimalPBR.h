@@ -12,8 +12,6 @@
 #include "Texture.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
-#include "vulkan/vulkan_core.h"
-#include <vulkan/vulkan_core.h>
 
 class MinimalPbrRenderer final : public IRenderer {
   public:
@@ -146,32 +144,32 @@ class MinimalPbrRenderer final : public IRenderer {
     Pipeline mOutlinePipeline;
     Pipeline mObjectIdPipeline;
 
-    // Push-constant structs for all pipelines:
-    struct {
+    // Push-constant struct definitions for all pipelines:
+    struct PCDataPrepass{
         glm::mat4 Model;
         VkDeviceAddress VertexBuffer;
-    } mPrepassPCData;
-
-    struct {
+    };
+    
+    struct PCDataAO{
         glm::mat4 Proj;
         glm::mat4 InvProj;
-    } mAOGenPCData;
-
-    struct {
+    };
+    
+    struct PCDataMain{
         glm::mat4 Model;
         VkDeviceAddress VertexBuffer;
-    } mMainPCData;
-
-    struct {
+    };
+    
+    struct PCDataOutline{
         glm::mat4 Model;
         VkDeviceAddress VertexBuffer;
-    } mOutlinePCData;
-
-    struct {
+    };
+    
+    struct PCDataObjectID{
         glm::mat4 Model;
         VkDeviceAddress VertexBuffer;
         uint32_t  ObjectId;
-    } mObjectIdPCData;
+    };
 
     // Descriptors for materials:
     VkDescriptorSetLayout      mMaterialDescriptorSetLayout;

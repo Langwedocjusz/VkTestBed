@@ -22,7 +22,6 @@
 #include <imgui.h>
 
 #include "volk.h"
-#include "vulkan/vulkan_core.h"
 
 #include <cstdint>
 #include <ranges>
@@ -86,9 +85,10 @@ bool MinimalPbrRenderer::Drawable::IsVisible(glm::mat4 viewProj, size_t instance
 
 void MinimalPbrRenderer::Drawable::BindGeometryBuffers(VkCommandBuffer cmd)
 {
-    VkBuffer     vertBuffer = VertexBuffer.Handle;
-    VkDeviceSize vertOffset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
+    // TODO: restore this codepath:
+    //VkBuffer     vertBuffer = VertexBuffer.Handle;
+    //VkDeviceSize vertOffset = 0;
+    //vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
     vkCmdBindIndexBuffer(cmd, IndexBuffer.Handle, 0, MinimalPbrRenderer::IndexType);
 }
@@ -230,7 +230,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(mPrepassPCData))
+            .SetPushConstantSize(sizeof(PCDataPrepass))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .EnableDepthTest()
             .SetDepthFormat(DepthStencilFormat)
@@ -248,7 +248,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(mPrepassPCData))
+            .SetPushConstantSize(sizeof(PCDataPrepass))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest()
@@ -260,7 +260,7 @@ void MinimalPbrRenderer::RebuildPipelines()
     mAOGenPipeline = ComputePipelineBuilder("MinimalPBRAOPipeline")
                          .SetShaderPath("assets/spirv/AOGenComp.spv")
                          .AddDescriptorSetLayout(mAOGenDescriptorSetLayout)
-                         .SetPushConstantSize(sizeof(mAOGenPCData))
+                         .SetPushConstantSize(sizeof(PCDataAO))
                          .Build(mCtx, mPipelineDeletionQueue);
 
     VkCompareOp mainCompareOp{};
@@ -281,7 +281,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetColorFormat(RenderTargetFormat)
-            .SetPushConstantSize(sizeof(mMainPCData))
+            .SetPushConstantSize(sizeof(PCDataMain))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .AddDescriptorSetLayout(mShadowmapHandler.GetDSLayout())
@@ -340,7 +340,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
             .SetDepthFormat(DepthStencilFormat)
             .SetStencilFormat(DepthStencilFormat)
-            .SetPushConstantSize(sizeof(mOutlinePCData))
+            .SetPushConstantSize(sizeof(PCDataOutline))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .SetMultisampling(mMultisample)
@@ -370,7 +370,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetStencilFormat(DepthStencilFormat)
             .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
             .SetDepthFormat(DepthStencilFormat)
-            .SetPushConstantSize(sizeof(mOutlinePCData))
+            .SetPushConstantSize(sizeof(PCDataOutline))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .SetMultisampling(mMultisample)
@@ -391,7 +391,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetDepthFormat(PickingDepthFormat)
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(mObjectIdPCData))
+            .SetPushConstantSize(sizeof(PCDataObjectID))
             .Build(mCtx, mPipelineDeletionQueue);
 }
 
@@ -767,12 +767,12 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
         };
 
         auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
-            mPrepassPCData.Model = instance.Transform;
-            mPrepassPCData.VertexBuffer = vertexAddress;
+            PCDataPrepass data{
+                .Model = instance.Transform,
+                .VertexBuffer = vertexAddress,
+            };
 
-            vkCmdPushConstants(cmd, mZPrepassOpaquePipeline.Layout,
-                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
-                               &mPrepassPCData);
+            mZPrepassOpaquePipeline.PushConstants(cmd, data);
         };
 
         DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -791,12 +791,12 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
         };
 
         auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
-            mPrepassPCData.Model = instance.Transform;
-            mPrepassPCData.VertexBuffer = vertexAddress;
+            PCDataPrepass data{
+                .Model = instance.Transform,
+                .VertexBuffer = vertexAddress,
+            };
 
-            vkCmdPushConstants(cmd, mZPrepassAlphaPipeline.Layout,
-                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
-                               &mPrepassPCData);
+            mZPrepassAlphaPipeline.PushConstants(cmd, data);
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -834,11 +834,12 @@ void MinimalPbrRenderer::AOPass(VkCommandBuffer cmd, DrawStats &stats)
     mAOGenPipeline.BindDescriptorSet(cmd, mAOGenDescriptorSet, 0);
     stats.NumBinds += 1;
 
-    mAOGenPCData = {.Proj    = mCamera.GetProj(),
-                    .InvProj = glm::inverse(mCamera.GetProj())};
+    PCDataAO data{
+        .Proj    = mCamera.GetProj(),
+        .InvProj = glm::inverse(mCamera.GetProj()),
+    };
 
-    vkCmdPushConstants(cmd, mAOGenPipeline.Layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                       sizeof(mAOGenPCData), &mAOGenPCData);
+    mAOGenPipeline.PushConstants(cmd, data);
 
     float localSizeX = 32.0f, localSizeY = 32.0f;
 
@@ -901,11 +902,12 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     };
 
     auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
-        mMainPCData.Model = instance.Transform;
-        mMainPCData.VertexBuffer = vertexAddress;
+        PCDataMain data{
+            .Model = instance.Transform,
+            .VertexBuffer = vertexAddress,
+        };
 
-        vkCmdPushConstants(cmd, mMainPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           sizeof(mMainPCData), &mMainPCData);
+        mMainPipeline.PushConstants(cmd, data);
     };
 
     DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
@@ -925,8 +927,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         mBackgroundPipeline.BindDescriptorSet(cmd, mEnvHandler.GetBackgroundDS(), 0);
         stats.NumBinds += 1;
 
-        vkCmdPushConstants(cmd, mBackgroundPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
-                           0, sizeof(FrustumBack), &mCamera.GetFrustumBack());
+        mBackgroundPipeline.PushConstants(cmd, mCamera.GetFrustumBack());
 
         vkCmdDraw(cmd, 3, 1, 0, 0);
         stats.NumDraws += 1;
@@ -991,11 +992,12 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             // Push per-instance data:
             auto &model = drawable.Instances.at(instanceId).Transform;
 
-            mOutlinePCData.Model = model;
-            mOutlinePCData.VertexBuffer = drawable.VertexAddress;
+            PCDataOutline data{
+                .Model = model,
+                .VertexBuffer = drawable.VertexAddress,
+            };
 
-            vkCmdPushConstants(cmd, mStencilPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
-                               0, sizeof(mOutlinePCData), &mOutlinePCData);
+            mStencilPipeline.PushConstants(cmd, data);
 
             // Draw:
             drawable.Draw(cmd);
@@ -1040,11 +1042,13 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
             // Push per-instance data:
             auto &model          = drawable.Instances.at(instanceId).Transform;
-            mOutlinePCData.Model = model;
-            mOutlinePCData.VertexBuffer = drawable.VertexAddress;
 
-            vkCmdPushConstants(cmd, mOutlinePipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
-                               0, sizeof(mOutlinePCData), &mOutlinePCData);
+            PCDataOutline data{
+                .Model = model,
+                .VertexBuffer = drawable.VertexAddress,
+            };
+
+            mOutlinePipeline.PushConstants(cmd, data);
 
             // Draw:
             drawable.Draw(cmd);
@@ -1079,12 +1083,13 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     };
 
     auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Instance &instance, VkDeviceAddress vertexAddress) {
-        mObjectIdPCData.Model    = viewProj * instance.Transform;
-        mObjectIdPCData.VertexBuffer = vertexAddress;
-        mObjectIdPCData.ObjectId = instance.ObjectId;
+        PCDataObjectID data{
+            .Model    = viewProj * instance.Transform,
+            .VertexBuffer = vertexAddress,
+            .ObjectId = instance.ObjectId,
+        };
 
-        vkCmdPushConstants(cmd, mObjectIdPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           sizeof(mObjectIdPCData), &mObjectIdPCData);
+        mObjectIdPipeline.PushConstants(cmd, data);
     };
 
     DrawStats stats;

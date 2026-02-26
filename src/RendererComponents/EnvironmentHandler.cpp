@@ -407,13 +407,12 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
         mIrradianceSHPipeline.Bind(cmd);
         mIrradianceSHPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
 
-        IrradianceSHPushConstants pcData{
+        IrradianceSHPushConstants data{
             .CubemapRes  = mCubemap.Img.Info.extent.width,
             .ReduceBlock = mReduceBlock,
         };
 
-        vkCmdPushConstants(cmd, mIrradianceSHPipeline.Layout, VK_SHADER_STAGE_COMPUTE_BIT,
-                           0, sizeof(IrradianceSHPushConstants), &pcData);
+        mIrradianceSHPipeline.PushConstants(cmd, data);
 
         uint32_t localSizeX = 1024;
         uint32_t dispCountX = mFirstBufferLen / localSizeX;
@@ -426,12 +425,11 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
         mIrradianceReducePipeline.Bind(cmd);
         mIrradianceReducePipeline.BindDescriptorSet(cmd, mIrradianceDescriptorSet, 0);
 
-        ReducePushConstants pcData{
+        ReducePushConstants data{
             .BufferSize = mFirstBufferLen,
         };
 
-        vkCmdPushConstants(cmd, mIrradianceSHPipeline.Layout, VK_SHADER_STAGE_COMPUTE_BIT,
-                           0, sizeof(ReducePushConstants), &pcData);
+        mIrradianceReducePipeline.PushConstants(cmd, data);
 
         vkCmdDispatch(cmd, 1, 1, 1);
     });
@@ -491,7 +489,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
             const float roughness =
                 static_cast<float>(mip) / static_cast<float>(numMips - 1);
 
-            PrefilteredPushConstants pcData{
+            PrefilteredPushConstants data{
                 .CubeResolution = mCubemap.Img.Info.extent.width,
                 .MipLevel       = mip,
                 .Roughness      = roughness,
@@ -508,9 +506,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
                 mPrefilteredGenPipeline.BindDescriptorSet(cmd, mPrefilteredDescriptorSet,
                                                           0);
 
-                vkCmdPushConstants(cmd, mPrefilteredGenPipeline.Layout,
-                                   VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                                   sizeof(PrefilteredPushConstants), &pcData);
+                mPrefilteredGenPipeline.PushConstants(cmd, data);
 
                 vkCmdDispatch(cmd, resX, resY, 6);
             });

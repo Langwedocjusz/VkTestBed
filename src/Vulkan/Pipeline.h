@@ -15,7 +15,7 @@
 class Pipeline {
   public:
     Pipeline() = default;
-    static Pipeline MakePipeline(VkPipelineBindPoint);
+    static Pipeline MakePipeline(VkPipelineBindPoint, VkShaderStageFlags pcStageFlags);
 
     void Bind(VkCommandBuffer cmd);
 
@@ -23,12 +23,19 @@ class Pipeline {
     void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
                             uint32_t startIdx);
 
+    template<typename T>
+    void PushConstants(VkCommandBuffer cmd, T& data)
+    {
+        vkCmdPushConstants(cmd, Layout, mPCStageFlags, 0, sizeof(data), &data);
+    }
+
   public:
     VkPipeline       Handle;
     VkPipelineLayout Layout;
 
   private:
     VkPipelineBindPoint mBindPoint;
+    VkShaderStageFlags mPCStageFlags;
 };
 
 class PipelineBuilder {

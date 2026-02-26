@@ -10,7 +10,6 @@
 #include "VulkanContext.h"
 
 #include "volk.h"
-#include "vulkan/vulkan_core.h"
 
 #include <glm/glm.hpp>
 
@@ -125,10 +124,10 @@ class ShadowmapHandler {
     Bounds                           mBounds;
     std::array<Frustum, NumCascades> mShadowFrustums;
 
-    struct {
+    struct PCDataShadow{
         glm::mat4 LightMVP;
         VkDeviceAddress VertexBuffer;
-    } mShadowPCData;
+    };
 
     Pipeline mOpaquePipeline;
     Pipeline mAlphaPipeline;
@@ -171,10 +170,10 @@ class ShadowmapHandler {
     Buffer mDebugFrustumVertexBuffer;
     Buffer mDebugFrustumIndexBuffer;
 
-    struct {
+    struct PCDataDebug{
         glm::mat4 ViewProj;
         glm::vec4 Color;
-    } mDebugPCData;
+    };
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;

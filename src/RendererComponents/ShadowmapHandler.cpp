@@ -173,7 +173,7 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(mShadowPCData))
+            .SetPushConstantSize(sizeof(PCDataShadow))
             .EnableDepthTest()
             .SetDepthFormat(ShadowmapFormat)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -188,7 +188,7 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(mShadowPCData))
+            .SetPushConstantSize(sizeof(PCDataShadow))
             .AddDescriptorSetLayout(materialDSLayout)
             .EnableDepthTest()
             .SetDepthFormat(ShadowmapFormat)
@@ -203,7 +203,7 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE)
-            .SetPushConstantSize(sizeof(mDebugPCData))
+            .SetPushConstantSize(sizeof(PCDataDebug))
             .SetColorFormat(mDebugColorFormat)
             .EnableDepthTest()
             .SetDepthFormat(mDebugDepthFormat)
@@ -442,20 +442,22 @@ VkExtent2D ShadowmapHandler::GetExtent() const
 
 void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer)
 {
-    mShadowPCData.LightMVP = mvp;
-    mShadowPCData.VertexBuffer = vertexBuffer;
+    PCDataShadow data{
+        .LightMVP = mvp,
+        .VertexBuffer = vertexBuffer,
+    };
 
-    vkCmdPushConstants(cmd, mOpaquePipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                       sizeof(mShadowPCData), &mShadowPCData);
+    mOpaquePipeline.PushConstants(cmd, data);
 }
 
 void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer)
 {
-    mShadowPCData.LightMVP = mvp;
-    mShadowPCData.VertexBuffer = vertexBuffer;
+    PCDataShadow data{
+        .LightMVP = mvp,
+        .VertexBuffer = vertexBuffer,
+    };
 
-    vkCmdPushConstants(cmd, mAlphaPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                       sizeof(mShadowPCData), &mShadowPCData);
+    mAlphaPipeline.PushConstants(cmd, data);
 }
 
 void ShadowmapHandler::BindAlphaMaterialDS(VkCommandBuffer cmd,
@@ -482,23 +484,21 @@ void ShadowmapHandler::DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj,
     vkCmdBindIndexBuffer(cmd, mDebugFrustumIndexBuffer.Handle, 0,
                          mDebugGeometryLayout.IndexType);
 
-    // To update PC data:
-    auto PushConstants = [this, cmd]() {
-        vkCmdPushConstants(cmd, mDebugPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           sizeof(mDebugPCData), &mDebugPCData);
+    // Collect push-constant data:
+    PCDataDebug data{
+        .ViewProj = viewProj,
+        .Color = {},
     };
 
-    mDebugPCData.ViewProj = viewProj;
-
     // Draw view frustum:
-    mDebugPCData.Color = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f);
-    PushConstants();
+    data.Color = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f);
+    mDebugPipeline.PushConstants(cmd, data);
 
     vkCmdDrawIndexed(cmd, NumIdxPerFrustum, 1, 0, 0, 0);
 
     // Draw shadow projection bounds:
-    mDebugPCData.Color = glm::vec4(0.9f, 0.9f, 0.2f, 0.2f);
-    PushConstants();
+    data.Color = glm::vec4(0.9f, 0.9f, 0.2f, 0.2f);
+    mDebugPipeline.PushConstants(cmd, data);
 
     vkCmdDrawIndexed(cmd, NumIdxPerFrustum, 1, 0, 8, 0);
 }

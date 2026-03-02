@@ -10,10 +10,11 @@
 
 #include <variant>
 
-Pipeline Pipeline::MakePipeline(VkPipelineBindPoint bindPoint, VkShaderStageFlags pcStageFlags)
+Pipeline Pipeline::MakePipeline(VkPipelineBindPoint bindPoint,
+                                VkShaderStageFlags  pcStageFlags)
 {
     Pipeline ret;
-    ret.mBindPoint = bindPoint;
+    ret.mBindPoint    = bindPoint;
     ret.mPCStageFlags = pcStageFlags;
 
     return ret;
@@ -273,7 +274,8 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 
 Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, VK_SHADER_STAGE_ALL_GRAPHICS);
+    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                           VK_SHADER_STAGE_ALL_GRAPHICS);
 
     // Build the shader stages:
     auto shaderStages = ShaderBuilder()
@@ -447,7 +449,8 @@ Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 
 Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_COMPUTE, VK_SHADER_STAGE_COMPUTE_BIT);
+    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_COMPUTE,
+                                           VK_SHADER_STAGE_COMPUTE_BIT);
 
     auto shaderStages = ShaderBuilder().SetComputePath(*mShaderPath).Build(ctx);
 

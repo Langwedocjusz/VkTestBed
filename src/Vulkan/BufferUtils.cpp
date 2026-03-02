@@ -63,10 +63,12 @@ Buffer MakeBuffer::Vertex(VulkanContext &ctx, const std::string &debugName,
     return MakeBuffer::TransferDST(ctx, debugName, info);
 }
 
-Buffer MakeBuffer::VertexStorage(VulkanContext &ctx, const std::string &debugName, const OpaqueBuffer &buf)
+Buffer MakeBuffer::VertexStorage(VulkanContext &ctx, const std::string &debugName,
+                                 const OpaqueBuffer &buf)
 {
     TransferDSTInfo info{
-        .Usage       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         .CreateFlags = 0,
         .Size        = buf.Size,
         .Data        = buf.Data,

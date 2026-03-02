@@ -160,14 +160,14 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
                                         VkDescriptorSetLayout materialDSLayout,
                                         VkSampleCountFlagBits debugMultisampling)
 {
-    (void)vertexLayout; //TODO: Remove this
+    (void)vertexLayout; // TODO: Remove this
 
     mPipelineDeletionQueue.flush();
 
     mOpaquePipeline =
         PipelineBuilder("ShadowmapPipeline")
             .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
-            //TODO: restore this code in separate path:
+            // TODO: restore this code in separate path:
             //.SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -182,7 +182,7 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
         PipelineBuilder("ShadowmapPipeline")
             .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
             .SetShaderPathFragment("assets/spirv/shadows/ShadowmapAlphaFrag.spv")
-            //TODO: restore this code in separate path:
+            // TODO: restore this code in separate path:
             //.SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -440,20 +440,22 @@ VkExtent2D ShadowmapHandler::GetExtent() const
     return VkExtent2D{width, height};
 }
 
-void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer)
+void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp,
+                                          VkDeviceAddress vertexBuffer)
 {
     PCDataShadow data{
-        .LightMVP = mvp,
+        .LightMVP     = mvp,
         .VertexBuffer = vertexBuffer,
     };
 
     mOpaquePipeline.PushConstants(cmd, data);
 }
 
-void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer)
+void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp,
+                                         VkDeviceAddress vertexBuffer)
 {
     PCDataShadow data{
-        .LightMVP = mvp,
+        .LightMVP     = mvp,
         .VertexBuffer = vertexBuffer,
     };
 
@@ -487,7 +489,7 @@ void ShadowmapHandler::DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj,
     // Collect push-constant data:
     PCDataDebug data{
         .ViewProj = viewProj,
-        .Color = {},
+        .Color    = {},
     };
 
     // Draw view frustum:

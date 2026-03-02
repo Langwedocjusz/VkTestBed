@@ -6,35 +6,8 @@
 #include "Vassert.h"
 #include "VertexLayout.h"
 
-#include <fastgltf/core.hpp>
-#include <fastgltf/glm_element_traits.hpp>
-#include <fastgltf/tools.hpp>
-#include <fastgltf/types.hpp>
-
 #include <iostream>
 #include <limits>
-
-static fastgltf::Asset GetAsset(const std::filesystem::path &path,
-                                bool                         loadBuffers = false)
-{
-    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_diffuse_transmission);
-    auto             data = fastgltf::GltfDataBuffer::FromPath(path);
-
-    vassert(data.error() == fastgltf::Error::None,
-            "Failed to load a gltf file: " + path.string());
-
-    auto loadOptions = fastgltf::Options::None;
-
-    if (loadBuffers)
-        loadOptions = fastgltf::Options::LoadExternalBuffers;
-
-    auto load = parser.loadGltf(data.get(), path.parent_path(), loadOptions);
-
-    vassert(load.error() == fastgltf::Error::None,
-            "Failed to load a gltf file: " + path.string());
-
-    return std::move(load.get());
-}
 
 fastgltf::Asset ModelLoader::GetGltf(const std::filesystem::path &filepath)
 {
@@ -46,54 +19,35 @@ fastgltf::Asset ModelLoader::GetGltfWithBuffers(const std::filesystem::path &fil
     return GetAsset(filepath, true);
 }
 
-static fastgltf::Accessor &GetAttributeAccessor(fastgltf::Asset     &gltf,
-                                                fastgltf::Primitive &primitive,
-                                                std::string_view     name)
-{
-    return gltf.accessors[primitive.findAttribute(name)->accessorIndex];
-}
-
-static size_t GetIndexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitive)
-{
-    auto &indexAccessor = gltf.accessors[primitive.indicesAccessor.value()];
-    return indexAccessor.count;
-}
-
-static size_t GetVertexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitive)
-{
-    fastgltf::Accessor &posAccessor = GetAttributeAccessor(gltf, primitive, "POSITION");
-    return posAccessor.count;
-}
-
 static tangen::VertexLayout GetLayout(const ModelConfig &config)
 {
     // TODO: PushLayout code:
-    //uint32_t stride        = 3;
-    //uint32_t offsetTex     = 3;
-    //uint32_t offsetNormal  = 3;
-    //uint32_t offsetTangent = 3;
+    // uint32_t stride        = 3;
+    // uint32_t offsetTex     = 3;
+    // uint32_t offsetNormal  = 3;
+    // uint32_t offsetTangent = 3;
     //
-    //if (config.LoadTexCoord)
+    // if (config.LoadTexCoord)
     //{
     //    stride += 2;
     //    offsetNormal += 2;
     //    offsetTangent += 2;
     //}
     //
-    //if (config.LoadNormals)
+    // if (config.LoadNormals)
     //{
     //    stride += 3;
     //    offsetTangent += 3;
     //}
     //
-    //if (config.LoadTangents)
+    // if (config.LoadTangents)
     //{
     //    stride += 4;
     //}
     //
     //// TODO: support loading colors...
     //
-    //return tangen::VertexLayout{
+    // return tangen::VertexLayout{
     //    .Stride         = stride,
     //    .OffsetPos      = {0, 1, 2},
     //    .OffsetTexCoord = {offsetTex, offsetTex + 1},
@@ -104,18 +58,18 @@ static tangen::VertexLayout GetLayout(const ModelConfig &config)
     (void)config;
 
     return tangen::VertexLayout{
-        .Stride = 12,
-        .OffsetPos = {0,1,2},
+        .Stride         = 12,
+        .OffsetPos      = {0, 1, 2},
         .OffsetTexCoord = {3, 7},
-        .OffsetNormal = {4,5,6},
-        .OffsetTangent = {8,9,10,11},
+        .OffsetNormal   = {4, 5, 6},
+        .OffsetTangent  = {8, 9, 10, 11},
     };
 }
 
 static GeometryLayout ToGeoLayout(const ModelConfig &config)
 {
     // TODO: PushLayout code:
-    //Vertex::Layout vertexLayout = Vertex::PushLayout{
+    // Vertex::Layout vertexLayout = Vertex::PushLayout{
     //    .HasTexCoord = config.LoadTexCoord,
     //    .HasNormal   = config.LoadNormals,
     //    .HasTangent  = config.LoadTangents,

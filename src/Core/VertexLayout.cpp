@@ -13,8 +13,8 @@ bool operator==(const Vertex::PushLayout &lhs, const Vertex::PushLayout &rhs)
     return res;
 }
 
-//TODO: This code shouldn't be necessary. Equivalent code should be generated
-//by variant itself, but somehow that doesn't work for now.
+// TODO: This code shouldn't be necessary. Equivalent code should be generated
+// by variant itself, but somehow that doesn't work for now.
 bool operator==(const Vertex::Layout &lhs, const Vertex::Layout &rhs)
 {
     const bool lpush = std::holds_alternative<Vertex::PushLayout>(lhs);
@@ -31,7 +31,7 @@ bool operator==(const Vertex::Layout &lhs, const Vertex::Layout &rhs)
     {
         return std::get<Vertex::PullLayout>(lhs) == std::get<Vertex::PullLayout>(rhs);
     }
-    
+
     return false;
 }
 

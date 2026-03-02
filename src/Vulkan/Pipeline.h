@@ -23,8 +23,8 @@ class Pipeline {
     void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
                             uint32_t startIdx);
 
-    template<typename T>
-    void PushConstants(VkCommandBuffer cmd, T& data)
+    template <typename T>
+    void PushConstants(VkCommandBuffer cmd, T &data)
     {
         vkCmdPushConstants(cmd, Layout, mPCStageFlags, 0, sizeof(data), &data);
     }
@@ -35,7 +35,7 @@ class Pipeline {
 
   private:
     VkPipelineBindPoint mBindPoint;
-    VkShaderStageFlags mPCStageFlags;
+    VkShaderStageFlags  mPCStageFlags;
 };
 
 class PipelineBuilder {

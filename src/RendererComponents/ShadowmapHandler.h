@@ -74,8 +74,10 @@ class ShadowmapHandler {
     // For building drawing functions in the renderer:
 
     // Deliver per-object (pre-multiplied) MVP matrix to the shaders via push constant:
-    void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer);
-    void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp, VkDeviceAddress vertexBuffer);
+    void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp,
+                            VkDeviceAddress vertexBuffer);
+    void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp,
+                           VkDeviceAddress vertexBuffer);
 
     // Bind descriptor set used to sample per-material alpha.
     // Descriptor set being bound is assumed to have albedo map as its first binding.
@@ -124,8 +126,8 @@ class ShadowmapHandler {
     Bounds                           mBounds;
     std::array<Frustum, NumCascades> mShadowFrustums;
 
-    struct PCDataShadow{
-        glm::mat4 LightMVP;
+    struct PCDataShadow {
+        glm::mat4       LightMVP;
         VkDeviceAddress VertexBuffer;
     };
 
@@ -170,7 +172,7 @@ class ShadowmapHandler {
     Buffer mDebugFrustumVertexBuffer;
     Buffer mDebugFrustumIndexBuffer;
 
-    struct PCDataDebug{
+    struct PCDataDebug {
         glm::mat4 ViewProj;
         glm::vec4 Color;
     };

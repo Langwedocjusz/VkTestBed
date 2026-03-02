@@ -24,22 +24,6 @@ class AssetManager {
     void ProcessGltfHierarchy(SceneGraphNode &root);
 
   private:
-    struct ImageTaskData {
-        SceneKey                             ImageKey;
-        std::optional<std::filesystem::path> Path;
-        Pixel                                BaseColor;
-        std::string                          Name;
-        bool                                 Unorm;
-    };
-
-    struct PrimitiveTaskData {
-        SceneKey SceneMesh;
-        size_t   ScenePrim;
-        int64_t  GltfMesh;
-        int64_t  GltfPrim;
-    };
-
-  private:
     Scene &mScene;
 
     struct Model;

@@ -70,8 +70,8 @@ class MinimalPbrRenderer final : public IRenderer {
         Buffer   IndexBuffer;
         uint32_t IndexCount;
 
-        //TODO: this is only for vertex pulling code-path
-        //maybe this should be lumped together with vertex 
+        // TODO: this is only for vertex pulling code-path
+        // maybe this should be lumped together with vertex
         //(storage) buffer?
         VkDeviceAddress VertexAddress;
 
@@ -145,30 +145,30 @@ class MinimalPbrRenderer final : public IRenderer {
     Pipeline mObjectIdPipeline;
 
     // Push-constant struct definitions for all pipelines:
-    struct PCDataPrepass{
-        glm::mat4 Model;
+    struct PCDataPrepass {
+        glm::mat4       Model;
         VkDeviceAddress VertexBuffer;
     };
-    
-    struct PCDataAO{
+
+    struct PCDataAO {
         glm::mat4 Proj;
         glm::mat4 InvProj;
     };
-    
-    struct PCDataMain{
-        glm::mat4 Model;
+
+    struct PCDataMain {
+        glm::mat4       Model;
         VkDeviceAddress VertexBuffer;
     };
-    
-    struct PCDataOutline{
-        glm::mat4 Model;
+
+    struct PCDataOutline {
+        glm::mat4       Model;
         VkDeviceAddress VertexBuffer;
     };
-    
-    struct PCDataObjectID{
-        glm::mat4 Model;
+
+    struct PCDataObjectID {
+        glm::mat4       Model;
         VkDeviceAddress VertexBuffer;
-        uint32_t  ObjectId;
+        uint32_t        ObjectId;
     };
 
     // Descriptors for materials:

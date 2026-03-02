@@ -16,11 +16,6 @@
 #include <ranges>
 #include <variant>
 
-static uint8_t PixelChannelFromFloat(float x)
-{
-    return static_cast<uint8_t>(255.0f * x);
-}
-
 struct AssetManager::Model {
     Model(const ModelConfig &config, bool &isReady)
         : Config(config), IsReady(isReady), TasksLeft(0), StartTime(Timer::Now())
@@ -126,7 +121,7 @@ void AssetManager::OnUpdate()
             mScene.RequestUpdate(Scene::UpdateFlag::Materials);
             mScene.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
 
-            // Mark prefab as ready:
+            // Mark prefab as ready:GetGltfWith
             mModel->IsReady = true;
 
             // Print message:
@@ -167,36 +162,6 @@ void AssetManager::ClearCachedHDRI()
     mHDRI.LastPath = std::nullopt;
 }
 
-// Templated, because it handles several types
-// from fastgltf
-template <typename T>
-static auto GetTexturePath(fastgltf::Asset &gltf, std::optional<T> &texInfo,
-                           const std::filesystem::path &workingDir)
-    -> std::optional<std::filesystem::path>
-{
-    // 1. Check if info has value
-    if (!texInfo.has_value())
-        return std::nullopt;
-
-    // 2. Retrieve image index if present
-    auto imgId = gltf.textures[texInfo->textureIndex].imageIndex;
-
-    if (!imgId.has_value())
-        return std::nullopt;
-
-    // 3. Get data source
-    auto &dataSource = gltf.images[imgId.value()].data;
-
-    // 4. Retrieve the URI if present;
-    if (!std::holds_alternative<fastgltf::sources::URI>(dataSource))
-        return std::nullopt;
-
-    auto &uri = std::get<fastgltf::sources::URI>(dataSource);
-
-    // 5. Retrieve the filepath:
-    return workingDir / uri.uri.fspath();
-}
-
 void AssetManager::PreprocessGltfAssets()
 {
     using namespace std::views;
@@ -206,138 +171,6 @@ void AssetManager::PreprocessGltfAssets()
 
     // Gather ids of the mesh materials:
     std::map<size_t, SceneKey> keyMap;
-
-    // Loop over all materials in gltf:
-    for (auto [id, material] : enumerate(mModel->Gltf.materials))
-    {
-        // Create new scene material:
-        auto [matKey, mat] = mScene.EmplaceMaterial();
-        mat.Name           = baseName + std::to_string(id);
-
-        keyMap[id] = matKey;
-
-        // Load alpha cutoff where applicable
-        if (material.alphaMode == fastgltf::AlphaMode::Mask)
-        {
-            mat.AlphaCutoff = material.alphaCutoff;
-        }
-
-        // Load info about double-sidedness:
-        mat.DoubleSided = material.doubleSided;
-
-        // Load information about translucency/diffuse transmission:
-        if (material.diffuseTransmission)
-        {
-            auto color = material.diffuseTransmission->diffuseTransmissionColorFactor;
-
-            mat.TranslucentColor = glm::vec3(color.x(), color.y(), color.z());
-        }
-
-        // Handle albedo:
-        {
-            auto [imgKey, img] = mScene.EmplaceImage();
-            mat.Albedo         = imgKey;
-
-            auto &albedoInfo = material.pbrData.baseColorTexture;
-            auto  albedoPath = GetTexturePath(mModel->Gltf, albedoInfo, workingDir);
-
-            auto &fac = material.pbrData.baseColorFactor;
-
-            auto baseColor = Pixel{
-                .R = PixelChannelFromFloat(fac.x()),
-                .G = PixelChannelFromFloat(fac.y()),
-                .B = PixelChannelFromFloat(fac.z()),
-                .A = PixelChannelFromFloat(fac.w()),
-            };
-
-            mModel->ImgData.push_back(ImageTaskData{
-                .ImageKey  = imgKey,
-                .Path      = albedoPath,
-                .BaseColor = baseColor,
-                .Name      = mat.Name + " Albedo",
-                .Unorm     = false,
-            });
-        }
-
-        // Do the same for roughness/metallic:
-        if (mModel->Config.FetchRoughness)
-        {
-            auto [imgKey, img] = mScene.EmplaceImage();
-            mat.Roughness      = imgKey;
-
-            auto &roughnessInfo = material.pbrData.metallicRoughnessTexture;
-            auto  roughnessPath = GetTexturePath(mModel->Gltf, roughnessInfo, workingDir);
-
-            auto baseColor = Pixel{
-                .R = PixelChannelFromFloat(0.0f),
-                .G = PixelChannelFromFloat(material.pbrData.roughnessFactor),
-                .B = PixelChannelFromFloat(material.pbrData.metallicFactor),
-                .A = PixelChannelFromFloat(0.0f),
-            };
-
-            mModel->ImgData.push_back(ImageTaskData{
-                .ImageKey  = imgKey,
-                .Path      = roughnessPath,
-                .BaseColor = baseColor,
-                .Name      = mat.Name + " Roughness",
-                .Unorm     = true,
-            });
-        }
-
-        // Do the same for normal map if requested:
-        if (mModel->Config.FetchNormal)
-        {
-            auto &normalInfo = material.normalTexture;
-            auto  normalPath = GetTexturePath(mModel->Gltf, normalInfo, workingDir);
-
-            if (normalPath.has_value())
-            {
-                auto [imgKey, img] = mScene.EmplaceImage();
-                mat.Normal         = imgKey;
-
-                mModel->ImgData.push_back(ImageTaskData{
-                    .ImageKey  = imgKey,
-                    .Path      = normalPath,
-                    .BaseColor = Pixel{},
-                    .Name      = mat.Name + " Normal",
-                    .Unorm     = true,
-                });
-            }
-        }
-    }
-
-    // Iterate all gltf meshes:
-    for (auto [gltfMeshId, gltfMesh] : enumerate(mModel->Gltf.meshes))
-    {
-        // Create the new mesh:
-        auto [meshKey, mesh] = mScene.EmplaceMesh();
-        mesh.Name            = std::format("{} {}", baseName, gltfMesh.name);
-
-        // Update mesh dictionary:
-        mModel->MeshDict[gltfMeshId] = meshKey;
-
-        // Retrieve its primitives:
-        for (auto [gltfPrimId, gltfPrim] : enumerate(gltfMesh.primitives))
-        {
-            // Emplace new primitive:
-            auto &newMeshPrim = mesh.Primitives.emplace_back();
-
-            // Assign material keys to the mesh:
-            if (auto id = gltfPrim.materialIndex)
-            {
-                auto matId = keyMap[*id];
-
-                newMeshPrim.Material = matId;
-            }
-
-            mModel->PrimData.push_back(PrimitiveTaskData{
-                .SceneMesh = meshKey,
-                .ScenePrim = mesh.Primitives.size() - 1,
-                .GltfMesh  = gltfMeshId,
-                .GltfPrim  = gltfPrimId,
-            });
-        }
-    }
 
     // Set the number of tasks to do:
     mModel->TasksLeft =

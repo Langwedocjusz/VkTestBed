@@ -121,7 +121,7 @@ void AssetManager::OnUpdate()
             mScene.RequestUpdate(Scene::UpdateFlag::Materials);
             mScene.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
 
-            // Mark prefab as ready:GetGltfWith
+            // Mark prefab as ready:
             mModel->IsReady = true;
 
             // Print message:

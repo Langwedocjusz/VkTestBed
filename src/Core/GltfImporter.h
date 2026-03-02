@@ -9,6 +9,8 @@
 struct GltfPrimitive {
     size_t                 IndexCount;
     size_t                 VertexCount;
+    // TODO: Indices could already be stored as 
+    // opaque buffer to save that one memcpy
     std::vector<uint32_t>  Indices;
     std::vector<glm::vec3> Positions;
     std::vector<glm::vec2> TexCoords;
@@ -47,8 +49,8 @@ class GltfAsset {
                           std::vector<PrimitiveTaskData> &tasks,
                           const ModelConfig              &config);
 
-    GltfPrimitive LoadPrimitive(Scene &scene, PrimitiveTaskData data,
-                                const ModelConfig &config);
+    //The gltf primitive should be move-returned:
+    GltfPrimitive LoadPrimitive(PrimitiveTaskData data, const ModelConfig &config);
 
   private:
     struct Impl;

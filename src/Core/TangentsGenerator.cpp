@@ -28,7 +28,7 @@ void tangen::GenerateTangents(GltfPrimitive &prim)
     // Make sure primitive is valid:
     vassert(prim.VertexCount > 0, "Vertex count is zero!");
     vassert(prim.IndexCount > 0, "Index count is zero!");
-    
+
     vassert(prim.Positions.size() == prim.VertexCount, "Missing positons!");
     vassert(prim.TexCoords.size() == prim.VertexCount, "Missing texcoords!");
     vassert(prim.Normals.size() == prim.VertexCount, "Missing normals!");
@@ -61,7 +61,7 @@ void tangen::GenerateTangents(GltfPrimitive &prim)
 
     interface.m_getPosition = [](const SMikkTSpaceContext *pContext, float fvPosOut[],
                                  const int iFace, const int iVert) {
-        auto prim = GetDataPointer(pContext);
+        auto prim  = GetDataPointer(pContext);
         auto index = GetVertexId(prim->Indices, iVert, iFace);
 
         auto pos = prim->Positions[index];
@@ -73,7 +73,7 @@ void tangen::GenerateTangents(GltfPrimitive &prim)
 
     interface.m_getTexCoord = [](const SMikkTSpaceContext *pContext, float fvTexcOut[],
                                  const int iFace, const int iVert) {
-        auto prim = GetDataPointer(pContext);
+        auto prim  = GetDataPointer(pContext);
         auto index = GetVertexId(prim->Indices, iVert, iFace);
 
         auto texcoord = prim->TexCoords[index];
@@ -84,7 +84,7 @@ void tangen::GenerateTangents(GltfPrimitive &prim)
 
     interface.m_getNormal = [](const SMikkTSpaceContext *pContext, float fvNormOut[],
                                const int iFace, const int iVert) {
-        auto prim = GetDataPointer(pContext);
+        auto prim  = GetDataPointer(pContext);
         auto index = GetVertexId(prim->Indices, iVert, iFace);
 
         auto normal = prim->Normals[index];
@@ -97,7 +97,7 @@ void tangen::GenerateTangents(GltfPrimitive &prim)
     interface.m_setTSpaceBasic = [](const SMikkTSpaceContext *pContext,
                                     const float fvTangent[], const float fSign,
                                     const int iFace, const int iVert) {
-        auto prim = GetDataPointer(pContext);
+        auto prim  = GetDataPointer(pContext);
         auto index = GetVertexId(prim->Indices, iVert, iFace);
 
         glm::vec4 tangent{fvTangent[0], fvTangent[1], fvTangent[2], fSign};
@@ -113,14 +113,14 @@ void tangen::GenerateTangents(GltfPrimitive &prim)
             (void)fMagS;
             (void)fMagT;
 
-            auto prim = GetDataPointer(pContext);
+            auto prim  = GetDataPointer(pContext);
             auto index = GetVertexId(prim->Indices, iVert, iFace);
 
             auto sign = bIsOrientationPreserving ? 1.0f : (-1.0f);
 
             glm::vec4 tangent{fvTangent[0], fvTangent[1], fvTangent[2], sign};
 
-            prim->Tangents[index] = tangent;                
+            prim->Tangents[index] = tangent;
         };
 
     genTangSpaceDefault(&ctx);

@@ -30,6 +30,7 @@ enum class PullLayout
 // Union type covering all supported vertex types:
 using Layout = std::variant<PushLayout, PullLayout>;
 
+//TODO: cover PullLayouts as well:
 uint32_t GetSize(const PushLayout &layout);
 
 // Utils to quickly construct desctiptions for pipeline input when using push:

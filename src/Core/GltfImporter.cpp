@@ -212,7 +212,7 @@ void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> keyMap
         auto [meshKey, mesh] = scene.EmplaceMesh();
         mesh.Name            = std::format("{} {}", baseName, gltfMesh.name);
 
-        // Update mesh dictionary:
+        // Update mesh key map:
         keyMap[gltfMeshId] = meshKey;
 
         // Retrieve its primitives:
@@ -258,8 +258,7 @@ static size_t GetIndexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitiv
     return indexAccessor.count;
 }
 
-GltfPrimitive GltfAsset::LoadPrimitive(Scene &scene, PrimitiveTaskData data,
-                                       const ModelConfig &config)
+GltfPrimitive GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig &config)
 {
     GltfPrimitive res{};
 

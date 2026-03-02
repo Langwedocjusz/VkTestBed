@@ -95,6 +95,8 @@ target_sources(${PROJECT_NAME}
         src/Core/Frame.h
         src/Core/GeometryData.h
         src/Core/GeometryData.cpp
+        src/Core/GltfImporter.h
+        src/Core/GltfImporter.cpp
         src/Core/ImageData.h
         src/Core/ImageData.cpp
         src/Core/Keycodes.h
@@ -119,6 +121,8 @@ target_sources(${PROJECT_NAME}
         src/Core/SystemWindow.cpp
         src/Core/VertexLayout.h
         src/Core/VertexLayout.cpp
+        src/Core/VertexPacking.h
+        src/Core/VertexPacking.cpp
         src/Core/VmaImpl.cpp
         src/Core/VulkanContext.h
         src/Core/VulkanContext.cpp

@@ -1,9 +1,10 @@
 #pragma once
 
+#include "volk.h"
+#include <glm/glm.hpp>
+
 #include <variant>
 #include <vector>
-
-#include "volk.h"
 
 namespace Vertex
 {
@@ -30,8 +31,15 @@ enum class PullLayout
 // Union type covering all supported vertex types:
 using Layout = std::variant<PushLayout, PullLayout>;
 
-//TODO: cover PullLayouts as well:
-uint32_t GetSize(const PushLayout &layout);
+struct PullNaive {
+    glm::vec3 Position;
+    float     TexCoordX;
+    glm::vec3 Normal;
+    float     TexCoordY;
+    glm::vec4 Tangent;
+};
+
+uint32_t GetSize(const Layout &layout);
 
 // Utils to quickly construct desctiptions for pipeline input when using push:
 using AttributeDescriptions = std::vector<VkVertexInputAttributeDescription>;

@@ -1,17 +1,14 @@
 #include "AssetManager.h"
+#include "GltfImporter.h"
 #include "Pch.h"
 
 #include "ModelConfig.h"
-#include "ModelLoader.h"
 #include "ThreadPool.h"
 #include "Timer.h"
-
-#include <glm/gtc/quaternion.hpp>
-
-#include <fastgltf/math.hpp>
-#include <fastgltf/types.hpp>
+#include "VertexPacking.h"
 
 #include <atomic>
+#include <memory>
 #include <iostream>
 #include <ranges>
 #include <variant>
@@ -24,10 +21,10 @@ struct AssetManager::Model {
 
     ModelConfig                    Config;
     bool                          &IsReady;
-    fastgltf::Asset                Gltf;
+    std::unique_ptr<GltfAsset>     Gltf;
     std::vector<ImageTaskData>     ImgData;
     std::vector<PrimitiveTaskData> PrimData;
-    std::map<size_t, SceneKey>     MeshDict;
+    std::map<size_t, SceneKey>     MeshKeyMap;
     std::atomic_int64_t            TasksLeft;
     Timer::TimePoint               StartTime;
 };
@@ -137,7 +134,7 @@ void AssetManager::OnUpdate()
 
 void AssetManager::ParseGltf()
 {
-    mModel->Gltf = ModelLoader::GetGltfWithBuffers(mModel->Config.Filepath);
+    mModel->Gltf = std::make_unique<GltfAsset>(mModel->Config.Filepath);
 }
 
 void AssetManager::LoadHdri(const std::filesystem::path &path)
@@ -164,69 +161,16 @@ void AssetManager::ClearCachedHDRI()
 
 void AssetManager::PreprocessGltfAssets()
 {
-    using namespace std::views;
-
-    const std::filesystem::path workingDir = mModel->Config.Filepath.parent_path();
-    const std::string           baseName   = mModel->Config.Filepath.stem().string();
-
-    // Gather ids of the mesh materials:
-    std::map<size_t, SceneKey> keyMap;
+    
 
     // Set the number of tasks to do:
     mModel->TasksLeft =
         static_cast<int64_t>(mModel->ImgData.size() + mModel->PrimData.size());
 }
 
-static auto UnpackTransform(fastgltf::Node &node)
-    -> std::tuple<glm::vec3, glm::vec3, glm::vec3>
-{
-    fastgltf::TRS trs;
 
-    if (std::holds_alternative<fastgltf::TRS>(node.transform))
-    {
-        trs = std::get<fastgltf::TRS>(node.transform);
-    }
-    else
-    {
-        auto &mat = std::get<fastgltf::math::fmat4x4>(node.transform);
-        fastgltf::math::decomposeTransformMatrix(mat, trs.scale, trs.rotation,
-                                                 trs.translation);
-    }
-
-    auto &t = trs.translation;
-    auto &r = trs.rotation;
-    auto &s = trs.scale;
-
-    auto translation = glm::vec3(t.x(), t.y(), t.z());
-
-    auto quat     = glm::quat(r.w(), r.x(), r.y(), r.z());
-    auto rotation = glm::eulerAngles(quat);
-
-    auto scale = glm::vec3(s.x(), s.y(), s.z());
-
-    return {translation, rotation, scale};
-}
 
 void AssetManager::ProcessGltfHierarchy(SceneGraphNode &root)
 {
-    // TODO: Currently we assume gltf holds one scene.
-    auto &scene = mModel->Gltf.scenes[0];
-
-    for (auto nodeIdx : scene.nodeIndices)
-    {
-        auto &node                          = mModel->Gltf.nodes[nodeIdx];
-        auto [translation, rotation, scale] = UnpackTransform(node);
-
-        // TODO: Only handles first-level nodes that hold meshes
-        if (node.meshIndex.has_value())
-        {
-            auto meshKey = mModel->MeshDict[*node.meshIndex];
-
-            auto &prefabNode       = root.EmplaceChild(meshKey);
-            prefabNode.Translation = translation;
-            prefabNode.Rotation    = rotation;
-            prefabNode.Scale       = scale;
-            prefabNode.Name        = node.name;
-        }
-    }
+    
 }

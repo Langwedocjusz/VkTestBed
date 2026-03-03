@@ -2,14 +2,15 @@
 
 #include "ModelConfig.h"
 #include "Scene.h"
+#include "SceneGraph.h"
 
 #include <filesystem>
 #include <memory>
 
 struct GltfPrimitive {
-    size_t                 IndexCount;
-    size_t                 VertexCount;
-    // TODO: Indices could already be stored as 
+    size_t IndexCount;
+    size_t VertexCount;
+    // TODO: Indices could already be stored as
     // opaque buffer to save that one memcpy
     std::vector<uint32_t>  Indices;
     std::vector<glm::vec3> Positions;
@@ -37,19 +38,26 @@ struct PrimitiveTaskData {
 
 class GltfAsset {
   public:
-    GltfAsset()  = default;
-    ~GltfAsset() = default;
+    //Will load gltf buffers into memory:
+    GltfAsset(const std::filesystem::path &filepath);
+    ~GltfAsset();
 
-    static GltfAsset LoadGltfWithBuffers(const std::filesystem::path &filepath);
+    GltfAsset(const GltfAsset&) = delete;
+    GltfAsset& operator=(const GltfAsset&) = delete;
 
-    void PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> keyMap,
+    GltfAsset(GltfAsset&&) noexcept;
+    GltfAsset& operator=(GltfAsset&&) noexcept;
+
+    void PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> matKeyMap,
                              std::vector<ImageTaskData> &tasks,
                              const ModelConfig          &config);
-    void PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> keyMap,
+    void PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> meshKeyMap,
                           std::vector<PrimitiveTaskData> &tasks,
                           const ModelConfig              &config);
 
-    //The gltf primitive should be move-returned:
+    void PreprocessHierarchy(SceneGraphNode &root, const std::map<size_t, SceneKey> &meshKeyMap);
+
+    // The gltf primitive should be move-returned:
     GltfPrimitive LoadPrimitive(PrimitiveTaskData data, const ModelConfig &config);
 
   private:

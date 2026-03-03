@@ -9,6 +9,8 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 
+#include <glm/gtc/quaternion.hpp>
+
 #include <iostream>
 #include <ranges>
 
@@ -37,12 +39,26 @@ struct GltfAsset::Impl {
     fastgltf::Asset Asset;
 };
 
-GltfAsset GltfAsset::LoadGltfWithBuffers(const std::filesystem::path &filepath)
-{
-    GltfAsset ret{};
-    ret.mPImpl = std::make_unique<GltfAsset::Impl>(filepath, true);
 
-    return ret;
+GltfAsset::GltfAsset(const std::filesystem::path &filepath)
+{
+    mPImpl = std::make_unique<GltfAsset::Impl>(filepath, true);
+}
+
+GltfAsset::~GltfAsset()
+{
+    mPImpl.reset(nullptr);
+}
+
+GltfAsset::GltfAsset(GltfAsset&& other) noexcept
+{
+    mPImpl = std::move(other.mPImpl);
+}
+
+GltfAsset& GltfAsset::operator=(GltfAsset&& other) noexcept
+{
+    mPImpl = std::move(other.mPImpl);
+    return *this;
 }
 
 // Utility function to obtain absolute paths to gltf-referenced images.
@@ -235,6 +251,61 @@ void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> keyMap
                 .GltfMesh  = gltfMeshId,
                 .GltfPrim  = gltfPrimId,
             });
+        }
+    }
+}
+
+static auto UnpackTransform(fastgltf::Node &node)
+    -> std::tuple<glm::vec3, glm::vec3, glm::vec3>
+{
+    fastgltf::TRS trs;
+
+    if (std::holds_alternative<fastgltf::TRS>(node.transform))
+    {
+        trs = std::get<fastgltf::TRS>(node.transform);
+    }
+    else
+    {
+        auto &mat = std::get<fastgltf::math::fmat4x4>(node.transform);
+        fastgltf::math::decomposeTransformMatrix(mat, trs.scale, trs.rotation,
+                                                 trs.translation);
+    }
+
+    auto &t = trs.translation;
+    auto &r = trs.rotation;
+    auto &s = trs.scale;
+
+    auto translation = glm::vec3(t.x(), t.y(), t.z());
+
+    auto quat     = glm::quat(r.w(), r.x(), r.y(), r.z());
+    auto rotation = glm::eulerAngles(quat);
+
+    auto scale = glm::vec3(s.x(), s.y(), s.z());
+
+    return {translation, rotation, scale};
+}
+
+void GltfAsset::PreprocessHierarchy(SceneGraphNode &root, const std::map<size_t, SceneKey> &meshKeyMap)
+{
+    // TODO: Currently we assume gltf holds one scene.
+    auto &scene = mPImpl->Asset.scenes[0];
+
+    for (auto nodeIdx : scene.nodeIndices)
+    {
+        auto &node                          = mPImpl->Asset.nodes[nodeIdx];
+        auto [translation, rotation, scale] = UnpackTransform(node);
+
+        // TODO: Only handles first-level nodes that hold meshes
+        if (node.meshIndex.has_value())
+        {
+            size_t meshIdx = *node.meshIndex;
+            auto meshKey = meshKeyMap.at(meshIdx);
+
+            auto &prefabNode       = root.EmplaceChild(meshKey);
+            prefabNode.Translation = translation;
+            prefabNode.Rotation    = rotation;
+            prefabNode.Scale       = scale;
+            prefabNode.Name        = node.name;
         }
     }
 }

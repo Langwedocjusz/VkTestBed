@@ -1,6 +1,8 @@
 #include "VertexLayout.h"
 #include "Pch.h"
 
+#include <variant>
+
 bool operator==(const Vertex::PushLayout &lhs, const Vertex::PushLayout &rhs)
 {
     bool res = true;
@@ -35,23 +37,37 @@ bool operator==(const Vertex::Layout &lhs, const Vertex::Layout &rhs)
     return false;
 }
 
-uint32_t Vertex::GetSize(const Vertex::PushLayout &layout)
+uint32_t Vertex::GetSize(const Vertex::Layout &vLayout)
 {
-    uint32_t res = 3 * sizeof(float);
+    if (auto *layout = std::get_if<PushLayout>(&vLayout))
+    {
+        uint32_t res = 3 * sizeof(float);
 
-    if (layout.HasTexCoord)
-        res += 2 * sizeof(float);
+        if (layout->HasTexCoord)
+            res += 2 * sizeof(float);
 
-    if (layout.HasNormal)
-        res += 3 * sizeof(float);
+        if (layout->HasNormal)
+            res += 3 * sizeof(float);
 
-    if (layout.HasTangent)
-        res += 4 * sizeof(float);
+        if (layout->HasTangent)
+            res += 4 * sizeof(float);
 
-    if (layout.HasColor)
-        res += 4 * sizeof(float);
+        if (layout->HasColor)
+            res += 4 * sizeof(float);
 
-    return res;
+        return res;
+    }
+
+    else if (auto *layout = std::get_if<PullLayout>(&vLayout))
+    {
+        if (*layout == PullLayout::Naive)
+        {
+            return sizeof(PullNaive);
+        }
+        // TODO: Compressed
+    }
+
+    return 0;
 }
 
 Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const PushLayout &layout)

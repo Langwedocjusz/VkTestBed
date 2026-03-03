@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GltfImporter.h"
 #include "ModelConfig.h"
 #include "Scene.h"
 #include "SceneGraph.h"

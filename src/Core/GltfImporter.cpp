@@ -3,6 +3,7 @@
 
 #include "TangentsGenerator.h"
 #include "Vassert.h"
+#include "VertexLayout.h"
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>
@@ -13,6 +14,34 @@
 
 #include <iostream>
 #include <ranges>
+
+struct VertexLoadFlags{
+    bool LoadTexCoord;
+    bool LoadNormals;
+    bool LoadTangents;
+    bool LoadColor;
+};
+
+static VertexLoadFlags GetLoadFlags(Vertex::Layout vLayout)
+{
+    if (auto *layout = std::get_if<Vertex::PushLayout>(&vLayout))
+    {
+        return VertexLoadFlags{
+            .LoadTexCoord = layout->HasTexCoord,
+            .LoadNormals = layout->HasNormal,
+            .LoadTangents = layout->HasTangent,
+            .LoadColor = layout->HasColor,
+        };
+    }
+
+    //All currently supported pull layout represent the same data:
+    return VertexLoadFlags{
+        .LoadTexCoord = true,
+        .LoadNormals = true,
+        .LoadTangents = true,
+        .LoadColor = false,
+    };
+}
 
 struct GltfAsset::Impl {
     Impl(const std::filesystem::path &path, bool loadBuffers)
@@ -98,7 +127,7 @@ static uint8_t PixelChannelFromFloat(float x)
     return static_cast<uint8_t>(255.0f * x);
 }
 
-void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> keyMap,
+void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &keyMap,
                                     std::vector<ImageTaskData> &tasks,
                                     const ModelConfig          &config)
 {
@@ -210,13 +239,14 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> key
     }
 }
 
-void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> keyMap,
+void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> &meshKeyMap,
                                  std::vector<PrimitiveTaskData> &tasks,
-                                 const ModelConfig              &config)
+                                 const ModelConfig              &config,
+                                 const std::map<size_t, SceneKey> &matKeyMap)
 {
     using namespace std::views;
 
-    vassert(keyMap.empty(), "Key map should be empty!");
+    vassert(meshKeyMap.empty(), "Key map should be empty!");
     vassert(tasks.empty(), "Tasks vector should be empty!");
 
     const std::string baseName = config.Filepath.stem().string();
@@ -229,7 +259,7 @@ void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> keyMap
         mesh.Name            = std::format("{} {}", baseName, gltfMesh.name);
 
         // Update mesh key map:
-        keyMap[gltfMeshId] = meshKey;
+        meshKeyMap[gltfMeshId] = meshKey;
 
         // Retrieve its primitives:
         for (auto [gltfPrimId, gltfPrim] : enumerate(gltfMesh.primitives))
@@ -240,8 +270,7 @@ void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> keyMap
             // Assign material keys to the mesh:
             if (auto id = gltfPrim.materialIndex)
             {
-                auto matId = keyMap[*id];
-
+                auto matId = matKeyMap.at(*id);
                 newMeshPrim.Material = matId;
             }
 
@@ -329,13 +358,15 @@ static size_t GetIndexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitiv
     return indexAccessor.count;
 }
 
-GltfPrimitive GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig &config)
+PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig &config)
 {
-    GltfPrimitive res{};
+    PrimitiveData res{};
 
     auto &gltf      = mPImpl->Asset;
     auto &mesh      = gltf.meshes[data.GltfMesh];
     auto &primitive = mesh.primitives[data.GltfPrim];
+
+    auto flags = GetLoadFlags(config.VertexLayout);
 
     // Retrieve indices:
     res.IndexCount = GetIndexCount(gltf, primitive);
@@ -380,7 +411,7 @@ GltfPrimitive GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
     }
 
     // Retrieve texture coords
-    if (config.LoadTexCoord)
+    if (flags.LoadTexCoord)
     {
         auto texcoordIt = primitive.findAttribute("TEXCOORD_0");
 
@@ -404,7 +435,7 @@ GltfPrimitive GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
     }
 
     // Retrieve normals
-    if (config.LoadNormals)
+    if (flags.LoadNormals)
     {
         auto normalIt = primitive.findAttribute("NORMAL");
 
@@ -427,7 +458,7 @@ GltfPrimitive GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
     }
 
     // Retrieve tangents if present, generate them with mikktspace otherwise
-    if (config.LoadTangents)
+    if (flags.LoadTangents)
     {
         auto tangentIt = primitive.findAttribute("TANGENT");
 
@@ -447,6 +478,8 @@ GltfPrimitive GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
             tangen::GenerateTangents(res);
         }
     }
+
+    //TODO: Fetch colors?
 
     return res;
 }

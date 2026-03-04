@@ -20,9 +20,7 @@ class AssetManager {
     void ClearCachedHDRI();
 
   private:
-    void ParseGltf();
-    void PreprocessGltfAssets();
-    void ProcessGltfHierarchy(SceneGraphNode &root);
+    void PreprocessGltf(SceneGraphNode &root);
 
   private:
     Scene &mScene;

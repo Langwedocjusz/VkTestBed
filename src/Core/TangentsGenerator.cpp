@@ -6,10 +6,10 @@
 #include "mikktspace.h"
 
 struct TgtData {
-    GltfPrimitive *Prim;
+    PrimitiveData *Prim;
 };
 
-static GltfPrimitive *GetDataPointer(const SMikkTSpaceContext *ctx)
+static PrimitiveData *GetDataPointer(const SMikkTSpaceContext *ctx)
 {
     auto data = static_cast<TgtData *>(ctx->m_pUserData);
     return data->Prim;
@@ -23,7 +23,7 @@ static int GetVertexId(std::vector<uint32_t> &indices, int32_t iVert, int32_t iF
     return index;
 };
 
-void tangen::GenerateTangents(GltfPrimitive &prim)
+void tangen::GenerateTangents(PrimitiveData &prim)
 {
     // Make sure primitive is valid:
     vassert(prim.VertexCount > 0, "Vertex count is zero!");

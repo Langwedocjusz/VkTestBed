@@ -126,18 +126,24 @@ static void GetLeafById(SceneKey id, SceneGraphNode *&result, SceneGraphNode *no
 
 void SceneGui::SetSelection(SceneKey objKey)
 {
+    // If empty space was clicked - clear selection:
     if (objKey == 0)
+    {
+        mSelectedNode = nullptr;
+        return;
+    }
+        
+    // Otherwise determine corresponding node:
+    SceneGraphNode *selectedNode = nullptr;
+    GetLeafById(objKey, selectedNode, &mEditor.GraphRoot);
+
+    vassert(selectedNode != nullptr, "Got invalid object key (no node has it assigned)!");
+
+    // Update selection:
+    if (selectedNode == mSelectedNode)
         mSelectedNode = nullptr;
     else
-    {
-        SceneGraphNode *selectedNode;
-        GetLeafById(objKey, selectedNode, &mEditor.GraphRoot);
-
-        if (selectedNode == mSelectedNode)
-            mSelectedNode = nullptr;
-        else
-            mSelectedNode = selectedNode;
-    }
+        mSelectedNode = selectedNode;
 }
 
 void SceneGui::SceneHierarchyMenu()

@@ -405,7 +405,7 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     res          = res | B << 16;
     res          = res | A << 24;
 
-    // printf("Got ID: %u (from R: %u G: %u B: %u A: %u) \n", res, R, G, B, A);
+    //printf("Got ID: %u (from R: %u G: %u B: %u A: %u) \n", res, R, G, B, A);
 
     return static_cast<SceneKey>(res);
 }

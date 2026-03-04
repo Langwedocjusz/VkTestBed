@@ -55,7 +55,7 @@ static PushVertexOffsets GetOffsets(const Vertex::PushLayout &layout)
     };
 }
 
-GeometryData VertexPacking::Encode(GltfPrimitive &prim, Vertex::Layout vLayout)
+GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
 {
     // Allocate memory:
     auto       vertSize = Vertex::GetSize(vLayout);
@@ -69,6 +69,8 @@ GeometryData VertexPacking::Encode(GltfPrimitive &prim, Vertex::Layout vLayout)
         .VertexLayout = vLayout,
         .IndexType    = VK_INDEX_TYPE_UINT32,
     };
+
+    geo.BBox = prim.BBox;
 
     // Retrieve indices:
     std::memcpy(geo.IndexData.Data, prim.Indices.data(), prim.Indices.size() * sizeof(uint32_t));

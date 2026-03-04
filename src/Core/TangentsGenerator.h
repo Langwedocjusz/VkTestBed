@@ -4,5 +4,5 @@
 
 namespace tangen
 {
-void GenerateTangents(GltfPrimitive &prim);
+void GenerateTangents(PrimitiveData &prim);
 } // namespace tangen

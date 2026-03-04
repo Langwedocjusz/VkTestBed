@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <memory>
 
-struct GltfPrimitive {
+struct PrimitiveData {
     size_t IndexCount;
     size_t VertexCount;
     // TODO: Indices could already be stored as
@@ -48,17 +48,28 @@ class GltfAsset {
     GltfAsset(GltfAsset&&) noexcept;
     GltfAsset& operator=(GltfAsset&&) noexcept;
 
-    void PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> matKeyMap,
+    // Retrieves all materials and creates corresponding objects in the scene
+    // Fills out a vector of async image-load tasks to be dispatched.
+    // Also fills out map (gltf id) -> (scene id) for materials.
+    void PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &matKeyMap,
                              std::vector<ImageTaskData> &tasks,
                              const ModelConfig          &config);
-    void PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> meshKeyMap,
-                          std::vector<PrimitiveTaskData> &tasks,
-                          const ModelConfig              &config);
 
+    // Consumes material table filled by PreprocessMaterials.
+    // Retrieves all mesh primitives and creates corresponding objects in the scene
+    // Fills out a vector of async primitive-load tasks to be dispatched.
+    // Also fills out map (gltf id) -> (scene id) for meshes.
+    void PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> &meshKeyMap,
+                          std::vector<PrimitiveTaskData> &tasks,
+                          const ModelConfig              &config,
+                          const std::map<size_t, SceneKey> &matKeyMap);
+
+    // Consumes mesh table filled by PreprocessMeshes.
+    // Creates a prefab based on the mesh hierarchy of the source gltf.
     void PreprocessHierarchy(SceneGraphNode &root, const std::map<size_t, SceneKey> &meshKeyMap);
 
     // The gltf primitive should be move-returned:
-    GltfPrimitive LoadPrimitive(PrimitiveTaskData data, const ModelConfig &config);
+    PrimitiveData LoadPrimitive(PrimitiveTaskData data, const ModelConfig &config);
 
   private:
     struct Impl;

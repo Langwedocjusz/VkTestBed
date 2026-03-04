@@ -6,5 +6,5 @@
 
 namespace VertexPacking
 {
-GeometryData Encode(GltfPrimitive &prim, Vertex::Layout layout);
+GeometryData Encode(PrimitiveData &prim, Vertex::Layout layout);
 } // namespace VertexPacking

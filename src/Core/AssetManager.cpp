@@ -10,8 +10,6 @@
 #include <atomic>
 #include <memory>
 #include <iostream>
-#include <ranges>
-#include <variant>
 
 struct AssetManager::Model {
     Model(const ModelConfig &config, bool &isReady)
@@ -22,8 +20,8 @@ struct AssetManager::Model {
     ModelConfig                    Config;
     bool                          &IsReady;
     std::unique_ptr<GltfAsset>     Gltf;
-    std::vector<ImageTaskData>     ImgData;
-    std::vector<PrimitiveTaskData> PrimData;
+    std::vector<ImageTaskData>     ImgTasks;
+    std::vector<PrimitiveTaskData> PrimTasks;
     std::map<size_t, SceneKey>     MeshKeyMap;
     std::atomic_int64_t            TasksLeft;
     Timer::TimePoint               StartTime;
@@ -52,10 +50,7 @@ void AssetManager::LoadModel(const ModelConfig &config, SceneGraphNode &root,
     // 2. Launch an async task to parse gltf and emplace new
     // elements in the scene
     mThreadPool->Push([this, &root]() {
-        ParseGltf();
-        PreprocessGltfAssets();
-        ProcessGltfHierarchy(root);
-
+        PreprocessGltf(root);
         mModelStage = ModelStage::Parsed;
     });
 }
@@ -68,7 +63,7 @@ void AssetManager::OnUpdate()
         mModelStage = ModelStage::Loading;
 
         // 3.1. Schedule image loading:
-        for (auto &data : mModel->ImgData)
+        for (auto &data : mModel->ImgTasks)
         {
             mThreadPool->Push([this, &data]() {
                 auto &img = mScene.Images[data.ImageKey];
@@ -88,17 +83,15 @@ void AssetManager::OnUpdate()
         }
 
         // 3.2. Schedule mesh parsing:
-        for (auto &data : mModel->PrimData)
+        for (auto &data : mModel->PrimTasks)
         {
             mThreadPool->Push([this, &data]() {
                 auto &mesh = mScene.Meshes[data.SceneMesh];
-                auto &prim = mesh.Primitives[data.ScenePrim];
-
-                auto &srcMesh      = mModel->Gltf.meshes[data.GltfMesh];
-                auto &srcPrimitive = srcMesh.primitives[data.GltfPrim];
-
-                prim.Data = ModelLoader::LoadPrimitive(mModel->Gltf, mModel->Config,
-                                                       srcPrimitive);
+                auto &prim = mesh.Primitives[data.ScenePrim];                
+                
+                auto primDataRaw = mModel->Gltf->LoadPrimitive(data, mModel->Config);
+                
+                prim.Data = VertexPacking::Encode(primDataRaw, mModel->Config.VertexLayout);
 
                 mModel->TasksLeft--;
             });
@@ -126,15 +119,32 @@ void AssetManager::OnUpdate()
             auto time = Timer::GetDiffSeconds(now, mModel->StartTime);
             std::cout << "Finished loading model (took " << time << " [s])\n";
 
-            // Free task-related memory:
+            // Free model and task-related memory:
             mModel.reset(nullptr);
         }
     }
 }
 
-void AssetManager::ParseGltf()
+void AssetManager::PreprocessGltf(SceneGraphNode &root)
 {
+    //Load and parse gltf file:
     mModel->Gltf = std::make_unique<GltfAsset>(mModel->Config.Filepath);
+
+    // Retrieve materials, fill table of their keys
+    std::map<size_t, SceneKey> matKeyMap;
+    mModel->Gltf->PreprocessMaterials(mScene, matKeyMap, mModel->ImgTasks, mModel->Config);
+
+    // Retrieve mesh primitives, fill table of their keys, assign them materials from previous table
+    mModel->Gltf->PreprocessMeshes(mScene, mModel->MeshKeyMap, mModel->PrimTasks, mModel->Config, matKeyMap);
+
+    // Retrieve node hierarchy, assign keys from mesh table:
+    mModel->Gltf->PreprocessHierarchy(root, mModel->MeshKeyMap);
+
+    // Calculate number of async tasks to do:
+    const auto primCount = mModel->ImgTasks.size();
+    const auto imgCount = mModel->PrimTasks.size();
+
+    mModel->TasksLeft = static_cast<int64_t>(primCount + imgCount);
 }
 
 void AssetManager::LoadHdri(const std::filesystem::path &path)
@@ -157,20 +167,4 @@ void AssetManager::LoadHdri(const std::filesystem::path &path)
 void AssetManager::ClearCachedHDRI()
 {
     mHDRI.LastPath = std::nullopt;
-}
-
-void AssetManager::PreprocessGltfAssets()
-{
-    
-
-    // Set the number of tasks to do:
-    mModel->TasksLeft =
-        static_cast<int64_t>(mModel->ImgData.size() + mModel->PrimData.size());
-}
-
-
-
-void AssetManager::ProcessGltfHierarchy(SceneGraphNode &root)
-{
-    
 }

@@ -5,165 +5,73 @@
 #include "TangentsGenerator.h"
 
 #include "VertexLayout.h"
+#include "VertexPacking.h"
 #include "volk.h"
 
 #include <cmath>
 #include <cstdint>
 #include <numbers>
 
-static GeometryData TexturedCubeImpl(bool withTangents)
-{
-    struct Vertex {
-        glm::vec3 Position;
-        glm::vec2 TexCoord;
-        glm::vec3 Normal;
-    };
-
-    struct VertexT {
-        glm::vec3 Position;
-        glm::vec2 TexCoord;
-        glm::vec3 Normal;
-        glm::vec4 Tangent;
-    };
-
-    // Generate the geometry data object:
-    const auto spec = [&]() {
-        if (withTangents)
-            return GeometrySpec::BuildV<VertexT, uint32_t>(24, 36);
-        else
-            return GeometrySpec::BuildV<Vertex, uint32_t>(24, 36);
-    }();
-
-    GeometryData res(spec);
-
-    // clang-format off
-
-    //Provide vertex data:
-    if (withTangents)
-    {
-        new (res.VertexData.Data) VertexT[spec.VertCount]
-        {
-            //Top
-            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, glm::vec4(0.0f)},
-            {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, glm::vec4(0.0f)},
-            {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, glm::vec4(0.0f)},
-            {{-0.5f, 0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, glm::vec4(0.0f)},
-            //Bottom
-            {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f,-1.0f, 0.0f}, glm::vec4(0.0f)},
-            {{ 0.5f,-0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f,-1.0f, 0.0f}, glm::vec4(0.0f)},
-            {{ 0.5f,-0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f,-1.0f, 0.0f}, glm::vec4(0.0f)},
-            {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f,-1.0f, 0.0f}, glm::vec4(0.0f)},
-            //Front
-            {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, glm::vec4(0.0f)},
-            {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, glm::vec4(0.0f)},
-            {{ 0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, glm::vec4(0.0f)},
-            {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, glm::vec4(0.0f)},
-            //Back
-            {{-0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f,-1.0f}, glm::vec4(0.0f)},
-            {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}, glm::vec4(0.0f)},
-            {{ 0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f,-1.0f}, glm::vec4(0.0f)},
-            {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f,-1.0f}, glm::vec4(0.0f)},
-            //Right
-            {{ 0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
-            {{ 0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
-            {{ 0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
-            {{ 0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
-            //Left
-            {{-0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
-            {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
-            {{-0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)},
-            {{-0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, glm::vec4(0.0f)}
-        };
-    }
-
-    else 
-    {
-        new (res.VertexData.Data) Vertex[spec.VertCount]
-        {
-            //Top
-            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-            {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-            {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-            {{-0.5f, 0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-            //Bottom
-            {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f,-1.0f, 0.0f}},
-            {{ 0.5f,-0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f,-1.0f, 0.0f}},
-            {{ 0.5f,-0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f,-1.0f, 0.0f}},
-            {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f,-1.0f, 0.0f}},
-            //Front
-            {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-            {{ 0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-            {{ 0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-            {{-0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-            //Back
-            {{-0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
-            {{ 0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f,-1.0f}},
-            {{ 0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
-            {{-0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f,-1.0f}},
-            //Right
-            {{ 0.5f,-0.5f, 0.5f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-            {{ 0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-            {{ 0.5f, 0.5f,-0.5f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-            {{ 0.5f,-0.5f,-0.5f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-            //Left
-            {{-0.5f,-0.5f, 0.5f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}},
-            {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
-            {{-0.5f, 0.5f,-0.5f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}},
-            {{-0.5f,-0.5f,-0.5f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}},
-        };
-    }
-
-    //Provide index data:
-    new (res.IndexData.Data) uint32_t[spec.IdxCount]
-    {
-        //Top
-        0,1,2, 2,3,0,
-        //Bottom
-        4,6,5, 6,4,7,
-        //Front
-        8,10,9, 10,8,11,
-        //Back
-        12,13,14, 14,15,12,
-        //Right
-        16,18,17, 18,16,19,
-        //Left
-        20,21,22, 22,23,20
-    };
-    // clang-format on
-
-    // Generate the tangents if necessary:
-    if (withTangents)
-    {
-        // Generate the tangents:
-        auto layout = tangen::VertexLayout{
-            .Stride         = 3 + 2 + 3 + 4,
-            .OffsetPos      = {0, 1, 2},
-            .OffsetTexCoord = {3, 4},
-            .OffsetNormal   = {5, 6, 7},
-            .OffsetTangent  = {8, 9, 10, 11},
-        };
-
-        tangen::GenerateTangents(res, layout);
-    }
-
-    // Fill in the layout:
-    res.Layout.VertexLayout = ::Vertex::PushLayout{
-        .HasTexCoord = true, .HasNormal = true, .HasTangent = withTangents};
-    res.Layout.IndexType = VK_INDEX_TYPE_UINT32;
-    res.BBox.Center      = glm::vec3(0.0f);
-    res.BBox.Extent      = glm::vec3(0.5f);
-
-    return res;
-}
-
-GeometryData primitive::TexturedCube()
-{
-    return TexturedCubeImpl(false);
-}
-
 GeometryData primitive::TexturedCubeWithTangent()
 {
-    return TexturedCubeImpl(true);
+    const uint32_t vertCount = 24;
+    const uint32_t idxCount = 36;
+
+    PrimitiveData primData{};
+    primData.VertexCount = vertCount;
+    primData.IndexCount = idxCount;
+    primData.BBox = AABB{
+        .Center = glm::vec3(0.0f),
+        .Extent = glm::vec3(0.5f),
+    };
+
+    //Convention is Top Bottom Front Back Right Left
+
+    // clang-format off
+    primData.Positions = {
+        {-0.5f, 0.5f, 0.5f}, { 0.5f, 0.5f, 0.5f}, { 0.5f, 0.5f,-0.5f}, {-0.5f, 0.5f,-0.5f},
+        {-0.5f,-0.5f, 0.5f}, { 0.5f,-0.5f, 0.5f}, { 0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f,-0.5f},
+        {-0.5f, 0.5f, 0.5f}, { 0.5f, 0.5f, 0.5f}, { 0.5f,-0.5f, 0.5f}, {-0.5f,-0.5f, 0.5f},
+        {-0.5f, 0.5f,-0.5f}, { 0.5f, 0.5f,-0.5f}, { 0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f,-0.5f},
+        { 0.5f,-0.5f, 0.5f}, { 0.5f, 0.5f, 0.5f}, { 0.5f, 0.5f,-0.5f}, { 0.5f,-0.5f,-0.5f},
+        {-0.5f,-0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f,-0.5f}, {-0.5f,-0.5f,-0.5f}
+    };
+
+    primData.TexCoords = {
+        {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f},
+        {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f},
+        {1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f},
+        {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f},
+        {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f},
+        {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f}
+    };
+
+    primData.Normals = {
+        {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f},
+        {0.0f,-1.0f, 0.0f}, {0.0f,-1.0f, 0.0f}, {0.0f,-1.0f, 0.0f}, {0.0f,-1.0f, 0.0f},
+        {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f},
+        {0.0f, 0.0f,-1.0f}, {0.0f, 0.0f,-1.0f}, {0.0f, 0.0f,-1.0f}, {0.0f, 0.0f,-1.0f},
+        {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f},
+        {-1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}
+    };
+
+    primData.Indices = {
+        0,1,2, 2,3,0, 
+        4,6,5, 6,4,7,
+        8,10,9, 10,8,11,
+        12,13,14, 14,15,12,
+        16,18,17, 18,16,19,
+        20,21,22, 22,23,20
+    };
+
+    // clang-format on
+
+    tangen::GenerateTangents(primData);
+
+    Vertex::Layout layout = Vertex::PullLayout::Naive;
+    GeometryData res = VertexPacking::Encode(primData, layout);
+
+    return res;
 }
 
 GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivisions)
@@ -182,41 +90,31 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     const uint32_t numTriangles = numLatitudeLines * numLongitudeLines * 2;
     const uint32_t numIndices   = 3 * numTriangles;
 
-    struct Vertex {
-        glm::vec3 Position;
-        glm::vec2 TexCoord;
-        glm::vec3 Normal;
-        glm::vec4 Tangent;
-    };
+    PrimitiveData primData{};
+    primData.VertexCount = numVertices;
+    primData.IndexCount = numIndices;
+    primData.BBox = AABB{.Center = glm::vec3(0.0f), .Extent = glm::vec3(radius),};
 
-    const auto spec = GeometrySpec::BuildV<Vertex, uint32_t>(numVertices, numIndices);
-
-    GeometryData res(spec);
-
-    auto vertices = new (res.VertexData.Data) Vertex[spec.VertCount];
-    auto indices  = new (res.IndexData.Data) uint32_t[spec.IdxCount];
+    // Generate base vertex data:
+    primData.Positions.resize(numVertices);
+    primData.TexCoords.resize(numVertices);
+    primData.Normals.resize(numVertices);
 
     // North pole.
-    vertices[0] = Vertex{
-        .Position = glm::vec3(0.0f, radius, 0.0f),
-        .TexCoord = glm::vec2(0.0f, 1.0f),
-        .Normal   = glm::vec3(0.0f, 1.0f, 0.0f),
-        .Tangent  = glm::vec4(0.0f),
-    };
+    primData.Positions[0] = glm::vec3(0.0f, radius, 0.0f);
+    primData.TexCoords[0] = glm::vec2(0.0f, 1.0f);
+    primData.Normals[0] = glm::vec3(0.0f, 1.0f, 0.0f);
 
     // South pole.
-    vertices[numVertices - 1] = Vertex{
-        .Position = glm::vec3(0.0f, -radius, 0.0f),
-        .TexCoord = glm::vec2(0.0f, 0.0f),
-        .Normal   = glm::vec3(0.0f, -1.0f, 0.0f),
-        .Tangent  = glm::vec4(0.0f),
-    };
+    primData.Positions[numVertices - 1] = glm::vec3(0.0f, -radius, 0.0f);
+    primData.TexCoords[numVertices - 1] = glm::vec2(0.0f, 0.0f);
+    primData.Normals[numVertices - 1] = glm::vec3(0.0f, -1.0f, 0.0f);
 
     // +1.0f because there's a gap between the poles and the first parallel.
     const float latitudeSpacing  = 1.0f / (static_cast<float>(numLatitudeLines) + 1.0f);
     const float longitudeSpacing = 1.0f / static_cast<float>(numLongitudeLines);
 
-    // start writing new vertices at position 1
+    // Start writing new vertices at position 1
     size_t vertId = 1;
 
     for (uint32_t latitude = 0; latitude < numLatitudeLines; latitude++)
@@ -244,27 +142,26 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
                 radius * std::cos(phi) * std::sin(theta),
             };
 
-            vertices[vertId] = Vertex{
-                .Position = pos,
-                .TexCoord = texCoords,
-                .Normal   = glm::normalize(pos),
-                .Tangent  = glm::vec4(0.0f),
-            };
+            primData.Positions[vertId] = pos;
+            primData.TexCoords[vertId] = texCoords;
+            primData.Normals[vertId] = glm::normalize(pos);
 
             // Proceed to the next vertex.
             vertId++;
         }
     }
 
-    // Generate indices:
+    // Generate index data:
+    primData.Indices.resize(numIndices);
+
     size_t indexIdx = 0;
 
     // North pole cap:
     for (uint32_t i = 0; i < numLongitudeLines; i++)
     {
-        indices[indexIdx++] = 0;
-        indices[indexIdx++] = i + 2;
-        indices[indexIdx++] = i + 1;
+        primData.Indices[indexIdx++] = 0;
+        primData.Indices[indexIdx++] = i + 2;
+        primData.Indices[indexIdx++] = i + 1;
     }
 
     // Middle:
@@ -282,14 +179,14 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
             uint32_t firstCorner = rowStart + longitude;
 
             // First triangle of quad: Top-Left, Bottom-Left, Bottom-Right
-            indices[indexIdx++] = firstCorner;
-            indices[indexIdx++] = firstCorner + rowLength + 1;
-            indices[indexIdx++] = firstCorner + rowLength;
+            primData.Indices[indexIdx++] = firstCorner;
+            primData.Indices[indexIdx++] = firstCorner + rowLength + 1;
+            primData.Indices[indexIdx++] = firstCorner + rowLength;
 
             // Second triangle of quad: Top-Left, Bottom-Right, Top-Right
-            indices[indexIdx++] = firstCorner;
-            indices[indexIdx++] = firstCorner + 1;
-            indices[indexIdx++] = firstCorner + rowLength + 1;
+            primData.Indices[indexIdx++] = firstCorner;
+            primData.Indices[indexIdx++] = firstCorner + 1;
+            primData.Indices[indexIdx++] = firstCorner + rowLength + 1;
         }
     }
 
@@ -299,30 +196,17 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
 
     for (uint32_t i = 0; i < numLongitudeLines; i++)
     {
-        indices[indexIdx++] = pole;
-        indices[indexIdx++] = bottomRow + i;
-        indices[indexIdx++] = bottomRow + i + 1;
+        primData.Indices[indexIdx++] = pole;
+        primData.Indices[indexIdx++] = bottomRow + i;
+        primData.Indices[indexIdx++] = bottomRow + i + 1;
     }
 
-    // Generate the tangents:
-    {
-        auto layout = tangen::VertexLayout{
-            .Stride         = 3 + 2 + 3 + 4,
-            .OffsetPos      = {0, 1, 2},
-            .OffsetTexCoord = {3, 4},
-            .OffsetNormal   = {5, 6, 7},
-            .OffsetTangent  = {8, 9, 10, 11},
-        };
+    //Generate tangent vectors:
+    tangen::GenerateTangents(primData);
 
-        tangen::GenerateTangents(res, layout);
-    }
-
-    // Fill in the layout:
-    res.Layout.VertexLayout =
-        ::Vertex::PushLayout{.HasTexCoord = true, .HasNormal = true, .HasTangent = true};
-    res.Layout.IndexType = VK_INDEX_TYPE_UINT32;
-    res.BBox.Center      = glm::vec3(0.0f);
-    res.BBox.Extent      = glm::vec3(radius);
+    //Pack to the desired vertex format:
+    Vertex::Layout layout = Vertex::PullLayout::Naive;
+    GeometryData res = VertexPacking::Encode(primData, layout);
 
     return res;
 }

@@ -101,8 +101,6 @@ target_sources(${PROJECT_NAME}
         src/Core/ImageData.cpp
         src/Core/Keycodes.h
         src/Core/ModelConfig.h
-        src/Core/ModelLoader.h
-        src/Core/ModelLoader.cpp
         src/Core/Scene.h
         src/Core/Scene.cpp
         src/Core/SceneEditor.h

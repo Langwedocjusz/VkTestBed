@@ -1,8 +1,8 @@
 #include "ModelLoaderGui.h"
 #include "Pch.h"
 
-#include "VertexLayout.h"
 #include "Vassert.h"
+#include "VertexLayout.h"
 
 #include "imgui.h"
 
@@ -68,7 +68,7 @@ void ModelLoaderGui::ImportMenu()
         static std::array names{"Push", "Pull Naive", "Pull Compressed"};
 
         bool typeChanged = ImGui::Combo("Type", &choice, names.data(),
-                     static_cast<int32_t>(names.size()));
+                                        static_cast<int32_t>(names.size()));
 
         if (typeChanged)
         {
@@ -89,8 +89,8 @@ void ModelLoaderGui::ImportMenu()
                 vpanic("Unhandlec choice value!");
             }
         }
-        
-        if (auto* layout = std::get_if<Vertex::PushLayout>(&mModelConfig.VertexLayout))
+
+        if (auto *layout = std::get_if<Vertex::PushLayout>(&mModelConfig.VertexLayout))
         {
             bool v = true;
             ImGui::Checkbox("Position", &v);

@@ -1322,7 +1322,7 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 
         auto meshKey = *obj.Mesh;
 
-        for (const auto [primIdx, _] : enumerate(scene.Meshes.at(meshKey).Primitives))
+        for (const auto [primIdx, prim] : enumerate(scene.Meshes.at(meshKey).Primitives))
         {
             auto drawableKey = DrawableKey{meshKey, primIdx};
 
@@ -1336,7 +1336,11 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
             auto &list = mObjectCache[objKey];
             list.emplace_back(drawableKey, drawable.Instances.size());
 
-            drawable.Instances.emplace_back(objKey, obj.Transform);
+            glm::mat4 base = glm::translate(glm::mat4(1.0f), prim.BaseOffset) * glm::scale(glm::mat4(1.0f), prim.BaseScale);
+
+            glm::mat4 transform = obj.Transform * base;
+
+            drawable.Instances.emplace_back(objKey, transform);
         }
     }
 }

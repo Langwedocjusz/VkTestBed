@@ -27,6 +27,8 @@ class SceneKeyGenerator {
 struct ScenePrimitive {
     GeometryData            Data;
     std::optional<SceneKey> Material;
+    glm::vec3 BaseOffset = glm::vec3(0.0f);
+    glm::vec3 BaseScale = glm::vec3(1.0f);
 };
 
 struct SceneMesh {

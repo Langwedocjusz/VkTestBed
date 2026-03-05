@@ -60,11 +60,13 @@ uint32_t Vertex::GetSize(const Vertex::Layout &vLayout)
 
     else if (auto *layout = std::get_if<PullLayout>(&vLayout))
     {
-        if (*layout == PullLayout::Naive)
+        switch (*layout)
         {
+        case Vertex::PullLayout::Naive:
             return sizeof(PullNaive);
+        case Vertex::PullLayout::Compressed:
+            return sizeof(PullCompressed);
         }
-        // TODO: Compressed
     }
 
     return 0;

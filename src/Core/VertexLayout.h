@@ -39,6 +39,16 @@ struct PullNaive {
     glm::vec4 Tangent;
 };
 
+// Currently just quantizes all attributes as uint16
+// TODO: Normal and Tangent should be further compressed
+// for example with octahedral mapping.
+struct PullCompressed {
+    std::array<uint16_t, 3> Pos;
+    std::array<uint16_t, 2> TexCoord;
+    std::array<uint16_t, 3> Normal;
+    std::array<uint16_t, 4> Tangent;
+};
+
 uint32_t GetSize(const Layout &layout);
 
 // Utils to quickly construct desctiptions for pipeline input when using push:

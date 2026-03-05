@@ -5,11 +5,12 @@
 #include "ModelConfig.h"
 #include "ThreadPool.h"
 #include "Timer.h"
+#include "VertexLayout.h"
 #include "VertexPacking.h"
 
 #include <atomic>
-#include <memory>
 #include <iostream>
+#include <memory>
 
 struct AssetManager::Model {
     Model(const ModelConfig &config, bool &isReady)
@@ -87,11 +88,18 @@ void AssetManager::OnUpdate()
         {
             mThreadPool->Push([this, &data]() {
                 auto &mesh = mScene.Meshes[data.SceneMesh];
-                auto &prim = mesh.Primitives[data.ScenePrim];                
-                
+                auto &prim = mesh.Primitives[data.ScenePrim];
+
                 auto primDataRaw = mModel->Gltf->LoadPrimitive(data, mModel->Config);
-                
-                prim.Data = VertexPacking::Encode(primDataRaw, mModel->Config.VertexLayout);
+
+                prim.Data =
+                    VertexPacking::Encode(primDataRaw, mModel->Config.VertexLayout);
+
+                if (mModel->Config.VertexLayout == Vertex::PullLayout::Compressed)
+                {
+                    prim.BaseOffset = primDataRaw.BBox.Center;
+                    prim.BaseScale = primDataRaw.BBox.Extent;   
+                }
 
                 mModel->TasksLeft--;
             });
@@ -127,22 +135,25 @@ void AssetManager::OnUpdate()
 
 void AssetManager::PreprocessGltf(SceneGraphNode &root)
 {
-    //Load and parse gltf file:
+    // Load and parse gltf file:
     mModel->Gltf = std::make_unique<GltfAsset>(mModel->Config.Filepath);
 
     // Retrieve materials, fill table of their keys
     std::map<size_t, SceneKey> matKeyMap;
-    mModel->Gltf->PreprocessMaterials(mScene, matKeyMap, mModel->ImgTasks, mModel->Config);
+    mModel->Gltf->PreprocessMaterials(mScene, matKeyMap, mModel->ImgTasks,
+                                      mModel->Config);
 
-    // Retrieve mesh primitives, fill table of their keys, assign them materials from previous table
-    mModel->Gltf->PreprocessMeshes(mScene, mModel->MeshKeyMap, mModel->PrimTasks, mModel->Config, matKeyMap);
+    // Retrieve mesh primitives, fill table of their keys, assign them materials from
+    // previous table
+    mModel->Gltf->PreprocessMeshes(mScene, mModel->MeshKeyMap, mModel->PrimTasks,
+                                   mModel->Config, matKeyMap);
 
     // Retrieve node hierarchy, assign keys from mesh table:
     mModel->Gltf->PreprocessHierarchy(root, mModel->MeshKeyMap);
 
     // Calculate number of async tasks to do:
     const auto primCount = mModel->ImgTasks.size();
-    const auto imgCount = mModel->PrimTasks.size();
+    const auto imgCount  = mModel->PrimTasks.size();
 
     mModel->TasksLeft = static_cast<int64_t>(primCount + imgCount);
 }

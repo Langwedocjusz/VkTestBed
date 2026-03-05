@@ -15,17 +15,17 @@
 GeometryData primitive::TexturedCubeWithTangent()
 {
     const uint32_t vertCount = 24;
-    const uint32_t idxCount = 36;
+    const uint32_t idxCount  = 36;
 
     PrimitiveData primData{};
     primData.VertexCount = vertCount;
-    primData.IndexCount = idxCount;
-    primData.BBox = AABB{
-        .Center = glm::vec3(0.0f),
-        .Extent = glm::vec3(0.5f),
+    primData.IndexCount  = idxCount;
+    primData.BBox        = AABB{
+               .Center = glm::vec3(0.0f),
+               .Extent = glm::vec3(0.5f),
     };
 
-    //Convention is Top Bottom Front Back Right Left
+    // Convention is Top Bottom Front Back Right Left
 
     // clang-format off
     primData.Positions = {
@@ -69,7 +69,7 @@ GeometryData primitive::TexturedCubeWithTangent()
     tangen::GenerateTangents(primData);
 
     Vertex::Layout layout = Vertex::PullLayout::Naive;
-    GeometryData res = VertexPacking::Encode(primData, layout);
+    GeometryData   res    = VertexPacking::Encode(primData, layout);
 
     return res;
 }
@@ -92,8 +92,11 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
 
     PrimitiveData primData{};
     primData.VertexCount = numVertices;
-    primData.IndexCount = numIndices;
-    primData.BBox = AABB{.Center = glm::vec3(0.0f), .Extent = glm::vec3(radius),};
+    primData.IndexCount  = numIndices;
+    primData.BBox        = AABB{
+               .Center = glm::vec3(0.0f),
+               .Extent = glm::vec3(radius),
+    };
 
     // Generate base vertex data:
     primData.Positions.resize(numVertices);
@@ -103,12 +106,12 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     // North pole.
     primData.Positions[0] = glm::vec3(0.0f, radius, 0.0f);
     primData.TexCoords[0] = glm::vec2(0.0f, 1.0f);
-    primData.Normals[0] = glm::vec3(0.0f, 1.0f, 0.0f);
+    primData.Normals[0]   = glm::vec3(0.0f, 1.0f, 0.0f);
 
     // South pole.
     primData.Positions[numVertices - 1] = glm::vec3(0.0f, -radius, 0.0f);
     primData.TexCoords[numVertices - 1] = glm::vec2(0.0f, 0.0f);
-    primData.Normals[numVertices - 1] = glm::vec3(0.0f, -1.0f, 0.0f);
+    primData.Normals[numVertices - 1]   = glm::vec3(0.0f, -1.0f, 0.0f);
 
     // +1.0f because there's a gap between the poles and the first parallel.
     const float latitudeSpacing  = 1.0f / (static_cast<float>(numLatitudeLines) + 1.0f);
@@ -144,7 +147,7 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
 
             primData.Positions[vertId] = pos;
             primData.TexCoords[vertId] = texCoords;
-            primData.Normals[vertId] = glm::normalize(pos);
+            primData.Normals[vertId]   = glm::normalize(pos);
 
             // Proceed to the next vertex.
             vertId++;
@@ -201,12 +204,12 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
         primData.Indices[indexIdx++] = bottomRow + i + 1;
     }
 
-    //Generate tangent vectors:
+    // Generate tangent vectors:
     tangen::GenerateTangents(primData);
 
-    //Pack to the desired vertex format:
+    // Pack to the desired vertex format:
     Vertex::Layout layout = Vertex::PullLayout::Naive;
-    GeometryData res = VertexPacking::Encode(primData, layout);
+    GeometryData   res    = VertexPacking::Encode(primData, layout);
 
     return res;
 }

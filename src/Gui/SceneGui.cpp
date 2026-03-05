@@ -132,7 +132,7 @@ void SceneGui::SetSelection(SceneKey objKey)
         mSelectedNode = nullptr;
         return;
     }
-        
+
     // Otherwise determine corresponding node:
     SceneGraphNode *selectedNode = nullptr;
     GetLeafById(objKey, selectedNode, &mEditor.GraphRoot);

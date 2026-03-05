@@ -15,7 +15,7 @@
 #include <iostream>
 #include <ranges>
 
-struct VertexLoadFlags{
+struct VertexLoadFlags {
     bool LoadTexCoord;
     bool LoadNormals;
     bool LoadTangents;
@@ -28,18 +28,18 @@ static VertexLoadFlags GetLoadFlags(Vertex::Layout vLayout)
     {
         return VertexLoadFlags{
             .LoadTexCoord = layout->HasTexCoord,
-            .LoadNormals = layout->HasNormal,
+            .LoadNormals  = layout->HasNormal,
             .LoadTangents = layout->HasTangent,
-            .LoadColor = layout->HasColor,
+            .LoadColor    = layout->HasColor,
         };
     }
 
-    //All currently supported pull layout represent the same data:
+    // All currently supported pull layout represent the same data:
     return VertexLoadFlags{
         .LoadTexCoord = true,
-        .LoadNormals = true,
+        .LoadNormals  = true,
         .LoadTangents = true,
-        .LoadColor = false,
+        .LoadColor    = false,
     };
 }
 
@@ -68,7 +68,6 @@ struct GltfAsset::Impl {
     fastgltf::Asset Asset;
 };
 
-
 GltfAsset::GltfAsset(const std::filesystem::path &filepath)
 {
     mPImpl = std::make_unique<GltfAsset::Impl>(filepath, true);
@@ -79,12 +78,12 @@ GltfAsset::~GltfAsset()
     mPImpl.reset(nullptr);
 }
 
-GltfAsset::GltfAsset(GltfAsset&& other) noexcept
+GltfAsset::GltfAsset(GltfAsset &&other) noexcept
 {
     mPImpl = std::move(other.mPImpl);
 }
 
-GltfAsset& GltfAsset::operator=(GltfAsset&& other) noexcept
+GltfAsset &GltfAsset::operator=(GltfAsset &&other) noexcept
 {
     mPImpl = std::move(other.mPImpl);
     return *this;
@@ -240,8 +239,8 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
 }
 
 void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> &meshKeyMap,
-                                 std::vector<PrimitiveTaskData> &tasks,
-                                 const ModelConfig              &config,
+                                 std::vector<PrimitiveTaskData>   &tasks,
+                                 const ModelConfig                &config,
                                  const std::map<size_t, SceneKey> &matKeyMap)
 {
     using namespace std::views;
@@ -270,7 +269,7 @@ void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> &meshK
             // Assign material keys to the mesh:
             if (auto id = gltfPrim.materialIndex)
             {
-                auto matId = matKeyMap.at(*id);
+                auto matId           = matKeyMap.at(*id);
                 newMeshPrim.Material = matId;
             }
 
@@ -314,7 +313,8 @@ static auto UnpackTransform(fastgltf::Node &node)
     return {translation, rotation, scale};
 }
 
-void GltfAsset::PreprocessHierarchy(SceneGraphNode &root, const std::map<size_t, SceneKey> &meshKeyMap)
+void GltfAsset::PreprocessHierarchy(SceneGraphNode                   &root,
+                                    const std::map<size_t, SceneKey> &meshKeyMap)
 {
     // TODO: Currently we assume gltf holds one scene.
     auto &scene = mPImpl->Asset.scenes[0];
@@ -322,20 +322,21 @@ void GltfAsset::PreprocessHierarchy(SceneGraphNode &root, const std::map<size_t,
     for (auto nodeIdx : scene.nodeIndices)
     {
         auto &node                          = mPImpl->Asset.nodes[nodeIdx];
-        auto [translation, rotation, scale] = UnpackTransform(node);
 
         // TODO: Only handles first-level nodes that hold meshes
-        if (node.meshIndex.has_value())
-        {
-            size_t meshIdx = *node.meshIndex;
-            auto meshKey = meshKeyMap.at(meshIdx);
+        if (!node.meshIndex.has_value())
+            return;
 
-            auto &prefabNode       = root.EmplaceChild(meshKey);
-            prefabNode.Translation = translation;
-            prefabNode.Rotation    = rotation;
-            prefabNode.Scale       = scale;
-            prefabNode.Name        = node.name;
-        }
+        size_t meshIdx = *node.meshIndex;
+        auto   meshKey = meshKeyMap.at(meshIdx);
+
+        auto [translation, rotation, scale] = UnpackTransform(node);
+
+        auto &prefabNode       = root.EmplaceChild(meshKey);
+        prefabNode.Translation = translation;
+        prefabNode.Rotation    = rotation;
+        prefabNode.Scale       = scale;
+        prefabNode.Name        = node.name;
     }
 }
 
@@ -479,7 +480,7 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
         }
     }
 
-    //TODO: Fetch colors?
+    // TODO: Fetch colors?
 
     return res;
 }

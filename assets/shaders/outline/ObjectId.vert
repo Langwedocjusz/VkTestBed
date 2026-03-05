@@ -19,7 +19,7 @@ struct Vertex{
     uint16_t PositionX, PositionY, PositionZ;
     uint16_t TexCoordX, TexCoordY;
     uint16_t NormalX, NormalY, NormalZ;
-    uint16_t TangentX, TangentY, TangentZ;
+    uint16_t TangentX, TangentY, TangentZ, TangentW;
 };
 
 layout(buffer_reference, std430) readonly buffer VertexBuffer{ 

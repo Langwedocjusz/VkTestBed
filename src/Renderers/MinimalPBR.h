@@ -194,7 +194,7 @@ class MinimalPbrRenderer final : public IRenderer {
         //.VertexLayout = Vertex::PushLayout{.HasTexCoord = true,
         //                                   .HasNormal   = true,
         //                                   .HasTangent  = true},
-        .VertexLayout = Vertex::PullLayout::Naive,
+        .VertexLayout = Vertex::PullLayout::Compressed,
         .IndexType    = IndexType,
     };
 

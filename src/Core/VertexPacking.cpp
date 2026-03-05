@@ -5,6 +5,7 @@
 #include "VertexLayout.h"
 
 #include <cstring>
+#include <iostream>
 
 struct PushVertexOffsets {
     uint32_t                  ComponentStride;
@@ -167,17 +168,48 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
                 glm::vec3 normal   = prim.Normals[vertIdx];
                 glm::vec4 tangent  = prim.Tangents[vertIdx];
 
+                assert(prim.BBox.Extent.x != 0.0f);
+                assert(prim.BBox.Extent.y != 0.0f);
+                assert(prim.BBox.Extent.z != 0.0f);
+
                 // Normalize position to [0,1]^3:
+                std::string msg =  std::format("Pos: {}, {}, {} \n", pos.x, pos.y, pos.z);
+                msg += std::format("Center: {}, {}, {} \n", prim.BBox.Center.x, prim.BBox.Center.y, prim.BBox.Center.z);
+                msg += std::format("Extent: {}, {}, {} \n", prim.BBox.Extent.x, prim.BBox.Extent.y, prim.BBox.Extent.z);
+
                 pos = pos - prim.BBox.Center;
-                pos = pos / prim.BBox.Extent;
+                msg += std::format("Pos2: {}, {}, {} \n", pos.x, pos.y, pos.z);
+                pos = pos / (prim.BBox.Extent + 0.001f);
+                msg += std::format("Pos3: {}, {}, {} \n", pos.x, pos.y, pos.z);
                 pos = 0.5f * pos + 0.5f;
+                msg += std::format("Pos4: {}, {}, {} \n", pos.x, pos.y, pos.z);
+                pos = glm::clamp(pos, glm::vec3(0.0f), glm::vec3(1.0f));
+                msg += std::format("Pos5: {}, {}, {} \n", pos.x, pos.y, pos.z);
+
+                vassert(0.0f <= pos.x && pos.x <= 1.0f, msg);
+                vassert(0.0f <= pos.y && pos.y <= 1.0f, msg);
+                vassert(0.0f <= pos.z && pos.z <= 1.0f, msg);
+
+                // Mod texcoords to [0,1]^2:
+                texcoord = glm::mod(texcoord, glm::vec2(1.0f));
+
+                vassert(0.0f <= texcoord.x && texcoord.x <= 1.0f, std::format("{}", texcoord.x));
+                vassert(0.0f <= texcoord.y && texcoord.y <= 1.0f, std::format("{}", texcoord.y));
 
                 // Normalize normal to [0,1]^3:
                 normal = 0.5f * normal + 0.5f;
 
+                vassert(0.0f <= normal.x && normal.x <= 1.0f);
+                vassert(0.0f <= normal.y && normal.y <= 1.0f);
+                vassert(0.0f <= normal.z && normal.z <= 1.0f);
+
                 // Normalize tangent to [0,1]^3 x {0,1}:
                 auto tan3 = glm::vec3(tangent);
                 tan3      = 0.5f * tan3 + 0.5f;
+
+                vassert(0.0f <= tan3.x && tan3.x <= 1.0f);
+                vassert(0.0f <= tan3.y && tan3.y <= 1.0f);
+                vassert(0.0f <= tan3.z && tan3.z <= 1.0f);
 
                 auto sign = static_cast<uint16_t>(tangent.w > 0.0f);
 

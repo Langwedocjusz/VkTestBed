@@ -27,8 +27,20 @@ class SceneKeyGenerator {
 struct ScenePrimitive {
     GeometryData            Data;
     std::optional<SceneKey> Material;
+    // When using compressed vertex formats its convenient to
+    // have vertex positions always be in [0,1] range for quantization.
+    // To maintaint object shapes the mapping to original range
+    // has to be stored somewhere. Hence when dealing with
+    // compressed formats the walues below are used to alter
+    // the model matrices of objects.
     glm::vec3 BaseOffset = glm::vec3(0.0f);
-    glm::vec3 BaseScale = glm::vec3(1.0f);
+    glm::vec3 BaseScale  = glm::vec3(1.0f);
+    // For the same reason it's convenient to have texcoords
+    // normalized to [0,1] as well. This interferes with
+    // having control over texture tiling. As such ranges
+    // for the texcoords also have to be stored:
+    glm::vec2 TexCoordCenter = glm::vec2(0.5f);
+    glm::vec2 TexCoordExtent = glm::vec2(0.5f);
 };
 
 struct SceneMesh {

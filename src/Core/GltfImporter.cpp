@@ -321,7 +321,7 @@ void GltfAsset::PreprocessHierarchy(SceneGraphNode                   &root,
 
     for (auto nodeIdx : scene.nodeIndices)
     {
-        auto &node                          = mPImpl->Asset.nodes[nodeIdx];
+        auto &node = mPImpl->Asset.nodes[nodeIdx];
 
         // TODO: Only handles first-level nodes that hold meshes
         if (!node.meshIndex.has_value())
@@ -420,12 +420,22 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
         {
             res.TexCoords.resize(res.VertexCount);
 
+            auto minCoords = glm::vec2(std::numeric_limits<float>::max());
+            auto maxCoords = glm::vec2(std::numeric_limits<float>::lowest());
+
             fastgltf::Accessor &texcoordAccessor =
                 gltf.accessors[texcoordIt->accessorIndex];
 
             fastgltf::iterateAccessorWithIndex<glm::vec2>(
-                gltf, texcoordAccessor,
-                [&](glm::vec2 v, size_t index) { res.TexCoords[index] = v; });
+                gltf, texcoordAccessor, [&](glm::vec2 v, size_t index) {
+                    res.TexCoords[index] = v;
+
+                    minCoords = glm::min(minCoords, v);
+                    maxCoords = glm::max(maxCoords, v);
+                });
+
+            res.TexBounds.Center = 0.5f * (maxCoords + minCoords);
+            res.TexBounds.Extent = 0.5f * (maxCoords - minCoords);
         }
 
         else

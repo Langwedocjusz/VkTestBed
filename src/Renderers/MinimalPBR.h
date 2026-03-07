@@ -75,7 +75,10 @@ class MinimalPbrRenderer final : public IRenderer {
         //(storage) buffer?
         VkDeviceAddress VertexAddress;
 
-        AABB                  Bbox;
+        AABB      Bbox;
+        glm::vec2 TexBoundsCenter = glm::vec2(0.5f);
+        glm::vec2 TexBoundsExtent = glm::vec2(0.5f);
+
         SceneKey              MaterialKey = 0;
         std::vector<Instance> Instances;
     };
@@ -148,27 +151,35 @@ class MinimalPbrRenderer final : public IRenderer {
     struct PCDataPrepass {
         glm::mat4       Model;
         VkDeviceAddress VertexBuffer;
-    };
-
-    struct PCDataAO {
-        glm::mat4 Proj;
-        glm::mat4 InvProj;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
     };
 
     struct PCDataMain {
         glm::mat4       Model;
         VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
     };
 
     struct PCDataOutline {
         glm::mat4       Model;
         VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
     };
 
     struct PCDataObjectID {
         glm::mat4       Model;
         VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
         uint32_t        ObjectId;
+    };
+
+    struct PCDataAO {
+        glm::mat4 Proj;
+        glm::mat4 InvProj;
     };
 
     // Descriptors for materials:
@@ -190,10 +201,6 @@ class MinimalPbrRenderer final : public IRenderer {
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
 
     GeometryLayout mGeometryLayout{
-        // TODO: re-add this:
-        //.VertexLayout = Vertex::PushLayout{.HasTexCoord = true,
-        //                                   .HasNormal   = true,
-        //                                   .HasTangent  = true},
         .VertexLayout = Vertex::PullLayout::Compressed,
         .IndexType    = IndexType,
     };

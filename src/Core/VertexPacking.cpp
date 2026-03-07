@@ -5,7 +5,6 @@
 #include "VertexLayout.h"
 
 #include <cstring>
-#include <iostream>
 
 struct PushVertexOffsets {
     uint32_t                  ComponentStride;
@@ -56,6 +55,31 @@ static PushVertexOffsets GetOffsets(const Vertex::PushLayout &layout)
         .OffsetColor     = offsetColor,
     };
 }
+
+static uint16_t QuantizeNormalized(float value)
+{
+    vassert(0.0f <= value && value <= 1.0f, "Value must be normalied!");
+
+    const float maximum = std::numeric_limits<uint16_t>::max();
+    return static_cast<uint16_t>(maximum * value);
+}
+
+static std::array<uint16_t, 2> QuantizeVec2(glm::vec2 v)
+{
+    return {
+        QuantizeNormalized(v.x),
+        QuantizeNormalized(v.y),
+    };
+};
+
+static std::array<uint16_t, 3> QuantizeVec3(glm::vec3 v)
+{
+    return {
+        QuantizeNormalized(v.x),
+        QuantizeNormalized(v.y),
+        QuantizeNormalized(v.z),
+    };
+};
 
 GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
 {
@@ -154,13 +178,6 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
             auto data =
                 new (geo.VertexData.Data) Vertex::PullCompressed[prim.VertexCount];
 
-            auto QuantizeNormalized = [](float value) {
-                vassert(0.0f <= value && value <= 1.0f, "Value must be normalied!");
-
-                const float maximum = std::numeric_limits<uint16_t>::max();
-                return static_cast<uint16_t>(maximum * value);
-            };
-
             for (size_t vertIdx = 0; vertIdx < prim.VertexCount; vertIdx++)
             {
                 glm::vec3 pos      = prim.Positions[vertIdx];
@@ -168,69 +185,39 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
                 glm::vec3 normal   = prim.Normals[vertIdx];
                 glm::vec4 tangent  = prim.Tangents[vertIdx];
 
-                assert(prim.BBox.Extent.x != 0.0f);
-                assert(prim.BBox.Extent.y != 0.0f);
-                assert(prim.BBox.Extent.z != 0.0f);
-
                 // Normalize position to [0,1]^3:
-                std::string msg =  std::format("Pos: {}, {}, {} \n", pos.x, pos.y, pos.z);
-                msg += std::format("Center: {}, {}, {} \n", prim.BBox.Center.x, prim.BBox.Center.y, prim.BBox.Center.z);
-                msg += std::format("Extent: {}, {}, {} \n", prim.BBox.Extent.x, prim.BBox.Extent.y, prim.BBox.Extent.z);
-
                 pos = pos - prim.BBox.Center;
-                msg += std::format("Pos2: {}, {}, {} \n", pos.x, pos.y, pos.z);
+                // TODO: Think if there is a better way to prevent division by zero:
                 pos = pos / (prim.BBox.Extent + 0.001f);
-                msg += std::format("Pos3: {}, {}, {} \n", pos.x, pos.y, pos.z);
                 pos = 0.5f * pos + 0.5f;
-                msg += std::format("Pos4: {}, {}, {} \n", pos.x, pos.y, pos.z);
-                pos = glm::clamp(pos, glm::vec3(0.0f), glm::vec3(1.0f));
-                msg += std::format("Pos5: {}, {}, {} \n", pos.x, pos.y, pos.z);
 
-                vassert(0.0f <= pos.x && pos.x <= 1.0f, msg);
-                vassert(0.0f <= pos.y && pos.y <= 1.0f, msg);
-                vassert(0.0f <= pos.z && pos.z <= 1.0f, msg);
-
-                // Mod texcoords to [0,1]^2:
-                texcoord = glm::mod(texcoord, glm::vec2(1.0f));
-
-                vassert(0.0f <= texcoord.x && texcoord.x <= 1.0f, std::format("{}", texcoord.x));
-                vassert(0.0f <= texcoord.y && texcoord.y <= 1.0f, std::format("{}", texcoord.y));
+                // Normalize texcoords to [0,1]^2:
+                texcoord = texcoord - prim.TexBounds.Center;
+                texcoord = texcoord / (prim.TexBounds.Extent);
+                texcoord = 0.5f * texcoord + 0.5f;
 
                 // Normalize normal to [0,1]^3:
                 normal = 0.5f * normal + 0.5f;
-
-                vassert(0.0f <= normal.x && normal.x <= 1.0f);
-                vassert(0.0f <= normal.y && normal.y <= 1.0f);
-                vassert(0.0f <= normal.z && normal.z <= 1.0f);
 
                 // Normalize tangent to [0,1]^3 x {0,1}:
                 auto tan3 = glm::vec3(tangent);
                 tan3      = 0.5f * tan3 + 0.5f;
 
-                vassert(0.0f <= tan3.x && tan3.x <= 1.0f);
-                vassert(0.0f <= tan3.y && tan3.y <= 1.0f);
-                vassert(0.0f <= tan3.z && tan3.z <= 1.0f);
+                // Do clamp to catch small numerical inaccuracies:
+                pos      = glm::clamp(pos, 0.0f, 1.0f);
+                texcoord = glm::clamp(texcoord, 0.0f, 1.0f);
+                normal   = glm::clamp(normal, 0.0f, 1.0f);
+                tan3     = glm::clamp(tan3, 0.0f, 1.0f);
 
-                auto sign = static_cast<uint16_t>(tangent.w > 0.0f);
+                // Quantize to uint16 and store:
+                auto qSign    = static_cast<uint16_t>(tangent.w > 0.0f);
+                auto qTangent = QuantizeVec3(tan3);
 
-                // Quantize to uint16:
-                std::array qPos{QuantizeNormalized(pos.x), QuantizeNormalized(pos.y),
-                                QuantizeNormalized(pos.z)};
-                std::array qTexCoords{QuantizeNormalized(texcoord.x),
-                                      QuantizeNormalized(texcoord.y)};
-                std::array qNormal{QuantizeNormalized(normal.x),
-                                   QuantizeNormalized(normal.y),
-                                   QuantizeNormalized(normal.z)};
-                std::array qTangent{QuantizeNormalized(tan3.x),
-                                    QuantizeNormalized(tan3.y),
-                                    QuantizeNormalized(tan3.z), sign};
-
-                // Store:
                 data[vertIdx] = Vertex::PullCompressed{
-                    .Pos      = qPos,
-                    .TexCoord = qTexCoords,
-                    .Normal   = qNormal,
-                    .Tangent  = qTangent,
+                    .Pos      = QuantizeVec3(pos),
+                    .TexCoord = QuantizeVec2(texcoord),
+                    .Normal   = QuantizeVec3(normal),
+                    .Tangent  = {qTangent[0], qTangent[1], qTangent[2], qSign},
                 };
             }
 

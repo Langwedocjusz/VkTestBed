@@ -53,7 +53,9 @@ void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive
     IndexBuffer = MakeBuffer::Index(ctx, debugName, geo.IndexData);
     IndexCount  = static_cast<uint32_t>(geo.IndexData.Count);
 
-    Bbox = prim.Data.BBox;
+    Bbox            = prim.Data.BBox;
+    TexBoundsCenter = prim.TexCoordCenter;
+    TexBoundsExtent = prim.TexCoordExtent;
 }
 
 void MinimalPbrRenderer::Drawable::Destroy(VulkanContext &ctx)
@@ -656,7 +658,7 @@ void MinimalPbrRenderer::DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &d
             continue;
 
         // Callback for per-instance binds:
-        instanceCallback(cmd, instance, drawable.VertexAddress);
+        instanceCallback(cmd, drawable, instance);
 
         drawable.Draw(cmd);
 
@@ -723,10 +725,12 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
             (void)material;
         };
 
-        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance,
-                                    VkDeviceAddress vertexAddress) {
+        auto instanceCallback = [&](VkCommandBuffer cmd, Drawable &drawable,
+                                    Instance &instance) {
             auto mvp = viewProj * instance.Transform;
-            mShadowmapHandler.PushConstantOpaque(cmd, mvp, vertexAddress);
+            mShadowmapHandler.PushConstantOpaque(cmd, mvp, drawable.VertexAddress,
+                                                 drawable.TexBoundsCenter,
+                                                 drawable.TexBoundsExtent);
         };
 
         DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -739,10 +743,12 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
             stats.NumBinds += 1;
         };
 
-        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance,
-                                    VkDeviceAddress vertexAddress) {
+        auto instanceCallback = [&](VkCommandBuffer cmd, Drawable &drawable,
+                                    Instance &instance) {
             auto mvp = viewProj * instance.Transform;
-            mShadowmapHandler.PushConstantAlpha(cmd, mvp, vertexAddress);
+            mShadowmapHandler.PushConstantAlpha(cmd, mvp, drawable.VertexAddress,
+                                                drawable.TexBoundsCenter,
+                                                drawable.TexBoundsExtent);
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -774,11 +780,13 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
             (void)material;
         };
 
-        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance,
-                                       VkDeviceAddress vertexAddress) {
+        auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
+                                       Instance &instance) {
             PCDataPrepass data{
-                .Model        = instance.Transform,
-                .VertexBuffer = vertexAddress,
+                .Model          = instance.Transform,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
             };
 
             mZPrepassOpaquePipeline.PushConstants(cmd, data);
@@ -799,11 +807,13 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
             stats.NumBinds += 1;
         };
 
-        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance,
-                                       VkDeviceAddress vertexAddress) {
+        auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
+                                       Instance &instance) {
             PCDataPrepass data{
-                .Model        = instance.Transform,
-                .VertexBuffer = vertexAddress,
+                .Model          = instance.Transform,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
             };
 
             mZPrepassAlphaPipeline.PushConstants(cmd, data);
@@ -911,11 +921,13 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         stats.NumBinds += 1;
     };
 
-    auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance,
-                                   VkDeviceAddress vertexAddress) {
+    auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
+                                   Instance &instance) {
         PCDataMain data{
-            .Model        = instance.Transform,
-            .VertexBuffer = vertexAddress,
+            .Model          = instance.Transform,
+            .VertexBuffer   = drawable.VertexAddress,
+            .TexBoundCenter = drawable.TexBoundsCenter,
+            .TexBoundExtent = drawable.TexBoundsExtent,
         };
 
         mMainPipeline.PushConstants(cmd, data);
@@ -1004,8 +1016,10 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             auto &model = drawable.Instances.at(instanceId).Transform;
 
             PCDataOutline data{
-                .Model        = model,
-                .VertexBuffer = drawable.VertexAddress,
+                .Model          = model,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
             };
 
             mStencilPipeline.PushConstants(cmd, data);
@@ -1055,8 +1069,10 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             auto &model = drawable.Instances.at(instanceId).Transform;
 
             PCDataOutline data{
-                .Model        = model,
-                .VertexBuffer = drawable.VertexAddress,
+                .Model          = model,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
             };
 
             mOutlinePipeline.PushConstants(cmd, data);
@@ -1093,12 +1109,14 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
         mObjectIdPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
     };
 
-    auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Instance &instance,
-                                             VkDeviceAddress vertexAddress) {
+    auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Drawable &drawable,
+                                             Instance &instance) {
         PCDataObjectID data{
-            .Model        = viewProj * instance.Transform,
-            .VertexBuffer = vertexAddress,
-            .ObjectId     = instance.ObjectId,
+            .Model          = viewProj * instance.Transform,
+            .VertexBuffer   = drawable.VertexAddress,
+            .TexBoundCenter = drawable.TexBoundsCenter,
+            .TexBoundExtent = drawable.TexBoundsExtent,
+            .ObjectId       = instance.ObjectId,
         };
 
         mObjectIdPipeline.PushConstants(cmd, data);
@@ -1336,7 +1354,8 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
             auto &list = mObjectCache[objKey];
             list.emplace_back(drawableKey, drawable.Instances.size());
 
-            glm::mat4 base = glm::translate(glm::mat4(1.0f), prim.BaseOffset) * glm::scale(glm::mat4(1.0f), prim.BaseScale);
+            glm::mat4 base = glm::translate(glm::mat4(1.0f), prim.BaseOffset) *
+                             glm::scale(glm::mat4(1.0f), prim.BaseScale);
 
             glm::mat4 transform = obj.Transform * base;
 

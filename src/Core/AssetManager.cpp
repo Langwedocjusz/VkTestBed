@@ -98,7 +98,7 @@ void AssetManager::OnUpdate()
                 if (mModel->Config.VertexLayout == Vertex::PullLayout::Compressed)
                 {
                     prim.BaseOffset = primDataRaw.BBox.Center;
-                    prim.BaseScale = primDataRaw.BBox.Extent;   
+                    prim.BaseScale  = primDataRaw.BBox.Extent;
                 }
 
                 mModel->TasksLeft--;

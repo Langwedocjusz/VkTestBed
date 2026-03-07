@@ -75,9 +75,11 @@ class ShadowmapHandler {
 
     // Deliver per-object (pre-multiplied) MVP matrix to the shaders via push constant:
     void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp,
-                            VkDeviceAddress vertexBuffer);
+                            VkDeviceAddress vertexBuffer, glm::vec2 texBoundsCenter,
+                            glm::vec2 texBoundsExtent);
     void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp,
-                           VkDeviceAddress vertexBuffer);
+                           VkDeviceAddress vertexBuffer, glm::vec2 texBoundsCenter,
+                           glm::vec2 texBoundsExtent);
 
     // Bind descriptor set used to sample per-material alpha.
     // Descriptor set being bound is assumed to have albedo map as its first binding.
@@ -129,6 +131,8 @@ class ShadowmapHandler {
     struct PCDataShadow {
         glm::mat4       LightMVP;
         VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
     };
 
     Pipeline mOpaquePipeline;

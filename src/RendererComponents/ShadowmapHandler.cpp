@@ -441,22 +441,30 @@ VkExtent2D ShadowmapHandler::GetExtent() const
 }
 
 void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp,
-                                          VkDeviceAddress vertexBuffer)
+                                          VkDeviceAddress vertexBuffer,
+                                          glm::vec2       texBoundsCenter,
+                                          glm::vec2       texBoundsExtent)
 {
     PCDataShadow data{
-        .LightMVP     = mvp,
-        .VertexBuffer = vertexBuffer,
+        .LightMVP       = mvp,
+        .VertexBuffer   = vertexBuffer,
+        .TexBoundCenter = texBoundsCenter,
+        .TexBoundExtent = texBoundsExtent,
     };
 
     mOpaquePipeline.PushConstants(cmd, data);
 }
 
 void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp,
-                                         VkDeviceAddress vertexBuffer)
+                                         VkDeviceAddress vertexBuffer,
+                                         glm::vec2       texBoundsCenter,
+                                         glm::vec2       texBoundsExtent)
 {
     PCDataShadow data{
-        .LightMVP     = mvp,
-        .VertexBuffer = vertexBuffer,
+        .LightMVP       = mvp,
+        .VertexBuffer   = vertexBuffer,
+        .TexBoundCenter = texBoundsCenter,
+        .TexBoundExtent = texBoundsExtent,
     };
 
     mAlphaPipeline.PushConstants(cmd, data);

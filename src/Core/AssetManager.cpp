@@ -95,10 +95,14 @@ void AssetManager::OnUpdate()
                 prim.Data =
                     VertexPacking::Encode(primDataRaw, mModel->Config.VertexLayout);
 
+                // For compressed layout store additional normalization data:
                 if (mModel->Config.VertexLayout == Vertex::PullLayout::Compressed)
                 {
                     prim.BaseOffset = primDataRaw.BBox.Center;
                     prim.BaseScale  = primDataRaw.BBox.Extent;
+
+                    prim.TexCoordCenter = primDataRaw.TexBounds.Center;
+                    prim.TexCoordExtent = primDataRaw.TexBounds.Extent;
                 }
 
                 mModel->TasksLeft--;

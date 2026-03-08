@@ -201,6 +201,7 @@ class MinimalPbrRenderer final : public IRenderer {
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
 
     GeometryLayout mGeometryLayout{
+        //.VertexLayout = Vertex::PullLayout::Naive,
         .VertexLayout = Vertex::PullLayout::Compressed,
         .IndexType    = IndexType,
     };

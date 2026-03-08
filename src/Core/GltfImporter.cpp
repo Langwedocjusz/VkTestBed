@@ -434,8 +434,24 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
                     maxCoords = glm::max(maxCoords, v);
                 });
 
-            res.TexBounds.Center = 0.5f * (maxCoords + minCoords);
-            res.TexBounds.Extent = 0.5f * (maxCoords - minCoords);
+            glm::vec2 center = 0.5f * (maxCoords + minCoords);
+            glm::vec2 extent = 0.5f * (maxCoords - minCoords);
+
+            if (extent.x != 0.0 && extent.y != 0.0)
+            {
+                res.TexBounds.Center = center;
+                res.TexBounds.Extent = extent;
+            }
+            else
+            {
+                std::cerr << "In gltf file " << config.Filepath.string()
+                          << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                          << "degenerate texcoord range: " 
+                          << minCoords.x << ", " << minCoords.y
+                          << "to "
+                          << maxCoords.x << ", " << maxCoords.y
+                          << '\n';
+            }
         }
 
         else

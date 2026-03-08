@@ -377,13 +377,20 @@ void SceneGui::MeshesTab()
 {
     using namespace std::views;
 
-    std::optional<SceneKey> keyToDelete = std::nullopt;
+    //Setup filter for meshes:
+    static std::array<char, 255> filterBuf{};
+    ImGui::InputText("Filter", &filterBuf[0], 255);
 
     uint32_t counter = 0;
+    std::optional<SceneKey> keyToDelete = std::nullopt;
 
     for (auto &[meshKey, mesh] : mEditor.Meshes())
     {
         std::string nodeName = std::to_string(counter++) + ". " + mesh.Name;
+
+        //Do filtering:
+        if (nodeName.find(std::string(&filterBuf[0])) == std::string::npos)
+            continue;
 
         auto nodeState = imutils::TreeNodeExDeletable(nodeName.c_str());
 
@@ -405,7 +412,7 @@ void SceneGui::MeshesTab()
             // ImGui::Separator();
 
             // Material editing gui:
-            ImGui::Text("Materials:");
+            ImGui::Text("Primitives:");
 
             // TODO: this is kind of ugly:
             // static used here because this value is accessed across
@@ -424,7 +431,9 @@ void SceneGui::MeshesTab()
                 const std::string matName = id ? mEditor.GetMaterial(*id).Name : "None";
                 const std::string suffix  = "##mat" + mesh.Name + std::to_string(primIdx);
 
-                ImGui::Text("Material %lu: ", primIdx);
+                ImGui::Text("Primitive %lu", primIdx);
+
+                ImGui::Text("Material: ");
                 ImGui::SameLine();
 
                 if (ImGui::Selectable((matName + suffix).c_str()))
@@ -433,6 +442,9 @@ void SceneGui::MeshesTab()
                     ImGui::OpenPopup("Select material:");
                 }
                 // TODO: adding new materials
+
+                ImGui::Text("TexBound Center: %f, %f", prim.TexCoordCenter.x, prim.TexCoordCenter.y);
+                ImGui::Text("TexBound Extent: %f, %f", prim.TexCoordExtent.x, prim.TexCoordExtent.y);
             }
 
             if (ImGui::BeginPopup("Select material:"))
@@ -499,7 +511,6 @@ void SceneGui::MaterialsTab()
         if (ImGui::BeginPopup(popupName.c_str()))
         {
             static std::array<char, 255> filterBuf{};
-
             ImGui::InputText("Filter", &filterBuf[0], 255);
 
             for (auto &[imgPick, _] : mEditor.Images())
@@ -721,6 +732,18 @@ void SceneGui::ObjectPropertiesMenu()
 
     if (mSelectedNode)
     {
+        //Display mesh key:
+        if (mSelectedNode->IsLeaf())
+        {
+            auto& obj = mEditor.GetObject(mSelectedNode->GetObjectKey());
+            
+            if (auto mesh = obj.Mesh)
+            {
+                ImGui::Text("Mesh: %i", *mesh);
+            }
+        }
+
+        // Display transform:
         if (ImGui::TreeNodeEx("Transform"))
         {
             if (TransformWidget(*mSelectedNode))
@@ -735,6 +758,7 @@ void SceneGui::ObjectPropertiesMenu()
             ImGui::TreePop();
         }
 
+        // Handle gizmo:
         if (mSelectedNode->IsLeaf())
         {
             ImGuiIO &io = ImGui::GetIO();

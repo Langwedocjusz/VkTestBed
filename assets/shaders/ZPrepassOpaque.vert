@@ -3,6 +3,7 @@
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_GOOGLE_include_directive : require
 
+//#include "common/VertexNaive.glsl"
 #include "common/VertexCompressed.glsl"
 
 layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {

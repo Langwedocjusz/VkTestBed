@@ -23,6 +23,8 @@ layout(push_constant) uniform constants {
     // buffer extension etc in the fragment shader:
     uint DeviceAddress1;
     uint DeviceAddress2;
+    vec2 TexCenter;
+    vec2 TexExtent;
     uint ObjectId;
 } PushConstants;
 

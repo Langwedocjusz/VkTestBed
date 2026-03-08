@@ -3,6 +3,7 @@
 
 #include "Vassert.h"
 #include "VertexLayout.h"
+#include "glm/vector_relational.hpp"
 
 #include <cstring>
 
@@ -81,6 +82,14 @@ static std::array<uint16_t, 3> QuantizeVec3(glm::vec3 v)
     };
 };
 
+template <typename T>
+static bool IsNormalized(T v)
+{
+    bool lower = glm::all(glm::greaterThanEqual(v, T(0.0f)));
+    bool upper = glm::all(glm::lessThanEqual(v, T(1.0f)));
+    return lower && upper;
+}
+
 GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
 {
     // Allocate memory:
@@ -97,11 +106,15 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
     };
 
     // Store bounding box:
-    // If using compressed vertex layout positions will be normalized
+    // If using compressed vertex layout positions will be normalized:
     if (vLayout == Vertex::PullLayout::Compressed)
+    {
         geo.BBox = AABB{.Center = glm::vec3(0.0f), .Extent = glm::vec3(1.0f)};
+    }   
     else
+    {
         geo.BBox = prim.BBox;
+    }
 
     // Retrieve indices:
     std::memcpy(geo.IndexData.Data, prim.Indices.data(),
@@ -208,6 +221,16 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
                 texcoord = glm::clamp(texcoord, 0.0f, 1.0f);
                 normal   = glm::clamp(normal, 0.0f, 1.0f);
                 tan3     = glm::clamp(tan3, 0.0f, 1.0f);
+
+                std::string message = std::format("Center: {},{} Extent: {},{} Texcoord: {},{}", 
+                    prim.TexBounds.Center.x, prim.TexBounds.Center.y, 
+                    prim.TexBounds.Extent.x, prim.TexBounds.Extent.y, 
+                    texcoord.x, texcoord.y);
+
+                vassert(IsNormalized(pos));
+                vassert(IsNormalized(texcoord), message);
+                vassert(IsNormalized(normal));
+                vassert(IsNormalized(tan3));
 
                 // Quantize to uint16 and store:
                 auto qSign    = static_cast<uint16_t>(tangent.w > 0.0f);

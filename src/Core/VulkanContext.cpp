@@ -56,7 +56,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
 
     VkPhysicalDeviceFeatures features{};
     features.samplerAnisotropy = true;
-    features.shaderInt16 = true;
+    features.shaderInt16       = true;
 
     VkPhysicalDeviceVulkan11Features features11{};
     features11.storageBuffer16BitAccess = true;

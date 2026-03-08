@@ -446,10 +446,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
             {
                 std::cerr << "In gltf file " << config.Filepath.string()
                           << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
-                          << "degenerate texcoord range: " 
-                          << minCoords.x << ", " << minCoords.y
-                          << "to "
-                          << maxCoords.x << ", " << maxCoords.y
+                          << "degenerate texcoord range: " << minCoords.x << ", "
+                          << minCoords.y << "to " << maxCoords.x << ", " << maxCoords.y
                           << '\n';
             }
         }

@@ -110,7 +110,7 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
     if (vLayout == Vertex::PullLayout::Compressed)
     {
         geo.BBox = AABB{.Center = glm::vec3(0.0f), .Extent = glm::vec3(1.0f)};
-    }   
+    }
     else
     {
         geo.BBox = prim.BBox;
@@ -222,10 +222,11 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
                 normal   = glm::clamp(normal, 0.0f, 1.0f);
                 tan3     = glm::clamp(tan3, 0.0f, 1.0f);
 
-                std::string message = std::format("Center: {},{} Extent: {},{} Texcoord: {},{}", 
-                    prim.TexBounds.Center.x, prim.TexBounds.Center.y, 
-                    prim.TexBounds.Extent.x, prim.TexBounds.Extent.y, 
-                    texcoord.x, texcoord.y);
+                std::string message =
+                    std::format("Center: {},{} Extent: {},{} Texcoord: {},{}",
+                                prim.TexBounds.Center.x, prim.TexBounds.Center.y,
+                                prim.TexBounds.Extent.x, prim.TexBounds.Extent.y,
+                                texcoord.x, texcoord.y);
 
                 vassert(IsNormalized(pos));
                 vassert(IsNormalized(texcoord), message);

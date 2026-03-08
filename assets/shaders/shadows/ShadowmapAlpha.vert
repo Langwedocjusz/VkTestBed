@@ -2,8 +2,8 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-//#include "../common/VertexNaive.glsl"
-#include "../common/VertexCompressed.glsl"
+#include "../common/VertexNaive.glsl"
+//#include "../common/VertexCompressed.glsl"
 
 layout(location = 0) out vec2 texCoord;
 

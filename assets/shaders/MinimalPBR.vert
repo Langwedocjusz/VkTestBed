@@ -3,8 +3,8 @@
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_GOOGLE_include_directive : require
 
-//#include "common/VertexNaive.glsl"
-#include "common/VertexCompressed.glsl"
+#include "common/VertexNaive.glsl"
+//#include "common/VertexCompressed.glsl"
 
 layout(location = 0) out VertexData {
     vec2 TexCoord;
@@ -59,7 +59,9 @@ void main() {
     texcoord += PushConstants.TexCenter;
 
     normal = normalize(adjugate(PushConstants.Model) * normal);
+    
     vec3 tangent3 = vec3(PushConstants.Model * vec4(tangent.xyz, 0.0));
+    tangent3 = normalize(tangent3);
 
     OutData.TexCoord = texcoord;
     OutData.Normal = normal;

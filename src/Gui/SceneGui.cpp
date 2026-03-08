@@ -377,18 +377,18 @@ void SceneGui::MeshesTab()
 {
     using namespace std::views;
 
-    //Setup filter for meshes:
+    // Setup filter for meshes:
     static std::array<char, 255> filterBuf{};
     ImGui::InputText("Filter", &filterBuf[0], 255);
 
-    uint32_t counter = 0;
+    uint32_t                counter     = 0;
     std::optional<SceneKey> keyToDelete = std::nullopt;
 
     for (auto &[meshKey, mesh] : mEditor.Meshes())
     {
         std::string nodeName = std::to_string(counter++) + ". " + mesh.Name;
 
-        //Do filtering:
+        // Do filtering:
         if (nodeName.find(std::string(&filterBuf[0])) == std::string::npos)
             continue;
 
@@ -443,8 +443,10 @@ void SceneGui::MeshesTab()
                 }
                 // TODO: adding new materials
 
-                ImGui::Text("TexBound Center: %f, %f", prim.TexCoordCenter.x, prim.TexCoordCenter.y);
-                ImGui::Text("TexBound Extent: %f, %f", prim.TexCoordExtent.x, prim.TexCoordExtent.y);
+                ImGui::Text("TexBound Center: %f, %f", prim.TexCoordCenter.x,
+                            prim.TexCoordCenter.y);
+                ImGui::Text("TexBound Extent: %f, %f", prim.TexCoordExtent.x,
+                            prim.TexCoordExtent.y);
             }
 
             if (ImGui::BeginPopup("Select material:"))
@@ -732,11 +734,11 @@ void SceneGui::ObjectPropertiesMenu()
 
     if (mSelectedNode)
     {
-        //Display mesh key:
+        // Display mesh key:
         if (mSelectedNode->IsLeaf())
         {
-            auto& obj = mEditor.GetObject(mSelectedNode->GetObjectKey());
-            
+            auto &obj = mEditor.GetObject(mSelectedNode->GetObjectKey());
+
             if (auto mesh = obj.Mesh)
             {
                 ImGui::Text("Mesh: %i", *mesh);

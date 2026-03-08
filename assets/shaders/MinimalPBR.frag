@@ -299,7 +299,5 @@ void main()
     res.rgb = ACESFilm(res.rgb);
     res.rgb = pow(res.rgb, vec3(1.0/2.2));
 
-    //res.rgb = vec3(InData.TexCoord, 0.0);
-
     outColor = res;
 }

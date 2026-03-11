@@ -171,7 +171,7 @@ class ShadowmapHandler {
     static constexpr size_t NumVertsPerFrustum = 8;
     static constexpr size_t NumIdxPerFrustum   = 36;
 
-    std::array<glm::vec4, 2 * NumVertsPerFrustum> mVertexBufferData;
+    std::array<glm::vec3, 2 * NumVertsPerFrustum> mVertexBufferData;
 
     Buffer mDebugFrustumVertexBuffer;
     Buffer mDebugFrustumIndexBuffer;

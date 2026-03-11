@@ -390,7 +390,11 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lig
         {
             // Copy frustum verts
             auto frustumVerts = mShadowFrustums[idx].GetVertices();
-            std::copy(&frustumVerts[0], &frustumVerts[8], &mVertexBufferData[0]);
+            
+            for (size_t i=0; i<8; i++)
+            {
+                mVertexBufferData[i] = frustumVerts[i];
+            }
 
             // Copy bounding volume verts, transformed back to world-space:
             auto invLightView = glm::inverse(lightView);

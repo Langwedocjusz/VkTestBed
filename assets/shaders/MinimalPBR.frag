@@ -9,7 +9,8 @@
 #define TRANSLUCENCY
 
 //#define SSAO_DEBUG_VIEW
-//#define SHADOW_COORD_DEBUG_VIEW
+//#define SHADOW_DEBUG_VIEW
+//#define SHADOW_DEBUG_DEPTH
 //#define NO_ALBEDO_DEBUG_VIEW
 
 #include "common/Pbr.glsl"
@@ -86,6 +87,8 @@ vec3 ACESFilm(vec3 x)
 
 uint GetCascadeIdx()
 {
+    //TODO: In some circumstances (Sponza near floor)
+    // cascade coordinate logic can still break.
     uint cascadeIdx = 0;
 
     for (int i=0; i<3; i++)
@@ -187,7 +190,7 @@ void main()
     }
     #endif
 
-    #ifdef SHADOW_COORD_DEBUG_VIEW
+    #ifdef SHADOW_DEBUG_VIEW
     {
         uint cascadeIdx = GetCascadeIdx();
 
@@ -200,6 +203,18 @@ void main()
         const vec3 okColors[3] = vec3[3](vec3(1.0,0.5,0.5),vec3(0.5,1.0,0.5), vec3(0.5,0.5,1.0));
 
         vec3 color = diff * debug_grid(uv, okColors[cascadeIdx]);
+
+        #ifdef SHADOW_DEBUG_DEPTH
+        //color = diff * debug_grid(projCoords.zz, okColors[cascadeIdx]);
+
+        vec3 less = vec3(1,0,0);
+        vec3 more = vec3(0,0,1);
+        
+        color = vec3(diff);
+        
+        if (projCoords.z < 0.0) color *= less;
+        if (projCoords.z > 1.0) color *= more;     
+        #endif
     
         outColor = vec4(color, 1.0);
         return;

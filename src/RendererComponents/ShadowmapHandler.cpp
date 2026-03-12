@@ -306,34 +306,30 @@ ShadowVolume ShadowmapHandler::FitVolumeToScene(ShadowVolume volume, AABB sceneA
                                                 glm::mat4 lightView) const
 {
     // Update minZ and maxZ values based on scene bounding box:
-    if (mFitToScene)
+    
+    // Transform AABB vers to light-view space:
+    auto verts = sceneAABB.GetVertices();
+
+    for (auto &vert : verts)
     {
-        // Transform AABB vers to light-view space:
-        auto verts = sceneAABB.GetVertices();
-
-        for (auto &vert : verts)
-        {
-            // Multiplication by -1 needed here, since BBOX positions
-            // don't take vulkans inverted y-axis into account:
-            vert.y *= -1.0f;
-            vert = glm::vec3(lightView * glm::vec4(vert, 1.0f));
-        }
-
-        // Take min-max of their positions to update volume values.
-        // This is overly conservative as doing min-max of the
-        // intersection between sceneAABB and volume would be sufficient.
-        auto minAABB = std::numeric_limits<float>::max();
-        auto maxAABB = std::numeric_limits<float>::lowest();
-
-        for (auto vert : verts)
-        {
-            minAABB = std::min(minAABB, vert.z);
-            maxAABB = std::max(maxAABB, vert.z);
-        }
-
-        volume.MinZ = std::min(volume.MinZ, minAABB);
-        volume.MaxZ = std::max(volume.MaxZ, maxAABB);
+        // Apparenly no y *= -1 needed here, don't fully understand why.
+        vert = glm::vec3(lightView * glm::vec4(vert, 1.0f));
     }
+
+    // Take min-max of their positions to update volume values.
+    // This is overly conservative as doing min-max of the
+    // intersection between sceneAABB and volume would be sufficient.
+    auto minAABB = std::numeric_limits<float>::max();
+    auto maxAABB = std::numeric_limits<float>::lowest();
+
+    for (auto vert : verts)
+    {
+        minAABB = std::min(minAABB, vert.z);
+        maxAABB = std::max(maxAABB, vert.z);
+    }
+
+    volume.MinZ = std::min(volume.MinZ, minAABB);
+    volume.MaxZ = std::max(volume.MaxZ, maxAABB);
 
     return volume;
 }
@@ -376,7 +372,15 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lig
         ShadowVolume vol = GetBoundingVolume(frustum, lightView);
 
         // Extend the Z range of constructed volume to fit entire scene range:
-        vol = FitVolumeToScene(vol, sceneAABB, lightView);
+        if (mFitToScene)
+            vol = FitVolumeToScene(vol, sceneAABB, lightView);
+
+        // TODO: This seems to fix the shadow volume behaviour.
+        // Don't fully understand why. Maybe coordinates can be
+        // adjusted more elegantly somewhere else.
+        vol.MinZ *= -1.0f;
+        vol.MaxZ *= -1.0f;
+        std::swap(vol.MinZ, vol.MaxZ);
 
         // Construct the projection matrix:
         glm::mat4 lightProj =
@@ -397,24 +401,24 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lig
             }
 
             // Copy bounding volume verts, transformed back to world-space:
-            auto invLightView = glm::inverse(lightView);
+            auto invLightViewProj = glm::inverse(lightViewProj);
 
             mVertexBufferData[8] =
-                invLightView * glm::vec4(vol.MinX, vol.MaxY, vol.MinZ, 1.0f);
+                invLightViewProj * glm::vec4(-1,1,0,1);
             mVertexBufferData[9] =
-                invLightView * glm::vec4(vol.MaxX, vol.MaxY, vol.MinZ, 1.0f);
+                invLightViewProj * glm::vec4(1,1,0,1);
             mVertexBufferData[10] =
-                invLightView * glm::vec4(vol.MinX, vol.MinY, vol.MinZ, 1.0f);
+                invLightViewProj * glm::vec4(-1,-1,0,1);
             mVertexBufferData[11] =
-                invLightView * glm::vec4(vol.MaxX, vol.MinY, vol.MinZ, 1.0f);
+                invLightViewProj * glm::vec4(1,-1,0,1);
             mVertexBufferData[12] =
-                invLightView * glm::vec4(vol.MinX, vol.MaxY, vol.MaxZ, 1.0f);
+                invLightViewProj * glm::vec4(-1,1,1,1);
             mVertexBufferData[13] =
-                invLightView * glm::vec4(vol.MaxX, vol.MaxY, vol.MaxZ, 1.0f);
+                invLightViewProj * glm::vec4(1,1,1,1);
             mVertexBufferData[14] =
-                invLightView * glm::vec4(vol.MinX, vol.MinY, vol.MaxZ, 1.0f);
+                invLightViewProj * glm::vec4(-1,-1,1,1);
             mVertexBufferData[15] =
-                invLightView * glm::vec4(vol.MaxX, vol.MinY, vol.MaxZ, 1.0f);
+                invLightViewProj * glm::vec4(1,-1,1,1);
 
             // Update gpu-visible buffer:
             Buffer::UploadToMapped(mDebugFrustumVertexBuffer, mVertexBufferData.data(),

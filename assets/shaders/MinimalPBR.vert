@@ -11,7 +11,6 @@ layout(location = 0) out VertexData {
     vec3 Normal;
     vec4 Tangent;
     vec3 FragPos;
-    float FragDistance;
 } OutData;
 
 layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
@@ -68,5 +67,4 @@ void main() {
     OutData.Tangent = vec4(tangent3, tangent.w);
 
     OutData.FragPos = vec3(PushConstants.Model * vec4(position, 1.0));
-    OutData.FragDistance = length(OutData.FragPos - Ubo.ViewPos);
 }

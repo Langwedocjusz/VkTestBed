@@ -22,7 +22,6 @@ layout(location = 0) in VertexData {
     vec3 Normal;
     vec4 Tangent;
     vec3 FragPos;
-    float FragDistance;
 } InData;
 
 layout(location = 0) out vec4 outColor;
@@ -87,17 +86,17 @@ vec3 ACESFilm(vec3 x)
 
 uint GetCascadeIdx()
 {
-    //TODO: In some circumstances (Sponza near floor)
-    // cascade coordinate logic can still break.
     uint cascadeIdx = 0;
 
     for (int i=0; i<3; i++)
     {
-        float maxDist = DynamicUBO.CascadeBounds[i];
-
+        // Get distance to fragment:
+        float dist = length(InData.FragPos - DynamicUBO.ViewPos);
+        // Project the distance to view axis:
         vec3 viewDir = normalize(InData.FragPos - DynamicUBO.ViewPos);
-
-        float projDist = InData.FragDistance * dot(viewDir, DynamicUBO.ViewFront);
+        float projDist = dist * dot(viewDir, DynamicUBO.ViewFront);
+        //Compare with stored bounds:
+        float maxDist = DynamicUBO.CascadeBounds[i];
 
         if (projDist < maxDist)
         {

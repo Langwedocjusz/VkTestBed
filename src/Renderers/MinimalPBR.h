@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AOHandler.h"
 #include "DeletionQueue.h"
 #include "Descriptor.h"
 #include "DynamicUniformBuffer.h"
@@ -96,7 +97,6 @@ class MinimalPbrRenderer final : public IRenderer {
 
     void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
     void Prepass(VkCommandBuffer cmd, DrawStats &stats);
-    void AOPass(VkCommandBuffer cmd, DrawStats &stats);
     void MainPass(VkCommandBuffer cmd, DrawStats &stats);
     void OutlinePass(VkCommandBuffer cmd, SceneKey highlightedObj);
 
@@ -130,7 +130,6 @@ class MinimalPbrRenderer final : public IRenderer {
     std::optional<Texture> mRenderTargetMsaa;
     std::optional<Texture> mDepthStencilMsaa;
 
-    Texture     mAOTarget;
     Texture     mDepthStencilBuffer;
     VkImageView mDepthOnlyView;
 
@@ -140,7 +139,6 @@ class MinimalPbrRenderer final : public IRenderer {
     // Graphics pipelines:
     Pipeline mZPrepassOpaquePipeline;
     Pipeline mZPrepassAlphaPipeline;
-    Pipeline mAOGenPipeline;
     Pipeline mMainPipeline;
     Pipeline mBackgroundPipeline;
     Pipeline mStencilPipeline;
@@ -177,25 +175,9 @@ class MinimalPbrRenderer final : public IRenderer {
         uint32_t        ObjectId;
     };
 
-    struct PCDataAO {
-        glm::mat4 Proj;
-        glm::mat4 InvProj;
-    };
-
     // Descriptors for materials:
     VkDescriptorSetLayout      mMaterialDescriptorSetLayout;
     DynamicDescriptorAllocator mMaterialDescriptorAllocator;
-
-    // Descriptors for AO:
-    VkDescriptorPool mAODescriptorPool;
-    // Generation:
-    VkDescriptorSetLayout mAOGenDescriptorSetLayout;
-    VkDescriptorSet       mAOGenDescriptorSet;
-    // Usage:
-    VkDescriptorSetLayout mAOUsageDescriptorSetLayout;
-    VkDescriptorSet       mAOUsageDescriptorSet;
-
-    VkSampler mAOSampler;
 
     // Supported geometry specification:
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
@@ -257,6 +239,8 @@ class MinimalPbrRenderer final : public IRenderer {
     // Shadowmap generation:
     ShadowmapHandler mShadowmapHandler;
     AABB             mSceneAABB;
+    // SSAO generation:
+    AOHandler mAOHandler;
 
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;

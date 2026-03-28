@@ -145,6 +145,8 @@ target_sources(${PROJECT_NAME}
         src/Gui/ModelLoaderGui.cpp
         src/Gui/SceneGui.h
         src/Gui/SceneGui.cpp
+        src/RendererComponents/AOHandler.h
+        src/RendererComponents/AOHandler.cpp
         src/RendererComponents/DynamicUniformBuffer.h
         src/RendererComponents/DynamicUniformBuffer.cpp
         src/RendererComponents/EnvironmentHandler.h

@@ -306,7 +306,7 @@ ShadowVolume ShadowmapHandler::FitVolumeToScene(ShadowVolume volume, AABB sceneA
                                                 glm::mat4 lightView) const
 {
     // Update minZ and maxZ values based on scene bounding box:
-    
+
     // Transform AABB vers to light-view space:
     auto verts = sceneAABB.GetVertices();
 
@@ -394,8 +394,8 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lig
         {
             // Copy frustum verts
             auto frustumVerts = mShadowFrustums[idx].GetVertices();
-            
-            for (size_t i=0; i<8; i++)
+
+            for (size_t i = 0; i < 8; i++)
             {
                 mVertexBufferData[i] = frustumVerts[i];
             }
@@ -403,22 +403,14 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lig
             // Copy bounding volume verts, transformed back to world-space:
             auto invLightViewProj = glm::inverse(lightViewProj);
 
-            mVertexBufferData[8] =
-                invLightViewProj * glm::vec4(-1,1,0,1);
-            mVertexBufferData[9] =
-                invLightViewProj * glm::vec4(1,1,0,1);
-            mVertexBufferData[10] =
-                invLightViewProj * glm::vec4(-1,-1,0,1);
-            mVertexBufferData[11] =
-                invLightViewProj * glm::vec4(1,-1,0,1);
-            mVertexBufferData[12] =
-                invLightViewProj * glm::vec4(-1,1,1,1);
-            mVertexBufferData[13] =
-                invLightViewProj * glm::vec4(1,1,1,1);
-            mVertexBufferData[14] =
-                invLightViewProj * glm::vec4(-1,-1,1,1);
-            mVertexBufferData[15] =
-                invLightViewProj * glm::vec4(1,-1,1,1);
+            mVertexBufferData[8]  = invLightViewProj * glm::vec4(-1, 1, 0, 1);
+            mVertexBufferData[9]  = invLightViewProj * glm::vec4(1, 1, 0, 1);
+            mVertexBufferData[10] = invLightViewProj * glm::vec4(-1, -1, 0, 1);
+            mVertexBufferData[11] = invLightViewProj * glm::vec4(1, -1, 0, 1);
+            mVertexBufferData[12] = invLightViewProj * glm::vec4(-1, 1, 1, 1);
+            mVertexBufferData[13] = invLightViewProj * glm::vec4(1, 1, 1, 1);
+            mVertexBufferData[14] = invLightViewProj * glm::vec4(-1, -1, 1, 1);
+            mVertexBufferData[15] = invLightViewProj * glm::vec4(1, -1, 1, 1);
 
             // Update gpu-visible buffer:
             Buffer::UploadToMapped(mDebugFrustumVertexBuffer, mVertexBufferData.data(),

@@ -110,23 +110,14 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
       mDynamicUBO(ctx, info), mEnvHandler(ctx),
-      mShadowmapHandler(ctx, RenderTargetFormat, DepthStencilFormat),
+      mShadowmapHandler(ctx, RenderTargetFormat, DepthStencilFormat), mAOHandler(ctx),
       mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
-    // Create the texture sampler:
+    // Create the material texture sampler:
     mSampler2D = SamplerBuilder("MinimalPbrSampler2D")
                      .SetMagFilter(VK_FILTER_LINEAR)
                      .SetMinFilter(VK_FILTER_LINEAR)
                      .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                     .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
-                     .SetMaxLod(12.0f)
-                     .Build(mCtx, mMainDeletionQueue);
-
-    // For ao clamp to edge is required to avoid artefacts near screen edges:
-    mAOSampler = SamplerBuilder("MinimalPbrSampler2D")
-                     .SetMagFilter(VK_FILTER_LINEAR)
-                     .SetMinFilter(VK_FILTER_LINEAR)
-                     .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
                      .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
                      .SetMaxLod(12.0f)
                      .Build(mCtx, mMainDeletionQueue);
@@ -169,34 +160,6 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     // Build the dynamic uniform buffer:
     auto stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     mDynamicUBO.OnInit("MinimalPBRDynamicUBO", stages, sizeof(mUBOData));
-
-    // Build descriptor sets for AO:
-    {
-        // clang-format off
-        std::array<VkDescriptorPoolSize, 2> poolCounts{{
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
-            {         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-        }};
-        // clang-format on
-
-        mAODescriptorPool = Descriptor::InitPool(mCtx, 2, poolCounts);
-        mMainDeletionQueue.push_back(mAODescriptorPool);
-    }
-
-    mAOGenDescriptorSetLayout = DescriptorSetLayoutBuilder("MinimalPBRAOGenDSLayout")
-                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .Build(mCtx, mMainDeletionQueue);
-
-    mAOGenDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mAOGenDescriptorSetLayout);
-
-    mAOUsageDescriptorSetLayout = DescriptorSetLayoutBuilder("MinimalPBRAOUsageDSLayout")
-                                      .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                      .Build(mCtx, mMaterialDeletionQueue);
-
-    mAOUsageDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mAOUsageDescriptorSetLayout);
 
     // Build the graphics pipelines:
     RebuildPipelines();
@@ -261,12 +224,6 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
-    mAOGenPipeline = ComputePipelineBuilder("MinimalPBRAOPipeline")
-                         .SetShaderPath("assets/spirv/AOGenComp.spv")
-                         .AddDescriptorSetLayout(mAOGenDescriptorSetLayout)
-                         .SetPushConstantSize(sizeof(PCDataAO))
-                         .Build(mCtx, mPipelineDeletionQueue);
-
     VkCompareOp mainCompareOp{};
 
     if (mEnablePrepass)
@@ -290,7 +247,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .AddDescriptorSetLayout(mShadowmapHandler.GetDSLayout())
-            .AddDescriptorSetLayout(mAOUsageDescriptorSetLayout)
+            .AddDescriptorSetLayout(mAOHandler.GetDSLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest(mainCompareOp)
             .SetDepthFormat(DepthStencilFormat)
@@ -320,6 +277,7 @@ void MinimalPbrRenderer::RebuildPipelines()
     mEnvHandler.RebuildPipelines();
     mShadowmapHandler.RebuildPipelines(mGeometryLayout.VertexLayout,
                                        mMaterialDescriptorSetLayout, mMultisample);
+    mAOHandler.RebuildPipelines();
 
     VkStencilOpState stencilWriteState{
         .failOp      = VK_STENCIL_OP_REPLACE,
@@ -435,24 +393,21 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
                                            mSwapchainDeletionQueue);
 
-    // Create depth buffer:
+    // Create depth (and stencil) buffer:
     VkImageUsageFlags depthUsage{};
     depthUsage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     depthUsage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
-    auto targetDepthLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    auto initialDepthLayout =
-        mEnableAO ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : targetDepthLayout;
 
     Image2DInfo depthBufferInfo{
         .Extent = drawExtent,
         .Format = DepthStencilFormat,
         .Usage  = depthUsage,
-        .Layout = initialDepthLayout,
+        .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
     mDepthStencilBuffer = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
                                                  mSwapchainDeletionQueue);
 
+    // Create depth-only view for the depth buffer:
     mDepthOnlyView = MakeView::View2D(mCtx, "DepthOnlyView", mDepthStencilBuffer.Img,
                                       depthBufferInfo.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
     mSwapchainDeletionQueue.push_back(mDepthOnlyView);
@@ -474,48 +429,9 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             mCtx, "DepthBufferMSAA", depthBufferInfo, mSwapchainDeletionQueue);
     }
 
-    // if (mEnableAO)
-    {
-        // Create target for occlusion computation:
-        Image2DInfo aoTargetInfo{
-            .Extent = drawExtent,
-            .Format = VK_FORMAT_R8G8B8A8_UNORM,
-            .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            .Layout = VK_IMAGE_LAYOUT_GENERAL,
-        };
-        mAOTarget = MakeTexture::Texture2D(mCtx, "AOTarget", aoTargetInfo,
-                                           mSwapchainDeletionQueue);
-
-        // Update AO descriptor to point to depth buffer
-        DescriptorUpdater(mAOGenDescriptorSet)
-            .WriteStorageImage(0, mAOTarget.View)
-            .WriteCombinedSampler(1, mDepthOnlyView, mAOSampler)
-            .Update(mCtx);
-
-        // Transition depth buffer and ao target to correct layouts:
-        mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image            = mDepthStencilBuffer.Img.Handle,
-                .OldLayout        = initialDepthLayout,
-                .NewLayout        = targetDepthLayout,
-                .SubresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT |
-                                         VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1},
-            };
-            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
-
-            auto barrierInfoAO = barrier::ImageLayoutBarrierInfo{
-                .Image            = mAOTarget.Img.Handle,
-                .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-            };
-            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfoAO);
-        });
-
-        DescriptorUpdater(mAOUsageDescriptorSet)
-            .WriteCombinedSampler(0, mAOTarget.View, mSampler2D)
-            .Update(mCtx);
-    }
+    // Create AO related resources:
+    mAOHandler.RecreateSwapchainResources(mDepthStencilBuffer.Img, mDepthOnlyView,
+                                          drawExtent, mSampler2D);
 }
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
@@ -617,7 +533,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
         Prepass(cmd, stats);
 
         if (mEnableAO)
-            AOPass(cmd, stats);
+            mAOHandler.RunAOPass(cmd, mDepthStencilBuffer.Img, mCamera.GetProj());
     }
 
     MainPass(cmd, stats);
@@ -826,62 +742,6 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
     vkCmdEndRendering(cmd);
 }
 
-void MinimalPbrRenderer::AOPass(VkCommandBuffer cmd, DrawStats &stats)
-{
-    // TODO: make the layout barriers non-coarse
-
-    // Transition depth target to be used as texture:
-    auto barrierInfoDepth = barrier::ImageLayoutBarrierInfo{
-        .Image            = mDepthStencilBuffer.Img.Handle,
-        .OldLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .SubresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0,
-                             1, 0, 1},
-    };
-    barrier::ImageLayoutBarrierCoarse(cmd, barrierInfoDepth);
-
-    // Transition AO target to be used as storage image:
-    auto barrierInfoAO = barrier::ImageLayoutBarrierInfo{
-        .Image            = mAOTarget.Img.Handle,
-        .OldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
-        .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-    };
-    barrier::ImageLayoutBarrierCoarse(cmd, barrierInfoAO);
-
-    // Calculate ambient occlusion:
-    mAOGenPipeline.Bind(cmd);
-    mAOGenPipeline.BindDescriptorSet(cmd, mAOGenDescriptorSet, 0);
-    stats.NumBinds += 1;
-
-    PCDataAO data{
-        .Proj    = mCamera.GetProj(),
-        .InvProj = glm::inverse(mCamera.GetProj()),
-    };
-
-    mAOGenPipeline.PushConstants(cmd, data);
-
-    float localSizeX = 32.0f, localSizeY = 32.0f;
-
-    auto targetWidth  = static_cast<float>(mAOTarget.Img.Info.extent.width);
-    auto targetHeight = static_cast<float>(mAOTarget.Img.Info.extent.height);
-
-    auto dispCountX = static_cast<uint32_t>(std::ceil(targetWidth / localSizeX));
-    auto dispCountY = static_cast<uint32_t>(std::ceil(targetHeight / localSizeY));
-
-    vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
-
-    // Transition AO target back to be used as a texture:
-    barrierInfoAO.OldLayout = VK_IMAGE_LAYOUT_GENERAL;
-    barrierInfoAO.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier::ImageLayoutBarrierCoarse(cmd, barrierInfoAO);
-
-    // Transition depth target back to be used as depth attachment:
-    barrierInfoDepth.OldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrierInfoDepth.NewLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    barrier::ImageLayoutBarrierCoarse(cmd, barrierInfoDepth);
-}
-
 void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 {
     // Begin rendering:
@@ -908,7 +768,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         mDynamicUBO.DescriptorSet(),
         mEnvHandler.GetLightingDS(),
         mShadowmapHandler.GetDescriptorSet(),
-        mAOUsageDescriptorSet,
+        mAOHandler.GetDescriptorSet(),
     };
 
     mMainPipeline.BindDescriptorSets(cmd, descriptorSets, 0);

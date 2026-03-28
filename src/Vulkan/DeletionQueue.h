@@ -40,6 +40,7 @@ using DeletionObject = std::variant<
 
 class DeletionQueue {
   public:
+    // TODO: This should just call flush in the destructor...
     DeletionQueue(VulkanContext &ctx) : mCtx(ctx) {};
 
     template <typename T>

@@ -10,6 +10,7 @@
 #include "Scene.h"
 #include "ShadowmapHandler.h"
 #include "Texture.h"
+#include "VertexLayout.h"
 #include "VulkanContext.h"
 
 class MinimalPbrRenderer final : public IRenderer {
@@ -69,7 +70,15 @@ class MinimalPbrRenderer final : public IRenderer {
         Buffer   IndexBuffer;
         uint32_t IndexCount;
 
-        AABB                  Bbox;
+        // TODO: this is only for vertex pulling code-path
+        // maybe this should be lumped together with vertex
+        //(storage) buffer?
+        VkDeviceAddress VertexAddress;
+
+        AABB      Bbox;
+        glm::vec2 TexBoundsCenter = glm::vec2(0.5f);
+        glm::vec2 TexBoundsExtent = glm::vec2(0.5f);
+
         SceneKey              MaterialKey = 0;
         std::vector<Instance> Instances;
     };
@@ -138,32 +147,40 @@ class MinimalPbrRenderer final : public IRenderer {
     Pipeline mOutlinePipeline;
     Pipeline mObjectIdPipeline;
 
-    // Push-constant structs for all pipelines:
-    struct {
-        glm::mat4 Model;
-    } mPrepassPCData;
+    // Push-constant struct definitions for all pipelines:
+    struct PCDataPrepass {
+        glm::mat4       Model;
+        VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
+    };
 
-    struct {
+    struct PCDataMain {
+        glm::mat4       Model;
+        VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
+    };
+
+    struct PCDataOutline {
+        glm::mat4       Model;
+        VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
+    };
+
+    struct PCDataObjectID {
+        glm::mat4       Model;
+        VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
+        uint32_t        ObjectId;
+    };
+
+    struct PCDataAO {
         glm::mat4 Proj;
         glm::mat4 InvProj;
-    } mAOGenPCData;
-
-    struct {
-        glm::mat4 Model;
-        // In principle this could be a mat3, but that somehow
-        // breaks the push constant data layout...
-        glm::mat4 Normal;
-    } mMainPCData;
-
-    struct {
-        glm::mat4 Model;
-        glm::mat4 Normal;
-    } mOutlinePCData;
-
-    struct {
-        glm::mat4 Model;
-        uint32_t  ObjectId;
-    } mObjectIdPCData;
+    };
 
     // Descriptors for materials:
     VkDescriptorSetLayout      mMaterialDescriptorSetLayout;
@@ -181,12 +198,12 @@ class MinimalPbrRenderer final : public IRenderer {
     VkSampler mAOSampler;
 
     // Supported geometry specification:
-    using enum Vertex::AttributeType;
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
 
     GeometryLayout mGeometryLayout{
-        .VertexLayout = {Vec3, Vec2, Vec3, Vec4},
-        .IndexType    = IndexType,
+        .VertexLayout = Vertex::PullLayout::Naive,
+        //.VertexLayout = Vertex::PullLayout::Compressed,
+        .IndexType = IndexType,
     };
 
     // Default material textures:

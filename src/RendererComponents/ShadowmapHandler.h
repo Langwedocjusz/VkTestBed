@@ -74,8 +74,12 @@ class ShadowmapHandler {
     // For building drawing functions in the renderer:
 
     // Deliver per-object (pre-multiplied) MVP matrix to the shaders via push constant:
-    void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp);
-    void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp);
+    void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp,
+                            VkDeviceAddress vertexBuffer, glm::vec2 texBoundsCenter,
+                            glm::vec2 texBoundsExtent);
+    void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp,
+                           VkDeviceAddress vertexBuffer, glm::vec2 texBoundsCenter,
+                           glm::vec2 texBoundsExtent);
 
     // Bind descriptor set used to sample per-material alpha.
     // Descriptor set being bound is assumed to have albedo map as its first binding.
@@ -124,9 +128,12 @@ class ShadowmapHandler {
     Bounds                           mBounds;
     std::array<Frustum, NumCascades> mShadowFrustums;
 
-    struct {
-        glm::mat4 LightMVP;
-    } mShadowPCData;
+    struct PCDataShadow {
+        glm::mat4       LightMVP;
+        VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
+    };
 
     Pipeline mOpaquePipeline;
     Pipeline mAlphaPipeline;
@@ -157,22 +164,22 @@ class ShadowmapHandler {
     VkFormat mDebugDepthFormat;
 
     GeometryLayout mDebugGeometryLayout{
-        .VertexLayout = {Vertex::AttributeType::Vec4},
+        .VertexLayout = Vertex::PushLayout{},
         .IndexType    = VK_INDEX_TYPE_UINT16,
     };
 
     static constexpr size_t NumVertsPerFrustum = 8;
     static constexpr size_t NumIdxPerFrustum   = 36;
 
-    std::array<glm::vec4, 2 * NumVertsPerFrustum> mVertexBufferData;
+    std::array<glm::vec3, 2 * NumVertsPerFrustum> mVertexBufferData;
 
     Buffer mDebugFrustumVertexBuffer;
     Buffer mDebugFrustumIndexBuffer;
 
-    struct {
+    struct PCDataDebug {
         glm::mat4 ViewProj;
         glm::vec4 Color;
-    } mDebugPCData;
+    };
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;

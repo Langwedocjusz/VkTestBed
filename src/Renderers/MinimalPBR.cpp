@@ -33,14 +33,29 @@ void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive
     auto &geo = prim.Data;
 
     // Create Vertex buffer:
-    VertexBuffer = MakeBuffer::Vertex(ctx, debugName, geo.VertexData);
+    // TODO: restore this codepath:
+    // VertexBuffer = MakeBuffer::Vertex(ctx, debugName, geo.VertexData);
+    // VertexCount  = static_cast<uint32_t>(geo.VertexData.Count);
+
+    VertexBuffer = MakeBuffer::VertexStorage(ctx, debugName, geo.VertexData);
     VertexCount  = static_cast<uint32_t>(geo.VertexData.Count);
+
+    // Retrieve vertex buffer address:
+    VkBufferDeviceAddressInfo deviceAdressInfo{
+        .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .pNext  = nullptr,
+        .buffer = VertexBuffer.Handle,
+    };
+
+    VertexAddress = vkGetBufferDeviceAddress(ctx.Device, &deviceAdressInfo);
 
     // Create Index buffer:
     IndexBuffer = MakeBuffer::Index(ctx, debugName, geo.IndexData);
     IndexCount  = static_cast<uint32_t>(geo.IndexData.Count);
 
-    Bbox = prim.Data.BBox;
+    Bbox            = prim.Data.BBox;
+    TexBoundsCenter = prim.TexCoordCenter;
+    TexBoundsExtent = prim.TexCoordExtent;
 }
 
 void MinimalPbrRenderer::Drawable::Destroy(VulkanContext &ctx)
@@ -72,9 +87,10 @@ bool MinimalPbrRenderer::Drawable::IsVisible(glm::mat4 viewProj, size_t instance
 
 void MinimalPbrRenderer::Drawable::BindGeometryBuffers(VkCommandBuffer cmd)
 {
-    VkBuffer     vertBuffer = VertexBuffer.Handle;
-    VkDeviceSize vertOffset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
+    // TODO: restore this codepath:
+    // VkBuffer     vertBuffer = VertexBuffer.Handle;
+    // VkDeviceSize vertOffset = 0;
+    // vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
     vkCmdBindIndexBuffer(cmd, IndexBuffer.Handle, 0, MinimalPbrRenderer::IndexType);
 }
@@ -210,12 +226,14 @@ void MinimalPbrRenderer::RebuildPipelines()
     mZPrepassOpaquePipeline =
         PipelineBuilder("MinimalPBROpaquePrepassPipeline")
             .SetShaderPathVertex("assets/spirv/ZPrepassOpaqueVert.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            // TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
+            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(mPrepassPCData))
+            .SetPushConstantSize(sizeof(PCDataPrepass))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .EnableDepthTest()
             .SetDepthFormat(DepthStencilFormat)
@@ -227,12 +245,14 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRAlphaPrepassPipeline")
             .SetShaderPathVertex("assets/spirv/ZPrepassAlphaVert.spv")
             .SetShaderPathFragment("assets/spirv/ZPrepassAlphaFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            // TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
+            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(mPrepassPCData))
+            .SetPushConstantSize(sizeof(PCDataPrepass))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest()
@@ -244,7 +264,7 @@ void MinimalPbrRenderer::RebuildPipelines()
     mAOGenPipeline = ComputePipelineBuilder("MinimalPBRAOPipeline")
                          .SetShaderPath("assets/spirv/AOGenComp.spv")
                          .AddDescriptorSetLayout(mAOGenDescriptorSetLayout)
-                         .SetPushConstantSize(sizeof(mAOGenPCData))
+                         .SetPushConstantSize(sizeof(PCDataAO))
                          .Build(mCtx, mPipelineDeletionQueue);
 
     VkCompareOp mainCompareOp{};
@@ -258,13 +278,15 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRMainPipeline")
             .SetShaderPathVertex("assets/spirv/MinimalPBRVert.spv")
             .SetShaderPathFragment("assets/spirv/MinimalPBRFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            // TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
+            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetColorFormat(RenderTargetFormat)
-            .SetPushConstantSize(sizeof(mMainPCData))
+            .SetPushConstantSize(sizeof(PCDataMain))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .AddDescriptorSetLayout(mShadowmapHandler.GetDSLayout())
@@ -313,7 +335,9 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRStencilPipeline")
             .SetShaderPathVertex("assets/spirv/outline/StencilVert.spv")
             .SetShaderPathFragment("assets/spirv/outline/StencilFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            // TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
+            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -322,7 +346,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
             .SetDepthFormat(DepthStencilFormat)
             .SetStencilFormat(DepthStencilFormat)
-            .SetPushConstantSize(sizeof(mOutlinePCData))
+            .SetPushConstantSize(sizeof(PCDataOutline))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .SetMultisampling(mMultisample)
@@ -342,7 +366,9 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRStencilPipeline")
             .SetShaderPathVertex("assets/spirv/outline/OutlineVert.spv")
             .SetShaderPathFragment("assets/spirv/outline/OutlineFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            // TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
+            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -351,7 +377,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetStencilFormat(DepthStencilFormat)
             .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
             .SetDepthFormat(DepthStencilFormat)
-            .SetPushConstantSize(sizeof(mOutlinePCData))
+            .SetPushConstantSize(sizeof(PCDataOutline))
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .SetMultisampling(mMultisample)
@@ -361,7 +387,9 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRObjectIdPipeline")
             .SetShaderPathVertex("assets/spirv/outline/ObjectIdVert.spv")
             .SetShaderPathFragment("assets/spirv/outline/ObjectIdFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            // TODO: restore this code in separate path:
+            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
+            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -371,7 +399,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetDepthFormat(PickingDepthFormat)
             .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(mObjectIdPCData))
+            .SetPushConstantSize(sizeof(PCDataObjectID))
             .Build(mCtx, mPipelineDeletionQueue);
 }
 
@@ -630,7 +658,7 @@ void MinimalPbrRenderer::DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &d
             continue;
 
         // Callback for per-instance binds:
-        instanceCallback(cmd, instance);
+        instanceCallback(cmd, drawable, instance);
 
         drawable.Draw(cmd);
 
@@ -697,9 +725,12 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
             (void)material;
         };
 
-        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance) {
+        auto instanceCallback = [&](VkCommandBuffer cmd, Drawable &drawable,
+                                    Instance &instance) {
             auto mvp = viewProj * instance.Transform;
-            mShadowmapHandler.PushConstantOpaque(cmd, mvp);
+            mShadowmapHandler.PushConstantOpaque(cmd, mvp, drawable.VertexAddress,
+                                                 drawable.TexBoundsCenter,
+                                                 drawable.TexBoundsExtent);
         };
 
         DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -712,9 +743,12 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
             stats.NumBinds += 1;
         };
 
-        auto instanceCallback = [&](VkCommandBuffer cmd, Instance &instance) {
+        auto instanceCallback = [&](VkCommandBuffer cmd, Drawable &drawable,
+                                    Instance &instance) {
             auto mvp = viewProj * instance.Transform;
-            mShadowmapHandler.PushConstantAlpha(cmd, mvp);
+            mShadowmapHandler.PushConstantAlpha(cmd, mvp, drawable.VertexAddress,
+                                                drawable.TexBoundsCenter,
+                                                drawable.TexBoundsExtent);
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -746,12 +780,16 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
             (void)material;
         };
 
-        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-            mPrepassPCData.Model = instance.Transform;
+        auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
+                                       Instance &instance) {
+            PCDataPrepass data{
+                .Model          = instance.Transform,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
+            };
 
-            vkCmdPushConstants(cmd, mZPrepassOpaquePipeline.Layout,
-                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
-                               &mPrepassPCData);
+            mZPrepassOpaquePipeline.PushConstants(cmd, data);
         };
 
         DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -769,12 +807,16 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
             stats.NumBinds += 1;
         };
 
-        auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-            mPrepassPCData.Model = instance.Transform;
+        auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
+                                       Instance &instance) {
+            PCDataPrepass data{
+                .Model          = instance.Transform,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
+            };
 
-            vkCmdPushConstants(cmd, mZPrepassAlphaPipeline.Layout,
-                               VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(mPrepassPCData),
-                               &mPrepassPCData);
+            mZPrepassAlphaPipeline.PushConstants(cmd, data);
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -812,11 +854,12 @@ void MinimalPbrRenderer::AOPass(VkCommandBuffer cmd, DrawStats &stats)
     mAOGenPipeline.BindDescriptorSet(cmd, mAOGenDescriptorSet, 0);
     stats.NumBinds += 1;
 
-    mAOGenPCData = {.Proj    = mCamera.GetProj(),
-                    .InvProj = glm::inverse(mCamera.GetProj())};
+    PCDataAO data{
+        .Proj    = mCamera.GetProj(),
+        .InvProj = glm::inverse(mCamera.GetProj()),
+    };
 
-    vkCmdPushConstants(cmd, mAOGenPipeline.Layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                       sizeof(mAOGenPCData), &mAOGenPCData);
+    mAOGenPipeline.PushConstants(cmd, data);
 
     float localSizeX = 32.0f, localSizeY = 32.0f;
 
@@ -878,12 +921,16 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         stats.NumBinds += 1;
     };
 
-    auto instanceCallback = [this](VkCommandBuffer cmd, Instance &instance) {
-        mMainPCData.Model  = instance.Transform;
-        mMainPCData.Normal = glm::transpose(glm::inverse(instance.Transform));
+    auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
+                                   Instance &instance) {
+        PCDataMain data{
+            .Model          = instance.Transform,
+            .VertexBuffer   = drawable.VertexAddress,
+            .TexBoundCenter = drawable.TexBoundsCenter,
+            .TexBoundExtent = drawable.TexBoundsExtent,
+        };
 
-        vkCmdPushConstants(cmd, mMainPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           sizeof(mMainPCData), &mMainPCData);
+        mMainPipeline.PushConstants(cmd, data);
     };
 
     DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
@@ -903,8 +950,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         mBackgroundPipeline.BindDescriptorSet(cmd, mEnvHandler.GetBackgroundDS(), 0);
         stats.NumBinds += 1;
 
-        vkCmdPushConstants(cmd, mBackgroundPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
-                           0, sizeof(FrustumBack), &mCamera.GetFrustumBack());
+        mBackgroundPipeline.PushConstants(cmd, mCamera.GetFrustumBack());
 
         vkCmdDraw(cmd, 3, 1, 0, 0);
         stats.NumDraws += 1;
@@ -967,13 +1013,16 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             mStencilPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             // Push per-instance data:
-            auto &model          = drawable.Instances.at(instanceId).Transform;
-            
-            mOutlinePCData.Model = model;
-            mOutlinePCData.Normal = glm::transpose(glm::inverse(model));
+            auto &model = drawable.Instances.at(instanceId).Transform;
 
-            vkCmdPushConstants(cmd, mStencilPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
-                               0, sizeof(mOutlinePCData), &mOutlinePCData);
+            PCDataOutline data{
+                .Model          = model,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
+            };
+
+            mStencilPipeline.PushConstants(cmd, data);
 
             // Draw:
             drawable.Draw(cmd);
@@ -1017,11 +1066,16 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             mOutlinePipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             // Push per-instance data:
-            auto &model          = drawable.Instances.at(instanceId).Transform;
-            mOutlinePCData.Model = model;
+            auto &model = drawable.Instances.at(instanceId).Transform;
 
-            vkCmdPushConstants(cmd, mOutlinePipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS,
-                               0, sizeof(mOutlinePCData), &mOutlinePCData);
+            PCDataOutline data{
+                .Model          = model,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
+            };
+
+            mOutlinePipeline.PushConstants(cmd, data);
 
             // Draw:
             drawable.Draw(cmd);
@@ -1055,12 +1109,17 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
         mObjectIdPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
     };
 
-    auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Instance &instance) {
-        mObjectIdPCData.Model    = viewProj * instance.Transform;
-        mObjectIdPCData.ObjectId = instance.ObjectId;
+    auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Drawable &drawable,
+                                             Instance &instance) {
+        PCDataObjectID data{
+            .Model          = viewProj * instance.Transform,
+            .VertexBuffer   = drawable.VertexAddress,
+            .TexBoundCenter = drawable.TexBoundsCenter,
+            .TexBoundExtent = drawable.TexBoundsExtent,
+            .ObjectId       = instance.ObjectId,
+        };
 
-        vkCmdPushConstants(cmd, mObjectIdPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           sizeof(mObjectIdPCData), &mObjectIdPCData);
+        mObjectIdPipeline.PushConstants(cmd, data);
     };
 
     DrawStats stats;
@@ -1118,7 +1177,7 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
             if (mDrawables.count(drawableKey) != 0)
                 continue;
 
-            if (mGeometryLayout.IsCompatible(prim.Data.Layout))
+            if (mGeometryLayout == prim.Data.Layout)
             {
                 const auto debugName = mesh.Name + std::to_string(primIdx);
 
@@ -1281,7 +1340,7 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 
         auto meshKey = *obj.Mesh;
 
-        for (const auto [primIdx, _] : enumerate(scene.Meshes.at(meshKey).Primitives))
+        for (const auto [primIdx, prim] : enumerate(scene.Meshes.at(meshKey).Primitives))
         {
             auto drawableKey = DrawableKey{meshKey, primIdx};
 
@@ -1295,7 +1354,12 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
             auto &list = mObjectCache[objKey];
             list.emplace_back(drawableKey, drawable.Instances.size());
 
-            drawable.Instances.emplace_back(objKey, obj.Transform);
+            glm::mat4 base = glm::translate(glm::mat4(1.0f), prim.BaseOffset) *
+                             glm::scale(glm::mat4(1.0f), prim.BaseScale);
+
+            glm::mat4 transform = obj.Transform * base;
+
+            drawable.Instances.emplace_back(objKey, transform);
         }
     }
 }

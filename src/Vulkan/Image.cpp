@@ -105,9 +105,9 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
                 auto width  = img.Info.extent.width >> lvl;
                 auto height = img.Info.extent.height >> lvl;
 
-                region.imageExtent.width         = width;
-                region.imageExtent.height        = height;
-                region.imageExtent.depth         = 1;
+                region.imageExtent.width  = width;
+                region.imageExtent.height = height;
+                region.imageExtent.depth  = 1;
 
                 region.bufferRowLength   = 0;
                 region.bufferImageHeight = 0;

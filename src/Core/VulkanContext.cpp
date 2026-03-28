@@ -6,6 +6,7 @@
 
 #include "VkBootstrap.h"
 #include "volk.h"
+#include "vulkan/vulkan_core.h"
 
 static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
                            VkQueueFamilyProperties &properties)
@@ -55,6 +56,10 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
 
     VkPhysicalDeviceFeatures features{};
     features.samplerAnisotropy = true;
+    features.shaderInt16       = true;
+
+    VkPhysicalDeviceVulkan11Features features11{};
+    features11.storageBuffer16BitAccess = true;
 
     VkPhysicalDeviceVulkan12Features features12{};
     features12.scalarBlockLayout   = true;
@@ -69,6 +74,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     PhysicalDevice = vkb::PhysicalDeviceSelector(Instance)
                          .set_surface(Surface)
                          .set_required_features(features)
+                         .set_required_features_11(features11)
                          .set_required_features_12(features12)
                          .set_required_features_13(features13)
                          .select()

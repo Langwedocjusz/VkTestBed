@@ -134,10 +134,8 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
             for (auto &transform : drawable.Instances)
             {
+                mColoredPipeline.PushConstants(cmd, transform);
 
-                vkCmdPushConstants(cmd, mColoredPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(transform),
-                                   &transform);
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
         }
@@ -162,15 +160,13 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
             for (auto &transform : drawable.Instances)
             {
-
-                PushConstantData pcData{
+                PushConstantData data{
                     .AlphaCutoff = glm::vec4(material.AlphaCutoff),
                     .Transform   = transform,
                 };
 
-                vkCmdPushConstants(cmd, mTexturedPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0, sizeof(pcData),
-                                   &pcData);
+                mTexturedPipeline.PushConstants(cmd, data);
+
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
         }
@@ -273,14 +269,14 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 
             const auto primName = mesh.Name + std::to_string(primIdx);
 
-            if (mColoredLayout.IsCompatible(prim.Data.Layout))
+            if (mColoredLayout == prim.Data.Layout)
             {
                 auto &drawable = mColoredDrawables[drawableKey];
 
                 CreateBuffers(drawable, prim.Data, primName);
             }
 
-            if (mTexturedLayout.IsCompatible(prim.Data.Layout))
+            if (mTexturedLayout == prim.Data.Layout)
             {
                 auto &drawable = mTexturedDrawables[drawableKey];
 

@@ -1,7 +1,6 @@
 #include "ShadowmapHandler.h"
 #include "Pch.h"
 
-#include "Barrier.h"
 #include "BufferUtils.h"
 #include "Common.h"
 #include "Descriptor.h"
@@ -161,17 +160,20 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
                                         VkDescriptorSetLayout materialDSLayout,
                                         VkSampleCountFlagBits debugMultisampling)
 {
+    (void)vertexLayout; // TODO: Remove this
+
     mPipelineDeletionQueue.flush();
 
     mOpaquePipeline =
         PipelineBuilder("ShadowmapPipeline")
             .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
-            .SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            // TODO: restore this code in separate path:
+            //.SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(mShadowPCData))
+            .SetPushConstantSize(sizeof(PCDataShadow))
             .EnableDepthTest()
             .SetDepthFormat(ShadowmapFormat)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -180,12 +182,13 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
         PipelineBuilder("ShadowmapPipeline")
             .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
             .SetShaderPathFragment("assets/spirv/shadows/ShadowmapAlphaFrag.spv")
-            .SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+            // TODO: restore this code in separate path:
+            //.SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(mShadowPCData))
+            .SetPushConstantSize(sizeof(PCDataShadow))
             .AddDescriptorSetLayout(materialDSLayout)
             .EnableDepthTest()
             .SetDepthFormat(ShadowmapFormat)
@@ -200,7 +203,7 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE)
-            .SetPushConstantSize(sizeof(mDebugPCData))
+            .SetPushConstantSize(sizeof(PCDataDebug))
             .SetColorFormat(mDebugColorFormat)
             .EnableDepthTest()
             .SetDepthFormat(mDebugDepthFormat)
@@ -303,34 +306,30 @@ ShadowVolume ShadowmapHandler::FitVolumeToScene(ShadowVolume volume, AABB sceneA
                                                 glm::mat4 lightView) const
 {
     // Update minZ and maxZ values based on scene bounding box:
-    if (mFitToScene)
+    
+    // Transform AABB vers to light-view space:
+    auto verts = sceneAABB.GetVertices();
+
+    for (auto &vert : verts)
     {
-        // Transform AABB vers to light-view space:
-        auto verts = sceneAABB.GetVertices();
-
-        for (auto &vert : verts)
-        {
-            // Multiplication by -1 needed here, since BBOX positions
-            // don't take vulkans inverted y-axis into account:
-            vert.y *= -1.0f;
-            vert = glm::vec3(lightView * glm::vec4(vert, 1.0f));
-        }
-
-        // Take min-max of their positions to update volume values.
-        // This is overly conservative as doing min-max of the
-        // intersection between sceneAABB and volume would be sufficient.
-        auto minAABB = std::numeric_limits<float>::max();
-        auto maxAABB = std::numeric_limits<float>::lowest();
-
-        for (auto vert : verts)
-        {
-            minAABB = std::min(minAABB, vert.z);
-            maxAABB = std::max(maxAABB, vert.z);
-        }
-
-        volume.MinZ = std::min(volume.MinZ, minAABB);
-        volume.MaxZ = std::max(volume.MaxZ, maxAABB);
+        // Apparenly no y *= -1 needed here, don't fully understand why.
+        vert = glm::vec3(lightView * glm::vec4(vert, 1.0f));
     }
+
+    // Take min-max of their positions to update volume values.
+    // This is overly conservative as doing min-max of the
+    // intersection between sceneAABB and volume would be sufficient.
+    auto minAABB = std::numeric_limits<float>::max();
+    auto maxAABB = std::numeric_limits<float>::lowest();
+
+    for (auto vert : verts)
+    {
+        minAABB = std::min(minAABB, vert.z);
+        maxAABB = std::max(maxAABB, vert.z);
+    }
+
+    volume.MinZ = std::min(volume.MinZ, minAABB);
+    volume.MaxZ = std::max(volume.MaxZ, maxAABB);
 
     return volume;
 }
@@ -373,7 +372,15 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lig
         ShadowVolume vol = GetBoundingVolume(frustum, lightView);
 
         // Extend the Z range of constructed volume to fit entire scene range:
-        vol = FitVolumeToScene(vol, sceneAABB, lightView);
+        if (mFitToScene)
+            vol = FitVolumeToScene(vol, sceneAABB, lightView);
+
+        // TODO: This seems to fix the shadow volume behaviour.
+        // Don't fully understand why. Maybe coordinates can be
+        // adjusted more elegantly somewhere else.
+        vol.MinZ *= -1.0f;
+        vol.MaxZ *= -1.0f;
+        std::swap(vol.MinZ, vol.MaxZ);
 
         // Construct the projection matrix:
         glm::mat4 lightProj =
@@ -387,27 +394,31 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lig
         {
             // Copy frustum verts
             auto frustumVerts = mShadowFrustums[idx].GetVertices();
-            std::copy(&frustumVerts[0], &frustumVerts[8], &mVertexBufferData[0]);
+            
+            for (size_t i=0; i<8; i++)
+            {
+                mVertexBufferData[i] = frustumVerts[i];
+            }
 
             // Copy bounding volume verts, transformed back to world-space:
-            auto invLightView = glm::inverse(lightView);
+            auto invLightViewProj = glm::inverse(lightViewProj);
 
             mVertexBufferData[8] =
-                invLightView * glm::vec4(vol.MinX, vol.MaxY, vol.MinZ, 1.0f);
+                invLightViewProj * glm::vec4(-1,1,0,1);
             mVertexBufferData[9] =
-                invLightView * glm::vec4(vol.MaxX, vol.MaxY, vol.MinZ, 1.0f);
+                invLightViewProj * glm::vec4(1,1,0,1);
             mVertexBufferData[10] =
-                invLightView * glm::vec4(vol.MinX, vol.MinY, vol.MinZ, 1.0f);
+                invLightViewProj * glm::vec4(-1,-1,0,1);
             mVertexBufferData[11] =
-                invLightView * glm::vec4(vol.MaxX, vol.MinY, vol.MinZ, 1.0f);
+                invLightViewProj * glm::vec4(1,-1,0,1);
             mVertexBufferData[12] =
-                invLightView * glm::vec4(vol.MinX, vol.MaxY, vol.MaxZ, 1.0f);
+                invLightViewProj * glm::vec4(-1,1,1,1);
             mVertexBufferData[13] =
-                invLightView * glm::vec4(vol.MaxX, vol.MaxY, vol.MaxZ, 1.0f);
+                invLightViewProj * glm::vec4(1,1,1,1);
             mVertexBufferData[14] =
-                invLightView * glm::vec4(vol.MinX, vol.MinY, vol.MaxZ, 1.0f);
+                invLightViewProj * glm::vec4(-1,-1,1,1);
             mVertexBufferData[15] =
-                invLightView * glm::vec4(vol.MaxX, vol.MinY, vol.MaxZ, 1.0f);
+                invLightViewProj * glm::vec4(1,-1,1,1);
 
             // Update gpu-visible buffer:
             Buffer::UploadToMapped(mDebugFrustumVertexBuffer, mVertexBufferData.data(),
@@ -437,20 +448,34 @@ VkExtent2D ShadowmapHandler::GetExtent() const
     return VkExtent2D{width, height};
 }
 
-void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp)
+void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp,
+                                          VkDeviceAddress vertexBuffer,
+                                          glm::vec2       texBoundsCenter,
+                                          glm::vec2       texBoundsExtent)
 {
-    mShadowPCData.LightMVP = mvp;
+    PCDataShadow data{
+        .LightMVP       = mvp,
+        .VertexBuffer   = vertexBuffer,
+        .TexBoundCenter = texBoundsCenter,
+        .TexBoundExtent = texBoundsExtent,
+    };
 
-    vkCmdPushConstants(cmd, mOpaquePipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                       sizeof(mShadowPCData), &mShadowPCData);
+    mOpaquePipeline.PushConstants(cmd, data);
 }
 
-void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp)
+void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp,
+                                         VkDeviceAddress vertexBuffer,
+                                         glm::vec2       texBoundsCenter,
+                                         glm::vec2       texBoundsExtent)
 {
-    mShadowPCData.LightMVP = mvp;
+    PCDataShadow data{
+        .LightMVP       = mvp,
+        .VertexBuffer   = vertexBuffer,
+        .TexBoundCenter = texBoundsCenter,
+        .TexBoundExtent = texBoundsExtent,
+    };
 
-    vkCmdPushConstants(cmd, mAlphaPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                       sizeof(mShadowPCData), &mShadowPCData);
+    mAlphaPipeline.PushConstants(cmd, data);
 }
 
 void ShadowmapHandler::BindAlphaMaterialDS(VkCommandBuffer cmd,
@@ -477,23 +502,21 @@ void ShadowmapHandler::DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj,
     vkCmdBindIndexBuffer(cmd, mDebugFrustumIndexBuffer.Handle, 0,
                          mDebugGeometryLayout.IndexType);
 
-    // To update PC data:
-    auto PushConstants = [this, cmd]() {
-        vkCmdPushConstants(cmd, mDebugPipeline.Layout, VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                           sizeof(mDebugPCData), &mDebugPCData);
+    // Collect push-constant data:
+    PCDataDebug data{
+        .ViewProj = viewProj,
+        .Color    = {},
     };
 
-    mDebugPCData.ViewProj = viewProj;
-
     // Draw view frustum:
-    mDebugPCData.Color = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f);
-    PushConstants();
+    data.Color = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f);
+    mDebugPipeline.PushConstants(cmd, data);
 
     vkCmdDrawIndexed(cmd, NumIdxPerFrustum, 1, 0, 0, 0);
 
     // Draw shadow projection bounds:
-    mDebugPCData.Color = glm::vec4(0.9f, 0.9f, 0.2f, 0.2f);
-    PushConstants();
+    data.Color = glm::vec4(0.9f, 0.9f, 0.2f, 0.2f);
+    mDebugPipeline.PushConstants(cmd, data);
 
     vkCmdDrawIndexed(cmd, NumIdxPerFrustum, 1, 0, 8, 0);
 }

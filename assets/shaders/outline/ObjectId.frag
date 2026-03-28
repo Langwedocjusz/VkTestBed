@@ -19,6 +19,12 @@ layout(scalar, set = 1, binding = 3) uniform MatUBOBlock {
 
 layout(push_constant) uniform constants {
     mat4 MVP;
+    // For proper alignment of ObjectId without declaring
+    // buffer extension etc in the fragment shader:
+    uint DeviceAddress1;
+    uint DeviceAddress2;
+    vec2 TexCenter;
+    vec2 TexExtent;
     uint ObjectId;
 } PushConstants;
 

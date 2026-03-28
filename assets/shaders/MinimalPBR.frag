@@ -9,7 +9,9 @@
 #define TRANSLUCENCY
 
 //#define SSAO_DEBUG_VIEW
-//#define SHADOW_COORD_DEBUG_VIEW
+//#define SHADOW_DEBUG_VIEW
+//#define SHADOW_DEBUG_DEPTH
+//#define NO_ALBEDO_DEBUG_VIEW
 
 #include "common/Pbr.glsl"
 #include "common/SphericalHarmonics.glsl"
@@ -20,8 +22,6 @@ layout(location = 0) in VertexData {
     vec3 Normal;
     vec4 Tangent;
     vec3 FragPos;
-    float FragDistance;
-    //vec4 LightSpaceFragPos;
 } InData;
 
 layout(location = 0) out vec4 outColor;
@@ -68,14 +68,9 @@ layout(scalar, set = 4, binding = 3) uniform MatUBOBlock {
     int DoubleSided;
 } MatUBO;
 
-layout(push_constant) uniform PushConstantsBlock {
-    mat4 Transform;
-    vec4 TransAlpha;
-    int DoubleSided;
+layout(push_constant) uniform constants {
+    mat4 Model;
 } PushConstants;
-
-//Debug grid
-//TODO: move this somewhere
 
 //https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)
@@ -95,11 +90,13 @@ uint GetCascadeIdx()
 
     for (int i=0; i<3; i++)
     {
-        float maxDist = DynamicUBO.CascadeBounds[i];
-
+        // Get distance to fragment:
+        float dist = length(InData.FragPos - DynamicUBO.ViewPos);
+        // Project the distance to view axis:
         vec3 viewDir = normalize(InData.FragPos - DynamicUBO.ViewPos);
-
-        float projDist = InData.FragDistance * dot(viewDir, DynamicUBO.ViewFront);
+        float projDist = dist * dot(viewDir, DynamicUBO.ViewFront);
+        //Compare with stored bounds:
+        float maxDist = DynamicUBO.CascadeBounds[i];
 
         if (projDist < maxDist)
         {
@@ -170,6 +167,10 @@ void main()
         discard;
 
     //Handle debug views:
+    #ifdef NO_ALBEDO_DEBUG_VIEW
+    albedo.rgb = vec3(1);
+    #endif
+
     #ifdef SSAO_DEBUG_VIEW
     if (DynamicUBO.AOEnabled == 1)
     {
@@ -188,7 +189,7 @@ void main()
     }
     #endif
 
-    #ifdef SHADOW_COORD_DEBUG_VIEW
+    #ifdef SHADOW_DEBUG_VIEW
     {
         uint cascadeIdx = GetCascadeIdx();
 
@@ -201,6 +202,18 @@ void main()
         const vec3 okColors[3] = vec3[3](vec3(1.0,0.5,0.5),vec3(0.5,1.0,0.5), vec3(0.5,0.5,1.0));
 
         vec3 color = diff * debug_grid(uv, okColors[cascadeIdx]);
+
+        #ifdef SHADOW_DEBUG_DEPTH
+        //color = diff * debug_grid(projCoords.zz, okColors[cascadeIdx]);
+
+        vec3 less = vec3(1,0,0);
+        vec3 more = vec3(0,0,1);
+        
+        color = vec3(diff);
+        
+        if (projCoords.z < 0.0) color *= less;
+        if (projCoords.z > 1.0) color *= more;     
+        #endif
     
         outColor = vec4(color, 1.0);
         return;

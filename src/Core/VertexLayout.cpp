@@ -1,93 +1,124 @@
 #include "VertexLayout.h"
 #include "Pch.h"
 
-#include <utility>
+#include <variant>
 
-static VkFormat GetFormat(Vertex::AttributeType type)
+bool operator==(const Vertex::PushLayout &lhs, const Vertex::PushLayout &rhs)
 {
-    using enum Vertex::AttributeType;
+    bool res = true;
 
-    switch (type)
-    {
-    case Float:
-        return VK_FORMAT_R32_SFLOAT;
-    case Vec2:
-        return VK_FORMAT_R32G32_SFLOAT;
-    case Vec3:
-        return VK_FORMAT_R32G32B32_SFLOAT;
-    case Vec4:
-        return VK_FORMAT_R32G32B32A32_SFLOAT;
-    }
-
-    std::unreachable();
-}
-
-static uint32_t GetAttributeSize(Vertex::AttributeType type)
-{
-    using enum Vertex::AttributeType;
-
-    switch (type)
-    {
-    case Float:
-        return 4;
-    case Vec2:
-        return 8;
-    case Vec3:
-        return 12;
-    case Vec4:
-        return 16;
-    }
-
-    std::unreachable();
-}
-
-uint32_t Vertex::GetSize(const Vertex::Layout &layout)
-{
-    uint32_t res = 0;
-
-    for (auto type : layout)
-        res += GetAttributeSize(type);
+    res = res && (lhs.HasTexCoord == rhs.HasTexCoord);
+    res = res && (lhs.HasNormal == rhs.HasNormal);
+    res = res && (lhs.HasTangent == rhs.HasTangent);
+    res = res && (lhs.HasColor == rhs.HasColor);
 
     return res;
 }
 
-std::string Vertex::ToString(AttributeType type)
+// TODO: This code shouldn't be necessary. Equivalent code should be generated
+// by variant itself, but somehow that doesn't work for now.
+bool operator==(const Vertex::Layout &lhs, const Vertex::Layout &rhs)
 {
-    using enum AttributeType;
+    const bool lpush = std::holds_alternative<Vertex::PushLayout>(lhs);
+    const bool rpush = std::holds_alternative<Vertex::PushLayout>(rhs);
 
-    switch (type)
+    const bool lpull = !lpush;
+    const bool rpull = !rpush;
+
+    if (lpush && rpush)
     {
-    case Float:
-        return "float";
-    case Vec2:
-        return "vec2";
-    case Vec3:
-        return "vec3";
-    case Vec4:
-        return "vec4";
+        return std::get<Vertex::PushLayout>(lhs) == std::get<Vertex::PushLayout>(rhs);
+    }
+    else if (lpull && rpull)
+    {
+        return std::get<Vertex::PullLayout>(lhs) == std::get<Vertex::PullLayout>(rhs);
     }
 
-    std::unreachable();
+    return false;
 }
 
-Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const Layout &layout)
+uint32_t Vertex::GetSize(const Vertex::Layout &vLayout)
+{
+    if (auto *layout = std::get_if<PushLayout>(&vLayout))
+    {
+        uint32_t res = 3 * sizeof(float);
+
+        if (layout->HasTexCoord)
+            res += 2 * sizeof(float);
+
+        if (layout->HasNormal)
+            res += 3 * sizeof(float);
+
+        if (layout->HasTangent)
+            res += 4 * sizeof(float);
+
+        if (layout->HasColor)
+            res += 4 * sizeof(float);
+
+        return res;
+    }
+
+    else if (auto *layout = std::get_if<PullLayout>(&vLayout))
+    {
+        switch (*layout)
+        {
+        case Vertex::PullLayout::Naive:
+            return sizeof(PullNaive);
+        case Vertex::PullLayout::Compressed:
+            return sizeof(PullCompressed);
+        }
+    }
+
+    return 0;
+}
+
+Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const PushLayout &layout)
 {
     AttributeDescriptions res;
+    uint32_t              offset = 0;
 
-    uint32_t currentOffset = 0;
+    auto NewDescription = [&res, &offset](VkFormat format) {
+        return VkVertexInputAttributeDescription{
+            .location = static_cast<uint32_t>(res.size()),
+            .binding  = 0,
+            .format   = format,
+            .offset   = offset,
+        };
+    };
 
-    for (auto attributeType : layout)
+    // Add position:
+    res.push_back(NewDescription(VK_FORMAT_R32G32B32_SFLOAT));
+    offset += 3 * sizeof(float);
+
+    // Conditionally add other attributes:
+    if (layout.HasTexCoord)
     {
-        res.push_back({static_cast<uint32_t>(res.size()), 0, GetFormat(attributeType),
-                       currentOffset});
+        res.push_back(NewDescription(VK_FORMAT_R32G32_SFLOAT));
+        offset += 2 * sizeof(float);
+    }
 
-        currentOffset += GetAttributeSize(attributeType);
+    if (layout.HasNormal)
+    {
+        res.push_back(NewDescription(VK_FORMAT_R32G32B32_SFLOAT));
+        offset += 3 * sizeof(float);
+    }
+
+    if (layout.HasTangent)
+    {
+        res.push_back(NewDescription(VK_FORMAT_R32G32B32A32_SFLOAT));
+        offset += 4 * sizeof(float);
+    }
+
+    if (layout.HasColor)
+    {
+        res.push_back(NewDescription(VK_FORMAT_R32G32B32A32_SFLOAT));
+        offset += 4 * sizeof(float);
     }
 
     return res;
 }
 
-Vertex::BindingDescription Vertex::GetBindingDescription(const Layout     &layout,
+Vertex::BindingDescription Vertex::GetBindingDescription(const PushLayout &layout,
                                                          uint32_t          binding,
                                                          VkVertexInputRate inputRate)
 {

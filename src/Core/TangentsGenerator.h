@@ -1,15 +1,8 @@
 #pragma once
 
-#include "GeometryData.h"
+#include "GltfImporter.h"
 
 namespace tangen
 {
-struct VertexLayout {
-    uint32_t Stride;
-    uint32_t OffsetTexCoord;
-    uint32_t OffsetNormal;
-    uint32_t OffsetTangent;
-};
-
-void GenerateTangents(GeometryData &geo, VertexLayout layout);
+void GenerateTangents(PrimitiveData &prim);
 } // namespace tangen

@@ -84,10 +84,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 
             for (auto &instance : instances)
             {
-
-                vkCmdPushConstants(cmd, mGraphicsPipeline.Layout,
-                                   VK_SHADER_STAGE_ALL_GRAPHICS, 0,
-                                   sizeof(instance.Transform), &instance.Transform);
+                mGraphicsPipeline.PushConstants(cmd, instance.Transform);
 
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
@@ -171,7 +168,7 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
             if (mDrawables.count(drawableKey) != 0)
                 continue;
 
-            if (mGeometryLayout.IsCompatible(prim.Data.Layout))
+            if (mGeometryLayout == prim.Data.Layout)
             {
                 auto &drawable = mDrawables[drawableKey];
 

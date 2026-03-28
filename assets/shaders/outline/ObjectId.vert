@@ -1,11 +1,10 @@
 #version 450
 
 #extension GL_EXT_scalar_block_layout : require
+#extension GL_GOOGLE_include_directive : require
 
-layout(location = 0) in vec3 aPosition;
-layout(location = 1) in vec2 aTexCoord;
-layout(location = 2) in vec3 aNormal;
-layout(location = 3) in vec4 aTangent;
+#include "../common/VertexNaive.glsl"
+//#include "../common/VertexCompressed.glsl"
 
 layout(location = 0) out VertexData {
     vec2 TexCoord;
@@ -25,11 +24,22 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
 
 layout(push_constant) uniform constants {
     mat4 MVP;
+    VertexBuffer VertBuff;
+    vec2 TexCenter;
+    vec2 TexExtent;
     uint ObjectId;
 } PushConstants;
 
 void main() {
-    OutData.TexCoord = aTexCoord;
+    Vertex vert = PushConstants.VertBuff.Vertices[gl_VertexIndex];
+    
+    vec3 position = GetPosition(vert);
+    vec2 texcoord = GetTexCoord(vert);
 
-    gl_Position = PushConstants.MVP * vec4(aPosition, 1.0);
+    texcoord = 2.0 * texcoord - 1.0;
+    texcoord *= PushConstants.TexExtent;
+    texcoord += PushConstants.TexCenter;
+
+    gl_Position = PushConstants.MVP * vec4(position, 1.0);
+    OutData.TexCoord = texcoord;
 }

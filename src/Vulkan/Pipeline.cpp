@@ -3,14 +3,19 @@
 
 #include "Shader.h"
 #include "Vassert.h"
+#include "VertexLayout.h"
 #include "VkUtils.h"
 
 #include "volk.h"
 
-Pipeline Pipeline::MakePipeline(VkPipelineBindPoint bindPoint)
+#include <variant>
+
+Pipeline Pipeline::MakePipeline(VkPipelineBindPoint bindPoint,
+                                VkShaderStageFlags  pcStageFlags)
 {
     Pipeline ret;
-    ret.mBindPoint = bindPoint;
+    ret.mBindPoint    = bindPoint;
+    ret.mPCStageFlags = pcStageFlags;
 
     return ret;
 }
@@ -93,8 +98,13 @@ PipelineBuilder &PipelineBuilder::SetVertexInput(const Vertex::Layout &layout,
                                                  uint32_t              binding,
                                                  VkVertexInputRate     inputRate)
 {
-    mBindingDescription    = Vertex::GetBindingDescription(layout, binding, inputRate);
-    mAttributeDescriptions = Vertex::GetAttributeDescriptions(layout);
+    vassert(std::holds_alternative<Vertex::PushLayout>(layout),
+            "Pipeline vertex input can only be used with push layouts.");
+
+    auto &pushLayout = std::get<Vertex::PushLayout>(layout);
+
+    mBindingDescription = Vertex::GetBindingDescription(pushLayout, binding, inputRate);
+    mAttributeDescriptions = Vertex::GetAttributeDescriptions(pushLayout);
 
     UpdateVertexInput();
     return *this;
@@ -264,7 +274,8 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 
 Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_GRAPHICS);
+    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                           VK_SHADER_STAGE_ALL_GRAPHICS);
 
     // Build the shader stages:
     auto shaderStages = ShaderBuilder()
@@ -438,7 +449,8 @@ Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 
 Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_COMPUTE);
+    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_COMPUTE,
+                                           VK_SHADER_STAGE_COMPUTE_BIT);
 
     auto shaderStages = ShaderBuilder().SetComputePath(*mShaderPath).Build(ctx);
 

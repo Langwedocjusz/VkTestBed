@@ -41,15 +41,15 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, const std::string &debugName
     Image img = MakeImage::Image2D(ctx, debugName, imgInfo);
 
     ImageUploadInfo uploadInfo{
-        .Data      = data.Data,
-        .Size      = data.Size,
-        .DstLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .Data       = data.Data,
+        .Size       = data.Size,
+        .DstLayout  = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         .MipOffsets = {},
     };
 
     if (data.Mips == MipStrategy::Load)
     {
-        uploadInfo.AllMips = true;
+        uploadInfo.AllMips    = true;
         uploadInfo.MipOffsets = data.MipOffsets;
     }
 

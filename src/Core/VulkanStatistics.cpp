@@ -87,11 +87,6 @@ VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
     }
 }
 
-VulkanStatisticsCollector::~VulkanStatisticsCollector()
-{
-    mDeletionQueue.flush();
-}
-
 StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
 {
     auto &res        = mResources.at(frameIdx);

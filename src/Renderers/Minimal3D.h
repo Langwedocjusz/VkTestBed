@@ -11,7 +11,6 @@
 class Minimal3DRenderer final : public IRenderer {
   public:
     Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera);
-    ~Minimal3DRenderer();
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;
     void OnImGui() override;

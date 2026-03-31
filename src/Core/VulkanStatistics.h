@@ -15,7 +15,6 @@ struct StatisticsResult {
 class VulkanStatisticsCollector {
   public:
     VulkanStatisticsCollector(VulkanContext &ctx);
-    ~VulkanStatisticsCollector();
 
     StatisticsResult QueryResults(uint32_t frameIdx);
 

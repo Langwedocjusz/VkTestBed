@@ -7,6 +7,17 @@
 
 #include <ranges>
 
+DeletionQueue::DeletionQueue(VulkanContext &ctx)
+    : mCtx(ctx) 
+{
+
+}
+
+DeletionQueue::~DeletionQueue()
+{
+    flush();
+}
+
 void DeletionQueue::flush()
 {
     for (auto obj : mDeletionObjects | std::views::reverse)

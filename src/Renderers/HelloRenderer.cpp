@@ -21,14 +21,6 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera
     RecreateSwapchainResources();
 }
 
-HelloRenderer::~HelloRenderer()
-{
-    mSceneDeletionQueue.flush();
-    mSwapchainDeletionQueue.flush();
-    mPipelineDeletionQueue.flush();
-    mMainDeletionQueue.flush();
-}
-
 void HelloRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();

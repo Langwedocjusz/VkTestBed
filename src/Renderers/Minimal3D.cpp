@@ -52,15 +52,6 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     RecreateSwapchainResources();
 }
 
-Minimal3DRenderer::~Minimal3DRenderer()
-{
-    mTextureDescriptorAllocator.DestroyPools();
-    mSceneDeletionQueue.flush();
-    mSwapchainDeletionQueue.flush();
-    mPipelineDeletionQueue.flush();
-    mMainDeletionQueue.flush();
-}
-
 void Minimal3DRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();

@@ -14,7 +14,6 @@
 class RenderContext {
   public:
     RenderContext(VulkanContext &ctx, Camera &camera);
-    ~RenderContext();
 
     /// Must be called after general imgui intiialization
     void OnInit();

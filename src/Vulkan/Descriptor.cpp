@@ -267,6 +267,14 @@ DynamicDescriptorAllocator::DynamicDescriptorAllocator(VulkanContext &ctx) : mCt
 {
 }
 
+DynamicDescriptorAllocator::~DynamicDescriptorAllocator()
+{
+    bool init = !mCountsPerSet.empty();
+
+    if (init)
+        DestroyPools();
+}
+
 void DynamicDescriptorAllocator::OnInit(std::span<VkDescriptorPoolSize> sizes)
 {
     mCountsPerSet.assign(sizes.begin(), sizes.end());

@@ -40,8 +40,10 @@ using DeletionObject = std::variant<
 
 class DeletionQueue {
   public:
-    // TODO: This should just call flush in the destructor...
-    DeletionQueue(VulkanContext &ctx) : mCtx(ctx) {};
+    DeletionQueue(VulkanContext &ctx);
+    ~DeletionQueue();
+
+    void flush();
 
     template <typename T>
     void push_back(T &&obj)
@@ -65,8 +67,6 @@ class DeletionQueue {
             VkAllocatedImage{tex.Img.Handle, tex.Img.Allocation});
         mDeletionObjects.emplace_back(tex.View);
     }
-
-    void flush();
 
   private:
     VulkanContext             &mCtx;

@@ -11,7 +11,6 @@
 class HelloRenderer final : public IRenderer {
   public:
     HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera);
-    ~HelloRenderer();
 
     void OnUpdate([[maybe_unused]] float deltaTime) override;
     void OnImGui() override;

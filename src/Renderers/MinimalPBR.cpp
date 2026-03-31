@@ -167,19 +167,11 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
 MinimalPbrRenderer::~MinimalPbrRenderer()
 {
-    mMaterialDescriptorAllocator.DestroyPools();
-
     for (auto &[_, drawable] : mDrawables)
         drawable.Destroy(mCtx);
 
     for (auto &[_, img] : mImages)
         DestroyTexture(img);
-
-    mSceneDeletionQueue.flush();
-    mMaterialDeletionQueue.flush();
-    mSwapchainDeletionQueue.flush();
-    mPipelineDeletionQueue.flush();
-    mMainDeletionQueue.flush();
 }
 
 void MinimalPbrRenderer::RebuildPipelines()

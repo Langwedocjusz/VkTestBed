@@ -48,13 +48,6 @@ AOHandler::AOHandler(VulkanContext &ctx)
         Descriptor::Allocate(mCtx, mAODescriptorPool, mAOUsageDescriptorSetLayout);
 }
 
-AOHandler::~AOHandler()
-{
-    mPipelineDeletionQueue.flush();
-    mDeletionQueue.flush();
-    mSwapchainDeletionQueue.flush();
-}
-
 void AOHandler::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
@@ -88,6 +81,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .SubresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
                                  0, 1, 0, 1},
         };
+
         barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
     });
 

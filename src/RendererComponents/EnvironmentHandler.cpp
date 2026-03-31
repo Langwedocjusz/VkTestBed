@@ -267,13 +267,6 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
     GenerateIntegrationMap();
 }
 
-EnvironmentHandler::~EnvironmentHandler()
-{
-    mDescriptorAllocator.DestroyPools();
-    mDeletionQueue.flush();
-    mPipelineDeletionQueue.flush();
-}
-
 void EnvironmentHandler::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();

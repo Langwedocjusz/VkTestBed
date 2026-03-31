@@ -32,7 +32,6 @@ class ShadowmapHandler {
   public:
     ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat,
                      VkFormat debugDepthFormat);
-    ~ShadowmapHandler();
 
     void OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lightDir, AABB sceneAABB);
     void OnImGui();

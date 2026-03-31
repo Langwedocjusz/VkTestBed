@@ -100,11 +100,6 @@ void RenderContext::OnInit()
     CreateSwapchainResources();
 }
 
-RenderContext::~RenderContext()
-{
-    mMainDeletionQueue.flush();
-}
-
 void RenderContext::OnUpdate(float deltaTime)
 {
     // Call renderer update:

@@ -22,7 +22,6 @@ class EnvironmentHandler {
 
   public:
     EnvironmentHandler(VulkanContext &ctx);
-    ~EnvironmentHandler();
 
     void RebuildPipelines();
     void LoadEnvironment(const Scene &scene);
@@ -143,6 +142,7 @@ class EnvironmentHandler {
     Buffer     mEnvUBO;
 
     DynamicDescriptorAllocator mDescriptorAllocator;
+
     DeletionQueue              mDeletionQueue;
     DeletionQueue              mPipelineDeletionQueue;
 };

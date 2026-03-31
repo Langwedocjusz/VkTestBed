@@ -5,12 +5,10 @@
 #include "VulkanContext.h"
 
 #include "volk.h"
-#include "vulkan/vulkan_core.h"
 
 class AOHandler {
   public:
     AOHandler(VulkanContext &ctx);
-    ~AOHandler();
 
     void RebuildPipelines();
     void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,

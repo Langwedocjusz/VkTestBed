@@ -150,12 +150,6 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
     }
 }
 
-ShadowmapHandler::~ShadowmapHandler()
-{
-    mPipelineDeletionQueue.flush();
-    mMainDeletionQueue.flush();
-}
-
 void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
                                         VkDescriptorSetLayout materialDSLayout,
                                         VkSampleCountFlagBits debugMultisampling)

@@ -11,7 +11,6 @@
 class DynamicUniformBuffer {
   public:
     DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame);
-    ~DynamicUniformBuffer();
 
     void OnInit(std::string_view debugName, VkShaderStageFlags stageFlags,
                 VkDeviceSize bufferSize);

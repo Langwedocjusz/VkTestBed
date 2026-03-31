@@ -92,6 +92,8 @@ class DescriptorUpdater {
 class DynamicDescriptorAllocator {
   public:
     DynamicDescriptorAllocator(VulkanContext &ctx);
+    ~DynamicDescriptorAllocator();
+
     void OnInit(std::span<VkDescriptorPoolSize> sizes);
 
     VkDescriptorSet              Allocate(VkDescriptorSetLayout &layout);

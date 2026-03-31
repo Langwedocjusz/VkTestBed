@@ -1,5 +1,4 @@
 #include "DynamicUniformBuffer.h"
-
 #include "Pch.h"
 
 #include "BufferUtils.h"
@@ -9,11 +8,6 @@
 DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame)
     : mCtx(ctx), mFrame(frame), mDeletionQueue(ctx)
 {
-}
-
-DynamicUniformBuffer::~DynamicUniformBuffer()
-{
-    mDeletionQueue.flush();
 }
 
 void DynamicUniformBuffer::OnInit(std::string_view   debugName,

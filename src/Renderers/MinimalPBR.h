@@ -230,6 +230,7 @@ class MinimalPbrRenderer final : public IRenderer {
         float                      ShadowBiasMin     = 0.001f;
         float                      ShadowBiasMax     = 0.003f;
         int                        AOEnabled         = 0;
+        glm::vec2                  DrawExtent;
     } mUBOData;
 
     DynamicUniformBuffer mDynamicUBO;

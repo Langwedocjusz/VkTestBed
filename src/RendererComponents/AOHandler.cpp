@@ -1,23 +1,25 @@
 #include "AOHandler.h"
-#include "ImageUtils.h"
 #include "Pch.h"
 
 #include "Barrier.h"
 #include "Descriptor.h"
+#include "ImageUtils.h"
 #include "Sampler.h"
+
+#include "imgui.h"
 
 AOHandler::AOHandler(VulkanContext &ctx)
     : mCtx(ctx), mDeletionQueue(ctx), mPipelineDeletionQueue(ctx),
       mSwapchainDeletionQueue(ctx)
 {
     // For ao clamp to edge is required to avoid artefacts near screen edges:
-    mAOSampler = SamplerBuilder("AOSampler")
-                     .SetMagFilter(VK_FILTER_LINEAR)
-                     .SetMinFilter(VK_FILTER_LINEAR)
-                     .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
-                     .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
-                     .SetMaxLod(12.0f)
-                     .Build(mCtx, mDeletionQueue);
+    mDepthSampler = SamplerBuilder("AOSampler")
+                        .SetMagFilter(VK_FILTER_LINEAR)
+                        .SetMinFilter(VK_FILTER_LINEAR)
+                        .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+                        .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
+                        .SetMaxLod(12.0f)
+                        .Build(mCtx, mDeletionQueue);
 
     // Build descriptor sets for AO:
     {
@@ -48,6 +50,20 @@ AOHandler::AOHandler(VulkanContext &ctx)
         Descriptor::Allocate(mCtx, mAODescriptorPool, mAOUsageDescriptorSetLayout);
 }
 
+void AOHandler::OnImGui()
+{
+    ImGui::SliderFloat("Resolution scale", &mResolutionScale, 0.25f, 1.0f);
+
+    if (ImGui::Button("Recreate target"))
+    {
+        vkDeviceWaitIdle(mCtx.Device);
+
+        RecreateSwapchainResources(
+            mResourceCache->DepthBuffer, mResourceCache->DepthOnlyView,
+            mResourceCache->DrawExtent, mResourceCache->OutputSampler);
+    }
+}
+
 void AOHandler::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
@@ -62,13 +78,33 @@ void AOHandler::RebuildPipelines()
 void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
                                            VkExtent2D drawExtent, VkSampler outputSampler)
 {
+    mSwapchainDeletionQueue.flush();
+
+    // Update resource cache:
+    mResourceCache = std::make_unique<ResourceCache>(ResourceCache{
+        .DepthBuffer   = depthBuffer,
+        .DepthOnlyView = depthOnlyView,
+        .DrawExtent    = drawExtent,
+        .OutputSampler = outputSampler,
+    });
+
     // Create target for occlusion computation:
+    auto ScaleResolution = [this](uint32_t res) {
+        return static_cast<uint32_t>(mResolutionScale * static_cast<float>(res));
+    };
+
+    VkExtent2D targetExtent{
+        .width  = ScaleResolution(drawExtent.width),
+        .height = ScaleResolution(drawExtent.height),
+    };
+
     Image2DInfo aoTargetInfo{
-        .Extent = drawExtent,
+        .Extent = targetExtent,
         .Format = VK_FORMAT_R8G8B8A8_UNORM,
         .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .Layout = VK_IMAGE_LAYOUT_GENERAL,
     };
+
     mAOTarget =
         MakeTexture::Texture2D(mCtx, "AOTarget", aoTargetInfo, mSwapchainDeletionQueue);
 
@@ -88,7 +124,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
     // Update AO descriptor to point to depth buffer
     DescriptorUpdater(mAOGenDescriptorSet)
         .WriteStorageImage(0, mAOTarget.View)
-        .WriteCombinedSampler(1, depthOnlyView, mAOSampler)
+        .WriteCombinedSampler(1, depthOnlyView, mDepthSampler)
         .Update(mCtx);
 
     // Transition depth buffer and ao target to correct layouts:

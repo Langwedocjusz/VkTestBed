@@ -432,6 +432,11 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     mShadowmapHandler.OnUpdate(mCamera.GetFrustum(), mCamera.GetFront(), lightDir,
                                mSceneAABB);
 
+    glm::vec2 drawExtent{
+        mRenderTarget.Img.Info.extent.width,
+        mRenderTarget.Img.Info.extent.height,
+    };
+
     // Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
     mUBOData.LightViewProjections = mShadowmapHandler.GetViewProj();
@@ -439,6 +444,7 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     mUBOData.ViewPos              = mCamera.GetPos();
     mUBOData.ViewFront            = mCamera.GetFront();
     mUBOData.AOEnabled            = mEnableAO;
+    mUBOData.DrawExtent           = drawExtent;
 }
 
 void MinimalPbrRenderer::OnImGui()
@@ -504,6 +510,9 @@ void MinimalPbrRenderer::OnImGui()
 
     if (ImGui::CollapsingHeader("Shadowmap"))
         mShadowmapHandler.OnImGui();
+
+    if (ImGui::CollapsingHeader("Ambient Occlusion"))
+        mAOHandler.OnImGui();
 
     ImGui::End();
 }

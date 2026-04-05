@@ -6,9 +6,13 @@
 
 #include "volk.h"
 
+#include <memory>
+
 class AOHandler {
   public:
     AOHandler(VulkanContext &ctx);
+
+    void OnImGui();
 
     void RebuildPipelines();
     void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
@@ -31,6 +35,17 @@ class AOHandler {
         glm::mat4 InvProj;
     };
 
+    struct ResourceCache {
+        Image      &DepthBuffer;
+        VkImageView DepthOnlyView;
+        VkExtent2D  DrawExtent;
+        VkSampler   OutputSampler;
+    };
+
+    std::unique_ptr<ResourceCache> mResourceCache = nullptr;
+
+    float mResolutionScale = 1.0f;
+
     Pipeline mAOGenPipeline;
 
     Texture mAOTarget;
@@ -43,7 +58,7 @@ class AOHandler {
     VkDescriptorSetLayout mAOUsageDescriptorSetLayout;
     VkDescriptorSet       mAOUsageDescriptorSet;
 
-    VkSampler mAOSampler;
+    VkSampler mDepthSampler;
 
     VulkanContext &mCtx;
     DeletionQueue  mDeletionQueue;

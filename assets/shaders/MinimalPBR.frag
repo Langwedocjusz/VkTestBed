@@ -27,16 +27,17 @@ layout(location = 0) in VertexData {
 layout(location = 0) out vec4 outColor;
 
 layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
-    mat4 CameraViewProjection;
-    mat4 LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
+    mat4  CameraViewProjection;
+    mat4  LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
     float CascadeBounds[3];
-    vec3 ViewPos;
-    vec3 ViewFront;
+    vec3  ViewPos;
+    vec3  ViewFront;
     float DirectionalFactor;
     float EnvironmentFactor;
     float ShadowBiasMin;
     float ShadowBiasMax;
-    int AOEnabled;
+    int   AOEnabled;
+    vec2  DrawExtent; 
 } DynamicUBO;
 
 layout(scalar, set = 1, binding = 0) uniform EnvUBOBlock {
@@ -174,8 +175,9 @@ void main()
     #ifdef SSAO_DEBUG_VIEW
     if (DynamicUBO.AOEnabled == 1)
     {
-        //TODO: maybe texture instead of texelFetch?
-        vec4 aoSample = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0);
+        vec2 aoUV = (vec2(gl_FragCoord.xy) + 0.5) / DynamicUBO.DrawExtent;
+
+        vec4 aoSample = texture(aoMap, aoUV);
 
         float ao = aoSample.a;
         outColor = vec4(vec3(ao), 1.0);
@@ -263,8 +265,9 @@ void main()
 
     if (DynamicUBO.AOEnabled == 1)
     {
-        //TODO: maybe texture instead of texelFetch?
-        float ao = texelFetch(aoMap, ivec2(gl_FragCoord.xy), 0).a;
+        vec2 aoUV = (vec2(gl_FragCoord.xy) + 0.5) / DynamicUBO.DrawExtent;
+
+        float ao = texture(aoMap, aoUV).a;
         
         res.rgb *= ao;
     }

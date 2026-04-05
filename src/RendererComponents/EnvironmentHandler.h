@@ -143,6 +143,6 @@ class EnvironmentHandler {
 
     DynamicDescriptorAllocator mDescriptorAllocator;
 
-    DeletionQueue              mDeletionQueue;
-    DeletionQueue              mPipelineDeletionQueue;
+    DeletionQueue mDeletionQueue;
+    DeletionQueue mPipelineDeletionQueue;
 };

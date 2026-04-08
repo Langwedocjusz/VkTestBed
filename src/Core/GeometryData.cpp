@@ -5,8 +5,9 @@
 #include <limits>
 
 GeometryData::GeometryData(const GeometrySpec &spec)
-    : VertexData(spec.VertCount, spec.VertBuffSize, spec.VertAlignment),
-      IndexData(spec.IdxCount, spec.IdxBuffSize, spec.IdxAlignment)
+    : VertexData(spec.VertBuffSize, spec.VertAlignment),
+      IndexData(spec.IdxBuffSize, spec.IdxAlignment), VertexCount(spec.VertCount),
+      IndexCount(spec.IdxCount)
 {
 }
 

@@ -38,6 +38,8 @@ struct GeometryData {
     GeometryLayout Layout;
     OpaqueBuffer   VertexData;
     OpaqueBuffer   IndexData;
+    size_t         VertexCount;
+    size_t         IndexCount;
     AABB           BBox;
 };
 

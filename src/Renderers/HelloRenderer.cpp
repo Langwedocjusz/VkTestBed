@@ -139,11 +139,11 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
                              const std::string &debugName) {
         // Create Vertex buffer:
         drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData);
-        drawable.VertexCount  = static_cast<uint32_t>(geo.VertexData.Count);
+        drawable.VertexCount  = static_cast<uint32_t>(geo.VertexCount);
 
         // Create Index buffer:
         drawable.IndexBuffer = MakeBuffer::Index(mCtx, debugName, geo.IndexData);
-        drawable.IndexCount  = static_cast<uint32_t>(geo.IndexData.Count);
+        drawable.IndexCount  = static_cast<uint32_t>(geo.IndexCount);
 
         // Update deletion queue:
         mSceneDeletionQueue.push_back(drawable.VertexBuffer);

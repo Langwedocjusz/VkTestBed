@@ -124,8 +124,7 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
     // Create Index Buffer for debug visualization:
     {
         // Index buffer doesn't need to be dynamic:
-        OpaqueBuffer indexData(NumIdxPerFrustum, NumIdxPerFrustum * sizeof(uint16_t),
-                               alignof(uint16_t));
+        OpaqueBuffer indexData(NumIdxPerFrustum * sizeof(uint16_t), alignof(uint16_t));
 
         // clang-format off
         new (indexData.Data) uint16_t[NumIdxPerFrustum]{

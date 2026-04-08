@@ -10,19 +10,14 @@ class SyncQueue {
   public:
     SyncQueue() = default;
 
-    void Push(const T &elem)
+    template <typename U>
+    void Push(U &&elem)
     {
-        std::lock_guard lock(mMutex);
+        {
+            std::lock_guard lock(mMutex);
+            mQueue.push(std::forward<U>(elem));
+        }
 
-        mQueue.push(elem);
-        mCV.notify_one();
-    }
-
-    void Push(T &&elem)
-    {
-        std::lock_guard lock(mMutex);
-
-        mQueue.push(std::move(elem));
         mCV.notify_one();
     }
 

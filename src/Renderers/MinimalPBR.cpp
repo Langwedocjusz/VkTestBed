@@ -35,10 +35,10 @@ void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive
     // Create Vertex buffer:
     // TODO: restore this codepath:
     // VertexBuffer = MakeBuffer::Vertex(ctx, debugName, geo.VertexData);
-    // VertexCount  = static_cast<uint32_t>(geo.VertexData.Count);
+    // VertexCount  = static_cast<uint32_t>(geo.VertexCount);
 
     VertexBuffer = MakeBuffer::VertexStorage(ctx, debugName, geo.VertexData);
-    VertexCount  = static_cast<uint32_t>(geo.VertexData.Count);
+    VertexCount  = static_cast<uint32_t>(geo.VertexCount);
 
     // Retrieve vertex buffer address:
     VkBufferDeviceAddressInfo deviceAdressInfo{
@@ -51,7 +51,7 @@ void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive
 
     // Create Index buffer:
     IndexBuffer = MakeBuffer::Index(ctx, debugName, geo.IndexData);
-    IndexCount  = static_cast<uint32_t>(geo.IndexData.Count);
+    IndexCount  = static_cast<uint32_t>(geo.IndexCount);
 
     Bbox            = prim.Data.BBox;
     TexBoundsCenter = prim.TexCoordCenter;

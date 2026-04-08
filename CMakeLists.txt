@@ -131,6 +131,7 @@ target_sources(${PROJECT_NAME}
         src/Cpp/Bitflags.h
         src/Cpp/CppUtils.h
         src/Cpp/OpaqueBuffer.h
+        src/Cpp/OpaqueBuffer.cpp
         src/Cpp/SyncQueue.h
         src/Cpp/ThreadPool.h
         src/Cpp/Timer.h

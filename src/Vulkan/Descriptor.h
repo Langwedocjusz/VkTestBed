@@ -36,6 +36,10 @@ namespace Descriptor
 VkDescriptorPool InitPool(VulkanContext &ctx, uint32_t maxSets,
                           std::span<VkDescriptorPoolSize> poolSizes);
 
+VkDescriptorPool InitPool(VulkanContext &ctx, uint32_t maxSets,
+                          std::span<VkDescriptorPoolSize> poolSizes,
+                          DeletionQueue                  &deletionQueue);
+
 VkDescriptorSet Allocate(VulkanContext &ctx, VkDescriptorPool pool,
                          VkDescriptorSetLayout &layout);
 

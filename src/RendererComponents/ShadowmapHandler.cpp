@@ -7,7 +7,6 @@
 #include "ImageUtils.h"
 #include "Pipeline.h"
 #include "Sampler.h"
-#include "VertexLayout.h"
 
 #include "imgui.h"
 #include <imgui_impl_vulkan.h>
@@ -19,10 +18,8 @@
 
 #include <limits>
 
-ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat,
-                                   VkFormat debugDepthFormat)
-    : mCtx(ctx), mDebugColorFormat(debugColorFormat), mDebugDepthFormat(debugDepthFormat),
-      mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
+ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
+    : mCtx(ctx), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
 {
     // Create the shadowmap base texture:
     Image2DInfo shadowmapInfo{
@@ -32,11 +29,10 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
         .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
-    mShadowmap =
-        MakeTexture::Texture2DArray(mCtx, "Shadowmap", shadowmapInfo, NumCascades);
-    mMainDeletionQueue.push_back(mShadowmap);
+    mShadowmap = MakeTexture::Texture2DArray(mCtx, "Shadowmap", shadowmapInfo,
+                                             NumCascades, mMainDeletionQueue);
 
-    // Create per-level views for rendering:
+    // Create per-layer views for rendering into cascades:
     for (uint32_t i = 0; i < NumCascades; i++)
     {
         std::string name        = "ShadowmapView" + std::to_string(i);
@@ -47,6 +43,7 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
                                                           format, aspectFlags, i);
     }
 
+    // TODO: Move this inside the loop above
     for (auto &view : mCascadeViews)
         mMainDeletionQueue.push_back(view);
 
@@ -59,15 +56,15 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
                    .SetCompareOp(VK_COMPARE_OP_LESS)
                    .Build(mCtx, mMainDeletionQueue);
 
-    // Set up a descriptor for sampling the shadow map:
+    // Set up a descriptor for using the shadow maps:
     {
         // Create static descriptor pool:
         std::vector<VkDescriptorPoolSize> poolCounts{
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
         };
 
-        mStaticDescriptorPool = Descriptor::InitPool(mCtx, 1, poolCounts);
-        mMainDeletionQueue.push_back(mStaticDescriptorPool);
+        mStaticDescriptorPool =
+            Descriptor::InitPool(mCtx, 1, poolCounts, mMainDeletionQueue);
 
         // Create descriptor set layout for sampling the shadowmap
         // and allocate the corresponding descriptor set:
@@ -85,9 +82,8 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
             .Update(mCtx);
     }
 
-    // Setup debug view of the shadowmap in imgui:
+    // Setup debug view of the shadowmaps in imgui:
     {
-        // For debug view in imgui:
         mDebugSampler = SamplerBuilder("MinimalPbrSampler2D")
                             .SetMagFilter(VK_FILTER_LINEAR)
                             .SetMinFilter(VK_FILTER_LINEAR)
@@ -96,7 +92,7 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
                             .SetMaxLod(12.0f)
                             .Build(mCtx, mMainDeletionQueue);
 
-        // TODO: for no only preview first cascade
+        // TODO: for now only has preview for first cascade:
         mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
             mDebugSampler, mCascadeViews[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
@@ -149,24 +145,22 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat
     }
 }
 
-void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
-                                        VkDescriptorSetLayout materialDSLayout,
-                                        VkSampleCountFlagBits debugMultisampling)
+void ShadowmapHandler::RebuildPipelines(const PipelineInfo &info)
 {
-    (void)vertexLayout; // TODO: Remove this
+    // TODO: Info about vertex layout currently not used.
+    // In principle we should generate shader permutations
+    // and select correct one to bind based on this.
 
     mPipelineDeletionQueue.flush();
 
     mOpaquePipeline =
         PipelineBuilder("ShadowmapPipeline")
             .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
-            // TODO: restore this code in separate path:
-            //.SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(PCDataShadow))
+            .SetPushConstantSize(sizeof(PCData))
             .EnableDepthTest()
             .SetDepthFormat(ShadowmapFormat)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -175,14 +169,12 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
         PipelineBuilder("ShadowmapPipeline")
             .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
             .SetShaderPathFragment("assets/spirv/shadows/ShadowmapAlphaFrag.spv")
-            // TODO: restore this code in separate path:
-            //.SetVertexInput(vertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .SetPushConstantSize(sizeof(PCDataShadow))
-            .AddDescriptorSetLayout(materialDSLayout)
+            .SetPushConstantSize(sizeof(PCData))
+            .AddDescriptorSetLayout(info.MaterialDSLayout)
             .EnableDepthTest()
             .SetDepthFormat(ShadowmapFormat)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -197,11 +189,11 @@ void ShadowmapHandler::RebuildPipelines(const Vertex::Layout &vertexLayout,
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE)
             .SetPushConstantSize(sizeof(PCDataDebug))
-            .SetColorFormat(mDebugColorFormat)
+            .SetColorFormat(info.ColorFormat)
             .EnableDepthTest()
-            .SetDepthFormat(mDebugDepthFormat)
-            .SetStencilFormat(mDebugDepthFormat)
-            .SetMultisampling(debugMultisampling)
+            .SetDepthFormat(info.DepthFormat)
+            .SetStencilFormat(info.DepthFormat)
+            .SetMultisampling(info.CurrentMultisampling)
             .EnableBlending()
             .Build(mCtx, mPipelineDeletionQueue);
 }
@@ -327,9 +319,11 @@ ShadowVolume ShadowmapHandler::FitVolumeToScene(ShadowVolume volume, AABB sceneA
     return volume;
 }
 
-void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lightDir,
-                                AABB sceneAABB)
+void ShadowmapHandler::OnUpdate(Camera &camera, glm::vec3 lightDir, AABB sceneAABB)
 {
+    Frustum   camFr    = camera.GetFrustum();
+    glm::vec3 frontDir = camera.GetFront();
+
     // Construct light view matrix, looking along the light direction:
     // Up vector doesn't really matter - it changes rotation of the resulting
     // shadowmap about the light dir - which is mostly irrelevant,
@@ -353,7 +347,7 @@ void ShadowmapHandler::OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lig
     for (size_t idx = 0; idx < NumCascades; idx++)
     {
         auto &frustum       = mShadowFrustums[idx];
-        auto &lightViewProj = mLightViewProjs[idx];
+        auto &lightViewProj = mMatrices[idx];
 
         // Construct worldspace coords for the shadow sampling part of the frustum:
         if (!mFreezeFrustum)
@@ -433,33 +427,13 @@ VkExtent2D ShadowmapHandler::GetExtent() const
     return VkExtent2D{width, height};
 }
 
-void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp,
-                                          VkDeviceAddress vertexBuffer,
-                                          glm::vec2       texBoundsCenter,
-                                          glm::vec2       texBoundsExtent)
+void ShadowmapHandler::PushConstantOpaque(VkCommandBuffer cmd, PCData &data)
 {
-    PCDataShadow data{
-        .LightMVP       = mvp,
-        .VertexBuffer   = vertexBuffer,
-        .TexBoundCenter = texBoundsCenter,
-        .TexBoundExtent = texBoundsExtent,
-    };
-
     mOpaquePipeline.PushConstants(cmd, data);
 }
 
-void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp,
-                                         VkDeviceAddress vertexBuffer,
-                                         glm::vec2       texBoundsCenter,
-                                         glm::vec2       texBoundsExtent)
+void ShadowmapHandler::PushConstantAlpha(VkCommandBuffer cmd, PCData &data)
 {
-    PCDataShadow data{
-        .LightMVP       = mvp,
-        .VertexBuffer   = vertexBuffer,
-        .TexBoundCenter = texBoundsCenter,
-        .TexBoundExtent = texBoundsExtent,
-    };
-
     mAlphaPipeline.PushConstants(cmd, data);
 }
 

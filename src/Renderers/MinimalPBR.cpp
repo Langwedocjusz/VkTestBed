@@ -109,18 +109,17 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info), mEnvHandler(ctx),
-      mShadowmapHandler(ctx, RenderTargetFormat, DepthStencilFormat), mAOHandler(ctx),
-      mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
+      mDynamicUBO(ctx, info, sizeof(mUBOData)), mEnvHandler(ctx), mShadowmapHandler(ctx),
+      mAOHandler(ctx), mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
     // Create the material texture sampler:
-    mSampler2D = SamplerBuilder("MinimalPbrSampler2D")
-                     .SetMagFilter(VK_FILTER_LINEAR)
-                     .SetMinFilter(VK_FILTER_LINEAR)
-                     .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                     .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
-                     .SetMaxLod(12.0f)
-                     .Build(mCtx, mMainDeletionQueue);
+    mMaterialSampler = SamplerBuilder("MinimalPbrMaterialSampler")
+                           .SetMagFilter(VK_FILTER_LINEAR)
+                           .SetMinFilter(VK_FILTER_LINEAR)
+                           .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                           .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
+                           .SetMaxLod(12.0f)
+                           .Build(mCtx, mMainDeletionQueue);
 
     // Create descriptor set layout for sampling material textures:
     mMaterialDescriptorSetLayout =
@@ -159,7 +158,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
     // Build the dynamic uniform buffer:
     auto stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    mDynamicUBO.OnInit("MinimalPBRDynamicUBO", stages, sizeof(mUBOData));
+    mDynamicUBO.Initialize("MinimalPBRDynamicUBO", stages);
 
     // Build the graphics pipelines:
     RebuildPipelines();
@@ -265,12 +264,6 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
-    // Rebuild env handler pipelines as well:
-    mEnvHandler.RebuildPipelines();
-    mShadowmapHandler.RebuildPipelines(mGeometryLayout.VertexLayout,
-                                       mMaterialDescriptorSetLayout, mMultisample);
-    mAOHandler.RebuildPipelines();
-
     VkStencilOpState stencilWriteState{
         .failOp      = VK_STENCIL_OP_REPLACE,
         .passOp      = VK_STENCIL_OP_REPLACE,
@@ -351,6 +344,19 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .SetPushConstantSize(sizeof(PCDataObjectID))
             .Build(mCtx, mPipelineDeletionQueue);
+
+    // Rebuild component pipelines as well:
+    ShadowmapHandler::PipelineInfo info{
+        .VertexLayout         = mGeometryLayout.VertexLayout,
+        .MaterialDSLayout     = mMaterialDescriptorSetLayout,
+        .ColorFormat          = RenderTargetFormat,
+        .DepthFormat          = DepthStencilFormat,
+        .CurrentMultisampling = mMultisample,
+    };
+
+    mEnvHandler.RebuildPipelines();
+    mShadowmapHandler.RebuildPipelines(info);
+    mAOHandler.RebuildPipelines();
 }
 
 void MinimalPbrRenderer::RecreateSwapchainResources()
@@ -423,14 +429,12 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
 
     // Create AO related resources:
     mAOHandler.RecreateSwapchainResources(mDepthStencilBuffer.Img, mDepthOnlyView,
-                                          drawExtent, mSampler2D);
+                                          drawExtent);
 }
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    auto lightDir = mEnvHandler.GetUboData().LightDir;
-    mShadowmapHandler.OnUpdate(mCamera.GetFrustum(), mCamera.GetFront(), lightDir,
-                               mSceneAABB);
+    mShadowmapHandler.OnUpdate(mCamera, mEnvHandler.GetLightDir(), mSceneAABB);
 
     glm::vec2 drawExtent{
         mRenderTarget.Img.Info.extent.width,
@@ -439,8 +443,8 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 
     // Update light/camera uniform buffer data:
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
-    mUBOData.LightViewProjections = mShadowmapHandler.GetViewProj();
-    mUBOData.CascadeBounds        = mShadowmapHandler.GetBounds();
+    mUBOData.ShadowMatrices       = mShadowmapHandler.GetMatrices();
+    mUBOData.ShadowBounds         = mShadowmapHandler.GetBounds();
     mUBOData.ViewPos              = mCamera.GetPos();
     mUBOData.ViewFront            = mCamera.GetFront();
     mUBOData.AOEnabled            = mEnableAO;
@@ -464,7 +468,7 @@ void MinimalPbrRenderer::OnImGui()
 
     if (mEnablePrepass)
     {
-        if (ImGui::Checkbox("Ambient Occlusion", &mEnableAO))
+        if (ImGui::Checkbox("Enable Ambient Occlusion", &mEnableAO))
         {
             vkDeviceWaitIdle(mCtx.Device);
 
@@ -644,10 +648,14 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
         auto instanceCallback = [&](VkCommandBuffer cmd, Drawable &drawable,
                                     Instance &instance) {
-            auto mvp = viewProj * instance.Transform;
-            mShadowmapHandler.PushConstantOpaque(cmd, mvp, drawable.VertexAddress,
-                                                 drawable.TexBoundsCenter,
-                                                 drawable.TexBoundsExtent);
+            ShadowmapHandler::PCData data{
+                .LightMVP       = viewProj * instance.Transform,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
+            };
+
+            mShadowmapHandler.PushConstantOpaque(cmd, data);
         };
 
         DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -662,10 +670,14 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
         auto instanceCallback = [&](VkCommandBuffer cmd, Drawable &drawable,
                                     Instance &instance) {
-            auto mvp = viewProj * instance.Transform;
-            mShadowmapHandler.PushConstantAlpha(cmd, mvp, drawable.VertexAddress,
-                                                drawable.TexBoundsCenter,
-                                                drawable.TexBoundsExtent);
+            ShadowmapHandler::PCData data{
+                .LightMVP       = viewProj * instance.Transform,
+                .VertexBuffer   = drawable.VertexAddress,
+                .TexBoundCenter = drawable.TexBoundsCenter,
+                .TexBoundExtent = drawable.TexBoundsExtent,
+            };
+
+            mShadowmapHandler.PushConstantAlpha(cmd, data);
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -1141,9 +1153,9 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
 
         // Update the descriptor set:
         DescriptorUpdater(mat.DescriptorSet)
-            .WriteCombinedSampler(0, albedo.View, mSampler2D)
-            .WriteCombinedSampler(1, roughness.View, mSampler2D)
-            .WriteCombinedSampler(2, normal.View, mSampler2D)
+            .WriteCombinedSampler(0, albedo.View, mMaterialSampler)
+            .WriteCombinedSampler(1, roughness.View, mMaterialSampler)
+            .WriteCombinedSampler(2, normal.View, mMaterialSampler)
             .WriteUniformBuffer(3, mat.UBO.Handle, sizeof(mat.UboData))
             .Update(mCtx);
     }

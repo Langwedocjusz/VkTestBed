@@ -107,6 +107,15 @@ VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,
     return pool;
 }
 
+VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,
+                                      std::span<VkDescriptorPoolSize> poolSizes,
+                                      DeletionQueue                  &deletionQueue)
+{
+    VkDescriptorPool pool = InitPool(ctx, maxSets, poolSizes);
+    deletionQueue.push_back(pool);
+    return pool;
+}
+
 VkDescriptorSet Descriptor::Allocate(VulkanContext &ctx, VkDescriptorPool pool,
                                      VkDescriptorSetLayout &layout)
 {

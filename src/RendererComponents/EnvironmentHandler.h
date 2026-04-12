@@ -15,7 +15,7 @@ class EnvironmentHandler {
     struct EnvUBOData {
         int32_t   LightOn          = 1;
         glm::vec3 LightDir         = glm::normalize(glm::vec3(1, -1, 1));
-        glm::vec3 LightColor       = glm::vec3(1.0);
+        glm::vec3 LightColor       = glm::vec3(1.0f);
         int32_t   HdriEnabled      = false;
         float     MaxReflectionLod = 0.0f;
     };
@@ -26,16 +26,19 @@ class EnvironmentHandler {
     void RebuildPipelines();
     void LoadEnvironment(const Scene &scene);
 
-    [[nodiscard]] bool HdriEnabled() const
+    // Retrieve descriptor set (and its layout)
+    // for rendering objects (indirect lighting/reflections):
+    [[nodiscard]] VkDescriptorSet GetLightingDS() const
     {
-        return mEnvUBOData.HdriEnabled;
+        return mLightingDescriptorSet;
+    }
+    [[nodiscard]] VkDescriptorSetLayout GetLightingDSLayout() const
+    {
+        return mLightingDescriptorSetLayout;
     }
 
-    [[nodiscard]] EnvUBOData GetUboData() const
-    {
-        return mEnvUBOData;
-    };
-
+    // Retrieve descriptor set (and its layout)
+    // for rendering the background:
     [[nodiscard]] VkDescriptorSet GetBackgroundDS() const
     {
         return mBackgroundDescriptorSet;
@@ -45,13 +48,16 @@ class EnvironmentHandler {
         return mBackgroundDescrptorSetLayout;
     }
 
-    [[nodiscard]] VkDescriptorSet GetLightingDS() const
+    // Retrieve auxiliary information about the environment
+    // that may be useful for other components:
+    [[nodiscard]] bool HdriEnabled() const
     {
-        return mLightingDescriptorSet;
+        return mEnvUBOData.HdriEnabled;
     }
-    [[nodiscard]] VkDescriptorSetLayout GetLightingDSLayout() const
+
+    [[nodiscard]] glm::vec3 GetLightDir() const
     {
-        return mLightingDescriptorSetLayout;
+        return mEnvUBOData.LightDir;
     }
 
   private:

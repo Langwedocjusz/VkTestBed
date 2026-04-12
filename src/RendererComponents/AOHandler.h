@@ -16,7 +16,7 @@ class AOHandler {
 
     void RebuildPipelines();
     void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
-                                    VkExtent2D drawExtent, VkSampler outputSampler);
+                                    VkExtent2D drawExtent);
 
     [[nodiscard]] VkDescriptorSetLayout GetDSLayout() const
     {
@@ -39,7 +39,6 @@ class AOHandler {
         Image      &DepthBuffer;
         VkImageView DepthOnlyView;
         VkExtent2D  DrawExtent;
-        VkSampler   OutputSampler;
     };
 
     std::unique_ptr<ResourceCache> mResourceCache = nullptr;
@@ -59,9 +58,10 @@ class AOHandler {
     VkDescriptorSet       mAOUsageDescriptorSet;
 
     VkSampler mDepthSampler;
+    VkSampler mAOutSampler;
 
     VulkanContext &mCtx;
-    DeletionQueue  mDeletionQueue;
+    DeletionQueue  mMainDeletionQueue;
     DeletionQueue  mPipelineDeletionQueue;
     DeletionQueue  mSwapchainDeletionQueue;
 };

@@ -13,9 +13,9 @@
 #include <string>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
-    : IRenderer(ctx, info, camera), mDynamicUBO(ctx, info), mSceneDeletionQueue(ctx)
+    : IRenderer(ctx, info, camera), mDynamicUBO(ctx, info, sizeof(mUBOData)), mSceneDeletionQueue(ctx)
 {
-    mDynamicUBO.OnInit("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT, sizeof(mUBOData));
+    mDynamicUBO.Initialize("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT);
 
     RebuildPipelines();
     RecreateSwapchainResources();

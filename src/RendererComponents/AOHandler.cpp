@@ -9,17 +9,25 @@
 #include "imgui.h"
 
 AOHandler::AOHandler(VulkanContext &ctx)
-    : mCtx(ctx), mDeletionQueue(ctx), mPipelineDeletionQueue(ctx),
+    : mCtx(ctx), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx),
       mSwapchainDeletionQueue(ctx)
 {
-    // For ao clamp to edge is required to avoid artefacts near screen edges:
-    mDepthSampler = SamplerBuilder("AOSampler")
+    // For depth clamp to edge is required to avoid ao artefacts near screen edges:
+    mDepthSampler = SamplerBuilder("AODepthSampler")
                         .SetMagFilter(VK_FILTER_LINEAR)
                         .SetMinFilter(VK_FILTER_LINEAR)
                         .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
                         .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
                         .SetMaxLod(12.0f)
-                        .Build(mCtx, mDeletionQueue);
+                        .Build(mCtx, mMainDeletionQueue);
+
+    mAOutSampler = SamplerBuilder("AOOutSampler")
+                       .SetMagFilter(VK_FILTER_LINEAR)
+                       .SetMinFilter(VK_FILTER_LINEAR)
+                       .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                       .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
+                       .SetMaxLod(12.0f)
+                       .Build(mCtx, mMainDeletionQueue);
 
     // Build descriptor sets for AO:
     {
@@ -31,20 +39,20 @@ AOHandler::AOHandler(VulkanContext &ctx)
         // clang-format on
 
         mAODescriptorPool = Descriptor::InitPool(mCtx, 2, poolCounts);
-        mDeletionQueue.push_back(mAODescriptorPool);
+        mMainDeletionQueue.push_back(mAODescriptorPool);
     }
 
     mAOGenDescriptorSetLayout = DescriptorSetLayoutBuilder("AOGenDSLayout")
                                     .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
                                     .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .Build(mCtx, mDeletionQueue);
+                                    .Build(mCtx, mMainDeletionQueue);
 
     mAOGenDescriptorSet =
         Descriptor::Allocate(mCtx, mAODescriptorPool, mAOGenDescriptorSetLayout);
 
     mAOUsageDescriptorSetLayout = DescriptorSetLayoutBuilder("AOUsageDSLayout")
                                       .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                      .Build(mCtx, mDeletionQueue);
+                                      .Build(mCtx, mMainDeletionQueue);
 
     mAOUsageDescriptorSet =
         Descriptor::Allocate(mCtx, mAODescriptorPool, mAOUsageDescriptorSetLayout);
@@ -58,9 +66,9 @@ void AOHandler::OnImGui()
     {
         vkDeviceWaitIdle(mCtx.Device);
 
-        RecreateSwapchainResources(
-            mResourceCache->DepthBuffer, mResourceCache->DepthOnlyView,
-            mResourceCache->DrawExtent, mResourceCache->OutputSampler);
+        RecreateSwapchainResources(mResourceCache->DepthBuffer,
+                                   mResourceCache->DepthOnlyView,
+                                   mResourceCache->DrawExtent);
     }
 }
 
@@ -76,7 +84,7 @@ void AOHandler::RebuildPipelines()
 }
 
 void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
-                                           VkExtent2D drawExtent, VkSampler outputSampler)
+                                           VkExtent2D drawExtent)
 {
     mSwapchainDeletionQueue.flush();
 
@@ -85,7 +93,6 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         .DepthBuffer   = depthBuffer,
         .DepthOnlyView = depthOnlyView,
         .DrawExtent    = drawExtent,
-        .OutputSampler = outputSampler,
     });
 
     // Create target for occlusion computation:
@@ -148,7 +155,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
     });
 
     DescriptorUpdater(mAOUsageDescriptorSet)
-        .WriteCombinedSampler(0, mAOTarget.View, outputSampler)
+        .WriteCombinedSampler(0, mAOTarget.View, mAOutSampler)
         .Update(mCtx);
 }
 

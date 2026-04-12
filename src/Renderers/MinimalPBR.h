@@ -14,6 +14,16 @@
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 
+// TODO: Descriptor set managements should be reworked.
+// Current dynamic UBO abstration creates its own layout and sets,
+// but really those things could be combined.
+// Also using descriptor sets as communication layer may not be the
+// best idea as it leads to explosion in their number.
+// Semi-modern gpus seem to support 8 concurrent descriptor sets bound
+// but that can be easily reached with this strategy.
+// Instead the components should probably just return resource views
+// and the host renderer should build its own descriptor sets from them.
+
 class MinimalPbrRenderer final : public IRenderer {
   public:
     MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera);
@@ -133,8 +143,8 @@ class MinimalPbrRenderer final : public IRenderer {
     Texture     mDepthStencilBuffer;
     VkImageView mDepthOnlyView;
 
-    // Common sampler:
-    VkSampler mSampler2D;
+    // Material sampler:
+    VkSampler mMaterialSampler;
 
     // Graphics pipelines:
     Pipeline mZPrepassOpaquePipeline;
@@ -221,8 +231,8 @@ class MinimalPbrRenderer final : public IRenderer {
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct UBOData {
         glm::mat4                  CameraViewProjection;
-        ShadowmapHandler::Matrices LightViewProjections;
-        ShadowmapHandler::Bounds   CascadeBounds;
+        ShadowmapHandler::Matrices ShadowMatrices;
+        ShadowmapHandler::Bounds   ShadowBounds;
         glm::vec3                  ViewPos;
         glm::vec3                  ViewFront;
         float                      DirectionalFactor = 3.0f;

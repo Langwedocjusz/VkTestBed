@@ -4,14 +4,17 @@
 #include "Camera.h"
 #include "Common.h"
 #include "DeletionQueue.h"
+#include "DynamicUniformBuffer.h"
+#include "Frame.h"
 #include "GeometryData.h"
 #include "Pipeline.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 
 #include "volk.h"
-
 #include <glm/glm.hpp>
+
+#include <optional>
 
 struct ShadowVolume {
     float MinX;
@@ -30,61 +33,53 @@ class ShadowmapHandler {
     using Bounds   = std::array<float, NumCascades>;
 
   public:
-    ShadowmapHandler(VulkanContext &ctx, VkFormat debugColorFormat,
-                     VkFormat debugDepthFormat);
+    ShadowmapHandler(VulkanContext &ctx);
 
-    void OnUpdate(Frustum camFr, glm::vec3 frontDir, glm::vec3 lightDir, AABB sceneAABB);
+    void OnUpdate(Camera &camera, glm::vec3 lightDir, AABB sceneAABB);
     void OnImGui();
 
-    void RebuildPipelines(const Vertex::Layout &vertexLayout,
-                          VkDescriptorSetLayout materialDSLayout,
-                          VkSampleCountFlagBits debugMultisampling);
+    // Information about main rendering pipeline using this handler:
+    struct PipelineInfo {
+        Vertex::Layout        VertexLayout;
+        VkDescriptorSetLayout MaterialDSLayout;
+        VkFormat              ColorFormat;
+        VkFormat              DepthFormat;
+        VkSampleCountFlagBits CurrentMultisampling;
+    };
 
-    // Draw all shadowmap cascades using user-provided drawing functions:
+    void RebuildPipelines(const PipelineInfo &info);
+
+    // Draw into all shadowmap cascades using user-provided drawing functions:
     template <typename OpaqueFn, typename AlphaFn>
-    void DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque, AlphaFn drawAlpha)
-    {
-        barrier::ImageBarrierDepthToRender(cmd, mShadowmap.Img.Handle, NumCascades);
-
-        // TODO: for now we are just issuing render commands 3 times - for each cascade.
-        // This can be optimized to one render pass, for example with usage of the
-        // multiview extension.
-        for (size_t idx = 0; idx < NumCascades; idx++)
-        {
-            auto viewProj = mLightViewProjs[idx];
-
-            common::BeginRenderingDepth(cmd, GetExtent(), mCascadeViews[idx], false,
-                                        true);
-
-            mOpaquePipeline.Bind(cmd);
-            common::ViewportScissor(cmd, GetExtent());
-            drawOpaque(cmd, viewProj);
-
-            mAlphaPipeline.Bind(cmd);
-            common::ViewportScissor(cmd, GetExtent());
-            drawAlpha(cmd, viewProj);
-
-            vkCmdEndRendering(cmd);
-        }
-
-        barrier::ImageBarrierDepthToSample(cmd, mShadowmap.Img.Handle, NumCascades);
-    }
+    void DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque, AlphaFn drawAlpha);
 
     // For building drawing functions in the renderer:
 
-    // Deliver per-object (pre-multiplied) MVP matrix to the shaders via push constant:
-    void PushConstantOpaque(VkCommandBuffer cmd, glm::mat4 mvp,
-                            VkDeviceAddress vertexBuffer, glm::vec2 texBoundsCenter,
-                            glm::vec2 texBoundsExtent);
-    void PushConstantAlpha(VkCommandBuffer cmd, glm::mat4 mvp,
-                           VkDeviceAddress vertexBuffer, glm::vec2 texBoundsCenter,
-                           glm::vec2 texBoundsExtent);
+    // Push-constant struct for shadowmap-rendering pipelines:
+    // Includes (pre-multiplied by model) MVP matrix,
+    // device address of the vertex buffer (vertex pulling mode),
+    // and texture bounds of the given material, needed for
+    // alpha testing.
+    struct PCData {
+        glm::mat4       LightMVP;
+        VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
+    };
 
-    // Bind descriptor set used to sample per-material alpha.
-    // Descriptor set being bound is assumed to have albedo map as its first binding.
-    // It is also assumed that transparency is stored in the 'a' channel.
+    // This variant is for fully opaque geometry:
+    void PushConstantOpaque(VkCommandBuffer cmd, PCData &data);
+    // And this one is for alpha tested geometry (like foliage):
+    void PushConstantAlpha(VkCommandBuffer cmd, PCData &data);
+
+    // Binds descriptor set used to sample per-material alpha.
+    // Descriptor set must be consistend with the materialDSLayout provided at
+    // construction. Descriptor set being bound is assumed to have albedo map as its first
+    // binding. It is also assumed that transparency is stored in the 'a' channel.
     void BindAlphaMaterialDS(VkCommandBuffer cmd, VkDescriptorSet materialDS);
 
+    // Retrieve descriptor set (and its layout) that allows
+    // sampling the shadow maps:
     [[nodiscard]] VkDescriptorSetLayout GetDSLayout() const
     {
         return mShadowmapDescriptorSetLayout;
@@ -93,15 +88,18 @@ class ShadowmapHandler {
     {
         return mShadowmapDescriptorSet;
     }
-    [[nodiscard]] Matrices GetViewProj() const
+
+    // Retrieve view-proj matrices and cascade bounds:
+    [[nodiscard]] Matrices GetMatrices() const
     {
-        return mLightViewProjs;
+        return mMatrices;
     }
     [[nodiscard]] Bounds GetBounds() const
     {
         return mBounds;
     }
 
+    // Prerform debug visualization of the shadow casting frustums:
     void DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj, VkExtent2D extent);
 
   private:
@@ -119,67 +117,100 @@ class ShadowmapHandler {
     static constexpr uint32_t ShadowmapResolution = 2048;
     static constexpr VkFormat ShadowmapFormat     = VK_FORMAT_D32_SFLOAT;
 
-    VulkanContext &mCtx;
+    VulkanContext              &mCtx;
+    std::optional<PipelineInfo> mPipelineInfo = std::nullopt;
 
     VkDescriptorPool mStaticDescriptorPool;
 
-    Matrices                         mLightViewProjs;
-    Bounds                           mBounds;
-    std::array<Frustum, NumCascades> mShadowFrustums;
-
-    struct PCDataShadow {
-        glm::mat4       LightMVP;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-    };
-
-    Pipeline mOpaquePipeline;
-    Pipeline mAlphaPipeline;
-
+    // Configurable parameters:
     bool mDebugView     = false;
     bool mFreezeFrustum = false;
     bool mFitToScene    = true;
 
     float mShadowDist = 10.0f;
 
+    // The shadowmap-rendering pipelines:
+    Pipeline mOpaquePipeline;
+    Pipeline mAlphaPipeline;
+
     // Main (multi layer) shadowmap texture and corresponding sampler:
     Texture   mShadowmap;
     VkSampler mSampler;
+
     // Single layer views for rendering subsequent cascades:
     std::array<VkImageView, NumCascades> mCascadeViews;
 
+    // Data that needs to be uploaded via uniform buffer
+    // to use shadowmaps in actual rendering
+    // (view-proj matrices and cascade bounds):
+    Matrices mMatrices;
+    Bounds   mBounds;
+
+    // Parts of the camera frustum corresponding to subsequent cascades.
+    // Used to determine their projection matrices:
+    std::array<Frustum, NumCascades> mShadowFrustums;
+
+    // Descriptor set for using the shadowmaps in rendering:
     VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
     VkDescriptorSet       mShadowmapDescriptorSet;
 
-    // Descriptor set for sending shadow map view to imgui:
-    VkSampler       mDebugSampler;
+    // Descriptor set and sampler for sending shadow map view to imgui:
     VkDescriptorSet mDebugTextureDescriptorSet;
+    VkSampler       mDebugSampler;
 
     // Additional pipeline and resources for debug visualization:
     Pipeline mDebugPipeline;
-
-    VkFormat mDebugColorFormat;
-    VkFormat mDebugDepthFormat;
-
-    GeometryLayout mDebugGeometryLayout{
-        .VertexLayout = Vertex::PushLayout{},
-        .IndexType    = VK_INDEX_TYPE_UINT16,
-    };
-
-    static constexpr size_t NumVertsPerFrustum = 8;
-    static constexpr size_t NumIdxPerFrustum   = 36;
-
-    std::array<glm::vec3, 2 * NumVertsPerFrustum> mVertexBufferData;
-
-    Buffer mDebugFrustumVertexBuffer;
-    Buffer mDebugFrustumIndexBuffer;
 
     struct PCDataDebug {
         glm::mat4 ViewProj;
         glm::vec4 Color;
     };
 
+    // Debug frustum geometry data:
+    static constexpr size_t NumVertsPerFrustum = 8;
+    static constexpr size_t NumIdxPerFrustum   = 36;
+
+    std::array<glm::vec3, 2 * NumVertsPerFrustum> mVertexBufferData;
+
+    GeometryLayout mDebugGeometryLayout{
+        .VertexLayout = Vertex::PushLayout{},
+        .IndexType    = VK_INDEX_TYPE_UINT16,
+    };
+
+    Buffer mDebugFrustumVertexBuffer;
+    Buffer mDebugFrustumIndexBuffer;
+
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;
 };
+
+template <typename OpaqueFn, typename AlphaFn>
+void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque,
+                                      AlphaFn drawAlpha)
+{
+    barrier::ImageBarrierDepthToRender(cmd, mShadowmap.Img.Handle, NumCascades);
+
+    // TODO: for now we are just issuing render commands 3 times - for each cascade.
+    // This can be optimized to one render pass, for example with usage of the
+    // multiview extension.
+    for (size_t idx = 0; idx < NumCascades; idx++)
+    {
+        // Draw functions are fed the view-proj matrices
+        // so they can use them to do frustum culling.
+        auto viewProj = mMatrices[idx];
+
+        common::BeginRenderingDepth(cmd, GetExtent(), mCascadeViews[idx], false, true);
+
+        mOpaquePipeline.Bind(cmd);
+        common::ViewportScissor(cmd, GetExtent());
+        drawOpaque(cmd, viewProj);
+
+        mAlphaPipeline.Bind(cmd);
+        common::ViewportScissor(cmd, GetExtent());
+        drawAlpha(cmd, viewProj);
+
+        vkCmdEndRendering(cmd);
+    }
+
+    barrier::ImageBarrierDepthToSample(cmd, mShadowmap.Img.Handle, NumCascades);
+}

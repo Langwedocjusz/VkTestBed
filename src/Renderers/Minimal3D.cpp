@@ -13,9 +13,9 @@
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera), mTextureDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info), mSceneDeletionQueue(ctx)
+      mDynamicUBO(ctx, info, sizeof(mUBOData)), mSceneDeletionQueue(ctx)
 {
-    mDynamicUBO.OnInit("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT, sizeof(mUBOData));
+    mDynamicUBO.Initialize("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT);
 
     // Create descriptor set layout for sampling textures
     mTextureDescriptorSetLayout =

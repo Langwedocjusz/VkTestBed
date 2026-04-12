@@ -8,33 +8,28 @@
 // Class meant for uniform buffers with data updated each frame.
 // Behind the scenes it juggles several (swapchain image count) buffers
 // to avoid need for explicit synchronization.
+// The buffers are exposed via descriptor sets created for them,
+// which only reference the buffers.
 class DynamicUniformBuffer {
   public:
-    DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame);
+    DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame, VkDeviceSize bufSize);
 
-    void OnInit(std::string_view debugName, VkShaderStageFlags stageFlags,
-                VkDeviceSize bufferSize);
+    void Initialize(std::string_view debugName, VkShaderStageFlags stageFlags);
 
     void UpdateData(void *data, VkDeviceSize size);
 
-    [[nodiscard]] VkDescriptorSetLayout DescriptorSetLayout() const
-    {
-        return mDescriptorSetLayout;
-    }
-
-    [[nodiscard]] VkDescriptorSet DescriptorSet() const
-    {
-        return mDescriptorSets[mFrame.ImageIndex];
-    }
+    [[nodiscard]] VkDescriptorSetLayout DescriptorSetLayout() const;
+    [[nodiscard]] VkDescriptorSet       DescriptorSet() const;
 
   private:
     bool mInitialized = false;
 
+    VkDeviceSize        mBufferSize;
+    std::vector<Buffer> mUniformBuffers;
+
     VkDescriptorSetLayout        mDescriptorSetLayout;
     VkDescriptorPool             mDescriptorPool;
     std::vector<VkDescriptorSet> mDescriptorSets;
-
-    std::vector<Buffer> mUniformBuffers;
 
     VulkanContext &mCtx;
     FrameInfo     &mFrame;

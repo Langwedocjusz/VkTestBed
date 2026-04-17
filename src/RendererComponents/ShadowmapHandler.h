@@ -188,7 +188,7 @@ template <typename OpaqueFn, typename AlphaFn>
 void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque,
                                       AlphaFn drawAlpha)
 {
-    barrier::ImageBarrierDepthToRender(cmd, mShadowmap.Img.Handle, NumCascades);
+    barrier::DepthToRender(cmd, mShadowmap.Img.Handle, NumCascades);
 
     // TODO: for now we are just issuing render commands 3 times - for each cascade.
     // This can be optimized to one render pass, for example with usage of the
@@ -212,5 +212,5 @@ void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque,
         vkCmdEndRendering(cmd);
     }
 
-    barrier::ImageBarrierDepthToSample(cmd, mShadowmap.Img.Handle, NumCascades);
+    barrier::DepthToSample(cmd, mShadowmap.Img.Handle, NumCascades);
 }

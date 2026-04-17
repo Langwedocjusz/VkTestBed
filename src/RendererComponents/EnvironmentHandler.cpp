@@ -353,14 +353,12 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
 
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         // Transition cubemap to use as storage image:
-        auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-            .Image            = mCubemap.Img.Handle,
+        auto barrierInfo = barrier::LayoutTransitionInfo{
+            .Image            = mCubemap.Img,
             .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0,
-                                 mCubemap.Img.Info.mipLevels, 0, 6},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        barrier::ImageLayoutCoarse(cmd, barrierInfo);
 
         // Sample equirectangular map to cubemap
         // using a compute pipeline:
@@ -375,9 +373,9 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
         vkCmdDispatch(cmd, dispCountX, dispCountY, 6);
 
         // Transition cubemap back to be used as texture:
-        barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrierInfo.OldLayout = VK_IMAGE_LAYOUT_GENERAL;
         barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        barrier::ImageLayoutCoarse(cmd, barrierInfo);
     });
 
     // Generate mip levels (to use when generating prefiltered map)
@@ -435,40 +433,36 @@ void EnvironmentHandler::GeneratePrefilteredMap()
     // Blit cubemap onto prefiltered map level zero:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         // Transition cubemap to transfer source:
-        auto srcInfo = barrier::ImageLayoutBarrierInfo{
-            .Image            = mCubemap.Img.Handle,
-            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+        auto srcInfo = barrier::LayoutTransitionInfo{
+            .Image            = mCubemap.Img,
+            .OldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0,
-                                 mCubemap.Img.Info.mipLevels, 0, 6},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd, srcInfo);
+        barrier::ImageLayoutCoarse(cmd, srcInfo);
 
         // Trasition prefiltered map to transfer destination:
-        auto dstInfo = barrier::ImageLayoutBarrierInfo{
-            .Image            = mPrefiltered.Img.Handle,
+        auto dstInfo = barrier::LayoutTransitionInfo{
+            .Image            = mPrefiltered.Img,
             .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd, dstInfo);
+        barrier::ImageLayoutCoarse(cmd, dstInfo);
 
         // Issue the blit command:
         vkutils::BlitImageZeroMip(cmd, mCubemap.Img, mPrefiltered.Img);
 
         // Transition cubemap to be used as a texture:
-        srcInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        srcInfo.OldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         srcInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier::ImageLayoutBarrierCoarse(cmd, srcInfo);
+        barrier::ImageLayoutCoarse(cmd, srcInfo);
 
         // Transition whole prefiltered map to use as storage image:
-        auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-            .Image            = mPrefiltered.Img.Handle,
-            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+        auto barrierInfo = barrier::LayoutTransitionInfo{
+            .Image            = mPrefiltered.Img,
+            .OldLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, numMips, 0, 6},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        barrier::ImageLayoutCoarse(cmd, barrierInfo);
     });
 
     // Generate higher mips by integrating cubemap
@@ -511,27 +505,25 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
     // Transition prefiltered map to be used as a texture:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        auto dstInfo = barrier::ImageLayoutBarrierInfo{
-            .Image            = mPrefiltered.Img.Handle,
-            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+        auto dstInfo = barrier::LayoutTransitionInfo{
+            .Image            = mPrefiltered.Img,
+            .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
             .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, numMips, 0, 6},
         };
 
-        barrier::ImageLayoutBarrierCoarse(cmd, dstInfo);
+        barrier::ImageLayoutCoarse(cmd, dstInfo);
     });
 }
 
 void EnvironmentHandler::GenerateIntegrationMap()
 {
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-            .Image            = mIntegration.Img.Handle,
+        auto barrierInfo = barrier::LayoutTransitionInfo{
+            .Image            = mIntegration.Img,
             .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        barrier::ImageLayoutCoarse(cmd, barrierInfo);
 
         mIntegrationGenPipeline.Bind(cmd);
         mIntegrationGenPipeline.BindDescriptorSet(cmd, mIntegrationDescriptorSet, 0);
@@ -543,9 +535,9 @@ void EnvironmentHandler::GenerateIntegrationMap()
 
         vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
 
-        barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrierInfo.OldLayout = VK_IMAGE_LAYOUT_GENERAL;
         barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        barrier::ImageLayoutCoarse(cmd, barrierInfo);
     });
 }
 
@@ -557,6 +549,13 @@ void EnvironmentHandler::ResetToBlack()
                 {0.0f, 0.0f, 0.0f, 1.0f}
             };
 
+            auto barrierInfo = barrier::LayoutTransitionInfo{
+                .Image            = img,
+                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            };
+            barrier::ImageLayoutCoarse(cmd, barrierInfo);
+
             auto range = VkImageSubresourceRange{
                 .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseMipLevel   = 0,
@@ -565,20 +564,12 @@ void EnvironmentHandler::ResetToBlack()
                 .layerCount     = img.Info.arrayLayers,
             };
 
-            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image            = img.Handle,
-                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                .SubresourceRange = range,
-            };
-            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
-
             vkCmdClearColorImage(cmd, img.Handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                  &black, 1, &range);
 
-            barrierInfo.OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barrierInfo.OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+            barrier::ImageLayoutCoarse(cmd, barrierInfo);
         };
 
         // Clear cubemap and prefiltered map to pure black:

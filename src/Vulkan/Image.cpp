@@ -78,14 +78,13 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
     ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         // Change image layout to transfer destination:
         // Transitions all mip levels to dst layout
-        auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-            .Image            = img.Handle,
+        auto barrierInfo = barrier::LayoutTransitionInfo{
+            .Image            = img,
             .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.mipLevels, 0, 1},
         };
 
-        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        barrier::ImageLayoutCoarse(cmd, barrierInfo);
 
         // TODO: This is still broken with compressed textures. Figure out why.
         if (info.AllMips)
@@ -151,7 +150,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
         barrierInfo.OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrierInfo.NewLayout = info.DstLayout;
 
-        barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+        barrier::ImageLayoutCoarse(cmd, barrierInfo);
     });
 
     Buffer::Destroy(ctx, stagingBuffer);
@@ -170,23 +169,23 @@ void Image::GenerateMips(VulkanContext &ctx, Image &img)
 
         for (uint32_t mip = 1; mip < img.Info.mipLevels; mip++)
         {
-            auto srcInfo = barrier::ImageLayoutBarrierInfo{
-                .Image            = img.Handle,
+            auto srcInfo = barrier::LayoutTransitionInfo{
+                .Image            = img,
                 .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
                 .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 1, 0, numArrays},
+                .SubresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 1, 0, numArrays},
             };
 
-            barrier::ImageLayoutBarrierCoarse(cmd, srcInfo);
+            barrier::ImageLayoutCoarse(cmd, srcInfo);
 
-            auto dstInfo = barrier::ImageLayoutBarrierInfo{
-                .Image            = img.Handle,
+            auto dstInfo = barrier::LayoutTransitionInfo{
+                .Image            = img,
                 .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
                 .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, 0, numArrays},
+                .SubresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, 0, numArrays},
             };
 
-            barrier::ImageLayoutBarrierCoarse(cmd, dstInfo);
+            barrier::ImageLayoutCoarse(cmd, dstInfo);
 
             VkImageBlit2 blitRegion{};
             blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
@@ -227,14 +226,12 @@ void Image::GenerateMips(VulkanContext &ctx, Image &img)
             dstSize.height /= 2;
         }
 
-        auto finalInfo = barrier::ImageLayoutBarrierInfo{
-            .Image            = img.Handle,
+        auto finalInfo = barrier::LayoutTransitionInfo{
+            .Image            = img,
             .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, img.Info.mipLevels, 0,
-                                 img.Info.arrayLayers},
         };
 
-        barrier::ImageLayoutBarrierCoarse(cmd, finalInfo);
+        barrier::ImageLayoutCoarse(cmd, finalInfo);
     });
 }

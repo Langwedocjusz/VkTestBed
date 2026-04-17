@@ -17,6 +17,7 @@
 #include "VulkanContext.h"
 
 #include "volk.h"
+#include "vulkan/vulkan_core.h"
 
 #include <memory>
 
@@ -227,7 +228,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 
         // 1. Transition render target to rendering:
         // TODO: Maybe renderer should handle it by itself to make it more flexible
-        barrier::ImageBarrierColorToRender(cmd, mRenderer->GetTargetImage().Handle);
+        barrier::ColorToRender(cmd, mRenderer->GetTargetImage().Handle);
 
         // 2. Render to image:
         mStatsCollector.PipelineStatsStart(cmd, mFrameInfo.Index);
@@ -235,8 +236,8 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         mStatsCollector.PipelineStatsEnd(cmd, mFrameInfo.Index);
 
         // 3. Transition render target and swapchain image for copy:
-        barrier::ImageBarrierColorToTransfer(cmd, mRenderer->GetTargetImage().Handle);
-        barrier::ImageBarrierSwapchainToTransfer(cmd, swapchainImage);
+        barrier::ColorToTransfer(cmd, mRenderer->GetTargetImage().Handle);
+        barrier::SwapchainToBlitDST(cmd, swapchainImage);
 
         // 4. Copy render target to swapchain image
         auto &swapExt = mCtx.Swapchain.extent;
@@ -250,13 +251,13 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         vkutils::BlitImageZeroMip(cmd, mRenderer->GetTargetImage(), swapchainInfo);
 
         // 5. Transition swapchain image to render:
-        barrier::ImageBarrierSwapchainToRender(cmd, swapchainImage);
+        barrier::SwapchainToRender(cmd, swapchainImage);
 
         // 6. Draw the ui on top (in native res)
         DrawUI(cmd);
 
         // 7. Transition swapchain image to presentation:
-        barrier::ImageBarrierSwapchainToPresent(cmd, swapchainImage);
+        barrier::SwapchainToPresent(cmd, swapchainImage);
 
         mStatsCollector.TimestampBottom(cmd, mFrameInfo.Index);
     }
@@ -287,20 +288,6 @@ void RenderContext::DrawUI(VkCommandBuffer cmd)
 
 void RenderContext::CreateSwapchainResources()
 {
-    // Transition all swapchain images to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
-    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        for (auto &img : mCtx.SwapchainImages)
-        {
-            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image            = img,
-                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout        = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-            };
-            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
-        }
-    });
-
     mRenderer->RecreateSwapchainResources();
 }
 
@@ -352,14 +339,13 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     vkDeviceWaitIdle(mCtx.Device);
 
     mCtx.ImmediateSubmitGraphics([&, x, y](VkCommandBuffer cmd) {
-        // Transitions layouts:
-        auto info = barrier::ImageLayoutBarrierInfo{
-            .Image            = mPicking.Target.Img.Handle,
-            .OldLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        // Transitions layout to render (can discard contents):
+        auto info = barrier::LayoutTransitionInfo{
+            .Image            = mPicking.Target.Img,
+            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
         };
-        barrier::ImageLayoutBarrierCoarse(cmd, info);
+        barrier::ImageLayoutCoarse(cmd, info);
 
         // Draw objects:
         common::BeginRenderingColorDepth(cmd, VkExtent2D{1, 1}, mPicking.Target.View,
@@ -370,7 +356,7 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         // Copy from target image to cpu visible buffer:
         info.OldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         info.NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier::ImageLayoutBarrierCoarse(cmd, info);
+        barrier::ImageLayoutCoarse(cmd, info);
 
         VkBufferImageCopy region{};
         region.bufferOffset      = 0;

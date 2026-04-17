@@ -2,10 +2,9 @@
 #include "Pch.h"
 
 #include "Barrier.h"
+#include "VkUtils.h"
 
 #include "volk.h"
-
-#include <set>
 
 static VkExtent3D Extent2DTo3D(VkExtent2D extent)
 {
@@ -14,36 +13,6 @@ static VkExtent3D Extent2DTo3D(VkExtent2D extent)
         .height = extent.height,
         .depth  = 1,
     };
-}
-
-static VkImageAspectFlags GetDefaultAspect(VkFormat format)
-{
-    // Check if contains both depth and stencil:
-    const std::set<VkFormat> depthStencilFormats{
-        VK_FORMAT_D32_SFLOAT_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-    };
-    if (depthStencilFormats.contains(format))
-        return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-
-    // Otherwise check if depth only:
-    const std::set<VkFormat> depthFormats{
-        VK_FORMAT_D32_SFLOAT,
-        VK_FORMAT_D16_UNORM,
-    };
-    if (depthFormats.contains(format))
-        return VK_IMAGE_ASPECT_DEPTH_BIT;
-
-    // Otherwise check if stencil only:
-    const std::set<VkFormat> stencilFormats{
-        VK_FORMAT_S8_UINT,
-    };
-    if (stencilFormats.contains(format))
-        return VK_IMAGE_ASPECT_STENCIL_BIT;
-
-    // Otherwise assume color:
-    return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
 Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
@@ -73,23 +42,14 @@ Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
     // If specific layout was provided - immediately transition the image:
     if (info.Layout.has_value())
     {
-        auto subresourceRange = VkImageSubresourceRange{
-            .aspectMask     = GetDefaultAspect(info.Format),
-            .baseMipLevel   = 0,
-            .levelCount     = res.Info.mipLevels,
-            .baseArrayLayer = 0,
-            .layerCount     = res.Info.arrayLayers,
-        };
-
         ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image            = res.Handle,
+            auto barrierInfo = barrier::LayoutTransitionInfo{
+                .Image            = res,
                 .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
                 .NewLayout        = *info.Layout,
-                .SubresourceRange = subresourceRange,
             };
 
-            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+            barrier::ImageLayoutCoarse(cmd, barrierInfo);
         });
     }
 
@@ -120,23 +80,14 @@ Image MakeImage::Image2DArray(VulkanContext &ctx, const std::string &debugName,
     // If specific layout was provided - immediately transition the image:
     if (info.Layout.has_value())
     {
-        auto subresourceRange = VkImageSubresourceRange{
-            .aspectMask     = GetDefaultAspect(info.Format),
-            .baseMipLevel   = 0,
-            .levelCount     = res.Info.mipLevels,
-            .baseArrayLayer = 0,
-            .layerCount     = res.Info.arrayLayers,
-        };
-
         ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image            = res.Handle,
+            auto barrierInfo = barrier::LayoutTransitionInfo{
+                .Image            = res,
                 .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
                 .NewLayout        = *info.Layout,
-                .SubresourceRange = subresourceRange,
             };
 
-            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+            barrier::ImageLayoutCoarse(cmd, barrierInfo);
         });
     }
 
@@ -166,23 +117,14 @@ Image MakeImage::Cube(VulkanContext &ctx, const std::string &debugName, Image2DI
     // If specific layout was provided - immediately transition the image:
     if (info.Layout.has_value())
     {
-        auto subresourceRange = VkImageSubresourceRange{
-            .aspectMask     = GetDefaultAspect(info.Format),
-            .baseMipLevel   = 0,
-            .levelCount     = res.Info.mipLevels,
-            .baseArrayLayer = 0,
-            .layerCount     = res.Info.arrayLayers,
-        };
-
         ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfo = barrier::ImageLayoutBarrierInfo{
-                .Image            = res.Handle,
+            auto barrierInfo = barrier::LayoutTransitionInfo{
+                .Image            = res,
                 .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
                 .NewLayout        = *info.Layout,
-                .SubresourceRange = subresourceRange,
             };
 
-            barrier::ImageLayoutBarrierCoarse(cmd, barrierInfo);
+            barrier::ImageLayoutCoarse(cmd, barrierInfo);
         });
     }
 
@@ -301,7 +243,7 @@ Texture MakeTexture::Texture2D(VulkanContext &ctx, const std::string &debugName,
 
     res.Img = MakeImage::Image2D(ctx, debugName, info);
 
-    auto aspectMask = GetDefaultAspect(info.Format);
+    auto aspectMask = vkutils::GetDefaultAspect(info.Format);
     res.View        = MakeView::View2D(ctx, debugName, res.Img, info.Format, aspectMask);
 
     return res;
@@ -322,7 +264,7 @@ Texture MakeTexture::Texture2DArray(VulkanContext &ctx, const std::string &debug
 
     res.Img = MakeImage::Image2DArray(ctx, debugName, info, numLayers);
 
-    auto aspectMask = GetDefaultAspect(info.Format);
+    auto aspectMask = vkutils::GetDefaultAspect(info.Format);
     res.View = MakeView::View2DArray(ctx, debugName, res.Img, info.Format, aspectMask);
 
     return res;
@@ -344,7 +286,7 @@ Texture MakeTexture::TextureCube(VulkanContext &ctx, const std::string &debugNam
 
     res.Img = MakeImage::Cube(ctx, debugName, info);
 
-    auto aspectMask = GetDefaultAspect(info.Format);
+    auto aspectMask = vkutils::GetDefaultAspect(info.Format);
     res.View = MakeView::ViewCube(ctx, debugName, res.Img, info.Format, aspectMask);
 
     return res;

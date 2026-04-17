@@ -3,6 +3,38 @@
 
 #include "Vassert.h"
 
+#include <set>
+
+VkImageAspectFlags vkutils::GetDefaultAspect(VkFormat format)
+{
+    // Check if contains both depth and stencil:
+    const std::set<VkFormat> depthStencilFormats{
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT,
+        VK_FORMAT_D16_UNORM_S8_UINT,
+    };
+    if (depthStencilFormats.contains(format))
+        return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+
+    // Otherwise check if depth only:
+    const std::set<VkFormat> depthFormats{
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D16_UNORM,
+    };
+    if (depthFormats.contains(format))
+        return VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    // Otherwise check if stencil only:
+    const std::set<VkFormat> stencilFormats{
+        VK_FORMAT_S8_UINT,
+    };
+    if (stencilFormats.contains(format))
+        return VK_IMAGE_ASPECT_STENCIL_BIT;
+
+    // Otherwise assume color:
+    return VK_IMAGE_ASPECT_COLOR_BIT;
+}
+
 void vkutils::BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags)
 {
     VkCommandBufferBeginInfo beginInfo = {};

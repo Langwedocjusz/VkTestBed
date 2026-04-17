@@ -108,8 +108,8 @@ void FilesystemBrowser::ImGuiLoadPopup(const std::string &name, bool &open)
 
         ImGuiStyle &style = ImGui::GetStyle();
 
-        const float buttonWidth  = ImGui::CalcTextSize(buttonText.c_str()).x +
-                                   2.0f * style.FramePadding.x + style.ItemSpacing.x;
+        const float buttonWidth = ImGui::CalcTextSize(buttonText.c_str()).x +
+                                  2.0f * style.FramePadding.x + style.ItemSpacing.x;
         const float buttonHeight = ImGui::CalcTextSize(buttonText.c_str()).y +
                                    2.0f * style.FramePadding.y + style.ItemSpacing.y;
 

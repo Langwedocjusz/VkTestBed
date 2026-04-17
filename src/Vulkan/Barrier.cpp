@@ -1,9 +1,12 @@
 #include "Barrier.h"
 #include "Pch.h"
 
+#include "VkUtils.h"
 #include "volk.h"
 
-void barrier::ImageBarrier(VkCommandBuffer cmd, VkImageMemoryBarrier2 barrier)
+// Small utilities to make writing the rest of those less painful:
+
+static void ImageBarrier(VkCommandBuffer cmd, VkImageMemoryBarrier2 barrier)
 {
     VkDependencyInfo depInfo{};
     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -15,62 +18,27 @@ void barrier::ImageBarrier(VkCommandBuffer cmd, VkImageMemoryBarrier2 barrier)
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-void barrier::ImageBarrierColorToRender(VkCommandBuffer cmd, VkImage image)
+void barrier::SwapchainToBlitDST(VkCommandBuffer cmd, VkImage image)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
-    barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-
-    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-
-    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-
-    ImageBarrier(cmd, barrier);
-}
-
-void barrier::ImageBarrierColorToTransfer(VkCommandBuffer cmd, VkImage image)
-{
-    VkImageMemoryBarrier2 barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    // This is first swapchain-related image barrier issued,
+    // but it needs to wait for vkAcqureNextImageKHR.
+    // (Leaving src stage mask empty results in a WRITE_AFTER_READ hazard)
+    // This is synchronized via the semaphore wait stage set in
+    // vkQueueSubmit. The logical choice there (the latest possible)
+    // is color attachment output, so this is mirrored here:
 
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-
-    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
-    barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-
-    barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-
-    ImageBarrier(cmd, barrier);
-}
-
-void barrier::ImageBarrierSwapchainToTransfer(VkCommandBuffer cmd, VkImage image)
-{
-    VkImageMemoryBarrier2 barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-
-    // TODO: I don't quite understand this, but this cannot just be none
-    // as that creates a WRITE_AFTER_READ hazard with vkAcquireImageKHR
-    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
-    barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_NONE_KHR;
 
     barrier.dstStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 
-    barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    // At this point we don't care about swapchain image contents
+    // (we will redraw everything) so src layout can be set to undefined:
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
     barrier.image = image;
@@ -80,7 +48,7 @@ void barrier::ImageBarrierSwapchainToTransfer(VkCommandBuffer cmd, VkImage image
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::ImageBarrierSwapchainToRender(VkCommandBuffer cmd, VkImage image)
+void barrier::SwapchainToRender(VkCommandBuffer cmd, VkImage image)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -92,7 +60,6 @@ void barrier::ImageBarrierSwapchainToRender(VkCommandBuffer cmd, VkImage image)
     barrier.dstAccessMask =
         VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
 
-    // Actually VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ?
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -103,7 +70,7 @@ void barrier::ImageBarrierSwapchainToRender(VkCommandBuffer cmd, VkImage image)
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::ImageBarrierSwapchainToPresent(VkCommandBuffer cmd, VkImage image)
+void barrier::SwapchainToPresent(VkCommandBuffer cmd, VkImage image)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -124,8 +91,49 @@ void barrier::ImageBarrierSwapchainToPresent(VkCommandBuffer cmd, VkImage image)
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::ImageBarrierDepthToRender(VkCommandBuffer cmd, VkImage depthImage,
-                                        uint32_t numLayers)
+void barrier::ColorToRender(VkCommandBuffer cmd, VkImage image)
+{
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    barrier.image = image;
+    barrier.subresourceRange =
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    ImageBarrier(cmd, barrier);
+}
+
+void barrier::ColorToTransfer(VkCommandBuffer cmd, VkImage image)
+{
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+
+    barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+
+    barrier.image = image;
+    barrier.subresourceRange =
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    ImageBarrier(cmd, barrier);
+}
+
+void barrier::DepthToRender(VkCommandBuffer cmd, VkImage depthImage, uint32_t numLayers)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -146,8 +154,7 @@ void barrier::ImageBarrierDepthToRender(VkCommandBuffer cmd, VkImage depthImage,
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::ImageBarrierDepthToSample(VkCommandBuffer cmd, VkImage depthImage,
-                                        uint32_t numLayers)
+void barrier::DepthToSample(VkCommandBuffer cmd, VkImage depthImage, uint32_t numLayers)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -168,15 +175,32 @@ void barrier::ImageBarrierDepthToSample(VkCommandBuffer cmd, VkImage depthImage,
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::ImageLayoutBarrierCoarse(VkCommandBuffer cmd, ImageLayoutBarrierInfo info)
+void barrier::ImageLayoutCoarse(VkCommandBuffer cmd, LayoutTransitionInfo info)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
     barrier.oldLayout        = info.OldLayout;
     barrier.newLayout        = info.NewLayout;
-    barrier.image            = info.Image;
-    barrier.subresourceRange = info.SubresourceRange;
+    barrier.image            = info.Image.Handle;
+
+    if (info.SubresourceRange)
+    {
+        barrier.subresourceRange = *info.SubresourceRange;
+    }
+    else
+    {
+        //By default assume all image is to be transitioned:
+        VkImageSubresourceRange range{
+            .aspectMask = vkutils::GetDefaultAspect(info.Image.Info.format),
+            .baseMipLevel = 0,
+            .levelCount = info.Image.Info.mipLevels,
+            .baseArrayLayer = 0,
+            .layerCount = info.Image.Info.arrayLayers,
+        };
+
+        barrier.subresourceRange = range;
+    }
 
     // Suboptimal barrier usage - block everything:
     barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;

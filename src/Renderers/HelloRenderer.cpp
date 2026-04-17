@@ -13,7 +13,8 @@
 #include <string>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
-    : IRenderer(ctx, info, camera), mDynamicUBO(ctx, info, sizeof(mUBOData)), mSceneDeletionQueue(ctx)
+    : IRenderer(ctx, info, camera), mDynamicUBO(ctx, info, sizeof(mUBOData)),
+      mSceneDeletionQueue(ctx)
 {
     mDynamicUBO.Initialize("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT);
 

@@ -7,6 +7,7 @@
 
 namespace vkutils
 {
+VkImageAspectFlags GetDefaultAspect(VkFormat format);
 
 template <typename HandleType>
 inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handle,

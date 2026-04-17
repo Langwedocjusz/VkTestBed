@@ -2,7 +2,6 @@
 #include "Pch.h"
 
 #include "Vassert.h"
-#include "VkInit.h"
 
 #include "volk.h"
 
@@ -23,134 +22,86 @@ void common::ViewportScissor(VkCommandBuffer buffer, VkExtent2D extent)
     vkCmdSetScissor(buffer, 0, 1, &scissor);
 }
 
-void common::BeginRenderingColor(VkCommandBuffer cmd, VkExtent2D extent,
-                                 VkImageView color, bool clear)
+static VkRenderingAttachmentInfo CreateAttachmentInfo(
+    VkImageView baseView, std::optional<VkImageView> resolveView, VkImageLayout layout,
+    std::optional<VkClearValue> clear)
 {
-    std::optional<VkClearValue> colorClear = std::nullopt;
+    VkRenderingAttachmentInfo attachment{};
+    attachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    attachment.imageView   = baseView;
+    attachment.imageLayout = layout;
 
-    if (clear)
+    // If clear is not set we preserve previous contents of
+    // the render target. This allows easy chaining of multiple
+    // passes, but in some cases it could be more performant
+    // to use LOAD_OP_DONT_CARE.
+    attachment.loadOp  = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    if (clear.has_value())
     {
-        colorClear        = VkClearValue{};
-        colorClear->color = {
-            {0.0f, 0.0f, 0.0f, 0.0f}
-        };
+        attachment.loadOp     = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachment.clearValue = clear.value();
     }
 
-    auto colorAttachment = vkinit::CreateAttachmentInfo(
-        color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, colorClear);
+    if (resolveView.has_value())
+    {
+        attachment.resolveImageLayout = layout;
+        attachment.resolveImageView   = *resolveView;
 
-    VkRenderingInfo renderingInfo = vkinit::CreateRenderingInfo(extent, colorAttachment);
+        // TODO: maybe expose this:
+        // Selecting default methods of MSAA resolve based on layout:
+        if (layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+            attachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+        else
+            attachment.resolveMode = VK_RESOLVE_MODE_MIN_BIT;
+    }
 
-    vkCmdBeginRendering(cmd, &renderingInfo);
+    return attachment;
 }
 
-void common::BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent,
-                                      VkImageView color, VkImageView depth,
-                                      bool hasStencil, bool clearColor, bool clearDepth)
+void common::BeginRendering(VkCommandBuffer cmd, RenderingInfo info)
 {
-    std::optional<VkClearValue> colorClear = std::nullopt;
-    std::optional<VkClearValue> depthClear = std::nullopt;
+    bool hasColor        = info.Color.has_value();
+    bool hasDepth        = info.Depth.has_value();
+    bool hasColorResolve = info.ColorResolve.has_value();
+    bool hasDepthResolve = info.DepthResolve.has_value();
 
-    if (clearColor)
+    if (hasColor && hasDepth)
+        vassert(hasColorResolve == hasDepthResolve,
+                "If any resolve target is present, the other one must be as well.");
+
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType             = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.extent = info.Extent;
+    renderingInfo.renderArea.offset = {0, 0};
+    renderingInfo.layerCount        = 1;
+
+    VkRenderingAttachmentInfo colorAttachment{};
+
+    if (info.Color.has_value())
     {
-        colorClear        = VkClearValue{};
-        colorClear->color = {
-            {0.0f, 0.0f, 0.0f, 0.0f}
-        };
+        colorAttachment = CreateAttachmentInfo(*info.Color, info.ColorResolve,
+                                               VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                               info.ClearColor);
+
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachments    = &colorAttachment;
     }
 
-    if (clearDepth)
+    VkRenderingAttachmentInfo depthAttachment{};
+
+    if (info.Depth.has_value())
     {
-        depthClear               = VkClearValue{};
-        depthClear->depthStencil = {1.0f, 0};
+        depthAttachment = CreateAttachmentInfo(
+            *info.Depth, info.DepthResolve,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, info.ClearDepth);
+
+        renderingInfo.pDepthAttachment = &depthAttachment;
+
+        if (info.DepthHasStencil)
+            renderingInfo.pStencilAttachment = &depthAttachment;
     }
-
-    auto colorAttachment = vkinit::CreateAttachmentInfo(
-        color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, colorClear);
-
-    auto depthAttachment = vkinit::CreateAttachmentInfo(
-        depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, depthClear);
-
-    VkRenderingInfo renderingInfo =
-        vkinit::CreateRenderingInfo(extent, colorAttachment, depthAttachment, hasStencil);
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
-}
-
-void common::BeginRenderingColorDepthMSAA(VkCommandBuffer cmd, VkExtent2D extent,
-                                          VkImageView colorMsaa, VkImageView colorResolve,
-                                          VkImageView depthMsaa, VkImageView depthResolve,
-                                          bool hasStencil, bool clearColor,
-                                          bool clearDepth)
-{
-    std::optional<VkClearValue> colorClear = std::nullopt;
-    std::optional<VkClearValue> depthClear = std::nullopt;
-
-    if (clearColor)
-    {
-        colorClear        = VkClearValue{};
-        colorClear->color = {
-            {0.0f, 0.0f, 0.0f, 0.0f}
-        };
-    }
-
-    if (clearDepth)
-    {
-        depthClear               = VkClearValue{};
-        depthClear->depthStencil = {1.0f, 0};
-    }
-
-    auto colorAttachment = vkinit::CreateAttachmentInfoMSAA(
-        colorMsaa, colorResolve, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, colorClear);
-
-    auto depthAttachment = vkinit::CreateAttachmentInfoMSAA(
-        depthMsaa, depthResolve, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        depthClear);
-
-    VkRenderingInfo renderingInfo =
-        vkinit::CreateRenderingInfo(extent, colorAttachment, depthAttachment, hasStencil);
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
-}
-
-void common::BeginRenderingDepth(VkCommandBuffer cmd, VkExtent2D extent,
-                                 VkImageView depth, bool hasStencil, bool clear)
-{
-    std::optional<VkClearValue> depthClear = std::nullopt;
-
-    if (clear)
-    {
-        depthClear               = VkClearValue{};
-        depthClear->depthStencil = {1.0f, 0};
-    }
-
-    auto depthAttachment = vkinit::CreateAttachmentInfo(
-        depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, depthClear);
-
-    VkRenderingInfo renderingInfo =
-        vkinit::CreateRenderingInfo(extent, depthAttachment, hasStencil);
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
-}
-
-void common::BeginRenderingDepthMSAA(VkCommandBuffer cmd, VkExtent2D extent,
-                                     VkImageView depthMsaa, VkImageView depthResolve,
-                                     bool hasStencil, bool clear)
-{
-    std::optional<VkClearValue> depthClear = std::nullopt;
-
-    if (clear)
-    {
-        depthClear               = VkClearValue{};
-        depthClear->depthStencil = {1.0f, 0};
-    }
-
-    auto depthAttachment = vkinit::CreateAttachmentInfoMSAA(
-        depthMsaa, depthResolve, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        depthClear);
-
-    VkRenderingInfo renderingInfo =
-        vkinit::CreateRenderingInfo(extent, depthAttachment, hasStencil);
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 }

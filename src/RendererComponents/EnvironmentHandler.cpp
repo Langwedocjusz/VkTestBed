@@ -354,9 +354,9 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         // Transition cubemap to use as storage image:
         auto barrierInfo = barrier::LayoutTransitionInfo{
-            .Image            = mCubemap.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
+            .Image     = mCubemap.Img,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
         };
         barrier::ImageLayoutCoarse(cmd, barrierInfo);
 
@@ -434,17 +434,17 @@ void EnvironmentHandler::GeneratePrefilteredMap()
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         // Transition cubemap to transfer source:
         auto srcInfo = barrier::LayoutTransitionInfo{
-            .Image            = mCubemap.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .Image     = mCubemap.Img,
+            .OldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         };
         barrier::ImageLayoutCoarse(cmd, srcInfo);
 
         // Trasition prefiltered map to transfer destination:
         auto dstInfo = barrier::LayoutTransitionInfo{
-            .Image            = mPrefiltered.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .Image     = mPrefiltered.Img,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         };
         barrier::ImageLayoutCoarse(cmd, dstInfo);
 
@@ -458,9 +458,9 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
         // Transition whole prefiltered map to use as storage image:
         auto barrierInfo = barrier::LayoutTransitionInfo{
-            .Image            = mPrefiltered.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
+            .Image     = mPrefiltered.Img,
+            .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
         };
         barrier::ImageLayoutCoarse(cmd, barrierInfo);
     });
@@ -506,9 +506,9 @@ void EnvironmentHandler::GeneratePrefilteredMap()
     // Transition prefiltered map to be used as a texture:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto dstInfo = barrier::LayoutTransitionInfo{
-            .Image            = mPrefiltered.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .Image     = mPrefiltered.Img,
+            .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
         barrier::ImageLayoutCoarse(cmd, dstInfo);
@@ -519,9 +519,9 @@ void EnvironmentHandler::GenerateIntegrationMap()
 {
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto barrierInfo = barrier::LayoutTransitionInfo{
-            .Image            = mIntegration.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
+            .Image     = mIntegration.Img,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
         };
         barrier::ImageLayoutCoarse(cmd, barrierInfo);
 
@@ -550,9 +550,9 @@ void EnvironmentHandler::ResetToBlack()
             };
 
             auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image            = img,
-                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .Image     = img,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             };
             barrier::ImageLayoutCoarse(cmd, barrierInfo);
 

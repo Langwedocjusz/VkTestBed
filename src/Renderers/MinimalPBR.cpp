@@ -24,6 +24,7 @@
 #include "volk.h"
 
 #include <cstdint>
+#include <optional>
 #include <ranges>
 #include <utility>
 
@@ -689,12 +690,19 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
 void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 {
-    if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
-        common::BeginRenderingDepth(cmd, GetTargetSize(), mDepthStencilBuffer.View, true,
-                                    true);
-    else
-        common::BeginRenderingDepthMSAA(cmd, GetTargetSize(), mDepthStencilMsaa->View,
-                                        mDepthStencilBuffer.View, true, true);
+    auto renderInfo = common::RenderingInfo{
+        .Extent          = GetTargetSize(),
+        .Depth           = mDepthStencilBuffer.View,
+        .DepthHasStencil = true,
+    };
+
+    if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
+    {
+        renderInfo.Depth        = mDepthStencilMsaa->View;
+        renderInfo.DepthResolve = mDepthStencilBuffer.View;
+    }
+
+    common::BeginRendering(cmd, renderInfo);
 
     auto viewProj = mUBOData.CameraViewProjection;
 
@@ -757,21 +765,25 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 
 void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 {
-    // Begin rendering:
-    bool clearDepth = !mEnablePrepass;
+    auto renderInfo = common::RenderingInfo{
+        .Extent          = GetTargetSize(),
+        .Color           = mRenderTarget.View,
+        .Depth           = mDepthStencilBuffer.View,
+        .DepthHasStencil = true,
+    };
 
-    if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
+    if (mEnablePrepass)
+        renderInfo.ClearDepth = std::nullopt;
+
+    if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
     {
-        common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTarget.View,
-                                         mDepthStencilBuffer.View, true, true,
-                                         clearDepth);
+        renderInfo.Color        = mRenderTargetMsaa->View;
+        renderInfo.Depth        = mDepthStencilMsaa->View;
+        renderInfo.ColorResolve = mRenderTarget.View;
+        renderInfo.DepthResolve = mDepthStencilBuffer.View;
     }
-    else
-    {
-        common::BeginRenderingColorDepthMSAA(
-            cmd, GetTargetSize(), mRenderTargetMsaa->View, mRenderTarget.View,
-            mDepthStencilMsaa->View, mDepthStencilBuffer.View, true, true, clearDepth);
-    }
+
+    common::BeginRendering(cmd, renderInfo);
 
     // Draw the scene:
     mMainPipeline.Bind(cmd);
@@ -855,16 +867,20 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
     // TODO: this does no check to see if the current drawable is double sided
     // and wheter or not the vkCullState is set accordingly.
     {
-        if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
+        auto renderInfo = common::RenderingInfo{
+            .Extent          = GetTargetSize(),
+            .Depth           = mDepthStencilBuffer.View,
+            .DepthHasStencil = true,
+            .ClearDepth      = std::nullopt,
+        };
+
+        if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
         {
-            common::BeginRenderingDepth(cmd, GetTargetSize(), mDepthStencilBuffer.View,
-                                        true, false);
+            renderInfo.Depth        = mDepthStencilMsaa->View;
+            renderInfo.DepthResolve = mDepthStencilBuffer.View;
         }
-        else
-        {
-            common::BeginRenderingDepthMSAA(cmd, GetTargetSize(), mDepthStencilMsaa->View,
-                                            mDepthStencilBuffer.View, true, false);
-        }
+
+        common::BeginRendering(cmd, renderInfo);
 
         mStencilPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
@@ -906,18 +922,24 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
     // Draw outline:
     {
-        if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
+        auto renderInfo = common::RenderingInfo{
+            .Extent          = GetTargetSize(),
+            .Color           = mRenderTarget.View,
+            .Depth           = mDepthStencilBuffer.View,
+            .DepthHasStencil = true,
+            .ClearColor      = std::nullopt,
+            .ClearDepth      = std::nullopt,
+        };
+
+        if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
         {
-            common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTarget.View,
-                                             mDepthStencilBuffer.View, true, false,
-                                             false);
+            renderInfo.Color        = mRenderTargetMsaa->View;
+            renderInfo.Depth        = mDepthStencilMsaa->View;
+            renderInfo.ColorResolve = mRenderTarget.View;
+            renderInfo.DepthResolve = mDepthStencilBuffer.View;
         }
-        else
-        {
-            common::BeginRenderingColorDepthMSAA(
-                cmd, GetTargetSize(), mRenderTargetMsaa->View, mRenderTarget.View,
-                mDepthStencilMsaa->View, mDepthStencilBuffer.View, true, false, false);
-        }
+
+        common::BeginRendering(cmd, renderInfo);
 
         mOutlinePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());

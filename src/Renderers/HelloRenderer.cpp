@@ -57,7 +57,12 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
-    common::BeginRenderingColor(cmd, GetTargetSize(), mRenderTarget.View, true);
+    auto renderInfo = common::RenderingInfo{
+        .Extent = GetTargetSize(),
+        .Color  = mRenderTarget.View,
+    };
+
+    common::BeginRendering(cmd, renderInfo);
     {
         mGraphicsPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());

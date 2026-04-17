@@ -6,7 +6,6 @@
 
 #include "VkBootstrap.h"
 #include "volk.h"
-#include "vulkan/vulkan_core.h"
 
 static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
                            VkQueueFamilyProperties &properties)
@@ -34,18 +33,21 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     }
 
     // Instance creation:
+
+    // Not requesting layers since their usage can be
+    // configured as needed via vkconfig and that
+    // doesn't require recompiling the whole program.
     Instance = vkb::InstanceBuilder()
                    .set_app_name(appName.c_str())
                    .set_engine_name("No Engine")
                    .require_api_version(1, 3, 0)
                    .use_default_debug_messenger()
-#ifdef USE_VALIDATION_LAYERS
-                   .request_validation_layers()
-#endif
                    .build()
                    .value();
+
     volkLoadInstance(Instance);
 
+    // Surface creation:
     Surface = window.CreateSurface(Instance);
 
     // Device selection:
@@ -80,7 +82,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                          .select()
                          .value();
 
-    // Enable optional features:
+    // Enabling optional features:
     VkPhysicalDeviceFeatures optionalFeatures{};
     optionalFeatures.pipelineStatisticsQuery = true;
 

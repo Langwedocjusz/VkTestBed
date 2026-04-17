@@ -5,18 +5,17 @@ import subprocess
 from argparse import ArgumentParser
 
 def parse_args():
-    compiler = "clang"
-
     parser = ArgumentParser()
     parser.add_argument('--gcc', action='store_true', help="Use gcc compiler, instead of default clang.")
-    parser.add_argument('--nv', action='store_true', help="Disable Vulkan validation layers.")
 
     args = parser.parse_args()
+
+    compiler = "clang"
 
     if args.gcc:
         compiler = "gcc"
 
-    return compiler, args.nv
+    return compiler
 
 def get_build_type():
     options = ["Debug", "Release"]
@@ -36,7 +35,7 @@ def get_build_type():
     return options[int(user_input) - 1]
 
 def main():
-    compiler, no_validation = parse_args()
+    compiler = parse_args()
     build_type = get_build_type()
 
     cmake_args = []
@@ -57,11 +56,6 @@ def main():
         cmake_args.append("-DCMAKE_CXX_COMPILER=g++")
     else:
         raise RuntimeError('Unsupported compiler.')
-
-    if no_validation:
-        cmake_args.append("-DUSE_VALIDATION_LAYERS=OFF")
-    else:
-        cmake_args.append("-DUSE_VALIDATION_LAYERS=ON")
 
     cmake_args = cmake_args + ["-G", "Ninja"]
 

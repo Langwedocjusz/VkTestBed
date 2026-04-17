@@ -7,7 +7,6 @@
 #include "Sampler.h"
 
 #include "imgui.h"
-#include "vulkan/vulkan_core.h"
 
 AOHandler::AOHandler(VulkanContext &ctx)
     : mCtx(ctx), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx),
@@ -119,9 +118,9 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
     // Transition depth buffer to be able to update descriptor:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto barrierInfo = barrier::LayoutTransitionInfo{
-            .Image            = depthBuffer,
-            .OldLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .Image     = depthBuffer,
+            .OldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
         barrier::ImageLayoutCoarse(cmd, barrierInfo);
@@ -136,16 +135,16 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
     // Transition depth buffer and ao target to correct layouts:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto barrierInfo = barrier::LayoutTransitionInfo{
-            .Image            = depthBuffer,
-            .OldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .Image     = depthBuffer,
+            .OldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .NewLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         };
         barrier::ImageLayoutCoarse(cmd, barrierInfo);
 
         auto barrierInfoAO = barrier::LayoutTransitionInfo{
-            .Image            = mAOTarget.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .Image     = mAOTarget.Img,
+            .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
         barrier::ImageLayoutCoarse(cmd, barrierInfoAO);
     });
@@ -161,17 +160,17 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd, Image &depthBuffer, glm::mat4 pro
 
     // Transition depth target to be used as texture:
     auto barrierInfoDepth = barrier::LayoutTransitionInfo{
-        .Image            = depthBuffer,
-        .OldLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .Image     = depthBuffer,
+        .OldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
     barrier::ImageLayoutCoarse(cmd, barrierInfoDepth);
 
     // Transition AO target to be used as storage image (can discard previous contents):
     auto barrierInfoAO = barrier::LayoutTransitionInfo{
-        .Image            = mAOTarget.Img,
-        .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-        .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
+        .Image     = mAOTarget.Img,
+        .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
     };
     barrier::ImageLayoutCoarse(cmd, barrierInfoAO);
 

@@ -44,9 +44,9 @@ Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
     {
         ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image            = res,
-                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout        = *info.Layout,
+                .Image     = res,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = *info.Layout,
             };
 
             barrier::ImageLayoutCoarse(cmd, barrierInfo);
@@ -82,9 +82,9 @@ Image MakeImage::Image2DArray(VulkanContext &ctx, const std::string &debugName,
     {
         ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image            = res,
-                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout        = *info.Layout,
+                .Image     = res,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = *info.Layout,
             };
 
             barrier::ImageLayoutCoarse(cmd, barrierInfo);
@@ -119,9 +119,9 @@ Image MakeImage::Cube(VulkanContext &ctx, const std::string &debugName, Image2DI
     {
         ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image            = res,
-                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout        = *info.Layout,
+                .Image     = res,
+                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .NewLayout = *info.Layout,
             };
 
             barrier::ImageLayoutCoarse(cmd, barrierInfo);

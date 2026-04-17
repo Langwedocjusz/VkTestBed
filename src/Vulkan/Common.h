@@ -1,32 +1,38 @@
 #pragma once
 
-#include "Frame.h"
-#include "VulkanContext.h"
-
+#include <optional>
 #include <span>
+
+#include "volk.h"
 
 namespace common
 {
 void ViewportScissor(VkCommandBuffer buffer, VkExtent2D extent);
 
-void BeginRenderingColor(VkCommandBuffer cmd, VkExtent2D extent, VkImageView color,
-                         bool clear);
+// Current render target information.
+// Supports at maximum only one color attachment.
+// If resolve target is provided the pass is understood to utilize multisampling.
+// If both Color and Depth are present and either of {ColorResolve, DepthResolve}
+//  is provided the other one must also be given.
+// By default it is assumed that depth attachment is also
+// a stencil attachment.
+// By default clear value is used for all attachments.
+// It can be turned off by explicitly passing nullopt.
+struct RenderingInfo {
+    VkExtent2D                  Extent;
+    std::optional<VkImageView>  Color           = std::nullopt;
+    std::optional<VkImageView>  Depth           = std::nullopt;
+    bool                        DepthHasStencil = true;
+    std::optional<VkImageView>  ColorResolve    = std::nullopt;
+    std::optional<VkImageView>  DepthResolve    = std::nullopt;
+    std::optional<VkClearValue> ClearColor =
+        VkClearValue{.color = {{0.0f, 0.0f, 0.0f, 0.0f}}};
+    std::optional<VkClearValue> ClearDepth = VkClearValue{
+        .depthStencil = {1.0f, 0}
+    };
+};
 
-void BeginRenderingColorDepth(VkCommandBuffer cmd, VkExtent2D extent, VkImageView color,
-                              VkImageView depth, bool hasStencil, bool clearColor,
-                              bool clearDepth);
-
-void BeginRenderingColorDepthMSAA(VkCommandBuffer cmd, VkExtent2D extent,
-                                  VkImageView colorMsaa, VkImageView colorResolve,
-                                  VkImageView depthMsaa, VkImageView depthResolve,
-                                  bool hasStencil, bool clearColor, bool clearDepth);
-
-void BeginRenderingDepth(VkCommandBuffer cmd, VkExtent2D extent, VkImageView depth,
-                         bool hasStencil, bool clear);
-
-void BeginRenderingDepthMSAA(VkCommandBuffer cmd, VkExtent2D extent,
-                             VkImageView depthMsaa, VkImageView depthResolve,
-                             bool hasStencil, bool clear);
+void BeginRendering(VkCommandBuffer cmd, RenderingInfo info);
 
 void SubmitQueue(VkQueue queue, VkCommandBuffer cmd, VkFence fence,
                  VkSemaphore waitSemaphore, VkPipelineStageFlags waitStage,

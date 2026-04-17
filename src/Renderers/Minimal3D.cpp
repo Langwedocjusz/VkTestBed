@@ -105,8 +105,14 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
     // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
-    common::BeginRenderingColorDepth(cmd, GetTargetSize(), mRenderTarget.View,
-                                     mDepthBuffer.View, false, true, true);
+    auto renderInfo = common::RenderingInfo{
+        .Extent          = GetTargetSize(),
+        .Color           = mRenderTarget.View,
+        .Depth           = mDepthBuffer.View,
+        .DepthHasStencil = false,
+    };
+
+    common::BeginRendering(cmd, renderInfo);
     {
         // 1. Colored vertices pass:
         mColoredPipeline.Bind(cmd);

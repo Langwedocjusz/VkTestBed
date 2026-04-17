@@ -17,9 +17,9 @@
 #include "VulkanContext.h"
 
 #include "volk.h"
-#include "vulkan/vulkan_core.h"
 
 #include <memory>
+#include <optional>
 
 RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     : mCtx(ctx), mCamera(camera), mFactory(ctx, mFrameInfo, mCamera),
@@ -273,11 +273,17 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 
 void RenderContext::DrawUI(VkCommandBuffer cmd)
 {
-    VkExtent2D swapchainSize{mCtx.Swapchain.extent.width, mCtx.Swapchain.extent.height};
-
     auto swapchainView = mCtx.SwapchainImageViews[mFrameInfo.ImageIndex];
 
-    common::BeginRenderingColor(cmd, swapchainSize, swapchainView, false);
+    VkExtent2D swapchainSize{mCtx.Swapchain.extent.width, mCtx.Swapchain.extent.height};
+
+    auto info = common::RenderingInfo{
+        .Extent     = swapchainSize,
+        .Color      = swapchainView,
+        .ClearColor = std::nullopt,
+    };
+
+    common::BeginRendering(cmd, info);
     {
         common::ViewportScissor(cmd, swapchainSize);
 
@@ -341,15 +347,21 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     mCtx.ImmediateSubmitGraphics([&, x, y](VkCommandBuffer cmd) {
         // Transitions layout to render (can discard contents):
         auto info = barrier::LayoutTransitionInfo{
-            .Image            = mPicking.Target.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .Image     = mPicking.Target.Img,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         };
         barrier::ImageLayoutCoarse(cmd, info);
 
         // Draw objects:
-        common::BeginRenderingColorDepth(cmd, VkExtent2D{1, 1}, mPicking.Target.View,
-                                         mPicking.Depth.View, false, true, true);
+        auto renderInfo = common::RenderingInfo{
+            .Extent          = VkExtent2D{1, 1},
+            .Color           = mPicking.Target.View,
+            .Depth           = mPicking.Depth.View,
+            .DepthHasStencil = false,
+        };
+        common::BeginRendering(cmd, renderInfo);
+
         mRenderer->RenderObjectId(cmd, x, y);
         vkCmdEndRendering(cmd);
 

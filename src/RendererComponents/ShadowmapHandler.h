@@ -199,7 +199,12 @@ void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque,
         // so they can use them to do frustum culling.
         auto viewProj = mMatrices[idx];
 
-        common::BeginRenderingDepth(cmd, GetExtent(), mCascadeViews[idx], false, true);
+        auto info = common::RenderingInfo{
+            .Extent          = GetExtent(),
+            .Depth           = mCascadeViews[idx],
+            .DepthHasStencil = false,
+        };
+        common::BeginRendering(cmd, info);
 
         mOpaquePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetExtent());

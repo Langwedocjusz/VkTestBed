@@ -180,9 +180,9 @@ void barrier::ImageLayoutCoarse(VkCommandBuffer cmd, LayoutTransitionInfo info)
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.oldLayout        = info.OldLayout;
-    barrier.newLayout        = info.NewLayout;
-    barrier.image            = info.Image.Handle;
+    barrier.oldLayout = info.OldLayout;
+    barrier.newLayout = info.NewLayout;
+    barrier.image     = info.Image.Handle;
 
     if (info.SubresourceRange)
     {
@@ -190,13 +190,13 @@ void barrier::ImageLayoutCoarse(VkCommandBuffer cmd, LayoutTransitionInfo info)
     }
     else
     {
-        //By default assume all image is to be transitioned:
+        // By default assume all image is to be transitioned:
         VkImageSubresourceRange range{
-            .aspectMask = vkutils::GetDefaultAspect(info.Image.Info.format),
-            .baseMipLevel = 0,
-            .levelCount = info.Image.Info.mipLevels,
+            .aspectMask     = vkutils::GetDefaultAspect(info.Image.Info.format),
+            .baseMipLevel   = 0,
+            .levelCount     = info.Image.Info.mipLevels,
             .baseArrayLayer = 0,
-            .layerCount = info.Image.Info.arrayLayers,
+            .layerCount     = info.Image.Info.arrayLayers,
         };
 
         barrier.subresourceRange = range;

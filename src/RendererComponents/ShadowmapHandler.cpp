@@ -153,6 +153,17 @@ void ShadowmapHandler::RebuildPipelines(const PipelineInfo &info)
 
     mPipelineDeletionQueue.flush();
 
+    // Front face enum here is set opposite to that of renderer.
+    // This actually results in the same faces being interpreted as 'front'.
+    // This is because current camera projection matrix used by renderers
+    // includs Y-axis inversion, which flips triangle orientations.
+    // Shadow mapping projections do no such things, resulting in this
+    // inconsistency.
+
+    // While rendering back faces in shadow pass can help with acne
+    // it also makes peter panning worse, hence we are not using it
+    // and relying instead on the bias heuristics to hide the acne.
+
     mOpaquePipeline =
         PipelineBuilder("ShadowmapPipeline")
             .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")

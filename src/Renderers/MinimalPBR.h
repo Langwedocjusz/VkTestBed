@@ -237,8 +237,8 @@ class MinimalPbrRenderer final : public IRenderer {
         glm::vec3                  ViewFront;
         float                      DirectionalFactor = 3.0f;
         float                      EnvironmentFactor = 0.05f;
-        float                      ShadowBiasMin     = 0.001f;
-        float                      ShadowBiasMax     = 0.003f;
+        float                      ShadowBiasLight   = 0.001f;
+        float                      ShadowBiasNormal  = 0.015f;
         int                        AOEnabled         = 0;
         glm::vec2                  DrawExtent;
     } mUBOData;

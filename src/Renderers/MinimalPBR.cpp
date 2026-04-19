@@ -481,8 +481,9 @@ void MinimalPbrRenderer::OnImGui()
     ImGui::SliderFloat("Directional Factor", &mUBOData.DirectionalFactor, 0.0f, 6.0f);
     ImGui::SliderFloat("Environment Factor", &mUBOData.EnvironmentFactor, 0.0f, 1.0f);
 
-    ImGui::SliderFloat("Shadow Bias Min", &mUBOData.ShadowBiasMin, 0.0f, 0.1f);
-    ImGui::SliderFloat("Shadow Bias Max", &mUBOData.ShadowBiasMax, 0.0f, 0.1f);
+    ImGui::SliderFloat("Shadow Bias Light", &mUBOData.ShadowBiasLight, 0.0f, 0.01f,
+                       "%.4f");
+    ImGui::SliderFloat("Shadow Bias Normal", &mUBOData.ShadowBiasNormal, 0.0f, 0.1f);
 
     if (ImGui::CollapsingHeader("Render Target"))
     {

@@ -16,6 +16,7 @@
 #include "common/Pbr.glsl"
 #include "common/SphericalHarmonics.glsl"
 #include "common/DebugGrid.glsl"
+#include "shadows/ShadowClient.glsl"
 
 layout(location = 0) in VertexData {
     vec2 TexCoord;
@@ -28,14 +29,14 @@ layout(location = 0) out vec4 outColor;
 
 layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     mat4  CameraViewProjection;
-    mat4  LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
-    float CascadeBounds[3];
+    mat4  LightViewProjection[SHADOW_NUM_CASCADES];
+    float CascadeBounds[SHADOW_NUM_CASCADES];
     vec3  ViewPos;
     vec3  ViewFront;
     float DirectionalFactor;
     float EnvironmentFactor;
-    float ShadowBiasMin;
-    float ShadowBiasMax;
+    float ShadowBiasLight;
+    float ShadowBiasNormal;
     int   AOEnabled;
     vec2  DrawExtent; 
 } DynamicUBO;
@@ -83,63 +84,6 @@ vec3 ACESFilm(vec3 x)
     float e = 0.14f;
 
     return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
-}
-
-uint GetCascadeIdx()
-{
-    uint cascadeIdx = 0;
-
-    for (int i=0; i<3; i++)
-    {
-        // Get distance to fragment:
-        float dist = length(InData.FragPos - DynamicUBO.ViewPos);
-        // Project the distance to view axis:
-        vec3 viewDir = normalize(InData.FragPos - DynamicUBO.ViewPos);
-        float projDist = dist * dot(viewDir, DynamicUBO.ViewFront);
-        //Compare with stored bounds:
-        float maxDist = DynamicUBO.CascadeBounds[i];
-
-        if (projDist < maxDist)
-        {
-             cascadeIdx = i;
-             break;
-        }   
-    }
-
-    return cascadeIdx;
-}
-
-float CalculateShadowFactor(vec4 lightCoord, vec2 offset, uint cascadeIdx)
-{
-    vec3 projCoords = lightCoord.xyz / lightCoord.w;
-    vec2 uv = (projCoords.xy * 0.5 + 0.5) + offset;
-
-    if (projCoords.z > 1.0)
-        return 1.0;    
-
-    float bias = max(DynamicUBO.ShadowBiasMax * (1.0 - dot(InData.Normal, EnvUBO.LightDir)), DynamicUBO.ShadowBiasMin);
-    float currentDepth = projCoords.z - bias;
-
-    float shadow = texture(shadowMap, vec4(uv, cascadeIdx, currentDepth));
-
-    return shadow;
-}
-
-float FilterPCF(vec4 lightCoord, uint cascadeIdx)
-{
-    vec2 texScale = 1.0 / vec2(textureSize(shadowMap, 0));
-
-    float sum = 0.0;
-
-    for (float y = -1.5; y <= 1.5; y += 1.0)
-    {
-        for (float x = -1.5; x <= 1.5; x += 1.0)
-        {
-            sum += CalculateShadowFactor(lightCoord, texScale * vec2(x,y), cascadeIdx);
-        }
-    }
-
-    return sum / 16.0;
 }
 
 vec3 GetSkyLight(vec3 normal, vec3 view, vec3 diffuse, vec3 f0, float roughness)
@@ -193,7 +137,7 @@ void main()
 
     #ifdef SHADOW_DEBUG_VIEW
     {
-        uint cascadeIdx = GetCascadeIdx();
+        uint cascadeIdx = GetCascadeIdx(InData.FragPos, DynamicUBO.ViewPos, DynamicUBO.ViewFront, DynamicUBO.CascadeBounds);
 
         vec4 lightCoord = DynamicUBO.LightViewProjection[cascadeIdx] * vec4(InData.FragPos, 1.0);
         vec3 projCoords = lightCoord.xyz / lightCoord.w;
@@ -206,8 +150,6 @@ void main()
         vec3 color = diff * debug_grid(uv, okColors[cascadeIdx]);
 
         #ifdef SHADOW_DEBUG_DEPTH
-        //color = diff * debug_grid(projCoords.zz, okColors[cascadeIdx]);
-
         vec3 less = vec3(1,0,0);
         vec3 more = vec3(0,0,1);
         
@@ -229,30 +171,31 @@ void main()
     float metallic = roughnesMetallic.b;
 
     //Do normal mapping or use vertex normal:
-    #ifdef USE_NORMAL_MAPPING
-    vec3 texNormal = 2.0 * texture(normal_map, InData.TexCoord).xyz - 1.0;
-
     vec3 N = InData.Normal;
+
+    //Handle two-sided geometry by flipping normals
+    //facing away from view:
+    if (!gl_FrontFacing)
+    {
+        N = -N;
+    }
+
+    #ifdef USE_NORMAL_MAPPING
     vec3 T = InData.Tangent.xyz;
     vec3 B = InData.Tangent.w * cross(N,T);
 
     mat3 TBN = mat3(T,B,N);
 
+    vec3 texNormal = 2.0 * texture(normal_map, InData.TexCoord).xyz - 1.0;
+
     vec3 normal = normalize(TBN * texNormal);
 
     #else
-    vec3 normal = InData.Normal;
+    vec3 normal = N;
     #endif
 
     //Construct view vector:
     vec3 view = normalize(DynamicUBO.ViewPos - InData.FragPos);
-
-    //Handle two-sided geometry by flipping normals
-    //facing away from view
-    if (!gl_FrontFacing)
-    {
-        normal = -normal;
-    }
 
     //Calculate specular reflectance f0:
     vec3 f0 = metallic * albedo.rgb;
@@ -289,14 +232,24 @@ void main()
         float shadow = 1.0;
         if (dirResponse != vec3(0) || (MatUBO.DoubleSided == 1))
         {
-            uint cascadeIdx = GetCascadeIdx();
-            vec4 lightPos = DynamicUBO.LightViewProjection[cascadeIdx] * vec4(InData.FragPos, 1.0);
+            vec3 fragPos = InData.FragPos;
+
+            uint cascadeIdx = GetCascadeIdx(fragPos, DynamicUBO.ViewPos, DynamicUBO.ViewFront, DynamicUBO.CascadeBounds);
+
+            ShadowBias bias = CalculateShadowBias(N, EnvUBO.LightDir, DynamicUBO.ShadowBiasLight, DynamicUBO.ShadowBiasNormal);
+
+            //Apply normal bias to shadowed position:
+            fragPos += bias.Normal * N;
+
+            mat4 lightProj = DynamicUBO.LightViewProjection[cascadeIdx];
+            vec4 lightPos =  lightProj * vec4(fragPos, 1.0);
 
             #ifdef SOFT_SHADOWS
-            shadow = FilterPCF(lightPos, cascadeIdx);
+            shadow = FilterPCF(shadowMap, lightPos, bias.Light, cascadeIdx);
             #else
-            shadow = CalculateShadowFactor(lightPos, vec2(0), cascadeIdx);
+            shadow = CalculateShadowFactor(shadowMap, lightPos, vec2(0), bias.Light, cascadeIdx);
             #endif
+
             shadow = pow(shadow, 2.2);
         }
 

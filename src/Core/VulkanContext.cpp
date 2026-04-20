@@ -2,6 +2,7 @@
 #include "Pch.h"
 
 #include "Vassert.h"
+#include "VkInit.h"
 #include "VkUtils.h"
 
 #include "VkBootstrap.h"
@@ -118,20 +119,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     CreateSwapchain(true);
 
     // Allocate command pools for immediate submit:
-    {
-        auto graphics_idx = Device.get_queue_index(vkb::QueueType::graphics).value();
-
-        VkCommandPoolCreateInfo poolInfo = {};
-        poolInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.queueFamilyIndex        = graphics_idx;
-        // To allow resetting individual buffers:
-        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-
-        auto ret =
-            vkCreateCommandPool(Device, &poolInfo, nullptr, &mImmGraphicsCommandPool);
-
-        vassert(ret == VK_SUCCESS, "Failed to create an immediate submit command pool!");
-    }
+    mImmGraphicsCommandPool = vkinit::CreateCommandPool(*this, vkb::QueueType::graphics);
 }
 
 VulkanContext::~VulkanContext()
@@ -178,15 +166,8 @@ void VulkanContext::CreateSwapchain(bool firstRun)
 void VulkanContext::ImmediateSubmitGraphics(
     std::function<void(VkCommandBuffer)> &&function)
 {
-    VkCommandBuffer buffer;
-
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool        = mImmGraphicsCommandPool;
-    allocInfo.commandBufferCount = 1;
-
-    vkAllocateCommandBuffers(Device, &allocInfo, &buffer);
+    VkCommandBuffer buffer =
+        vkinit::AllocateCommandBuffer(*this, mImmGraphicsCommandPool);
 
     vkutils::BeginRecording(buffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 

@@ -165,8 +165,8 @@ target_sources(${PROJECT_NAME}
         src/Renderers/RendererFactory.cpp
         src/Vulkan/Buffer.h
         src/Vulkan/Buffer.cpp
-        src/Vulkan/BufferUtils.h
-        src/Vulkan/BufferUtils.cpp
+        src/Vulkan/MakeBuffer.h
+        src/Vulkan/MakeBuffer.cpp
         src/Vulkan/Common.h
         src/Vulkan/Common.cpp
         src/Vulkan/Barrier.h
@@ -179,8 +179,8 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Image.cpp
         src/Vulkan/ImageLoaders.h
         src/Vulkan/ImageLoaders.cpp
-        src/Vulkan/ImageUtils.h
-        src/Vulkan/ImageUtils.cpp
+        src/Vulkan/MakeImage.h
+        src/Vulkan/MakeImage.cpp
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
         src/Vulkan/Sampler.h

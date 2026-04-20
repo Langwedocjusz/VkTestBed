@@ -7,8 +7,6 @@
 
 namespace vkutils
 {
-VkImageAspectFlags GetDefaultAspect(VkFormat format);
-
 template <typename HandleType>
 inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handle,
                          const std::string &name)
@@ -27,6 +25,12 @@ inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handl
 
 void BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags = 0);
 void EndRecording(VkCommandBuffer buffer);
+
+void SubmitQueue(VkQueue queue, VkCommandBuffer cmd, VkFence fence,
+                 VkSemaphore waitSemaphore, VkPipelineStageFlags waitStage,
+                 VkSemaphore signalSemaphore);
+
+VkImageAspectFlags GetDefaultAspect(VkFormat format);
 
 struct BlitImageInfo {
     VkImage    ImgHandle;

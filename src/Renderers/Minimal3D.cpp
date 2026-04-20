@@ -1,11 +1,11 @@
 #include "Minimal3D.h"
 #include "Pch.h"
 
-#include "BufferUtils.h"
 #include "Common.h"
 #include "Descriptor.h"
 #include "ImageLoaders.h"
-#include "ImageUtils.h"
+#include "MakeBuffer.h"
+#include "MakeImage.h"
 #include "Renderer.h"
 #include "Sampler.h"
 

@@ -3,7 +3,7 @@
 
 #include "Barrier.h"
 #include "Descriptor.h"
-#include "ImageUtils.h"
+#include "MakeImage.h"
 #include "Sampler.h"
 
 #include "imgui.h"

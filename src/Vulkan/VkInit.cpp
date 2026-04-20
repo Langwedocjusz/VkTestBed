@@ -45,16 +45,15 @@ VkCommandPool vkinit::CreateCommandPool(VulkanContext &ctx, vkb::QueueType qtype
     return pool;
 }
 
-VkCommandBuffer vkinit::CreateCommandBuffer(VulkanContext &ctx, VkCommandPool pool)
+VkCommandBuffer vkinit::AllocateCommandBuffer(VulkanContext &ctx, VkCommandPool pool)
 {
-    VkCommandBuffer buffer;
+    VkCommandBuffer buffer{};
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandPool        = pool;
     allocInfo.commandBufferCount = 1;
-
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
     auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, &buffer);
 
@@ -69,10 +68,9 @@ void vkinit::AllocateCommandBuffers(VulkanContext             &ctx,
 {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandPool        = pool;
     allocInfo.commandBufferCount = static_cast<uint32_t>(buffers.size());
-
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
     auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, buffers.data());
 

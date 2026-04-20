@@ -7,8 +7,8 @@
 #include "ImGuiInit.h"
 #include "ImGuiUtils.h"
 #include "ImageData.h"
-#include "ImageUtils.h"
 #include "Keycodes.h"
+#include "MakeImage.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "Vassert.h"
@@ -29,7 +29,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     for (auto &data : mFrameInfo.FrameData)
     {
         data.CommandPool   = vkinit::CreateCommandPool(mCtx, vkb::QueueType::graphics);
-        data.CommandBuffer = vkinit::CreateCommandBuffer(mCtx, data.CommandPool);
+        data.CommandBuffer = vkinit::AllocateCommandBuffer(mCtx, data.CommandPool);
 
         vkinit::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
         vkinit::CreateSignalledFence(mCtx, data.InFlightFence);
@@ -266,9 +266,9 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     // III. Submit the command buffer
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    common::SubmitQueue(mCtx.Queues.Graphics, cmd, frame.InFlightFence,
-                        frame.ImageAcquiredSemaphore, waitStage,
-                        swap.RenderCompletedSemaphore);
+    vkutils::SubmitQueue(mCtx.Queues.Graphics, cmd, frame.InFlightFence,
+                         frame.ImageAcquiredSemaphore, waitStage,
+                         swap.RenderCompletedSemaphore);
 }
 
 void RenderContext::DrawUI(VkCommandBuffer cmd)

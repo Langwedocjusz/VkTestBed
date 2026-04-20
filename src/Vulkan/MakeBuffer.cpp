@@ -1,4 +1,4 @@
-#include "BufferUtils.h"
+#include "MakeBuffer.h"
 #include "Pch.h"
 
 Buffer MakeBuffer::Staging(VulkanContext &ctx, const std::string &debugName,
@@ -67,8 +67,8 @@ Buffer MakeBuffer::VertexStorage(VulkanContext &ctx, const std::string &debugNam
                                  const OpaqueBuffer &buf)
 {
     TransferDSTInfo info{
-        .Usage       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         .CreateFlags = 0,
         .Size        = buf.Size,
         .Data        = buf.Data,

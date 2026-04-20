@@ -3,7 +3,7 @@
 
 #include "Barrier.h"
 #include "Buffer.h"
-#include "BufferUtils.h"
+#include "MakeBuffer.h"
 #include "Vassert.h"
 #include "VkUtils.h"
 

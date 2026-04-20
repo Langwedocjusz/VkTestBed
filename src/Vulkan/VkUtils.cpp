@@ -53,6 +53,67 @@ void vkutils::EndRecording(VkCommandBuffer buffer)
     vassert(ret == VK_SUCCESS, "Failed to record command buffer!");
 }
 
+void vkutils::SubmitQueue(VkQueue queue, VkCommandBuffer cmd, VkFence fence,
+                          VkSemaphore waitSemaphore, VkPipelineStageFlags waitStage,
+                          VkSemaphore signalSemaphore)
+{
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers    = &cmd;
+
+    if (waitSemaphore != nullptr)
+    {
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores    = &waitSemaphore;
+        submitInfo.pWaitDstStageMask  = &waitStage;
+    }
+
+    if (signalSemaphore != nullptr)
+    {
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores    = &signalSemaphore;
+    }
+
+    auto submitRes = vkQueueSubmit(queue, 1, &submitInfo, fence);
+
+    vassert(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
+}
+
+// void vkutils::SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFence
+// fence,
+//                          std::span<VkSemaphore>          waitSemaphores,
+//                          std::span<VkPipelineStageFlags> waitStages,
+//                          std::span<VkSemaphore>          signalSemaphores)
+//{
+//     VkSubmitInfo submitInfo = {};
+//     submitInfo.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+//
+//     submitInfo.commandBufferCount = static_cast<uint32_t>(buffers.size());
+//     submitInfo.pCommandBuffers    = buffers.data();
+//
+//     if (!waitSemaphores.empty())
+//     {
+//         vassert(waitSemaphores.size() == waitStages.size());
+//
+//         submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
+//         submitInfo.pWaitSemaphores    = waitSemaphores.data();
+//         submitInfo.pWaitDstStageMask  = waitStages.data();
+//     }
+//
+//     if (!signalSemaphores.empty())
+//     {
+//         submitInfo.signalSemaphoreCount =
+//         static_cast<uint32_t>(signalSemaphores.size()); submitInfo.pSignalSemaphores =
+//         signalSemaphores.data();
+//     }
+//
+//     auto submitRes = vkQueueSubmit(queue, 1, &submitInfo, fence);
+//
+//     vassert(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
+// }
+
 void vkutils::BlitImageZeroMip(VkCommandBuffer cmd, const Image &src, const Image &dst)
 {
     VkImageBlit2 blitRegion = {};

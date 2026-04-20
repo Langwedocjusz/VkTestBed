@@ -2,7 +2,7 @@
 #include "Pch.h"
 
 #include "ImageData.h"
-#include "ImageUtils.h"
+#include "MakeImage.h"
 #include "Texture.h"
 #include "Vassert.h"
 

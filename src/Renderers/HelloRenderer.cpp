@@ -1,9 +1,9 @@
 #include "HelloRenderer.h"
 #include "Pch.h"
 
-#include "BufferUtils.h"
 #include "Common.h"
-#include "ImageUtils.h"
+#include "MakeBuffer.h"
+#include "MakeImage.h"
 #include "Renderer.h"
 
 #include "volk.h"

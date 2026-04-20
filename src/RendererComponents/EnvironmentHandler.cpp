@@ -2,10 +2,10 @@
 #include "Pch.h"
 
 #include "Barrier.h"
-#include "BufferUtils.h"
 #include "Descriptor.h"
 #include "ImageLoaders.h"
-#include "ImageUtils.h"
+#include "MakeBuffer.h"
+#include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
 #include "Vassert.h"

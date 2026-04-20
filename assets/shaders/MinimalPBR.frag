@@ -119,7 +119,7 @@ void main()
     #ifdef SSAO_DEBUG_VIEW
     if (DynamicUBO.AOEnabled == 1)
     {
-        vec2 aoUV = (vec2(gl_FragCoord.xy) + 0.5) / DynamicUBO.DrawExtent;
+        vec2 aoUV = vec2(gl_FragCoord.xy) / DynamicUBO.DrawExtent;
 
         vec4 aoSample = texture(aoMap, aoUV);
 
@@ -208,7 +208,7 @@ void main()
 
     if (DynamicUBO.AOEnabled == 1)
     {
-        vec2 aoUV = (vec2(gl_FragCoord.xy) + 0.5) / DynamicUBO.DrawExtent;
+        vec2 aoUV = vec2(gl_FragCoord.xy) / DynamicUBO.DrawExtent;
 
         float ao = texture(aoMap, aoUV).a;
         

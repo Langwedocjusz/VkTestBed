@@ -1,10 +1,10 @@
 #include "ShadowmapHandler.h"
 #include "Pch.h"
 
-#include "BufferUtils.h"
 #include "Common.h"
 #include "Descriptor.h"
-#include "ImageUtils.h"
+#include "MakeBuffer.h"
+#include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
 

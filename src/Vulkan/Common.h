@@ -1,7 +1,6 @@
 #pragma once
 
 #include <optional>
-#include <span>
 
 #include "volk.h"
 
@@ -33,13 +32,4 @@ struct RenderingInfo {
 };
 
 void BeginRendering(VkCommandBuffer cmd, RenderingInfo info);
-
-void SubmitQueue(VkQueue queue, VkCommandBuffer cmd, VkFence fence,
-                 VkSemaphore waitSemaphore, VkPipelineStageFlags waitStage,
-                 VkSemaphore signalSemaphore);
-
-void SubmitQueue(VkQueue queue, std::span<VkCommandBuffer> buffers, VkFence fence,
-                 std::span<VkSemaphore>          waitSemaphores,
-                 std::span<VkPipelineStageFlags> waitStages,
-                 std::span<VkSemaphore>          signalSemaphores);
 } // namespace common

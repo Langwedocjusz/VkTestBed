@@ -31,6 +31,7 @@ layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
     mat4  CameraViewProjection;
     mat4  LightViewProjection[SHADOW_NUM_CASCADES];
     float CascadeBounds[SHADOW_NUM_CASCADES];
+    float CascadeTexelSizes[SHADOW_NUM_CASCADES];
     vec3  ViewPos;
     vec3  ViewFront;
     float DirectionalFactor;
@@ -236,7 +237,10 @@ void main()
 
             uint cascadeIdx = GetCascadeIdx(fragPos, DynamicUBO.ViewPos, DynamicUBO.ViewFront, DynamicUBO.CascadeBounds);
 
-            ShadowBias bias = CalculateShadowBias(N, EnvUBO.LightDir, DynamicUBO.ShadowBiasLight, DynamicUBO.ShadowBiasNormal);
+            float maxBiasL = DynamicUBO.ShadowBiasLight  * DynamicUBO.CascadeTexelSizes[cascadeIdx];
+            float maxBiasN = DynamicUBO.ShadowBiasNormal * DynamicUBO.CascadeTexelSizes[cascadeIdx];
+
+            ShadowBias bias = CalculateShadowBias(N, EnvUBO.LightDir, maxBiasL, maxBiasN);
 
             //Apply normal bias to shadowed position:
             fragPos += bias.Normal * N;

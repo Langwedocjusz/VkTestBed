@@ -29,8 +29,9 @@ class ShadowmapHandler {
   public:
     static constexpr size_t NumCascades = 3;
 
-    using Matrices = std::array<glm::mat4, NumCascades>;
-    using Bounds   = std::array<float, NumCascades>;
+    using Matrices   = std::array<glm::mat4, NumCascades>;
+    using Bounds     = std::array<float, NumCascades>;
+    using TexelSizes = std::array<float, NumCascades>;
 
   public:
     ShadowmapHandler(VulkanContext &ctx);
@@ -98,6 +99,10 @@ class ShadowmapHandler {
     {
         return mBounds;
     }
+    [[nodiscard]] TexelSizes GetTexelSizes() const
+    {
+        return mTexelSizes;
+    }
 
     // Prerform debug visualization of the shadow casting frustums:
     void DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj, VkExtent2D extent);
@@ -105,10 +110,10 @@ class ShadowmapHandler {
   private:
     [[nodiscard]] VkExtent2D GetExtent() const;
 
-    [[nodiscard]] Frustum      ScaleCameraFrustum(Frustum camFrustum, float distNear,
-                                                  float distFar) const;
-    [[nodiscard]] ShadowVolume GetBoundingVolume(Frustum   shadowFrustum,
-                                                 glm::mat4 lightView) const;
+    [[nodiscard]] Frustum ScaleCameraFrustum(Frustum camFrustum, float distNear,
+                                             float distFar) const;
+    [[nodiscard]] std::pair<ShadowVolume, float> GetBoundingVolume(
+        Frustum shadowFrustum, glm::mat4 lightView) const;
     /// Scene AABB is take to be in world coords
     [[nodiscard]] ShadowVolume FitVolumeToScene(ShadowVolume volume, AABB sceneAABB,
                                                 glm::mat4 lightView) const;
@@ -141,10 +146,10 @@ class ShadowmapHandler {
     std::array<VkImageView, NumCascades> mCascadeViews;
 
     // Data that needs to be uploaded via uniform buffer
-    // to use shadowmaps in actual rendering
-    // (view-proj matrices and cascade bounds):
-    Matrices mMatrices;
-    Bounds   mBounds;
+    // to use shadowmaps in actual rendering:
+    Matrices   mMatrices;
+    Bounds     mBounds;
+    TexelSizes mTexelSizes;
 
     // Parts of the camera frustum corresponding to subsequent cascades.
     // Used to determine their projection matrices:

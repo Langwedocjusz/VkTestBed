@@ -446,6 +446,7 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     mUBOData.CameraViewProjection = mCamera.GetViewProj();
     mUBOData.ShadowMatrices       = mShadowmapHandler.GetMatrices();
     mUBOData.ShadowBounds         = mShadowmapHandler.GetBounds();
+    mUBOData.ShadowTexelSizes     = mShadowmapHandler.GetTexelSizes();
     mUBOData.ViewPos              = mCamera.GetPos();
     mUBOData.ViewFront            = mCamera.GetFront();
     mUBOData.AOEnabled            = mEnableAO;
@@ -455,6 +456,8 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 void MinimalPbrRenderer::OnImGui()
 {
     ImGui::Begin("Renderer settings");
+
+    ImGui::Text("Current texel size 0: %f", mUBOData.ShadowTexelSizes[0]);
 
     if (ImGui::Checkbox("Enable Z Prepass", &mEnablePrepass))
     {
@@ -481,9 +484,8 @@ void MinimalPbrRenderer::OnImGui()
     ImGui::SliderFloat("Directional Factor", &mUBOData.DirectionalFactor, 0.0f, 6.0f);
     ImGui::SliderFloat("Environment Factor", &mUBOData.EnvironmentFactor, 0.0f, 1.0f);
 
-    ImGui::SliderFloat("Shadow Bias Light", &mUBOData.ShadowBiasLight, 0.0f, 0.01f,
-                       "%.4f");
-    ImGui::SliderFloat("Shadow Bias Normal", &mUBOData.ShadowBiasNormal, 0.0f, 0.1f);
+    ImGui::SliderFloat("Shadow Bias Light", &mUBOData.ShadowBiasLight, 0.0f, 3.0f);
+    ImGui::SliderFloat("Shadow Bias Normal", &mUBOData.ShadowBiasNormal, 0.0f, 3.0f);
 
     if (ImGui::CollapsingHeader("Render Target"))
     {

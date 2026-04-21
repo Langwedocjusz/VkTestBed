@@ -246,8 +246,8 @@ Frustum ShadowmapHandler::ScaleCameraFrustum(Frustum camFrustum, float distNear,
     };
 }
 
-ShadowVolume ShadowmapHandler::GetBoundingVolume(Frustum   shadowFrustum,
-                                                 glm::mat4 lightView) const
+std::pair<ShadowVolume, float> ShadowmapHandler::GetBoundingVolume(
+    Frustum shadowFrustum, glm::mat4 lightView) const
 {
     // Transform the shadow frustum vertices to light view space:
     auto frustumVertices = shadowFrustum.GetVertices();
@@ -279,16 +279,19 @@ ShadowVolume ShadowmapHandler::GetBoundingVolume(Frustum   shadowFrustum,
         maxZ = std::max(maxZ, vert.z);
     }
 
-    // Clip XY positions to texel size in world space to avoid shimmering artefact:
+    // Store texel size to scale bias values with:
     float texelSizeX = (maxX - minX) / ShadowmapResolution;
     float texelSizeY = (maxY - minY) / ShadowmapResolution;
 
+    float texelSize = std::max(texelSizeX, texelSizeY);
+
+    // Clip XY positions to texel size in world space to avoid shimmering artefact:
     minX = std::floor(minX / texelSizeX) * texelSizeX;
     maxX = std::floor(maxX / texelSizeX) * texelSizeX;
     minY = std::floor(minY / texelSizeY) * texelSizeY;
     maxY = std::floor(maxY / texelSizeY) * texelSizeY;
 
-    return ShadowVolume{
+    ShadowVolume vol{
         .MinX = minX,
         .MaxX = maxX,
         .MinY = minY,
@@ -296,6 +299,8 @@ ShadowVolume ShadowmapHandler::GetBoundingVolume(Frustum   shadowFrustum,
         .MinZ = minZ,
         .MaxZ = maxZ,
     };
+
+    return {vol, texelSize};
 }
 
 ShadowVolume ShadowmapHandler::FitVolumeToScene(ShadowVolume volume, AABB sceneAABB,
@@ -367,7 +372,10 @@ void ShadowmapHandler::OnUpdate(Camera &camera, glm::vec3 lightDir, AABB sceneAA
         }
 
         // Construct light-aligned volume thightly bounding the shadowed frustum:
-        ShadowVolume vol = GetBoundingVolume(frustum, lightView);
+        auto [vol, texelSize] = GetBoundingVolume(frustum, lightView);
+
+        // Store texel size to use for biasing:
+        mTexelSizes[idx] = texelSize;
 
         // Extend the Z range of constructed volume to fit entire scene range:
         if (mFitToScene)

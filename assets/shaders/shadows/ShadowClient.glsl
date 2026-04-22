@@ -42,13 +42,19 @@ ShadowBias CalculateShadowBias(vec3 normal, vec3 lightDir, float maxBiasLight, f
 
     float normalBias = maxBiasNormal * sinAlpha;
 
-    // According to Ignacio Castano's blog light bias
-    // should be scaled by the tangent:
-    // https://www.ludicon.com/castano/blog/articles/shadow-mapping-summary-part-1/
-    // The tangent is numerically unstable, since there can always be surfaces
-    // with cosAlpha = 0.0. The blog adresses that by taking
-    // minumum with a value o 2, but in practice I found that
-    // just using the sine seems to work better on foliage.
+    // According to Ignacio Castano's blog 
+    // (https://www.ludicon.com/castano/blog/articles/shadow-mapping-summary-part-1/)
+    // light bias should be scaled by the tangent, like so:
+    
+    // float safeTan = min(2.0, sinAlpha / cosAlpha);
+    // float lightBias = maxBiasLight * safeTan;
+    
+    // While this tends to work better on opaque surfaces,
+    // very problematic for double-sided
+    // translucent foliage, where it introduced
+    // erroneous self-shadowing. For now scaling
+    // with just the sine. This also hase the positive 
+    // effect of making shadow offsets smaller.
 
     float lightBias = maxBiasLight * sinAlpha;
 
@@ -73,18 +79,24 @@ float CalculateShadowFactor(sampler2DArrayShadow shadowMap, vec4 lightCoord, vec
 // TODO: Implement filtering optimization by Ignacio Castano.
 float FilterPCF(sampler2DArrayShadow shadowMap, vec4 lightCoord, float bias, uint cascadeIdx)
 {
-    const vec2 texScale = 1.0 / vec2(textureSize(shadowMap, 0));
+    const float range = 1.5;
+    const vec2 texelSize = 1.0 / vec2(textureSize(shadowMap, 0));
+    // Crude way to maintain consistend level of blurring
+    // between cascades:
+    const vec2 scale = texelSize / float(cascadeIdx + 1);
 
-    float sum = 0.0;
+    float sum = 0.0, norm = 0.0;
 
-    for (float y = -1.5; y <= 1.5; y += 1.0)
+    for (float y = -range; y <= range; y += 1.0)
     {
-        for (float x = -1.5; x <= 1.5; x += 1.0)
+        for (float x = -range; x <= range; x += 1.0)
         {
-            vec2 offset = texScale * vec2(x,y);
+            vec2 offset = scale * vec2(x,y);
+            
             sum += CalculateShadowFactor(shadowMap, lightCoord, offset, bias, cascadeIdx);
+            norm += 1.0;
         }
     }
 
-    return sum / 16.0;
+    return sum / norm;
 }

@@ -237,8 +237,8 @@ void main()
 
             uint cascadeIdx = GetCascadeIdx(fragPos, DynamicUBO.ViewPos, DynamicUBO.ViewFront, DynamicUBO.CascadeBounds);
 
-            float maxBiasL = DynamicUBO.ShadowBiasLight  * DynamicUBO.CascadeTexelSizes[cascadeIdx];
-            float maxBiasN = DynamicUBO.ShadowBiasNormal * DynamicUBO.CascadeTexelSizes[cascadeIdx];
+            float maxBiasL = DynamicUBO.ShadowBiasLight  * DynamicUBO.CascadeTexelSizes[0];
+            float maxBiasN = DynamicUBO.ShadowBiasNormal * DynamicUBO.CascadeTexelSizes[0];
 
             ShadowBias bias = CalculateShadowBias(N, EnvUBO.LightDir, maxBiasL, maxBiasN);
 

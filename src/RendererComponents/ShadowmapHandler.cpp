@@ -9,6 +9,7 @@
 #include "Sampler.h"
 
 #include "imgui.h"
+#include "vulkan/vulkan_core.h"
 #include <imgui_impl_vulkan.h>
 
 #include <glm/ext/matrix_clip_space.hpp>

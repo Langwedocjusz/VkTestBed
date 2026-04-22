@@ -20,6 +20,7 @@ class SamplerBuilder {
     SamplerBuilder &SetMaxLod(float maxLod);
     SamplerBuilder &SetBorderColor(VkBorderColor color);
     SamplerBuilder &SetCompareOp(VkCompareOp op);
+    SamplerBuilder &EnableMaxAnisotropy();
 
     VkSampler Build(VulkanContext &ctx);
     VkSampler Build(VulkanContext &ctx, DeletionQueue &queue);
@@ -36,6 +37,7 @@ class SamplerBuilder {
     VkSamplerMipmapMode  mMipmapMode  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     VkBorderColor        mBorderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     float                mMaxLod      = 0.0f;
+    bool                 mAnisotropy  = false;
 
     std::string mDebugName;
 };

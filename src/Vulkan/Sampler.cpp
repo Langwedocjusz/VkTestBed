@@ -52,6 +52,12 @@ SamplerBuilder &SamplerBuilder::SetCompareOp(VkCompareOp op)
     return *this;
 }
 
+SamplerBuilder &SamplerBuilder::EnableMaxAnisotropy()
+{
+    mAnisotropy = true;
+    return *this;
+}
+
 VkSampler SamplerBuilder::Build(VulkanContext &ctx)
 {
     return BuildImpl(ctx);
@@ -78,6 +84,8 @@ VkSampler SamplerBuilder::BuildImpl(VulkanContext &ctx)
     samplerInfo.addressModeV = mAddressMode;
     samplerInfo.addressModeW = mAddressMode;
     samplerInfo.borderColor  = mBorderColor;
+    samplerInfo.mipmapMode   = mMipmapMode;
+    samplerInfo.maxLod       = mMaxLod;
 
     if (mCompareOp.has_value())
     {
@@ -85,17 +93,19 @@ VkSampler SamplerBuilder::BuildImpl(VulkanContext &ctx)
         samplerInfo.compareOp     = *mCompareOp;
     }
 
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(ctx.PhysicalDevice, &properties);
+    if (mAnisotropy)
+    {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(ctx.PhysicalDevice, &properties);
+
+        samplerInfo.anisotropyEnable = VK_TRUE;
+        samplerInfo.maxAnisotropy    = properties.limits.maxSamplerAnisotropy;
+    }
 
     // TODO: Un-hardcode those samper parameters:
-    samplerInfo.anisotropyEnable        = VK_TRUE;
-    samplerInfo.maxAnisotropy           = properties.limits.maxSamplerAnisotropy;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.mipmapMode              = mMipmapMode;
     samplerInfo.mipLodBias              = 0.0f;
     samplerInfo.minLod                  = 0.0f;
-    samplerInfo.maxLod                  = mMaxLod;
 
     auto ret = vkCreateSampler(ctx.Device, &samplerInfo, nullptr, &sampler);
 

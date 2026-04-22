@@ -120,6 +120,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                            .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
                            .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
                            .SetMaxLod(12.0f)
+                           .EnableMaxAnisotropy()
                            .Build(mCtx, mMainDeletionQueue);
 
     // Create descriptor set layout for sampling material textures:
@@ -456,8 +457,6 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 void MinimalPbrRenderer::OnImGui()
 {
     ImGui::Begin("Renderer settings");
-
-    ImGui::Text("Current texel size 0: %f", mUBOData.ShadowTexelSizes[0]);
 
     if (ImGui::Checkbox("Enable Z Prepass", &mEnablePrepass))
     {

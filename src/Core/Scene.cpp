@@ -1,7 +1,7 @@
 #include "Scene.h"
-#include "GeometryData.h"
 #include "Pch.h"
 
+#include "GeometryData.h"
 #include "Vassert.h"
 
 void Scene::RecalculateAABB()

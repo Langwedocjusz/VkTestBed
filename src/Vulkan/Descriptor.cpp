@@ -35,43 +35,46 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t bind
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddUniformBuffer(uint32_t binding,
                                                                          uint32_t stages)
 {
+    mBindingCounts.UniformBuffer += 1;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stages);
 }
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageBuffer(uint32_t binding,
                                                                          uint32_t stages)
 {
+    mBindingCounts.StorageBuffer += 1;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stages);
 }
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddCombinedSampler(
     uint32_t binding, uint32_t stages)
 {
+    mBindingCounts.CombinedImageSampler += 1;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, stages);
 }
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageImage(uint32_t binding,
                                                                         uint32_t stages)
 {
+    mBindingCounts.StorageImage += 1;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stages);
 }
 
-VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
+DescriptorSetLayoutBuilder::Result DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
 {
-    return BuildImpl(ctx);
+    return {BuildLayout(ctx), BuildSizes()};
 }
 
-VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx,
-                                                        DeletionQueue &queue)
+DescriptorSetLayoutBuilder::Result DescriptorSetLayoutBuilder::Build(VulkanContext &ctx,
+                                                                     DeletionQueue &queue)
 {
-    const auto res = BuildImpl(ctx);
+    const auto layout = BuildLayout(ctx);
+    queue.push_back(layout);
 
-    queue.push_back(res);
-
-    return res;
+    return {layout, BuildSizes()};
 }
 
-VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildImpl(VulkanContext &ctx)
+VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildLayout(VulkanContext &ctx)
 {
     VkDescriptorSetLayout layout{};
 
@@ -87,6 +90,21 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildImpl(VulkanContext &ctx)
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, layout, mDebugName);
 
     return layout;
+}
+
+DescriptorSetLayoutBuilder::PoolSizes DescriptorSetLayoutBuilder::BuildSizes()
+{
+    std::array<VkDescriptorPoolSize, 4> ret{
+        {
+         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, mBindingCounts.StorageImage},
+         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+             mBindingCounts.CombinedImageSampler},
+         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, mBindingCounts.UniformBuffer},
+         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, mBindingCounts.StorageBuffer},
+         }
+    };
+
+    return ret;
 }
 
 VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,

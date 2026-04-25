@@ -61,6 +61,7 @@ class HelloRenderer final : public IRenderer {
     } mUBOData;
 
     DynamicUniformBuffer mDynamicUBO;
+    DynamicDescriptorSet mDynamicDS;
 
     DeletionQueue mSceneDeletionQueue;
 };

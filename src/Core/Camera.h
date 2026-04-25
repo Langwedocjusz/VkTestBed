@@ -2,9 +2,9 @@
 
 #include "Bitflags.h"
 #include "Event.h"
-#include "glm/trigonometric.hpp"
 
 #include <glm/glm.hpp>
+#include <glm/trigonometric.hpp>
 
 // For calculating collisions in worldspace:
 struct Frustum {

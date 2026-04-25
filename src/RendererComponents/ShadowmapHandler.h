@@ -4,8 +4,6 @@
 #include "Camera.h"
 #include "Common.h"
 #include "DeletionQueue.h"
-#include "DynamicUniformBuffer.h"
-#include "Frame.h"
 #include "GeometryData.h"
 #include "Pipeline.h"
 #include "VertexLayout.h"

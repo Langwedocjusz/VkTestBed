@@ -245,6 +245,7 @@ class MinimalPbrRenderer final : public IRenderer {
     } mUBOData;
 
     DynamicUniformBuffer mDynamicUBO;
+    DynamicDescriptorSet mDynamicDS;
 
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;

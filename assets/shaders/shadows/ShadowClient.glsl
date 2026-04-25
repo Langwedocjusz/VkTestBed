@@ -50,8 +50,8 @@ ShadowBias CalculateShadowBias(vec3 normal, vec3 lightDir, float maxBiasLight, f
     // float lightBias = maxBiasLight * safeTan;
     
     // While this tends to work better on opaque surfaces,
-    // very problematic for double-sided
-    // translucent foliage, where it introduced
+    // it is very problematic for double-sided
+    // translucent foliage, where it introduces
     // erroneous self-shadowing. For now scaling
     // with just the sine. This also hase the positive 
     // effect of making shadow offsets smaller.

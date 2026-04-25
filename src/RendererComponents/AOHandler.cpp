@@ -42,20 +42,24 @@ AOHandler::AOHandler(VulkanContext &ctx)
         mMainDeletionQueue.push_back(mAODescriptorPool);
     }
 
-    mAOGenDescriptorSetLayout = DescriptorSetLayoutBuilder("AOGenDSLayout")
-                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .Build(mCtx, mMainDeletionQueue);
+    {
+        auto [layout, _] = DescriptorSetLayoutBuilder("AOGenDSLayout")
+                               .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                               .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                               .Build(mCtx, mMainDeletionQueue);
 
-    mAOGenDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mAOGenDescriptorSetLayout);
+        mAOGenDescriptorSetLayout = layout;
+        mAOGenDescriptorSet       = Descriptor::Allocate(mCtx, mAODescriptorPool, layout);
+    }
 
-    mAOUsageDescriptorSetLayout = DescriptorSetLayoutBuilder("AOUsageDSLayout")
-                                      .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                      .Build(mCtx, mMainDeletionQueue);
+    {
+        auto [layout, _] = DescriptorSetLayoutBuilder("AOUsageDSLayout")
+                               .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
+                               .Build(mCtx, mMainDeletionQueue);
 
-    mAOUsageDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mAOUsageDescriptorSetLayout);
+        mAOUsageDescriptorSetLayout = layout;
+        mAOUsageDescriptorSet = Descriptor::Allocate(mCtx, mAODescriptorPool, layout);
+    }
 }
 
 void AOHandler::OnImGui()

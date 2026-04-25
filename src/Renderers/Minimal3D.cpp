@@ -13,15 +13,32 @@
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera), mTextureDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info, sizeof(mUBOData)), mSceneDeletionQueue(ctx)
+      mDynamicUBO(ctx, info, sizeof(mUBOData)), mDynamicDS(ctx, info), mSceneDeletionQueue(ctx)
 {
-    mDynamicUBO.Initialize("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT);
+    {
+        auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        auto [layout, counts] =
+            DescriptorSetLayoutBuilder("Minimal3DDynamicDescriptorSetLayout")
+                .AddUniformBuffer(0, stageFlags)
+                .Build(mCtx, mMainDeletionQueue);
+
+        mDynamicDS.Initialize(layout, counts);
+
+        mDynamicDS.BeginUpdate();
+
+        auto [buffers, sizes] = mDynamicUBO.GetBufferHandlesAndSizes();
+
+        mDynamicDS.WriteUniformBuffer(0, buffers, sizes);
+        mDynamicDS.EndUpdate();
+    }
 
     // Create descriptor set layout for sampling textures
-    mTextureDescriptorSetLayout =
-        DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
-            .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .Build(ctx, mMainDeletionQueue);
+    auto [layout, _] = DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
+                           .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
+                           .Build(ctx, mMainDeletionQueue);
+
+    mTextureDescriptorSetLayout = layout;
 
     // Initialize descriptor allocator for materials
     constexpr uint32_t imgPerMat = 1;
@@ -66,7 +83,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(glm::mat4))
-            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -81,7 +98,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(PushConstantData))
-            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .AddDescriptorSetLayout(mTextureDescriptorSetLayout)
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
@@ -118,7 +135,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
         mColoredPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mColoredPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mColoredPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mColoredDrawables)
         {
@@ -141,7 +158,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
         mTexturedPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mTexturedPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mTexturedPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mTexturedDrawables)
         {

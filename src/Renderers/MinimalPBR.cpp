@@ -1,7 +1,6 @@
 #include "MinimalPBR.h"
 #include "Pch.h"
 
-#include "Barrier.h"
 #include "Camera.h"
 #include "Common.h"
 #include "Descriptor.h"
@@ -110,8 +109,9 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info, sizeof(mUBOData)), mEnvHandler(ctx), mShadowmapHandler(ctx),
-      mAOHandler(ctx), mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
+      mDynamicUBO(ctx, info, sizeof(mUBOData)), mDynamicDS(ctx, info), mEnvHandler(ctx),
+      mShadowmapHandler(ctx), mAOHandler(ctx), mSceneDeletionQueue(ctx),
+      mMaterialDeletionQueue(ctx)
 {
     // Create the material texture sampler:
     mMaterialSampler = SamplerBuilder("MinimalPbrMaterialSampler")
@@ -124,13 +124,17 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                            .Build(mCtx, mMainDeletionQueue);
 
     // Create descriptor set layout for sampling material textures:
-    mMaterialDescriptorSetLayout =
-        DescriptorSetLayoutBuilder("MinimalPBRMaterialDescriptorLayout")
-            .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .AddCombinedSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .AddCombinedSampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .AddUniformBuffer(3, VK_SHADER_STAGE_FRAGMENT_BIT)
-            .Build(ctx, mMainDeletionQueue);
+    {
+        auto [layout, _] =
+            DescriptorSetLayoutBuilder("MinimalPBRMaterialDescriptorLayout")
+                .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .AddCombinedSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .AddCombinedSampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .AddUniformBuffer(3, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .Build(ctx, mMainDeletionQueue);
+
+        mMaterialDescriptorSetLayout = layout;
+    }
 
     // Initialize descriptor allocator for materials:
     {
@@ -158,9 +162,25 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     mMainDeletionQueue.push_back(mDefaultRoughness);
     mMainDeletionQueue.push_back(mDefaultNormal);
 
-    // Build the dynamic uniform buffer:
-    auto stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    mDynamicUBO.Initialize("MinimalPBRDynamicUBO", stages);
+    // Build the descriptor sets for the dynamic uniform buffer:
+    {
+        auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        auto [layout, counts] =
+            DescriptorSetLayoutBuilder("MinimalPBRDynamicDescriptorSetLayout")
+                .AddUniformBuffer(0, stageFlags)
+                .Build(mCtx, mMainDeletionQueue);
+
+        mDynamicDS.Initialize(layout, counts);
+
+        // Update descriptor sets:
+        mDynamicDS.BeginUpdate();
+
+        auto [buffers, sizes] = mDynamicUBO.GetBufferHandlesAndSizes();
+
+        mDynamicDS.WriteUniformBuffer(0, buffers, sizes);
+        mDynamicDS.EndUpdate();
+    }
 
     // Build the graphics pipelines:
     RebuildPipelines();
@@ -190,7 +210,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetPushConstantSize(sizeof(PCDataPrepass))
-            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .EnableDepthTest()
             .SetDepthFormat(DepthStencilFormat)
             .SetStencilFormat(DepthStencilFormat)
@@ -209,7 +229,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetPushConstantSize(sizeof(PCDataPrepass))
-            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest()
             .SetDepthFormat(DepthStencilFormat)
@@ -237,7 +257,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetColorFormat(RenderTargetFormat)
             .SetPushConstantSize(sizeof(PCDataMain))
-            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .AddDescriptorSetLayout(mShadowmapHandler.GetDSLayout())
             .AddDescriptorSetLayout(mAOHandler.GetDSLayout())
@@ -292,7 +312,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetDepthFormat(DepthStencilFormat)
             .SetStencilFormat(DepthStencilFormat)
             .SetPushConstantSize(sizeof(PCDataOutline))
-            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -323,7 +343,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
             .SetDepthFormat(DepthStencilFormat)
             .SetPushConstantSize(sizeof(PCDataOutline))
-            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
@@ -342,7 +362,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
             .SetColorFormat(PickingTargetFormat)
             .SetDepthFormat(PickingDepthFormat)
-            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .SetPushConstantSize(sizeof(PCDataObjectID))
             .Build(mCtx, mPipelineDeletionQueue);
@@ -712,7 +732,7 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
         mZPrepassOpaquePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mZPrepassOpaquePipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mZPrepassOpaquePipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
 
         auto materialCallback = [](VkCommandBuffer cmd, Material &material) {
             (void)cmd;
@@ -739,7 +759,7 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
         mZPrepassAlphaPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mZPrepassAlphaPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mZPrepassAlphaPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
 
         auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
             mZPrepassAlphaPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
@@ -792,7 +812,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     common::ViewportScissor(cmd, GetTargetSize());
 
     std::array descriptorSets{
-        mDynamicUBO.DescriptorSet(),
+        mDynamicDS.DescriptorSet(),
         mEnvHandler.GetLightingDS(),
         mShadowmapHandler.GetDescriptorSet(),
         mAOHandler.GetDescriptorSet(),
@@ -887,7 +907,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
         mStencilPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mStencilPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mStencilPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
@@ -946,7 +966,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
         mOutlinePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mOutlinePipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mOutlinePipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
@@ -1000,7 +1020,7 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     mObjectIdPipeline.Bind(cmd);
     common::ViewportScissor(cmd, VkExtent2D{1, 1});
 
-    mObjectIdPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+    mObjectIdPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
 
     auto materialCallback = [this](VkCommandBuffer cmd, Material &material) {
         mObjectIdPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);

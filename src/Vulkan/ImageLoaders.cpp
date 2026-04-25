@@ -4,7 +4,6 @@
 #include "ImageData.h"
 #include "MakeImage.h"
 #include "Texture.h"
-#include "Vassert.h"
 
 #include "volk.h"
 

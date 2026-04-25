@@ -9,13 +9,14 @@
 #include "Sampler.h"
 
 #include "imgui.h"
-#include "vulkan/vulkan_core.h"
 #include <imgui_impl_vulkan.h>
 
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/matrix.hpp>
+
+#include "volk.h"
 
 #include <limits>
 
@@ -69,13 +70,14 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
 
         // Create descriptor set layout for sampling the shadowmap
         // and allocate the corresponding descriptor set:
-        mShadowmapDescriptorSetLayout =
+        auto [layout, _] =
             DescriptorSetLayoutBuilder("MinimalPBRShadowmapDescriptorLayout")
                 .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
                 .Build(ctx, mMainDeletionQueue);
 
-        mShadowmapDescriptorSet = Descriptor::Allocate(mCtx, mStaticDescriptorPool,
-                                                       mShadowmapDescriptorSetLayout);
+        mShadowmapDescriptorSetLayout = layout;
+        mShadowmapDescriptorSet =
+            Descriptor::Allocate(mCtx, mStaticDescriptorPool, layout);
 
         // Update the shadowmap descriptor:
         DescriptorUpdater(mShadowmapDescriptorSet)

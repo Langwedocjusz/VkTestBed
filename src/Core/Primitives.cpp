@@ -3,9 +3,9 @@
 
 #include "GeometryData.h"
 #include "TangentsGenerator.h"
-
 #include "VertexLayout.h"
 #include "VertexPacking.h"
+
 #include "volk.h"
 
 #include <cmath>

@@ -17,18 +17,29 @@ class DescriptorSetLayoutBuilder {
     DescriptorSetLayoutBuilder &AddCombinedSampler(uint32_t binding, uint32_t stages);
     DescriptorSetLayoutBuilder &AddStorageImage(uint32_t binding, uint32_t stages);
 
-    VkDescriptorSetLayout Build(VulkanContext &ctx);
-    VkDescriptorSetLayout Build(VulkanContext &ctx, DeletionQueue &queue);
+    using PoolSizes = std::array<VkDescriptorPoolSize, 4>;
+    using Result    = std::pair<VkDescriptorSetLayout, PoolSizes>;
+
+    Result Build(VulkanContext &ctx);
+    Result Build(VulkanContext &ctx, DeletionQueue &queue);
 
   private:
     DescriptorSetLayoutBuilder &AddBinding(uint32_t binding, VkDescriptorType type,
                                            uint32_t stages);
 
-    VkDescriptorSetLayout BuildImpl(VulkanContext &ctx);
+    VkDescriptorSetLayout BuildLayout(VulkanContext &ctx);
+    PoolSizes             BuildSizes();
 
   private:
     std::vector<VkDescriptorSetLayoutBinding> mBindings;
     std::string                               mDebugName;
+
+    struct {
+        uint32_t StorageImage         = 0;
+        uint32_t CombinedImageSampler = 0;
+        uint32_t UniformBuffer        = 0;
+        uint32_t StorageBuffer        = 0;
+    } mBindingCounts;
 };
 
 namespace Descriptor

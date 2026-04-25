@@ -14,9 +14,25 @@
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera), mDynamicUBO(ctx, info, sizeof(mUBOData)),
-      mSceneDeletionQueue(ctx)
+      mDynamicDS(ctx, info), mSceneDeletionQueue(ctx)
 {
-    mDynamicUBO.Initialize("HelloDynamicUBO", VK_SHADER_STAGE_VERTEX_BIT);
+    {
+        auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        auto [layout, counts] =
+            DescriptorSetLayoutBuilder("HelloDynamicDescriptorSetLayout")
+                .AddUniformBuffer(0, stageFlags)
+                .Build(mCtx, mMainDeletionQueue);
+
+        mDynamicDS.Initialize(layout, counts);
+
+        mDynamicDS.BeginUpdate();
+
+        auto [buffers, sizes] = mDynamicUBO.GetBufferHandlesAndSizes();
+
+        mDynamicDS.WriteUniformBuffer(0, buffers, sizes);
+        mDynamicDS.EndUpdate();
+    }
 
     RebuildPipelines();
     RecreateSwapchainResources();
@@ -36,7 +52,7 @@ void HelloRenderer::RebuildPipelines()
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
             .SetPushConstantSize(sizeof(glm::mat4))
-            .AddDescriptorSetLayout(mDynamicUBO.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .Build(mCtx, mPipelineDeletionQueue);
 }
 
@@ -67,7 +83,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
         mGraphicsPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mGraphicsPipeline.BindDescriptorSet(cmd, mDynamicUBO.DescriptorSet(), 0);
+        mGraphicsPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mDrawables)
         {

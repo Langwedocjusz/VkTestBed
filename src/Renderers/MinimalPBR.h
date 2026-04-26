@@ -229,13 +229,16 @@ class MinimalPbrRenderer final : public IRenderer {
     VkSampleCountFlagBits mMultisample             = VK_SAMPLE_COUNT_1_BIT;
 
     // Dynamic uniform data including camera/lighting and more renderer settings:
+    struct CamUBOData {
+        glm::mat4 CameraViewProjection;
+        glm::vec3 ViewPos;
+        glm::vec3 ViewFront;
+    } mCamUBOData;
+
     struct UBOData {
-        glm::mat4                    CameraViewProjection;
         ShadowmapHandler::Matrices   ShadowMatrices;
         ShadowmapHandler::Bounds     ShadowBounds;
         ShadowmapHandler::TexelSizes ShadowTexelSizes;
-        glm::vec3                    ViewPos;
-        glm::vec3                    ViewFront;
         float                        DirectionalFactor = 3.0f;
         float                        EnvironmentFactor = 0.05f;
         float                        ShadowBiasLight   = 0.2f;
@@ -244,7 +247,9 @@ class MinimalPbrRenderer final : public IRenderer {
         glm::vec2                    DrawExtent;
     } mUBOData;
 
+    DynamicUniformBuffer mCamDynamicUBO;
     DynamicUniformBuffer mDynamicUBO;
+
     DynamicDescriptorSet mDynamicDS;
 
     // Cubemap generation and background drawing:

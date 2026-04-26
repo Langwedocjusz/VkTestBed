@@ -2,23 +2,25 @@
 
 #extension GL_EXT_demote_to_helper_invocation : require
 
-layout(location = 0) in vec2 texCoord;
-layout(location = 1) in vec3 normal;
+layout(location = 0) in VertexData {
+    vec2 TexCoord;
+    vec3 Normal;
+} vInData;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 vOutColor;
 
-layout(set = 1, binding = 0) uniform sampler2D texSampler;
+layout(set = 1, binding = 0) uniform sampler2D sTexture;
 
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     vec4 AlphaCutoff;
     mat4 Transform;
-} PushConstants;
+} uPushConstants;
 
 void main() {
-    vec4 res = texture(texSampler, texCoord);
+    vec4 res = texture(sTexture, vInData.TexCoord);
 
-    if (res.a < PushConstants.AlphaCutoff.x)
+    if (res.a < uPushConstants.AlphaCutoff.x)
         discard;
 
-    outColor = res;
+    vOutColor = res;
 }

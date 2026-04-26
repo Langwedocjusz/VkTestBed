@@ -28,7 +28,8 @@ void DynamicUniformBuffer::UpdateData(void *data, VkDeviceSize size)
     Buffer::UploadToMapped(uniformBuffer, data, size);
 }
 
-DynamicUniformBuffer::HandlesAndSizes DynamicUniformBuffer::GetBufferHandlesAndSizes() const
+DynamicUniformBuffer::HandlesAndSizes DynamicUniformBuffer::GetBufferHandlesAndSizes()
+    const
 {
     std::vector<VkBuffer> handles;
     handles.resize(mUniformBuffers.size());

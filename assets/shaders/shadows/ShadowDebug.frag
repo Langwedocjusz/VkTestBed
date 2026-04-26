@@ -1,13 +1,13 @@
 #version 450
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 vOutColor;
 
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     mat4 ViewProj;
     vec4 Color;
-} PushConstants;
+} uPushConstants;
 
 void main()
 {
-    outColor = PushConstants.Color;
+    vOutColor = uPushConstants.Color;
 }

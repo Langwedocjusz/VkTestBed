@@ -4,20 +4,20 @@
 
 layout(location = 0) in VertexData {
     vec2 TexCoord;
-} InData;
+} vInData;
 
 //layout(location = 0) out uvec4 outColor;
-layout(location = 0) out uvec4 outColor;
+layout(location = 0) out uvec4 vOutColor;
 
-layout(set = 1, binding = 0) uniform sampler2D albedo_map;
+layout(set = 1, binding = 0) uniform sampler2D sAlbedoMap;
 
-layout(scalar, set = 1, binding = 3) uniform MatUBOBlock {
+layout(scalar, set = 1, binding = 3) uniform MaterialBlock {
     float AlphaCutoff;
-    vec3 TranslucentColor;
-    int DoubleSided;
-} MatUBO;
+    vec3  TranslucentColor;
+    int   DoubleSided;
+} uMaterial;
 
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     mat4 MVP;
     // For proper alignment of ObjectId without declaring
     // buffer extension etc in the fragment shader:
@@ -26,21 +26,21 @@ layout(push_constant) uniform constants {
     vec2 TexCenter;
     vec2 TexExtent;
     uint ObjectId;
-} PushConstants;
+} uPushConstants;
 
 void main()
 {
     //Sample albedo:
-    vec4 albedo = texture(albedo_map, InData.TexCoord);
+    vec4 albedo = texture(sAlbedoMap, vInData.TexCoord);
 
     //Discard fragment if transparent:
-    if (albedo.a < MatUBO.AlphaCutoff)
+    if (albedo.a < uMaterial.AlphaCutoff)
         discard;
 
-    outColor = uvec4(
-        (PushConstants.ObjectId >> 0)  & 255,
-        (PushConstants.ObjectId >> 8)  & 255,
-        (PushConstants.ObjectId >> 16) & 255,
-        (PushConstants.ObjectId >> 24) & 255
+    vOutColor = uvec4(
+        (uPushConstants.ObjectId >> 0)  & 255,
+        (uPushConstants.ObjectId >> 8)  & 255,
+        (uPushConstants.ObjectId >> 16) & 255,
+        (uPushConstants.ObjectId >> 24) & 255
     );
 }

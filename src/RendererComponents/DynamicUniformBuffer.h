@@ -17,8 +17,8 @@ class DynamicUniformBuffer {
 
     void UpdateData(void *data, VkDeviceSize size);
 
-    using BufferHandles = std::vector<VkBuffer>;
-    using BufferSizes = std::vector<VkDeviceSize>;
+    using BufferHandles   = std::vector<VkBuffer>;
+    using BufferSizes     = std::vector<VkDeviceSize>;
     using HandlesAndSizes = std::pair<BufferHandles, BufferSizes>;
 
     [[nodiscard]] HandlesAndSizes GetBufferHandlesAndSizes() const;

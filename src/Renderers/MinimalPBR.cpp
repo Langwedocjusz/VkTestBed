@@ -109,6 +109,7 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mMaterialDescriptorAllocator(ctx),
+      mCamDynamicUBO(ctx, info, sizeof(mCamDynamicUBO)),
       mDynamicUBO(ctx, info, sizeof(mUBOData)), mDynamicDS(ctx, info), mEnvHandler(ctx),
       mShadowmapHandler(ctx), mAOHandler(ctx), mSceneDeletionQueue(ctx),
       mMaterialDeletionQueue(ctx)
@@ -169,6 +170,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         auto [layout, counts] =
             DescriptorSetLayoutBuilder("MinimalPBRDynamicDescriptorSetLayout")
                 .AddUniformBuffer(0, stageFlags)
+                .AddUniformBuffer(1, stageFlags)
                 .Build(mCtx, mMainDeletionQueue);
 
         mDynamicDS.Initialize(layout, counts);
@@ -176,9 +178,15 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         // Update descriptor sets:
         mDynamicDS.BeginUpdate();
 
-        auto [buffers, sizes] = mDynamicUBO.GetBufferHandlesAndSizes();
+        {
+            auto [buffers, sizes] = mCamDynamicUBO.GetBufferHandlesAndSizes();
+            mDynamicDS.WriteUniformBuffer(0, buffers, sizes);
+        }
+        {
+            auto [buffers, sizes] = mDynamicUBO.GetBufferHandlesAndSizes();
+            mDynamicDS.WriteUniformBuffer(1, buffers, sizes);
+        }
 
-        mDynamicDS.WriteUniformBuffer(0, buffers, sizes);
         mDynamicDS.EndUpdate();
     }
 
@@ -464,12 +472,13 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     };
 
     // Update light/camera uniform buffer data:
-    mUBOData.CameraViewProjection = mCamera.GetViewProj();
+    mCamUBOData.CameraViewProjection = mCamera.GetViewProj();
+    mCamUBOData.ViewPos              = mCamera.GetPos();
+    mCamUBOData.ViewFront            = mCamera.GetFront();
+    
     mUBOData.ShadowMatrices       = mShadowmapHandler.GetMatrices();
     mUBOData.ShadowBounds         = mShadowmapHandler.GetBounds();
     mUBOData.ShadowTexelSizes     = mShadowmapHandler.GetTexelSizes();
-    mUBOData.ViewPos              = mCamera.GetPos();
-    mUBOData.ViewFront            = mCamera.GetFront();
     mUBOData.AOEnabled            = mEnableAO;
     mUBOData.DrawExtent           = drawExtent;
 }
@@ -550,6 +559,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
 
     // This is not OnUpdate since, uniform buffers are per-image index
     // and as such need to be acquired after new image index is set.
+    mCamDynamicUBO.UpdateData(&mCamUBOData, sizeof(mCamUBOData));
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
 
     DrawStats stats{};
@@ -726,7 +736,7 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 
     common::BeginRendering(cmd, renderInfo);
 
-    auto viewProj = mUBOData.CameraViewProjection;
+    auto viewProj = mCamUBOData.CameraViewProjection;
 
     {
         mZPrepassOpaquePipeline.Bind(cmd);
@@ -821,7 +831,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     mMainPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
     stats.NumBinds += 3;
 
-    auto viewProj = mUBOData.CameraViewProjection;
+    auto viewProj = mCamUBOData.CameraViewProjection;
 
     auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
         mMainPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 4);
@@ -845,7 +855,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     // At this point debug visuals from the shadow map can optionally be drawn:
     //  TODO: This is kind of ugly, but debug needs to have acces to the main depth
     //  buffer. Think about a cleaner way to inject debug visualization rendering.
-    mShadowmapHandler.DrawDebugShapes(cmd, mUBOData.CameraViewProjection,
+    mShadowmapHandler.DrawDebugShapes(cmd, mCamUBOData.CameraViewProjection,
                                       GetTargetSize());
 
     // Draw the background:
@@ -914,7 +924,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             auto &drawable = mDrawables[drawableKey];
 
             // Do frustum culling:
-            if (!drawable.IsVisible(mUBOData.CameraViewProjection, instanceId))
+            if (!drawable.IsVisible(mCamUBOData.CameraViewProjection, instanceId))
                 break;
 
             // Bind all per-drawable resources:
@@ -973,7 +983,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             auto &drawable = mDrawables[drawableKey];
 
             // Do frustum culling:
-            if (!drawable.IsVisible(mUBOData.CameraViewProjection, instanceId))
+            if (!drawable.IsVisible(mCamUBOData.CameraViewProjection, instanceId))
                 break;
 
             // Bind all per-drawable resources:

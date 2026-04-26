@@ -5,17 +5,17 @@
 
 layout(location = 0) in VertexData {
     vec2 TexCoord;
-} InData;
+} vInData;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 vOutColor;
 
-layout(set = 1, binding = 0) uniform sampler2D albedo_map;
+layout(set = 1, binding = 0) uniform sampler2D sAlbedoMap;
 
-layout(scalar, set = 1, binding = 3) uniform MatUBOBlock {
+layout(scalar, set = 1, binding = 3) uniform MaterialBlock {
     float AlphaCutoff;
-    vec3 TranslucentColor;
-    int DoubleSided;
-} MatUBO;
+    vec3  TranslucentColor;
+    int   DoubleSided;
+} uMaterial;
 
 layout(push_constant) uniform constants {
     mat4 Model;
@@ -24,13 +24,13 @@ layout(push_constant) uniform constants {
 void main()
 {
     //Sample albedo:
-    vec4 albedo = texture(albedo_map, InData.TexCoord);
+    vec4 albedo = texture(sAlbedoMap, vInData.TexCoord);
 
     //Discard fragment if transparent:
-    if (albedo.a < MatUBO.AlphaCutoff)
+    if (albedo.a < uMaterial.AlphaCutoff)
         discard;
 
     //Draw the outline:
     const vec4 outlineColor = vec4(1.0);
-    outColor = outlineColor;
+    vOutColor = outlineColor;
 }

@@ -1,10 +1,12 @@
 #version 450
 
-layout(location = 0) in vec2 uv;
+layout(location = 0) in VertexData {
+    vec2 TexCoord;
+} vIn;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 vOutColor;
 
-layout(set = 0, binding = 0) uniform samplerCube environment;
+layout(set = 0, binding = 0) uniform samplerCube sEnvironment;
 
 layout(push_constant) uniform constants {
     vec4 TopLeft;
@@ -15,17 +17,20 @@ layout(push_constant) uniform constants {
 
 void main()
 {
-    //Retrieve world-space direction
-    vec3 dir = mix(
-        mix(PushConstants.TopLeft.xyz, PushConstants.TopRight.xyz, uv.x),
-        mix(PushConstants.BottomLeft.xyz, PushConstants.BottomRight.xyz, uv.x),
-    uv.y);
+    //Retrieve world-space direction:
+    float x = vIn.TexCoord.x;
+    float y = vIn.TexCoord.y;
+
+    vec3 top = mix(PushConstants.TopLeft.xyz,    PushConstants.TopRight.xyz,    x);
+    vec3 bot = mix(PushConstants.BottomLeft.xyz, PushConstants.BottomRight.xyz, x);
+
+    vec3 dir = mix(top, bot, y);
 
     dir = normalize(dir);
 
     //Sample environment:
-    vec3 col = texture(environment, dir).rgb;
+    vec3 col = texture(sEnvironment, dir).rgb;
 
     //Output:
-    outColor = vec4(col, 1.0);
+    vOutColor = vec4(col, 1.0);
 }

@@ -23,57 +23,60 @@ layout(location = 0) in VertexData {
     vec3 Normal;
     vec4 Tangent;
     vec3 FragPos;
-} InData;
+} vInData;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 vOutColor;
 
-layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
-    mat4  CameraViewProjection;
+layout(scalar, set = 0, binding = 0) uniform CameraBlock {
+    mat4 ViewProjection;
+    vec3 Pos;
+    vec3 Front;
+} uCamera;
+
+layout(scalar, set = 0, binding = 1) uniform DynamicBlock {
     mat4  LightViewProjection[SHADOW_NUM_CASCADES];
     float CascadeBounds[SHADOW_NUM_CASCADES];
     float CascadeTexelSizes[SHADOW_NUM_CASCADES];
-    vec3  ViewPos;
-    vec3  ViewFront;
     float DirectionalFactor;
     float EnvironmentFactor;
     float ShadowBiasLight;
     float ShadowBiasNormal;
     int   AOEnabled;
     vec2  DrawExtent; 
-} DynamicUBO;
+} uDynamic;
 
-layout(scalar, set = 1, binding = 0) uniform EnvUBOBlock {
+layout(scalar, set = 1, binding = 0) uniform EnvBlock {
     int DirLightOn;
     vec3 LightDir;
     vec3 LightColor;
     int HdriEnabled;
     float MaxReflectionLod;
-} EnvUBO;
+} uEnv;
 
 layout(std140, set = 1, binding = 1) readonly buffer SHBuffer {
-   SHData irradianceMap;
+   SHData bIrradiance;
 };
 
-layout(set = 1, binding = 2) uniform samplerCube prefilteredMap;
-layout(set = 1, binding = 3) uniform sampler2D integrationMap;
+layout(set = 1, binding = 2) uniform samplerCube sPrefilteredMap;
+layout(set = 1, binding = 3) uniform sampler2D sIntegrationMap;
 
-layout(set = 2, binding = 0) uniform sampler2DArrayShadow shadowMap;
+layout(set = 2, binding = 0) uniform sampler2DArrayShadow sShadowMap;
 
-layout(set = 3, binding = 0) uniform sampler2D aoMap;
+layout(set = 3, binding = 0) uniform sampler2D sAOMap;
 
-layout(set = 4, binding = 0) uniform sampler2D albedo_map;
-layout(set = 4, binding = 1) uniform sampler2D rougness_map;
-layout(set = 4, binding = 2) uniform sampler2D normal_map;
+layout(set = 4, binding = 0) uniform sampler2D sAlbedoMap;
+layout(set = 4, binding = 1) uniform sampler2D sRougnessMap;
+layout(set = 4, binding = 2) uniform sampler2D sNormalMap;
 
-layout(scalar, set = 4, binding = 3) uniform MatUBOBlock {
+layout(scalar, set = 4, binding = 3) uniform MaterialBlock {
     float AlphaCutoff;
-    vec3 TranslucentColor;
-    int DoubleSided;
-} MatUBO;
+    vec3  TranslucentColor;
+    int   DoubleSided;
+} uMaterial;
 
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     mat4 Model;
-} PushConstants;
+} uPushConstants;
 
 //https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)
@@ -89,27 +92,27 @@ vec3 ACESFilm(vec3 x)
 
 vec3 GetSkyLight(vec3 normal, vec3 view, vec3 diffuse, vec3 f0, float roughness)
 {
-    vec3 irradiance = SH_HemisphereConvolve(irradianceMap, normal);
+    vec3 irradiance = SH_HemisphereConvolve(bIrradiance, normal);
     vec3 diffuseIBL = diffuse * irradiance;
 
     vec3 R = reflect(-view, normal);
 
-    vec3 prefilteredColor = textureLod(prefilteredMap, R,  roughness * EnvUBO.MaxReflectionLod).rgb;
+    vec3 prefilteredColor = textureLod(sPrefilteredMap, R,  roughness * uEnv.MaxReflectionLod).rgb;
 
     vec3 F        = F_SchlickRoughness(max(dot(normal, view), 0.0), f0, roughness);
-    vec2 envBRDF  = texture(integrationMap, vec2(max(dot(normal, view), 0.0), roughness)).rg;
+    vec2 envBRDF  = texture(sIntegrationMap, vec2(max(dot(normal, view), 0.0), roughness)).rg;
     vec3 specularIBL = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 
-    return DynamicUBO.EnvironmentFactor * (diffuseIBL + specularIBL);
+    return uDynamic.EnvironmentFactor * (diffuseIBL + specularIBL);
 }
 
 void main()
 {
     //Sample albedo:
-    vec4 albedo = texture(albedo_map, InData.TexCoord);
+    vec4 albedo = texture(sAlbedoMap, vInData.TexCoord);
 
     //Discard fragment if transparent:
-    if (albedo.a < MatUBO.AlphaCutoff)
+    if (albedo.a < uMaterial.AlphaCutoff)
         discard;
 
     //Handle debug views:
@@ -118,19 +121,19 @@ void main()
     #endif
 
     #ifdef SSAO_DEBUG_VIEW
-    if (DynamicUBO.AOEnabled == 1)
+    if (uDynamic.AOEnabled == 1)
     {
-        vec2 aoUV = vec2(gl_FragCoord.xy) / DynamicUBO.DrawExtent;
+        vec2 aoUV = vec2(gl_FragCoord.xy) / uDynamic.DrawExtent;
 
-        vec4 aoSample = texture(aoMap, aoUV);
+        vec4 aoSample = texture(sAOMap, aoUV);
 
         float ao = aoSample.a;
-        outColor = vec4(vec3(ao), 1.0);
+        vOutColor = vec4(vec3(ao), 1.0);
         
         //Preview reconstructed normals:
         //vec3 norm = 2.0 * aoSample.rgb - 1.0;
         //vec3 norm = aoSample.rgb;
-        //outColor = vec4(norm, 1.0);
+        //vOutColor = vec4(norm, 1.0);
         
         return;
     }
@@ -138,17 +141,17 @@ void main()
 
     #ifdef SHADOW_DEBUG_VIEW
     {
-        uint cascadeIdx = GetCascadeIdx(InData.FragPos, DynamicUBO.ViewPos, DynamicUBO.ViewFront, DynamicUBO.CascadeBounds);
+        uint cascadeIdx = GetCascadeIdx(vInData.FragPos, uCamera.Pos, uCamera.Front, uDynamic.CascadeBounds);
 
-        vec4 lightCoord = DynamicUBO.LightViewProjection[cascadeIdx] * vec4(InData.FragPos, 1.0);
+        vec4 lightCoord = uDynamic.LightViewProjection[cascadeIdx] * vec4(vInData.FragPos, 1.0);
         vec3 projCoords = lightCoord.xyz / lightCoord.w;
         vec2 uv = (projCoords.xy * 0.5 + 0.5);
     
-        float diff = 0.8 + 0.2 * dot(InData.Normal, normalize(vec3(1,1,1)));
+        float diff = 0.8 + 0.2 * dot(vInData.Normal, normalize(vec3(1,1,1)));
 
         const vec3 okColors[3] = vec3[3](vec3(1.0,0.5,0.5),vec3(0.5,1.0,0.5), vec3(0.5,0.5,1.0));
 
-        vec3 color = diff * debug_grid(uv, okColors[cascadeIdx]);
+        vec3 color = diff * DebugGrid(uv, okColors[cascadeIdx]);
 
         #ifdef SHADOW_DEBUG_DEPTH
         vec3 less = vec3(1,0,0);
@@ -160,19 +163,19 @@ void main()
         if (projCoords.z > 1.0) color *= more;     
         #endif
     
-        outColor = vec4(color, 1.0);
+        vOutColor = vec4(color, 1.0);
         return;
     }
     #endif
 
     //Sample roughness:
-    vec4 roughnesMetallic = texture(rougness_map, InData.TexCoord);
+    vec4 roughnesMetallic = texture(sRougnessMap, vInData.TexCoord);
 
     float roughness = roughnesMetallic.g;
     float metallic = roughnesMetallic.b;
 
     //Do normal mapping or use vertex normal:
-    vec3 N = InData.Normal;
+    vec3 N = vInData.Normal;
 
     //Handle two-sided geometry by flipping normals
     //facing away from view:
@@ -182,12 +185,12 @@ void main()
     }
 
     #ifdef USE_NORMAL_MAPPING
-    vec3 T = InData.Tangent.xyz;
-    vec3 B = InData.Tangent.w * cross(N,T);
+    vec3 T = vInData.Tangent.xyz;
+    vec3 B = vInData.Tangent.w * cross(N,T);
 
     mat3 TBN = mat3(T,B,N);
 
-    vec3 texNormal = 2.0 * texture(normal_map, InData.TexCoord).xyz - 1.0;
+    vec3 texNormal = 2.0 * texture(sNormalMap, vInData.TexCoord).xyz - 1.0;
 
     vec3 normal = normalize(TBN * texNormal);
 
@@ -196,7 +199,7 @@ void main()
     #endif
 
     //Construct view vector:
-    vec3 view = normalize(DynamicUBO.ViewPos - InData.FragPos);
+    vec3 view = normalize(uCamera.Pos - vInData.FragPos);
 
     //Calculate specular reflectance f0:
     vec3 f0 = metallic * albedo.rgb;
@@ -207,51 +210,51 @@ void main()
 
     res.rgb = GetSkyLight(normal, view, diffuse, f0, roughness);
 
-    if (DynamicUBO.AOEnabled == 1)
+    if (uDynamic.AOEnabled == 1)
     {
-        vec2 aoUV = vec2(gl_FragCoord.xy) / DynamicUBO.DrawExtent;
+        vec2 aoUV = vec2(gl_FragCoord.xy) / uDynamic.DrawExtent;
 
-        float ao = texture(aoMap, aoUV).a;
+        float ao = texture(sAOMap, aoUV).a;
         
         res.rgb *= ao;
     }
 
     #ifdef TRANSLUCENCY
-    if(MatUBO.DoubleSided == 1)
+    if(uMaterial.DoubleSided == 1)
     {
-        vec3 irradiance = SH_HemisphereConvolve(irradianceMap, -normal);
-        res.rgb += DynamicUBO.EnvironmentFactor * MatUBO.TranslucentColor * diffuse * irradiance;
+        vec3 irradiance = SH_HemisphereConvolve(bIrradiance, -normal);
+        res.rgb += uDynamic.EnvironmentFactor * uMaterial.TranslucentColor * diffuse * irradiance;
     }
     #endif
 
-    if(EnvUBO.DirLightOn != 0)
+    if(uEnv.DirLightOn != 0)
     {
-        const vec3 lcol = DynamicUBO.DirectionalFactor * EnvUBO.LightColor;
+        const vec3 lcol = uDynamic.DirectionalFactor * uEnv.LightColor;
 
-        vec3 dirResponse = BRDF(normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
+        vec3 dirResponse = BRDF(normal, view, uEnv.LightDir, roughness, diffuse, f0);
         
         float shadow = 1.0;
-        if (dirResponse != vec3(0) || (MatUBO.DoubleSided == 1))
+        if (dirResponse != vec3(0) || (uMaterial.DoubleSided == 1))
         {
-            vec3 fragPos = InData.FragPos;
+            vec3 fragPos = vInData.FragPos;
 
-            uint cascadeIdx = GetCascadeIdx(fragPos, DynamicUBO.ViewPos, DynamicUBO.ViewFront, DynamicUBO.CascadeBounds);
+            uint cascadeIdx = GetCascadeIdx(fragPos, uCamera.Pos, uCamera.Front, uDynamic.CascadeBounds);
 
-            float maxBiasL = DynamicUBO.ShadowBiasLight  * DynamicUBO.CascadeTexelSizes[0];
-            float maxBiasN = DynamicUBO.ShadowBiasNormal * DynamicUBO.CascadeTexelSizes[0];
+            float maxBiasL = uDynamic.ShadowBiasLight  * uDynamic.CascadeTexelSizes[0];
+            float maxBiasN = uDynamic.ShadowBiasNormal * uDynamic.CascadeTexelSizes[0];
 
-            ShadowBias bias = CalculateShadowBias(N, EnvUBO.LightDir, maxBiasL, maxBiasN);
+            ShadowBias bias = CalculateShadowBias(N, uEnv.LightDir, maxBiasL, maxBiasN);
 
             //Apply normal bias to shadowed position:
             fragPos += bias.Normal * N;
 
-            mat4 lightProj = DynamicUBO.LightViewProjection[cascadeIdx];
+            mat4 lightProj = uDynamic.LightViewProjection[cascadeIdx];
             vec4 lightPos =  lightProj * vec4(fragPos, 1.0);
 
             #ifdef SOFT_SHADOWS
-            shadow = FilterPCF(shadowMap, lightPos, bias.Light, cascadeIdx);
+            shadow = FilterPCF(sShadowMap, lightPos, bias.Light, cascadeIdx);
             #else
-            shadow = CalculateShadowFactor(shadowMap, lightPos, vec2(0), bias.Light, cascadeIdx);
+            shadow = CalculateShadowFactor(sShadowMap, lightPos, vec2(0), bias.Light, cascadeIdx);
             #endif
 
             shadow = pow(shadow, 2.2);
@@ -260,11 +263,11 @@ void main()
         res.rgb += shadow * lcol * dirResponse;
 
         #ifdef TRANSLUCENCY
-        if(MatUBO.DoubleSided == 1)
+        if(uMaterial.DoubleSided == 1)
         {
-            vec3 translucent = BRDF(-normal, view, EnvUBO.LightDir, roughness, diffuse, f0);
+            vec3 translucent = BRDF(-normal, view, uEnv.LightDir, roughness, diffuse, f0);
 
-            res.rgb += MatUBO.TranslucentColor * shadow * lcol * translucent;
+            res.rgb += uMaterial.TranslucentColor * shadow * lcol * translucent;
         }
         #endif
     }
@@ -273,5 +276,5 @@ void main()
     res.rgb = ACESFilm(res.rgb);
     res.rgb = pow(res.rgb, vec3(1.0/2.2));
 
-    outColor = res;
+    vOutColor = res;
 }

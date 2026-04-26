@@ -5,13 +5,15 @@
 #include "../common/VertexNaive.glsl"
 //#include "../common/VertexCompressed.glsl"
 
-layout(location = 0) out vec2 texCoord;
+layout(location = 0) out VertexData {
+    vec2 TexCoord;
+} vOut;
 
 layout(push_constant) uniform constants {
-    mat4 LightMVP;
+    mat4         LightMVP;
     VertexBuffer VertBuff;
-    vec2 TexCenter;
-    vec2 TexExtent;
+    vec2         TexCenter;
+    vec2         TexExtent;
 } PushConstants;
 
 void main() {
@@ -23,8 +25,8 @@ void main() {
     texcoord = 2.0 * texcoord - 1.0;
     texcoord *= PushConstants.TexExtent;
     texcoord += PushConstants.TexCenter;
+
+    vOut.TexCoord = texcoord;
     
     gl_Position = PushConstants.LightMVP * vec4(position, 1.0);
-
-    texCoord = texcoord;
 }

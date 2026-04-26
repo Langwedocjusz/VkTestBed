@@ -13,7 +13,8 @@
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera), mTextureDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info, sizeof(mUBOData)), mDynamicDS(ctx, info), mSceneDeletionQueue(ctx)
+      mDynamicUBO(ctx, info, sizeof(mUBOData)), mDynamicDS(ctx, info),
+      mSceneDeletionQueue(ctx)
 {
     {
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;

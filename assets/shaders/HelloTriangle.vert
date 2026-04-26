@@ -1,22 +1,24 @@
 #version 450
 
-layout(location = 0) in vec3 aPosition;
-layout(location = 1) in vec3 aColor;
+layout(location = 0) in vec3 vPosition;
+layout(location = 1) in vec3 vColor;
 
-layout(location = 0) out vec3 fragColor;
+layout(location = 0) out VertexData{
+    vec3 Color;
+} vOut;
 
-layout(binding = 0) uniform UniformBufferObject {
+layout(binding = 0) uniform DynamicBlock {
     mat4 CameraViewProjection;
     mat4 LightViewProjection;
-} Ubo;
+} uDynamic;
 
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     mat4 Transform;
-} PushConstants;
+} uPushConstants;
 
 void main() {
-    mat4 MVP = Ubo.CameraViewProjection * PushConstants.Transform;
+    mat4 MVP = uDynamic.CameraViewProjection * uPushConstants.Transform;
 
-    gl_Position = MVP * vec4(aPosition, 1.0);
-    fragColor = aColor;
+    vOut.Color = vColor;
+    gl_Position = MVP * vec4(vPosition, 1.0);
 }

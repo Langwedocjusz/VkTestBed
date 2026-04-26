@@ -7,7 +7,7 @@
 
 layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
-layout (set = 0, binding = 0, Rgba32f) uniform writeonly image2D integrationMap;
+layout (set = 0, binding = 0, Rgba32f) uniform writeonly image2D iIntegrationMap;
 
 vec2 IntegrateBRDF(float NoV, float roughness)
 {
@@ -58,11 +58,11 @@ void main()
     uvec2 index = gl_GlobalInvocationID.xy;
 
     ivec2 outCoord = ivec2(index);
-    vec2 ts = (vec2(index) + 0.5 )/ vec2(imageSize(integrationMap));
+    vec2 ts = (vec2(index) + 0.5 )/ vec2(imageSize(iIntegrationMap));
 
     vec2 integratedBRDF = IntegrateBRDF(ts.x, ts.y);
 
     vec4 res = vec4(integratedBRDF.x, integratedBRDF.y, 0.0, 0.0);
 
-    imageStore(integrationMap, outCoord, res);
+    imageStore(iIntegrationMap, outCoord, res);
 }

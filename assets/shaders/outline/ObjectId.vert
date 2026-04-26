@@ -10,37 +10,24 @@ layout(location = 0) out VertexData {
     vec2 TexCoord;
 } OutData;
 
-layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
-    mat4 CameraViewProjection;
-    mat4 LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
-    float CascadeBounds[3];
-    float CascadeTexelSizes[3];
-    vec3 ViewPos;
-    vec3 ViewFront;
-    float DirectionalFactor;
-    float EnvironmentFactor;
-    float ShadowBiasMin;
-    float ShadowBiasMax;
-} Ubo;
-
-layout(push_constant) uniform constants {
-    mat4 MVP;
+layout(push_constant) uniform PushConstants {
+    mat4         MVP;
     VertexBuffer VertBuff;
-    vec2 TexCenter;
-    vec2 TexExtent;
-    uint ObjectId;
-} PushConstants;
+    vec2         TexCenter;
+    vec2         TexExtent;
+    uint         ObjectId;
+} uPushConstants;
 
 void main() {
-    Vertex vert = PushConstants.VertBuff.Vertices[gl_VertexIndex];
+    Vertex vert = uPushConstants.VertBuff.Vertices[gl_VertexIndex];
     
     vec3 position = GetPosition(vert);
     vec2 texcoord = GetTexCoord(vert);
 
     texcoord = 2.0 * texcoord - 1.0;
-    texcoord *= PushConstants.TexExtent;
-    texcoord += PushConstants.TexCenter;
+    texcoord *= uPushConstants.TexExtent;
+    texcoord += uPushConstants.TexCenter;
 
-    gl_Position = PushConstants.MVP * vec4(position, 1.0);
     OutData.TexCoord = texcoord;
+    gl_Position = uPushConstants.MVP * vec4(position, 1.0);
 }

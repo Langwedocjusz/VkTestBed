@@ -7,16 +7,16 @@
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(std140, set = 0, binding = 0) readonly buffer SHBufferIn {
-   SHData inputSH[ ];
+   SHData bInputSH[ ];
 };
 
 layout(std140, set = 0, binding = 1) writeonly buffer SHBufferOut {
-   SHData outputSH;
+   SHData bOutputSH;
 };
 
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     uint InputSize;
-}  PushConstants;
+} uPushConstants;
 
 void main()
 {
@@ -30,18 +30,18 @@ void main()
         vec4(0), vec4(0), vec4(0)
     );
 
-    for (int i=0; i<PushConstants.InputSize; i++)
+    for (int i=0; i<uPushConstants.InputSize; i++)
     {
-        res.SH_L0     += inputSH[i].SH_L0;
-        res.SH_L1_M_1 += inputSH[i].SH_L1_M_1;
-        res.SH_L1_M0  += inputSH[i].SH_L1_M0;
-        res.SH_L1_M1  += inputSH[i].SH_L1_M1;
-        res.SH_L2_M_2 += inputSH[i].SH_L2_M_2;
-        res.SH_L2_M_1 += inputSH[i].SH_L2_M_1;
-        res.SH_L2_M0  += inputSH[i].SH_L2_M0;
-        res.SH_L2_M1  += inputSH[i].SH_L2_M1;
-        res.SH_L2_M2  += inputSH[i].SH_L2_M2;
+        res.SH_L0     += bInputSH[i].SH_L0;
+        res.SH_L1_M_1 += bInputSH[i].SH_L1_M_1;
+        res.SH_L1_M0  += bInputSH[i].SH_L1_M0;
+        res.SH_L1_M1  += bInputSH[i].SH_L1_M1;
+        res.SH_L2_M_2 += bInputSH[i].SH_L2_M_2;
+        res.SH_L2_M_1 += bInputSH[i].SH_L2_M_1;
+        res.SH_L2_M0  += bInputSH[i].SH_L2_M0;
+        res.SH_L2_M1  += bInputSH[i].SH_L2_M1;
+        res.SH_L2_M2  += bInputSH[i].SH_L2_M2;
     }
 
-    outputSH = res;
+    bOutputSH = res;
 }

@@ -5,18 +5,18 @@
 #include "../common/Cubemap.glsl"
 #include "../common/SphericalHarmonics.glsl"
 
-layout(set = 0, binding = 0) uniform samplerCube environment;
+layout(set = 0, binding = 0) uniform samplerCube sEnvironment;
 
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 layout(std140, set = 1, binding = 0) writeonly buffer SHBuffer {
-   SHData outputSH[ ];
+   SHData bOutputSH[ ];
 };
 
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     uint CubemapRes;
     uint ReduceBlockLine;
- }  PushConstants;
+} uPushConstants;
 
 
 float AreaElement(float x, float y)
@@ -30,7 +30,7 @@ float AreaElement(float x, float y)
 float TexelSolidAngle(vec2 uv)
 {
     //Return area of texel from cubemap, centered on uv, after projection onto unit sphere.
-   float invResolution = 1.0 / float(PushConstants.CubemapRes);
+   float invResolution = 1.0 / float(uPushConstants.CubemapRes);
  
     // U and V are the -1..1 texture coordinate on the current face.
     // Get projected area for this texel
@@ -48,7 +48,7 @@ vec2 GetCoordsCentered(uvec2 texelCoord)
 {
     //Converts texel coord to [-1,1] coordinates.
     vec2 ts = vec2(texelCoord) + vec2(0.5);
-    ts = ts / vec2(PushConstants.CubemapRes);
+    ts = ts / vec2(uPushConstants.CubemapRes);
     ts = 2.0 * ts - 1.0;
 
     return ts;
@@ -60,16 +60,16 @@ void main()
     uint bufferIdx = gl_GlobalInvocationID.x;
 
     //Calculate cubemap texel coordinates:
-    uint numPerLine = PushConstants.CubemapRes/PushConstants.ReduceBlockLine;
+    uint numPerLine = uPushConstants.CubemapRes/uPushConstants.ReduceBlockLine;
     uint numPerSide = numPerLine * numPerLine;
 
     uint sideId = bufferIdx / numPerSide;
     uint clusterId = bufferIdx % numPerSide;
 
     uvec2 sideCoord = uvec2(
-        clusterId % PushConstants.ReduceBlockLine,
-        clusterId / PushConstants.ReduceBlockLine
-    ) * PushConstants.ReduceBlockLine;
+        clusterId % uPushConstants.ReduceBlockLine,
+        clusterId / uPushConstants.ReduceBlockLine
+    ) * uPushConstants.ReduceBlockLine;
 
 
     //Calculate first 9 coefficients of environment
@@ -80,9 +80,9 @@ void main()
         vec4(0), vec4(0), vec4(0)
     );
 
-    for (int i=0; i<PushConstants.ReduceBlockLine; i++)
+    for (int i=0; i<uPushConstants.ReduceBlockLine; i++)
     {
-        for (int j=0; j<PushConstants.ReduceBlockLine; j++)
+        for (int j=0; j<uPushConstants.ReduceBlockLine; j++)
         {
             uvec2 pixelCoord = sideCoord + uvec2(i,j);
 
@@ -90,7 +90,7 @@ void main()
 
             //Retrieve environment sample:
             vec3 dir = GetCubemapDir(centeredUV, sideId);
-            vec3 envSample = texture(environment, dir).rgb;
+            vec3 envSample = texture(sEnvironment, dir).rgb;
 
             //Ad hoc signal clamping:
             envSample = clamp(envSample, vec3(0), vec3(20));
@@ -126,5 +126,5 @@ void main()
     }
 
     //Write to SH buffer:
-    outputSH[bufferIdx] = res;
+    bOutputSH[bufferIdx] = res;
 }

@@ -2,9 +2,9 @@
 
 layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
-layout (set = 0, binding = 0, Rgba32f) uniform writeonly imageCube resultImage;
+layout (set = 0, binding = 0, Rgba32f) uniform writeonly imageCube iResultImage;
 
-layout(set = 0, binding = 1) uniform sampler2D environment;
+layout(set = 0, binding = 1) uniform sampler2D sEnvironment;
 
 #define RIGHT 0
 #define LEFT 1
@@ -17,7 +17,7 @@ vec2 GetCoordsCentered(uvec2 texelCoord)
 {
     //Converts texel coord to [-1,1] coordinates.
     vec2 ts = vec2(texelCoord) + vec2(0.5);
-    ts = ts / vec2(imageSize(resultImage));
+    ts = ts / vec2(imageSize(iResultImage));
     ts = 2.0 * ts - 1.0;
 
     return ts;
@@ -64,7 +64,7 @@ void main()
     texCoord.y = asin(dir.y) / pi + 0.5;
     texCoord.x = atan(dir.x, dir.z) / (2.0*pi) + 0.5;
 
-    vec4 res = texture(environment, texCoord);
+    vec4 res = texture(sEnvironment, texCoord);
 
     //Debug side visualization
     //switch(sideId)
@@ -77,5 +77,5 @@ void main()
     //    case BACK:   {res = vec4(1,1,0,1); break;}
     //}
 
-    imageStore(resultImage, outCoord, res);
+    imageStore(iResultImage, outCoord, res);
 }

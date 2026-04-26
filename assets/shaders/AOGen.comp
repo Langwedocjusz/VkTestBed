@@ -2,24 +2,24 @@
 
 layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
-layout (set = 0, binding = 0, Rgba8) uniform writeonly image2D aoResult;
+layout (set = 0, binding = 0, Rgba8) uniform writeonly image2D iAOResult;
 
-layout(set = 0, binding = 1) uniform sampler2D depthBuffer;
+layout(set = 0, binding = 1) uniform sampler2D sDepthBuffer;
 
 //TODO: proj can be fetched from camera uniform buffer:
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     mat4 Proj;
     mat4 InvProj;
-} PushConstants;
+} uPushConstants;
 
 vec2 GetTextureCoords(ivec2 texelCoords)
 {
-    return (vec2(texelCoords) + 0.5) / vec2(imageSize(aoResult));
+    return (vec2(texelCoords) + 0.5) / vec2(imageSize(iAOResult));
 }
 
 float SampleDepth(vec2 uv)
 {
-    return texture(depthBuffer, uv).r;
+    return texture(sDepthBuffer, uv).r;
 }
 
 vec3 ReconstructPosition(vec2 uv, float depth)
@@ -27,7 +27,7 @@ vec3 ReconstructPosition(vec2 uv, float depth)
     //TODO: this can apparently be optimized not to do matrix math:
     //https://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer/
     vec4 clipPos = vec4(2.0*uv-1.0, depth, 1.0);
-    vec4 viewPos4 = PushConstants.InvProj * clipPos;
+    vec4 viewPos4 = uPushConstants.InvProj * clipPos;
     return viewPos4.xyz / viewPos4.w;
 }
 
@@ -46,7 +46,7 @@ Basis GetTangentBasis(vec2 uv, vec3 pos0, float depth0)
     //And further:
     //https://atyuwen.github.io/posts/normal-reconstruction/
 
-    vec2 denom = 1.0 / vec2(imageSize(aoResult));
+    vec2 denom = 1.0 / vec2(imageSize(iAOResult));
 
     vec2 uvLeft   = uv - denom * vec2(1,0);
     vec2 uvRight  = uv + denom * vec2(1,0);
@@ -131,7 +131,7 @@ float DepthFromSample(vec3 samplePos)
 {
     //Transform to clip space:
     vec4 pos = vec4(samplePos, 1.0);
-    pos = PushConstants.Proj * pos;
+    pos = uPushConstants.Proj * pos;
     pos.xyz /= pos.w;
 
     //Sample depth buffer:
@@ -261,5 +261,5 @@ void main()
 
     vec4 res = vec4(0.5*TBN.N+0.5, ao);    
 
-    imageStore(aoResult, texelCoords, res);
+    imageStore(iAOResult, texelCoords, res);
 }

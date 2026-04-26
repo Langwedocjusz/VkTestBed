@@ -1,13 +1,13 @@
 #version 450
 
-layout(location = 0) in vec3 aPosition;
+layout(location = 0) in vec3 vPosition;
 
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     mat4 ViewProj;
     vec4 Color;
-} PushConstants;
+} uPushConstants;
 
 void main()
 {
-    gl_Position = PushConstants.ViewProj * vec4(aPosition, 1.0);
+    gl_Position = uPushConstants.ViewProj * vec4(vPosition, 1.0);
 }

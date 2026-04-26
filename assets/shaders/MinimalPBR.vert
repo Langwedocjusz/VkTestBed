@@ -11,31 +11,24 @@ layout(location = 0) out VertexData {
     vec3 Normal;
     vec4 Tangent;
     vec3 FragPos;
-} OutData;
+} vOutData;
 
-layout(scalar, set = 0, binding = 0) uniform DynamicUBOBlock {
-    mat4 CameraViewProjection;
-    mat4 LightViewProjection[3]; //TODO: Must be kept in-sync with shadowmap cascades
-    float CascadeBounds[3];
-    float CascadeTexelSizes[3];
-    vec3 ViewPos;
-    vec3 ViewFront;
-    float DirectionalFactor;
-    float EnvironmentFactor;
-    float ShadowBiasMin;
-    float ShadowBiasMax;
-} Ubo;
+layout(scalar, set = 0, binding = 0) uniform CameraBlock {
+    mat4  ViewProjection;
+    vec3  Pos;
+    vec3  Front;
+} uCamera;
 
-layout(push_constant) uniform constants {
-    mat4 Model;
+layout(push_constant) uniform PushConstants {
+    mat4         Model;
     VertexBuffer VertBuff;
-    vec2 TexCenter;
-    vec2 TexExtent;
-} PushConstants;
+    vec2         TexCenter;
+    vec2         TexExtent;
+} uPushConstants;
 
 // Using adjugate transform matrix to transform normal vectors:
 // Credit to Inigo Quilez: https://www.shadertoy.com/view/3s33zj
-mat3 adjugate(mat4 m)
+mat3 Adjugate(mat4 m)
 {
     return mat3(cross(m[1].xyz, m[2].xyz), 
                 cross(m[2].xyz, m[0].xyz), 
@@ -43,29 +36,28 @@ mat3 adjugate(mat4 m)
 }
 
 void main() {
-    mat4 MVP = Ubo.CameraViewProjection * PushConstants.Model;
+    mat4 MVP = uCamera.ViewProjection * uPushConstants.Model;
     
-    Vertex vert = PushConstants.VertBuff.Vertices[gl_VertexIndex];
+    Vertex vert = uPushConstants.VertBuff.Vertices[gl_VertexIndex];
     
     vec3 position = GetPosition(vert);
     vec2 texcoord = GetTexCoord(vert);
-    vec3 normal = GetNormal(vert);
-    vec4 tangent = GetTangent(vert);
-
-    gl_Position = MVP * vec4(position, 1.0);
+    vec3 normal   = GetNormal(vert);
+    vec4 tangent  = GetTangent(vert);
 
     texcoord = 2.0 * texcoord - 1.0;
-    texcoord *= PushConstants.TexExtent;
-    texcoord += PushConstants.TexCenter;
+    texcoord *= uPushConstants.TexExtent;
+    texcoord += uPushConstants.TexCenter;
 
-    normal = normalize(adjugate(PushConstants.Model) * normal);
+    normal = normalize(Adjugate(uPushConstants.Model) * normal);
     
-    vec3 tangent3 = vec3(PushConstants.Model * vec4(tangent.xyz, 0.0));
+    vec3 tangent3 = vec3(uPushConstants.Model * vec4(tangent.xyz, 0.0));
     tangent3 = normalize(tangent3);
 
-    OutData.TexCoord = texcoord;
-    OutData.Normal = normal;
-    OutData.Tangent = vec4(tangent3, tangent.w);
+    vOutData.TexCoord = texcoord;
+    vOutData.Normal   = normal;
+    vOutData.Tangent  = vec4(tangent3, tangent.w);
+    vOutData.FragPos  = vec3(uPushConstants.Model * vec4(position, 1.0));
 
-    OutData.FragPos = vec3(PushConstants.Model * vec4(position, 1.0));
+    gl_Position = MVP * vec4(position, 1.0);
 }

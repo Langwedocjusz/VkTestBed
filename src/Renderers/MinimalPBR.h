@@ -150,7 +150,6 @@ class MinimalPbrRenderer final : public IRenderer {
     Pipeline mZPrepassOpaquePipeline;
     Pipeline mZPrepassAlphaPipeline;
     Pipeline mMainPipeline;
-    Pipeline mBackgroundPipeline;
     Pipeline mStencilPipeline;
     Pipeline mOutlinePipeline;
     Pipeline mObjectIdPipeline;
@@ -186,8 +185,8 @@ class MinimalPbrRenderer final : public IRenderer {
     };
 
     // Descriptors for materials:
-    VkDescriptorSetLayout      mMaterialDescriptorSetLayout;
-    DynamicDescriptorAllocator mMaterialDescriptorAllocator;
+    VkDescriptorSetLayout       mMaterialDescriptorSetLayout;
+    GrowableDescriptorAllocator mMaterialDescriptorAllocator;
 
     // Supported geometry specification:
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
@@ -204,7 +203,7 @@ class MinimalPbrRenderer final : public IRenderer {
     Texture mDefaultNormal;
 
     // Containers into which scene resources are loaded:
-    std::map<SceneKey, Texture>     mImages;
+    std::map<SceneKey, Texture>     mTextures;
     std::map<SceneKey, Material>    mMaterials;
     std::map<DrawableKey, Drawable> mDrawables;
 

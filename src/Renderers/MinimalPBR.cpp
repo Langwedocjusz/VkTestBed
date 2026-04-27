@@ -199,8 +199,8 @@ MinimalPbrRenderer::~MinimalPbrRenderer()
     for (auto &[_, drawable] : mDrawables)
         drawable.Destroy(mCtx);
 
-    for (auto &[_, img] : mImages)
-        DestroyTexture(img);
+    for (auto &[_, tex] : mTextures)
+        DestroyTexture(tex);
 }
 
 void MinimalPbrRenderer::RebuildPipelines()
@@ -271,24 +271,6 @@ void MinimalPbrRenderer::RebuildPipelines()
             .AddDescriptorSetLayout(mAOHandler.GetDSLayout())
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest(mainCompareOp)
-            .SetDepthFormat(DepthStencilFormat)
-            .SetStencilFormat(DepthStencilFormat)
-            .SetMultisampling(mMultisample)
-            .Build(mCtx, mPipelineDeletionQueue);
-
-    mBackgroundPipeline =
-        PipelineBuilder("MinimalPBRBackgroundPipeline")
-            .SetShaderPathVertex("assets/spirv/environment/BackgroundVert.spv")
-            .SetShaderPathFragment("assets/spirv/environment/BackgroundFrag.spv")
-            // No vertex format, since we just hardcode the fullscreen triangle in
-            // the vertex shader:
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(RenderTargetFormat)
-            .SetPushConstantSize(sizeof(FrustumBack))
-            .AddDescriptorSetLayout(mEnvHandler.GetBackgroundDSLayout())
-            .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
             .SetDepthFormat(DepthStencilFormat)
             .SetStencilFormat(DepthStencilFormat)
             .SetMultisampling(mMultisample)
@@ -384,7 +366,7 @@ void MinimalPbrRenderer::RebuildPipelines()
         .CurrentMultisampling = mMultisample,
     };
 
-    mEnvHandler.RebuildPipelines();
+    mEnvHandler.RebuildPipelines(RenderTargetFormat, DepthStencilFormat, mMultisample);
     mShadowmapHandler.RebuildPipelines(info);
     mAOHandler.RebuildPipelines();
 }
@@ -475,12 +457,12 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     mCamUBOData.CameraViewProjection = mCamera.GetViewProj();
     mCamUBOData.ViewPos              = mCamera.GetPos();
     mCamUBOData.ViewFront            = mCamera.GetFront();
-    
-    mUBOData.ShadowMatrices       = mShadowmapHandler.GetMatrices();
-    mUBOData.ShadowBounds         = mShadowmapHandler.GetBounds();
-    mUBOData.ShadowTexelSizes     = mShadowmapHandler.GetTexelSizes();
-    mUBOData.AOEnabled            = mEnableAO;
-    mUBOData.DrawExtent           = drawExtent;
+
+    mUBOData.ShadowMatrices   = mShadowmapHandler.GetMatrices();
+    mUBOData.ShadowBounds     = mShadowmapHandler.GetBounds();
+    mUBOData.ShadowTexelSizes = mShadowmapHandler.GetTexelSizes();
+    mUBOData.AOEnabled        = mEnableAO;
+    mUBOData.DrawExtent       = drawExtent;
 }
 
 void MinimalPbrRenderer::OnImGui()
@@ -853,25 +835,14 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
 
     // At this point debug visuals from the shadow map can optionally be drawn:
-    //  TODO: This is kind of ugly, but debug needs to have acces to the main depth
-    //  buffer. Think about a cleaner way to inject debug visualization rendering.
+    // TODO: This is kind of ugly, but debug needs to have acces to the main depth
+    // buffer. Think about a cleaner way to inject debug visualization rendering.
     mShadowmapHandler.DrawDebugShapes(cmd, mCamUBOData.CameraViewProjection,
                                       GetTargetSize());
 
     // Draw the background:
-    if (mEnvHandler.HdriEnabled())
-    {
-        mBackgroundPipeline.Bind(cmd);
-        common::ViewportScissor(cmd, GetTargetSize());
-
-        mBackgroundPipeline.BindDescriptorSet(cmd, mEnvHandler.GetBackgroundDS(), 0);
-        stats.NumBinds += 1;
-
-        mBackgroundPipeline.PushConstants(cmd, mCamera.GetFrustumBack());
-
-        vkCmdDraw(cmd, 3, 1, 0, 0);
-        stats.NumDraws += 1;
-    }
+    auto frustumBack = mCamera.GetFrustumBack();
+    mEnvHandler.DrawBackground(cmd, frustumBack, GetTargetSize());
 
     vkCmdEndRendering(cmd);
 }
@@ -1061,12 +1032,12 @@ void MinimalPbrRenderer::LoadScene(const Scene &scene)
         for (auto &[_, drawable] : mDrawables)
             drawable.Destroy(mCtx);
 
-        for (auto &[_, texture] : mImages)
+        for (auto &[_, texture] : mTextures)
             DestroyTexture(texture);
 
         mDrawables.clear();
         mMaterials.clear();
-        mImages.clear();
+        mTextures.clear();
 
         mMaterialDescriptorAllocator.DestroyPools();
     }
@@ -1132,12 +1103,12 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
 {
     for (auto &[key, imgData] : scene.Images)
     {
-        const bool alreadyLoaded = mImages.count(key) != 0;
+        const bool alreadyLoaded = mTextures.count(key) != 0;
 
         if (alreadyLoaded && imgData.IsUpToDate)
             continue;
 
-        auto &texture = mImages[key];
+        auto &texture = mTextures[key];
 
         if (alreadyLoaded)
         {
@@ -1148,8 +1119,8 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
         imgData.IsUpToDate = true;
     }
 
-    // Prune orphaned images:
-    std::erase_if(mImages, [&](const auto &item) {
+    // Prune orphaned textures:
+    std::erase_if(mTextures, [&](const auto &item) {
         auto &key = item.first;
         auto &img = item.second;
 
@@ -1194,8 +1165,8 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         auto GetTexture = [&](std::optional<SceneKey> opt, Texture &def) -> Texture & {
             if (opt.has_value())
             {
-                if (mImages.count(*opt) != 0)
-                    return mImages[*opt];
+                if (mTextures.count(*opt) != 0)
+                    return mTextures[*opt];
             }
 
             return def;

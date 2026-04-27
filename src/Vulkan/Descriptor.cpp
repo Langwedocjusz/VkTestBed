@@ -8,6 +8,46 @@
 
 #include <cstdint>
 
+// It is invalid usage to pass descriptor pool a count
+// with zero of something. Hence we must manually
+// sieve the values:
+std::vector<VkDescriptorPoolSize> DescriptorBindingCounts::ToRaw()
+{
+    std::vector<VkDescriptorPoolSize> ret{};
+
+    if (StorageImage > 0)
+        ret.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, StorageImage});
+    if (CombinedImageSampler > 0)
+        ret.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, CombinedImageSampler});
+    if (UniformBuffer > 0)
+        ret.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, UniformBuffer});
+    if (StorageBuffer > 0)
+        ret.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, StorageBuffer});
+
+    return ret;
+}
+
+DescriptorBindingCounts &DescriptorBindingCounts::operator+=(
+    const DescriptorBindingCounts &other)
+{
+    StorageImage += other.StorageImage;
+    CombinedImageSampler += other.CombinedImageSampler;
+    UniformBuffer += other.UniformBuffer;
+    StorageBuffer += other.StorageBuffer;
+
+    return *this;
+}
+
+DescriptorBindingCounts operator*(uint32_t mult, const DescriptorBindingCounts &x)
+{
+    return DescriptorBindingCounts{
+        .StorageImage         = mult * x.StorageImage,
+        .CombinedImageSampler = mult * x.CombinedImageSampler,
+        .UniformBuffer        = mult * x.UniformBuffer,
+        .StorageBuffer        = mult * x.StorageBuffer,
+    };
+}
+
 DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(std::string_view debugName)
     : mDebugName(debugName)
 {
@@ -62,7 +102,7 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageImage(uint32_t
 
 DescriptorSetLayoutBuilder::Result DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
 {
-    return {BuildLayout(ctx), BuildSizes()};
+    return {BuildLayout(ctx), mBindingCounts};
 }
 
 DescriptorSetLayoutBuilder::Result DescriptorSetLayoutBuilder::Build(VulkanContext &ctx,
@@ -71,7 +111,7 @@ DescriptorSetLayoutBuilder::Result DescriptorSetLayoutBuilder::Build(VulkanConte
     const auto layout = BuildLayout(ctx);
     queue.push_back(layout);
 
-    return {layout, BuildSizes()};
+    return {layout, mBindingCounts};
 }
 
 VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildLayout(VulkanContext &ctx)
@@ -90,21 +130,6 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildLayout(VulkanContext &ctx
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, layout, mDebugName);
 
     return layout;
-}
-
-DescriptorSetLayoutBuilder::PoolSizes DescriptorSetLayoutBuilder::BuildSizes()
-{
-    std::array<VkDescriptorPoolSize, 4> ret{
-        {
-         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, mBindingCounts.StorageImage},
-         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-             mBindingCounts.CombinedImageSampler},
-         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, mBindingCounts.UniformBuffer},
-         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, mBindingCounts.StorageBuffer},
-         }
-    };
-
-    return ret;
 }
 
 VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,
@@ -290,11 +315,11 @@ void DescriptorUpdater::Update(VulkanContext &ctx)
                            writes.data(), 0, nullptr);
 }
 
-DynamicDescriptorAllocator::DynamicDescriptorAllocator(VulkanContext &ctx) : mCtx(ctx)
+GrowableDescriptorAllocator::GrowableDescriptorAllocator(VulkanContext &ctx) : mCtx(ctx)
 {
 }
 
-DynamicDescriptorAllocator::~DynamicDescriptorAllocator()
+GrowableDescriptorAllocator::~GrowableDescriptorAllocator()
 {
     bool init = !mCountsPerSet.empty();
 
@@ -302,7 +327,7 @@ DynamicDescriptorAllocator::~DynamicDescriptorAllocator()
         DestroyPools();
 }
 
-void DynamicDescriptorAllocator::OnInit(std::span<VkDescriptorPoolSize> sizes)
+void GrowableDescriptorAllocator::OnInit(std::span<VkDescriptorPoolSize> sizes)
 {
     mCountsPerSet.assign(sizes.begin(), sizes.end());
 
@@ -310,7 +335,7 @@ void DynamicDescriptorAllocator::OnInit(std::span<VkDescriptorPoolSize> sizes)
     GrowSetsPerPool();
 }
 
-VkDescriptorSet DynamicDescriptorAllocator::Allocate(VkDescriptorSetLayout &layout)
+VkDescriptorSet GrowableDescriptorAllocator::Allocate(VkDescriptorSetLayout &layout)
 {
     VkDescriptorPool pool = GetPool();
 
@@ -341,7 +366,7 @@ VkDescriptorSet DynamicDescriptorAllocator::Allocate(VkDescriptorSetLayout &layo
     return set;
 }
 
-std::vector<VkDescriptorSet> DynamicDescriptorAllocator::Allocate(
+std::vector<VkDescriptorSet> GrowableDescriptorAllocator::Allocate(
     std::span<VkDescriptorSetLayout> layouts)
 {
     VkDescriptorPool pool = GetPool();
@@ -373,7 +398,7 @@ std::vector<VkDescriptorSet> DynamicDescriptorAllocator::Allocate(
     return sets;
 }
 
-VkDescriptorPool DynamicDescriptorAllocator::GetPool()
+VkDescriptorPool GrowableDescriptorAllocator::GetPool()
 {
     VkDescriptorPool pool;
 
@@ -392,7 +417,7 @@ VkDescriptorPool DynamicDescriptorAllocator::GetPool()
     return pool;
 }
 
-VkDescriptorPool DynamicDescriptorAllocator::CreatePool()
+VkDescriptorPool GrowableDescriptorAllocator::CreatePool()
 {
     std::vector<VkDescriptorPoolSize> poolSizes = mCountsPerSet;
 
@@ -412,7 +437,7 @@ VkDescriptorPool DynamicDescriptorAllocator::CreatePool()
     return newPool;
 }
 
-void DynamicDescriptorAllocator::GrowSetsPerPool()
+void GrowableDescriptorAllocator::GrowSetsPerPool()
 {
     constexpr double   growthFactor   = 1.5f;
     constexpr uint32_t maxSetsPerPool = 4096;
@@ -421,7 +446,7 @@ void DynamicDescriptorAllocator::GrowSetsPerPool()
     mSetsPerPool = std::min(mSetsPerPool, maxSetsPerPool);
 }
 
-void DynamicDescriptorAllocator::ResetPools()
+void GrowableDescriptorAllocator::ResetPools()
 {
     for (auto pool : mReadyPools)
         vkResetDescriptorPool(mCtx.Device, pool, 0);
@@ -435,7 +460,7 @@ void DynamicDescriptorAllocator::ResetPools()
     mFullPools.clear();
 }
 
-void DynamicDescriptorAllocator::DestroyPools()
+void GrowableDescriptorAllocator::DestroyPools()
 {
     for (auto pool : mReadyPools)
         vkDestroyDescriptorPool(mCtx.Device, pool, nullptr);

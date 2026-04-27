@@ -8,6 +8,18 @@
 #include <span>
 #include <string>
 
+struct DescriptorBindingCounts {
+    uint32_t StorageImage         = 0;
+    uint32_t CombinedImageSampler = 0;
+    uint32_t UniformBuffer        = 0;
+    uint32_t StorageBuffer        = 0;
+
+    std::vector<VkDescriptorPoolSize> ToRaw();
+    DescriptorBindingCounts          &operator+=(const DescriptorBindingCounts &other);
+};
+
+DescriptorBindingCounts operator*(uint32_t mult, const DescriptorBindingCounts &x);
+
 class DescriptorSetLayoutBuilder {
   public:
     DescriptorSetLayoutBuilder(std::string_view debugName);
@@ -17,8 +29,7 @@ class DescriptorSetLayoutBuilder {
     DescriptorSetLayoutBuilder &AddCombinedSampler(uint32_t binding, uint32_t stages);
     DescriptorSetLayoutBuilder &AddStorageImage(uint32_t binding, uint32_t stages);
 
-    using PoolSizes = std::array<VkDescriptorPoolSize, 4>;
-    using Result    = std::pair<VkDescriptorSetLayout, PoolSizes>;
+    using Result = std::pair<VkDescriptorSetLayout, DescriptorBindingCounts>;
 
     Result Build(VulkanContext &ctx);
     Result Build(VulkanContext &ctx, DeletionQueue &queue);
@@ -28,18 +39,11 @@ class DescriptorSetLayoutBuilder {
                                            uint32_t stages);
 
     VkDescriptorSetLayout BuildLayout(VulkanContext &ctx);
-    PoolSizes             BuildSizes();
 
   private:
     std::vector<VkDescriptorSetLayoutBinding> mBindings;
     std::string                               mDebugName;
-
-    struct {
-        uint32_t StorageImage         = 0;
-        uint32_t CombinedImageSampler = 0;
-        uint32_t UniformBuffer        = 0;
-        uint32_t StorageBuffer        = 0;
-    } mBindingCounts;
+    DescriptorBindingCounts                   mBindingCounts;
 };
 
 namespace Descriptor
@@ -104,10 +108,10 @@ class DescriptorUpdater {
 
 // Based on growable descriptor allocator from:
 // https://vkguide.dev/docs/new_chapter_4/descriptor_abstractions/
-class DynamicDescriptorAllocator {
+class GrowableDescriptorAllocator {
   public:
-    DynamicDescriptorAllocator(VulkanContext &ctx);
-    ~DynamicDescriptorAllocator();
+    GrowableDescriptorAllocator(VulkanContext &ctx);
+    ~GrowableDescriptorAllocator();
 
     void OnInit(std::span<VkDescriptorPoolSize> sizes);
 

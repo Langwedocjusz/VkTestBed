@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Camera.h"
 #include "DeletionQueue.h"
 #include "Descriptor.h"
 #include "Pipeline.h"
@@ -23,8 +24,11 @@ class EnvironmentHandler {
   public:
     EnvironmentHandler(VulkanContext &ctx);
 
-    void RebuildPipelines();
+    void RebuildPipelines(VkFormat colorFormat, VkFormat depthFormat,
+                          VkSampleCountFlagBits sampleCount);
     void LoadEnvironment(const Scene &scene);
+
+    void DrawBackground(VkCommandBuffer cmd, FrustumBack f, VkExtent2D drawExtent);
 
     // Retrieve descriptor set (and its layout)
     // for rendering objects (indirect lighting/reflections):
@@ -35,17 +39,6 @@ class EnvironmentHandler {
     [[nodiscard]] VkDescriptorSetLayout GetLightingDSLayout() const
     {
         return mLightingDescriptorSetLayout;
-    }
-
-    // Retrieve descriptor set (and its layout)
-    // for rendering the background:
-    [[nodiscard]] VkDescriptorSet GetBackgroundDS() const
-    {
-        return mBackgroundDescriptorSet;
-    }
-    [[nodiscard]] VkDescriptorSetLayout GetBackgroundDSLayout() const
-    {
-        return mBackgroundDescrptorSetLayout;
     }
 
     // Retrieve auxiliary information about the environment
@@ -76,12 +69,11 @@ class EnvironmentHandler {
 
     VulkanContext &mCtx;
 
-    // Descriptor sets exposed to the outside world:
+    bool mIntegrationGenerated = false;
+
+    // Descriptor set exposed to the outside world:
     VkDescriptorSetLayout mLightingDescriptorSetLayout;
     VkDescriptorSet       mLightingDescriptorSet;
-
-    VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
-    VkDescriptorSet       mBackgroundDescriptorSet;
 
     // Private descriptor sets:
 
@@ -101,29 +93,35 @@ class EnvironmentHandler {
     VkDescriptorSetLayout mIntegrationDescriptorSetLayout;
     VkDescriptorSet       mIntegrationDescriptorSet;
 
-    // Compute pipelines for resource generation:
-    Pipeline mEquiRectToCubePipeline;
+    // Descriptor set for drawing the background:
+    VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
+    VkDescriptorSet       mBackgroundDescriptorSet;
 
-    struct IrradianceSHPushConstants {
+    // Push constants data layouts for pipelines:
+    struct PCDataIrradianceSH {
         uint32_t CubemapRes;
         uint32_t ReduceBlock;
     };
 
-    struct ReducePushConstants {
+    struct PCDataReduce {
         uint32_t BufferSize;
     };
 
-    Pipeline mIrradianceSHPipeline;
-    Pipeline mIrradianceReducePipeline;
-
-    struct PrefilteredPushConstants {
+    struct PCDataPrefiltered {
         uint32_t CubeResolution;
         uint32_t MipLevel;
         float    Roughness;
     };
 
+    // Compute pipelines for resource generation:
+    Pipeline mEquiRectToCubePipeline;
+    Pipeline mIrradianceSHPipeline;
+    Pipeline mIrradianceReducePipeline;
     Pipeline mPrefilteredGenPipeline;
     Pipeline mIntegrationGenPipeline;
+
+    // Pipeline for drawing the background:
+    Pipeline mBackgroundPipeline;
 
     // SSBOs for reduction when computing SH irradiance coefficients:
     Buffer mFirstReducionBuffer;
@@ -147,7 +145,7 @@ class EnvironmentHandler {
     EnvUBOData mEnvUBOData;
     Buffer     mEnvUBO;
 
-    DynamicDescriptorAllocator mDescriptorAllocator;
+    VkDescriptorPool mStaticDescriptorPool;
 
     DeletionQueue mDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;

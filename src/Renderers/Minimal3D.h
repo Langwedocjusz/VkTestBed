@@ -68,8 +68,8 @@ class Minimal3DRenderer final : public IRenderer {
     Texture                     mDefaultImage;
     std::map<SceneKey, Texture> mImages;
 
-    VkDescriptorSetLayout      mTextureDescriptorSetLayout;
-    DynamicDescriptorAllocator mTextureDescriptorAllocator;
+    VkDescriptorSetLayout       mTextureDescriptorSetLayout;
+    GrowableDescriptorAllocator mTextureDescriptorAllocator;
 
     struct Material {
         float           AlphaCutoff = 0.5f;

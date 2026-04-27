@@ -35,7 +35,7 @@ void main() {
 
     mat4 MVP = uCamera.ViewProjection * uPushConstants.Model;
 
-    gl_Position = MVP * vec4(position, 1.0);
-
     vOut.TexCoord = texcoord;
+
+    gl_Position = MVP * vec4(position, 1.0);
 }

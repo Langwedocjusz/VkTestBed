@@ -36,8 +36,12 @@ class DynamicDescriptorSet {
   public:
     DynamicDescriptorSet(VulkanContext &ctx, FrameInfo &frame);
 
-    void Initialize(VkDescriptorSetLayout           layout,
-                    std::span<VkDescriptorPoolSize> poolCounts);
+    // Pool counts corresponds to binding counts of
+    // the given layout (as for one descriptor set).
+    // Behind the scenes this will hold
+    // (number of swapchain images) of the descriptors,
+    // so it will actually allocate more.
+    void Initialize(VkDescriptorSetLayout layout, DescriptorBindingCounts poolCounts);
 
     void BeginUpdate();
     void EndUpdate();

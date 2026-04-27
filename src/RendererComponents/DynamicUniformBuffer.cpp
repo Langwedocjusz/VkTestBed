@@ -49,8 +49,8 @@ DynamicDescriptorSet::DynamicDescriptorSet(VulkanContext &ctx, FrameInfo &frame)
 {
 }
 
-void DynamicDescriptorSet::Initialize(VkDescriptorSetLayout           layout,
-                                      std::span<VkDescriptorPoolSize> poolCounts)
+void DynamicDescriptorSet::Initialize(VkDescriptorSetLayout   layout,
+                                      DescriptorBindingCounts poolCounts)
 {
     vassert(!mInitialized, "Already initialized!");
     mInitialized = true;
@@ -58,8 +58,11 @@ void DynamicDescriptorSet::Initialize(VkDescriptorSetLayout           layout,
     // Initialize descriptor pool:
     uint32_t numDescriptors = mCtx.Swapchain.image_count;
 
+    auto totalCounts = numDescriptors * poolCounts;
+    auto rawCounts   = totalCounts.ToRaw();
+
     mDescriptorPool =
-        Descriptor::InitPool(mCtx, numDescriptors, poolCounts, mDeletionQueue);
+        Descriptor::InitPool(mCtx, numDescriptors, rawCounts, mDeletionQueue);
 
     // Allocate descriptor sets:
     mDescriptorSetLayout = layout;

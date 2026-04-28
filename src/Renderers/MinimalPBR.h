@@ -14,15 +14,6 @@
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 
-// TODO: Descriptor set managements should be reworked.
-// Current dynamic UBO abstration creates its own layout and sets,
-// but really those things could be combined.
-// Also using descriptor sets as communication layer may not be the
-// best idea as it leads to explosion in their number.
-// Semi-modern gpus seem to support 8 concurrent descriptor sets bound
-// but that can be easily reached with this strategy.
-// Instead the components should probably just return resource views
-// and the host renderer should build its own descriptor sets from them.
 
 class MinimalPbrRenderer final : public IRenderer {
   public:
@@ -143,8 +134,20 @@ class MinimalPbrRenderer final : public IRenderer {
     Texture     mDepthStencilBuffer;
     VkImageView mDepthOnlyView;
 
-    // Material sampler:
-    VkSampler mMaterialSampler;
+    // Supported geometry specification:
+    static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
+
+    GeometryLayout mGeometryLayout{
+        .VertexLayout = Vertex::PullLayout::Naive,
+        //.VertexLayout = Vertex::PullLayout::Compressed,
+        .IndexType = IndexType,
+    };
+
+    // Some renderer settings:
+    bool                  mEnablePrepass           = true;
+    bool                  mEnableAO                = false;
+    float                 mInternalResolutionScale = 1.0f;
+    VkSampleCountFlagBits mMultisample             = VK_SAMPLE_COUNT_1_BIT;
 
     // Graphics pipelines:
     Pipeline mZPrepassOpaquePipeline;
@@ -184,18 +187,42 @@ class MinimalPbrRenderer final : public IRenderer {
         uint32_t        ObjectId;
     };
 
-    // Descriptors for materials:
+    // Dynamic uniform data including camera/lighting and more renderer settings:
+    struct CamUBOData {
+        glm::mat4 CameraViewProjection;
+        glm::vec3 ViewPos;
+        glm::vec3 ViewFront;
+    } mCamUBOData;
+
+    struct UBOData {
+        ShadowmapHandler::Matrices   ShadowMatrices;
+        ShadowmapHandler::Bounds     ShadowBounds;
+        ShadowmapHandler::TexelSizes ShadowTexelSizes;
+        float                        DirectionalFactor = 3.0f;
+        float                        EnvironmentFactor = 0.05f;
+        float                        ShadowBiasLight   = 0.2f;
+        float                        ShadowBiasNormal  = 2.0f;
+        int                          AOEnabled         = 0;
+        glm::vec2                    DrawExtent;
+    } mUBOData;
+
+    DynamicUniformBuffer mCamDynamicUBO;
+    DynamicUniformBuffer mDynamicUBO;
+
+    DynamicDescriptorSet mDynamicDS;
+
+    // Auxiliary descriptor sets for other textures (ao, shadows):
+    VkDescriptorPool mStaticDescriptorPool;
+    
+    VkDescriptorSetLayout mAuxDescriptorSetLayout;
+    VkDescriptorSet mAuxDescriptorSet;
+
+    // Descriptor sets for materials:
     VkDescriptorSetLayout       mMaterialDescriptorSetLayout;
     GrowableDescriptorAllocator mMaterialDescriptorAllocator;
 
-    // Supported geometry specification:
-    static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
-
-    GeometryLayout mGeometryLayout{
-        .VertexLayout = Vertex::PullLayout::Naive,
-        //.VertexLayout = Vertex::PullLayout::Compressed,
-        .IndexType = IndexType,
-    };
+    // Material sampler:
+    VkSampler mMaterialSampler;
 
     // Default material textures:
     Texture mDefaultAlbedo;
@@ -221,35 +248,7 @@ class MinimalPbrRenderer final : public IRenderer {
     // Index cache for retrieving drawables and transform ids based on object id:
     std::map<SceneKey, std::vector<std::pair<DrawableKey, size_t>>> mObjectCache;
 
-    // Some renderer settings:
-    bool                  mEnablePrepass           = true;
-    bool                  mEnableAO                = false;
-    float                 mInternalResolutionScale = 1.0f;
-    VkSampleCountFlagBits mMultisample             = VK_SAMPLE_COUNT_1_BIT;
-
-    // Dynamic uniform data including camera/lighting and more renderer settings:
-    struct CamUBOData {
-        glm::mat4 CameraViewProjection;
-        glm::vec3 ViewPos;
-        glm::vec3 ViewFront;
-    } mCamUBOData;
-
-    struct UBOData {
-        ShadowmapHandler::Matrices   ShadowMatrices;
-        ShadowmapHandler::Bounds     ShadowBounds;
-        ShadowmapHandler::TexelSizes ShadowTexelSizes;
-        float                        DirectionalFactor = 3.0f;
-        float                        EnvironmentFactor = 0.05f;
-        float                        ShadowBiasLight   = 0.2f;
-        float                        ShadowBiasNormal  = 2.0f;
-        int                          AOEnabled         = 0;
-        glm::vec2                    DrawExtent;
-    } mUBOData;
-
-    DynamicUniformBuffer mCamDynamicUBO;
-    DynamicUniformBuffer mDynamicUBO;
-
-    DynamicDescriptorSet mDynamicDS;
+    // Submodules for specific tasks:
 
     // Cubemap generation and background drawing:
     EnvironmentHandler mEnvHandler;

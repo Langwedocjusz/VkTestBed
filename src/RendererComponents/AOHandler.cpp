@@ -31,34 +31,16 @@ AOHandler::AOHandler(VulkanContext &ctx)
 
     // Build descriptor sets for AO:
     {
-        // clang-format off
-        std::array<VkDescriptorPoolSize, 2> poolCounts{{
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
-            {         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-        }};
-        // clang-format on
-
-        mAODescriptorPool = Descriptor::InitPool(mCtx, 2, poolCounts);
-        mMainDeletionQueue.push_back(mAODescriptorPool);
-    }
-
-    {
-        auto [layout, _] = DescriptorSetLayoutBuilder("AOGenDSLayout")
+        auto [layout, counts] = DescriptorSetLayoutBuilder("AOGenDSLayout")
                                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
                                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
                                .Build(mCtx, mMainDeletionQueue);
 
+        auto rawCounts = counts.ToRaw();                   
+        mAODescriptorPool = Descriptor::InitPool(mCtx, 2, rawCounts, mMainDeletionQueue);
+
         mAOGenDescriptorSetLayout = layout;
         mAOGenDescriptorSet       = Descriptor::Allocate(mCtx, mAODescriptorPool, layout);
-    }
-
-    {
-        auto [layout, _] = DescriptorSetLayoutBuilder("AOUsageDSLayout")
-                               .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-                               .Build(mCtx, mMainDeletionQueue);
-
-        mAOUsageDescriptorSetLayout = layout;
-        mAOUsageDescriptorSet = Descriptor::Allocate(mCtx, mAODescriptorPool, layout);
     }
 }
 
@@ -152,10 +134,6 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         };
         barrier::ImageLayoutCoarse(cmd, barrierInfoAO);
     });
-
-    DescriptorUpdater(mAOUsageDescriptorSet)
-        .WriteCombinedSampler(0, mAOTarget.View, mAOutSampler)
-        .Update(mCtx);
 }
 
 void AOHandler::RunAOPass(VkCommandBuffer cmd, Image &depthBuffer, glm::mat4 proj)

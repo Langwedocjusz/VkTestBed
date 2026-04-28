@@ -77,18 +77,13 @@ class ShadowmapHandler {
     // binding. It is also assumed that transparency is stored in the 'a' channel.
     void BindAlphaMaterialDS(VkCommandBuffer cmd, VkDescriptorSet materialDS);
 
-    // Retrieve descriptor set (and its layout) that allows
-    // sampling the shadow maps:
-    [[nodiscard]] VkDescriptorSetLayout GetDSLayout() const
+    // Retrieve data needed to access the shadow maps:
+    [[nodiscard]] std::pair<VkImageView, VkSampler> GetViewAndSampler() const
     {
-        return mShadowmapDescriptorSetLayout;
-    }
-    [[nodiscard]] VkDescriptorSet GetDescriptorSet() const
-    {
-        return mShadowmapDescriptorSet;
+        return {mShadowmap.View, mSampler};
     }
 
-    // Retrieve view-proj matrices and cascade bounds:
+    // Retrieve other data nedeed when using the shadow maps:
     [[nodiscard]] Matrices GetMatrices() const
     {
         return mMatrices;
@@ -123,8 +118,6 @@ class ShadowmapHandler {
     VulkanContext              &mCtx;
     std::optional<PipelineInfo> mPipelineInfo = std::nullopt;
 
-    VkDescriptorPool mStaticDescriptorPool;
-
     // Configurable parameters:
     bool mDebugView     = false;
     bool mFreezeFrustum = false;
@@ -152,10 +145,6 @@ class ShadowmapHandler {
     // Parts of the camera frustum corresponding to subsequent cascades.
     // Used to determine their projection matrices:
     std::array<Frustum, NumCascades> mShadowFrustums;
-
-    // Descriptor set for using the shadowmaps in rendering:
-    VkDescriptorSetLayout mShadowmapDescriptorSetLayout;
-    VkDescriptorSet       mShadowmapDescriptorSet;
 
     // Descriptor set and sampler for sending shadow map view to imgui:
     VkDescriptorSet mDebugTextureDescriptorSet;

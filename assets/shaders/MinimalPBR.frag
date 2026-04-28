@@ -61,14 +61,13 @@ layout(set = 1, binding = 2) uniform samplerCube sPrefilteredMap;
 layout(set = 1, binding = 3) uniform sampler2D sIntegrationMap;
 
 layout(set = 2, binding = 0) uniform sampler2DArrayShadow sShadowMap;
+layout(set = 2, binding = 1) uniform sampler2D sAOMap;
 
-layout(set = 3, binding = 0) uniform sampler2D sAOMap;
+layout(set = 3, binding = 0) uniform sampler2D sAlbedoMap;
+layout(set = 3, binding = 1) uniform sampler2D sRougnessMap;
+layout(set = 3, binding = 2) uniform sampler2D sNormalMap;
 
-layout(set = 4, binding = 0) uniform sampler2D sAlbedoMap;
-layout(set = 4, binding = 1) uniform sampler2D sRougnessMap;
-layout(set = 4, binding = 2) uniform sampler2D sNormalMap;
-
-layout(scalar, set = 4, binding = 3) uniform MaterialBlock {
+layout(scalar, set = 3, binding = 3) uniform MaterialBlock {
     float AlphaCutoff;
     vec3  TranslucentColor;
     int   DoubleSided;

@@ -18,16 +18,13 @@ class AOHandler {
     void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
                                     VkExtent2D drawExtent);
 
-    [[nodiscard]] VkDescriptorSetLayout GetDSLayout() const
-    {
-        return mAOUsageDescriptorSetLayout;
-    }
-    [[nodiscard]] VkDescriptorSet GetDescriptorSet() const
-    {
-        return mAOUsageDescriptorSet;
-    }
-
     void RunAOPass(VkCommandBuffer cmd, Image &depthBuffer, glm::mat4 proj);
+
+    // Retrieve data needed to access the ao texture:
+    [[nodiscard]] std::pair<VkImageView, VkSampler> GetViewAndSampler() const
+    {
+        return {mAOTarget.View, mAOutSampler};
+    }
 
   private:
     struct PCDataAO {
@@ -49,13 +46,14 @@ class AOHandler {
 
     Texture mAOTarget;
 
+    // Descriptor set for AO generation:
     VkDescriptorPool mAODescriptorPool;
-    // Generation:
     VkDescriptorSetLayout mAOGenDescriptorSetLayout;
     VkDescriptorSet       mAOGenDescriptorSet;
-    // Usage:
-    VkDescriptorSetLayout mAOUsageDescriptorSetLayout;
-    VkDescriptorSet       mAOUsageDescriptorSet;
+
+    //// Usage:
+    //VkDescriptorSetLayout mAOUsageDescriptorSetLayout;
+    //VkDescriptorSet       mAOUsageDescriptorSet;
 
     VkSampler mDepthSampler;
     VkSampler mAOutSampler;

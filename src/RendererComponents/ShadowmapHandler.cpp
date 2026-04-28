@@ -58,33 +58,6 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
                    .SetCompareOp(VK_COMPARE_OP_LESS)
                    .Build(mCtx, mMainDeletionQueue);
 
-    // Set up a descriptor for using the shadow maps:
-    {
-        // Create static descriptor pool:
-        std::vector<VkDescriptorPoolSize> poolCounts{
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
-        };
-
-        mStaticDescriptorPool =
-            Descriptor::InitPool(mCtx, 1, poolCounts, mMainDeletionQueue);
-
-        // Create descriptor set layout for sampling the shadowmap
-        // and allocate the corresponding descriptor set:
-        auto [layout, _] =
-            DescriptorSetLayoutBuilder("MinimalPBRShadowmapDescriptorLayout")
-                .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .Build(ctx, mMainDeletionQueue);
-
-        mShadowmapDescriptorSetLayout = layout;
-        mShadowmapDescriptorSet =
-            Descriptor::Allocate(mCtx, mStaticDescriptorPool, layout);
-
-        // Update the shadowmap descriptor:
-        DescriptorUpdater(mShadowmapDescriptorSet)
-            .WriteCombinedSampler(0, mShadowmap.View, mSampler)
-            .Update(mCtx);
-    }
-
     // Setup debug view of the shadowmaps in imgui:
     {
         mDebugSampler = SamplerBuilder("MinimalPbrSampler2D")

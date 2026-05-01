@@ -8,8 +8,8 @@
 
 #include "imgui.h"
 
-AOHandler::AOHandler(VulkanContext &ctx)
-    : mCtx(ctx), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx),
+AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
+    : mCtx(ctx), mCamera(camera), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx),
       mSwapchainDeletionQueue(ctx)
 {
     // For depth clamp to edge is required to avoid ao artefacts near screen edges:
@@ -136,11 +136,13 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
     });
 }
 
-void AOHandler::RunAOPass(VkCommandBuffer cmd, Image &depthBuffer, glm::mat4 proj)
+void AOHandler::RunAOPass(VkCommandBuffer cmd)
 {
     // TODO: make the layout barriers non-coarse
 
     // Transition depth target to be used as texture:
+    Image& depthBuffer = mResourceCache->DepthBuffer;
+
     auto barrierInfoDepth = barrier::LayoutTransitionInfo{
         .Image     = depthBuffer,
         .OldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
@@ -160,9 +162,15 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd, Image &depthBuffer, glm::mat4 pro
     mAOGenPipeline.Bind(cmd);
     mAOGenPipeline.BindDescriptorSet(cmd, mAOGenDescriptorSet, 0);
 
+    auto frBack = mCamera.GetFrustumBackEye();
+
     PCDataAO data{
-        .Proj    = proj,
-        .InvProj = glm::inverse(proj),
+        .Proj    = mCamera.GetProj(),
+        //.InvProj = glm::inverse(mCamera.GetProj()),
+        .TopLeft = frBack.TopLeft,
+        .TopRight = frBack.TopRight,
+        .BottomLeft = frBack.BottomLeft ,
+        .BottomRight = frBack.BottomRight,
     };
 
     mAOGenPipeline.PushConstants(cmd, data);

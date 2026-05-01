@@ -8,12 +8,12 @@ layout(location = 0) out vec4 vOutColor;
 
 layout(set = 0, binding = 0) uniform samplerCube sEnvironment;
 
-layout(push_constant) uniform constants {
+layout(push_constant) uniform PushConstants {
     vec4 TopLeft;
     vec4 TopRight;
     vec4 BottomLeft;
     vec4 BottomRight;
-} PushConstants;
+} uPushConstants;
 
 void main()
 {
@@ -21,8 +21,8 @@ void main()
     float x = vIn.TexCoord.x;
     float y = vIn.TexCoord.y;
 
-    vec3 top = mix(PushConstants.TopLeft.xyz,    PushConstants.TopRight.xyz,    x);
-    vec3 bot = mix(PushConstants.BottomLeft.xyz, PushConstants.BottomRight.xyz, x);
+    vec3 top = mix(uPushConstants.TopLeft.xyz,    uPushConstants.TopRight.xyz,    x);
+    vec3 bot = mix(uPushConstants.BottomLeft.xyz, uPushConstants.BottomRight.xyz, x);
 
     vec3 dir = mix(top, bot, y);
 

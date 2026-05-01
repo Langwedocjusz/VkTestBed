@@ -111,7 +111,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     : IRenderer(ctx, info, camera), mCamDynamicUBO(ctx, info, sizeof(mCamDynamicUBO)),
       mDynamicUBO(ctx, info, sizeof(mUBOData)),
       mDynamicDS(ctx, info), mMaterialDescriptorAllocator(ctx), mEnvHandler(ctx),
-      mShadowmapHandler(ctx), mAOHandler(ctx), mSceneDeletionQueue(ctx),
+      mShadowmapHandler(ctx), mAOHandler(ctx, camera), mSceneDeletionQueue(ctx),
       mMaterialDeletionQueue(ctx)
 {
     // Create the material texture sampler:
@@ -572,7 +572,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
         Prepass(cmd, stats);
 
         if (mEnableAO)
-            mAOHandler.RunAOPass(cmd, mDepthStencilBuffer.Img, mCamera.GetProj());
+            mAOHandler.RunAOPass(cmd);
     }
 
     MainPass(cmd, stats);

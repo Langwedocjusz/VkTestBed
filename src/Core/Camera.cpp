@@ -27,10 +27,6 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
     mView = glm::lookAt(mPos, mPos + mFront, mUp);
     mProj = ProjPerspective();
 
-    // To compensate for change of orientation between
-    // OpenGL and Vulkan:
-    mProj[1][1] *= -1;
-
     mViewProj    = mProj * mView;
     mInvViewProj = glm::inverse(mViewProj);
 
@@ -51,13 +47,40 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
     };
 
     // Not doing the final perspective division makes
-    // the cubemap coordinates more stable:
+    // the coordinates more stable for usage in
+    // sampling cubemaps:
     mFrustumBack = FrustumBack{
         .TopLeft     = mInvViewProj * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
         .TopRight    = mInvViewProj * glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
         .BottomLeft  = mInvViewProj * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
         .BottomRight = mInvViewProj * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
     };
+
+
+    auto invProj = glm::inverse(mProj);
+
+    mFrustumBackEye = FrustumBack{
+        .TopLeft     = invProj * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
+        .TopRight    = invProj * glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
+        .BottomLeft  = invProj * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
+        .BottomRight = invProj * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+    };
+
+    // For eye frustum we normalize back vectors
+    // so they have z component equal to 1.0:
+    {
+        // Perspective projection:
+        mFrustumBackEye.TopLeft /= mFrustumBackEye.TopLeft.w;
+        mFrustumBackEye.TopRight /= mFrustumBackEye.TopRight.w;
+        mFrustumBackEye.BottomLeft /= mFrustumBackEye.BottomLeft.w;
+        mFrustumBackEye.BottomRight /= mFrustumBackEye.BottomRight.w;
+
+        // Division by z:
+        mFrustumBackEye.TopLeft /= mFrustumBackEye.TopLeft.z;
+        mFrustumBackEye.TopRight /= mFrustumBackEye.TopRight.z;
+        mFrustumBackEye.BottomLeft /= mFrustumBackEye.BottomLeft.z;
+        mFrustumBackEye.BottomRight /= mFrustumBackEye.BottomRight.z;
+    }
 }
 
 void Camera::OnEvent(Event::EventVariant event)
@@ -88,7 +111,13 @@ glm::mat4 Camera::ProjPerspective()
 {
     const float aspect = static_cast<float>(mWidth) / static_cast<float>(mHeight);
 
-    return glm::perspective(mFovRadians, aspect, mZMin, mZMax);
+    auto proj = glm::perspective(mFovRadians, aspect, mZMin, mZMax);
+
+    // To compensate for change of orientation between
+    // OpenGL and Vulkan:
+    proj[1][1] *= -1;
+
+    return proj;
 }
 
 glm::mat4 Camera::ProjOrthogonal()

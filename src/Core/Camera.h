@@ -84,9 +84,25 @@ class Camera {
         return mFrustum;
     }
 
+    // Returns world space positions of far (back)
+    // frustum corners. They are returned in
+    // homogeneous form, without doing the final
+    // division by w. In practice this results
+    // in more stable behaviour when sampling
+    // cubemaps.
     [[nodiscard]] const FrustumBack &GetFrustumBack() const
     {
         return mFrustumBack;
+    }
+
+    // Returns eye/view space positions of far (back)
+    // frustum corners. They are already diviced by w.
+    // Moreover they are normalized to have z = 1.0.
+    // This choice is convenient for reconstruction
+    // postions from the depth buffer.
+    [[nodiscard]] const FrustumBack &GetFrustumBackEye() const
+    {
+        return mFrustumBackEye;
     }
 
     /// Get perspective projection covering a given rectangle of the near plane.
@@ -140,4 +156,5 @@ class Camera {
 
     Frustum     mFrustum;
     FrustumBack mFrustumBack;
+    FrustumBack mFrustumBackEye;
 };

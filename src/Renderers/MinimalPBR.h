@@ -14,7 +14,6 @@
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 
-
 class MinimalPbrRenderer final : public IRenderer {
   public:
     MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera);
@@ -213,9 +212,9 @@ class MinimalPbrRenderer final : public IRenderer {
 
     // Auxiliary descriptor sets for other textures (ao, shadows):
     VkDescriptorPool mStaticDescriptorPool;
-    
+
     VkDescriptorSetLayout mAuxDescriptorSetLayout;
-    VkDescriptorSet mAuxDescriptorSet;
+    VkDescriptorSet       mAuxDescriptorSet;
 
     // Descriptor sets for materials:
     VkDescriptorSetLayout       mMaterialDescriptorSetLayout;

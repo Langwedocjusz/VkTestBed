@@ -56,7 +56,6 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
         .BottomRight = mInvViewProj * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
     };
 
-
     auto invProj = glm::inverse(mProj);
 
     mFrustumBackEye = FrustumBack{

@@ -2,7 +2,6 @@
 #include "Pch.h"
 
 #include "Common.h"
-#include "Descriptor.h"
 #include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Pipeline.h"

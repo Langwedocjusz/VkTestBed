@@ -11,7 +11,7 @@
 
 class AOHandler {
   public:
-    AOHandler(VulkanContext &ctx, Camera& cam);
+    AOHandler(VulkanContext &ctx, Camera &cam);
 
     void OnImGui();
 
@@ -23,7 +23,7 @@ class AOHandler {
     void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
                                     VkExtent2D drawExtent);
 
-    // Both RebuildPipelines and RecreateSwapchainResources 
+    // Both RebuildPipelines and RecreateSwapchainResources
     // must be called before first invocation of RunAOPass.
     void RunAOPass(VkCommandBuffer cmd);
 
@@ -35,9 +35,12 @@ class AOHandler {
     }
 
   private:
+    struct PCDataZ{
+      glm::mat4 Proj;
+    };
+
     struct PCDataAO {
         glm::mat4 Proj;
-        //glm::mat4 InvProj;
         glm::vec4 TopLeft;
         glm::vec4 TopRight;
         glm::vec4 BottomLeft;
@@ -57,23 +60,22 @@ class AOHandler {
 
     float mResolutionScale = 1.0f;
 
+    Pipeline mZGenPipeline;
     Pipeline mAOGenPipeline;
 
+    Texture mZBuffer;
     Texture mAOTarget;
 
     // Descriptor set for AO generation:
-    VkDescriptorPool mAODescriptorPool;
-    VkDescriptorSetLayout mAOGenDescriptorSetLayout;
+    VkDescriptorPool      mAODescriptorPool;
+    VkDescriptorSetLayout mAODescriptorSetLayout;
     VkDescriptorSet       mAOGenDescriptorSet;
-
-    //// Usage:
-    //VkDescriptorSetLayout mAOUsageDescriptorSetLayout;
-    //VkDescriptorSet       mAOUsageDescriptorSet;
+    VkDescriptorSet       mZGenDescriptorSet;
 
     VkSampler mDepthSampler;
     VkSampler mAOutSampler;
 
-    DeletionQueue  mMainDeletionQueue;
-    DeletionQueue  mPipelineDeletionQueue;
-    DeletionQueue  mSwapchainDeletionQueue;
+    DeletionQueue mMainDeletionQueue;
+    DeletionQueue mPipelineDeletionQueue;
+    DeletionQueue mSwapchainDeletionQueue;
 };

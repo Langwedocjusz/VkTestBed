@@ -109,10 +109,9 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mCamDynamicUBO(ctx, info, sizeof(mCamDynamicUBO)),
-      mDynamicUBO(ctx, info, sizeof(mUBOData)),
-      mDynamicDS(ctx, info), mMaterialDescriptorAllocator(ctx), mEnvHandler(ctx),
-      mShadowmapHandler(ctx), mAOHandler(ctx, camera), mSceneDeletionQueue(ctx),
-      mMaterialDeletionQueue(ctx)
+      mDynamicUBO(ctx, info, sizeof(mUBOData)), mDynamicDS(ctx, info),
+      mMaterialDescriptorAllocator(ctx), mEnvHandler(ctx), mShadowmapHandler(ctx),
+      mAOHandler(ctx, camera), mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
 {
     // Create the material texture sampler:
     mMaterialSampler = SamplerBuilder("MinimalPbrMaterialSampler")
@@ -124,7 +123,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                            .EnableMaxAnisotropy()
                            .Build(mCtx, mMainDeletionQueue);
 
-    // Create descriptor set layout for sampling material textures 
+    // Create descriptor set layout for sampling material textures
     // and initialize the growable allocator:
     {
         auto [layout, counts] =
@@ -193,10 +192,10 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         mAuxDescriptorSetLayout = layout;
 
         auto rawCounts = counts.ToRaw();
-        mStaticDescriptorPool = Descriptor::InitPool(mCtx, 1, rawCounts, mMainDeletionQueue);
+        mStaticDescriptorPool =
+            Descriptor::InitPool(mCtx, 1, rawCounts, mMainDeletionQueue);
 
-        mAuxDescriptorSet =
-            Descriptor::Allocate(mCtx, mStaticDescriptorPool, layout);
+        mAuxDescriptorSet = Descriptor::Allocate(mCtx, mStaticDescriptorPool, layout);
     }
 
     // Build the graphics pipelines:
@@ -454,7 +453,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     // Update auxiliary descriptor set:
     {
         auto [shadowView, shadowSampler] = mShadowmapHandler.GetViewAndSampler();
-        auto [aoView, aoSampler] = mAOHandler.GetViewAndSampler();
+        auto [aoView, aoSampler]         = mAOHandler.GetViewAndSampler();
 
         DescriptorUpdater(mAuxDescriptorSet)
             .WriteCombinedSampler(0, shadowView, shadowSampler)

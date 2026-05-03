@@ -10,18 +10,6 @@
 #include "volk.h"
 
 #include <cmath>
-#include <iostream>
-#include <utility>
-
-uint32_t Image::CalcNumMips(uint32_t size)
-{
-    return static_cast<uint32_t>(std::floor(std::log2(size))) + 1;
-}
-
-uint32_t Image::CalcNumMips(uint32_t width, uint32_t height)
-{
-    return CalcNumMips(std::max(width, height));
-}
 
 Image Image::Create(VulkanContext &ctx, const std::string &debugName,
                     VkImageCreateInfo &info)
@@ -63,7 +51,7 @@ VkImageView Image::CreateView(VulkanContext &ctx, const std::string &debugName,
     return imageView;
 }
 
-void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
+void Image::UploadToImage(VulkanContext &ctx, Image &img, Image::UploadInfo info)
 {
     // Sanity checks - we only support singular 2D images atm:
     vassert(img.Info.extent.depth == 1);
@@ -156,6 +144,16 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageUploadInfo info)
     Buffer::Destroy(ctx, stagingBuffer);
 }
 
+uint32_t Image::CalcNumMips(uint32_t size)
+{
+    return static_cast<uint32_t>(std::floor(std::log2(size))) + 1;
+}
+
+uint32_t Image::CalcNumMips(uint32_t width, uint32_t height)
+{
+    return CalcNumMips(std::max(width, height));
+}
+
 void Image::GenerateMips(VulkanContext &ctx, Image &img)
 {
     ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
@@ -236,4 +234,17 @@ void Image::GenerateMips(VulkanContext &ctx, Image &img)
 
         barrier::ImageLayoutCoarse(cmd, finalInfo);
     });
+}
+
+VkImageSubresourceRange Image::GetDefaultRange(const Image &img)
+{
+    VkImageSubresourceRange range{
+        .aspectMask     = vkutils::GetDefaultAspect(img.Info.format),
+        .baseMipLevel   = 0,
+        .levelCount     = img.Info.mipLevels,
+        .baseArrayLayer = 0,
+        .layerCount     = img.Info.arrayLayers,
+    };
+
+    return range;
 }

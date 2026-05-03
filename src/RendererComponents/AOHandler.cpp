@@ -7,7 +7,6 @@
 #include "Sampler.h"
 
 #include "imgui.h"
-#include "vulkan/vulkan_core.h"
 
 AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
     : mCtx(ctx), mCamera(camera), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx),
@@ -67,10 +66,10 @@ void AOHandler::RebuildPipelines()
     mPipelineDeletionQueue.flush();
 
     mZGenPipeline = ComputePipelineBuilder("AOZBufferPipeline")
-                         .SetShaderPath("assets/spirv/ao/ZGenComp.spv")
-                         .AddDescriptorSetLayout(mAODescriptorSetLayout)
-                         .SetPushConstantSize(sizeof(PCDataZ))
-                         .Build(mCtx, mPipelineDeletionQueue);
+                        .SetShaderPath("assets/spirv/ao/ZGenComp.spv")
+                        .AddDescriptorSetLayout(mAODescriptorSetLayout)
+                        .SetPushConstantSize(sizeof(PCDataZ))
+                        .Build(mCtx, mPipelineDeletionQueue);
 
     mAOGenPipeline = ComputePipelineBuilder("AOGenPipeline")
                          .SetShaderPath("assets/spirv/ao/AOGenComp.spv")
@@ -103,11 +102,14 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .height = ScaleResolution(drawExtent.height),
         };
 
+        // TODO: Original paper used a fixed number of 4 mips
+        // Measure what works better.
         Image2DInfo zBufferInfo{
-            .Extent = targetExtent,
-            .Format = VK_FORMAT_R32_SFLOAT,
-            .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            .Layout = VK_IMAGE_LAYOUT_GENERAL,
+            .Extent    = targetExtent,
+            .Format    = VK_FORMAT_R32_SFLOAT,
+            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .MipLevels = Image::CalcNumMips(targetExtent.width, targetExtent.height),
+            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
         mZBuffer =
@@ -185,13 +187,13 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
     // TODO: make the layout barriers non-coarse
 
     // Computing thread group sizes for both dispatches:
-    float localSizeX = 32.0f, localSizeY = 32.0f;
+    uint32_t localSizeX = 16, localSizeY = 16;
 
-    auto targetWidth  = static_cast<float>(mAOTarget.Img.Info.extent.width);
-    auto targetHeight = static_cast<float>(mAOTarget.Img.Info.extent.height);
+    uint32_t targetSizeX = mAOTarget.Img.Info.extent.width;
+    uint32_t targetSizeY = mAOTarget.Img.Info.extent.height;
 
-    auto dispCountX = static_cast<uint32_t>(std::ceil(targetWidth / localSizeX));
-    auto dispCountY = static_cast<uint32_t>(std::ceil(targetHeight / localSizeY));
+    uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
+    uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
 
     // Generate the Z buffer:
     {
@@ -205,7 +207,8 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         };
         barrier::ImageLayoutCoarse(cmd, barrierInfoDepth);
 
-        // Transition Z buffer to be used as storage image (can discard previous contents):
+        // Transition Z buffer to be used as storage image (can discard previous
+        // contents):
         auto barrierInfoZ = barrier::LayoutTransitionInfo{
             .Image     = mZBuffer.Img,
             .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -240,7 +243,8 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         };
         barrier::ImageLayoutCoarse(cmd, barrierInfoDepth);
 
-        // Transition AO target to be used as storage image (can discard previous contents):
+        // Transition AO target to be used as storage image (can discard previous
+        // contents):
         auto barrierInfoAO = barrier::LayoutTransitionInfo{
             .Image     = mAOTarget.Img,
             .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -252,7 +256,7 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         auto frBack = mCamera.GetFrustumBackEye();
 
         PCDataAO data{
-            .Proj = mCamera.GetProj(),
+            .Proj        = mCamera.GetProj(),
             .TopLeft     = frBack.TopLeft,
             .TopRight    = frBack.TopRight,
             .BottomLeft  = frBack.BottomLeft,

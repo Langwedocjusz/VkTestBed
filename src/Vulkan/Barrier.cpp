@@ -190,16 +190,8 @@ void barrier::ImageLayoutCoarse(VkCommandBuffer cmd, LayoutTransitionInfo info)
     }
     else
     {
-        // By default assume all image is to be transitioned:
-        VkImageSubresourceRange range{
-            .aspectMask     = vkutils::GetDefaultAspect(info.Image.Info.format),
-            .baseMipLevel   = 0,
-            .levelCount     = info.Image.Info.mipLevels,
-            .baseArrayLayer = 0,
-            .layerCount     = info.Image.Info.arrayLayers,
-        };
-
-        barrier.subresourceRange = range;
+        // By default assume all image layers/levels are to be transitioned:
+        barrier.subresourceRange = Image::GetDefaultRange(info.Image);
     }
 
     // Suboptimal barrier usage - block everything:

@@ -5,7 +5,6 @@
 #include "Common.h"
 #include "Descriptor.h"
 #include "GeometryData.h"
-#include "ImageLoaders.h"
 #include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Pipeline.h"
@@ -145,10 +144,9 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0}, true);
     auto normalData    = ImageData::SinglePixel(Pixel{128, 128, 255, 0}, true);
 
-    mDefaultAlbedo = TextureLoaders::LoadTexture2D(mCtx, "DefaultAlbedo", albedoData);
-    mDefaultRoughness =
-        TextureLoaders::LoadTexture2D(mCtx, "DefaultRoughness", roughnessData);
-    mDefaultNormal = TextureLoaders::LoadTexture2D(mCtx, "DefaultNormal", normalData);
+    mDefaultAlbedo    = MakeTexture::FromData(mCtx, "DefaultAlbedo", albedoData);
+    mDefaultRoughness = MakeTexture::FromData(mCtx, "DefaultRoughness", roughnessData);
+    mDefaultNormal    = MakeTexture::FromData(mCtx, "DefaultNormal", normalData);
 
     mMainDeletionQueue.push_back(mDefaultAlbedo);
     mMainDeletionQueue.push_back(mDefaultRoughness);
@@ -425,8 +423,9 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
                                                  mSwapchainDeletionQueue);
 
     // Create depth-only view for the depth buffer:
-    mDepthOnlyView = MakeView::View2D(mCtx, "DepthOnlyView", mDepthStencilBuffer.Img,
-                                      depthBufferInfo.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
+    mDepthOnlyView = MakeView::View2D(
+        mCtx, "DepthOnlyView",
+        {.Img = mDepthStencilBuffer.Img, .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT});
     mSwapchainDeletionQueue.push_back(mDepthOnlyView);
 
     // If multisampling is used, create intermediate buffers for rendering, before
@@ -1132,7 +1131,7 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
             DestroyTexture(texture);
         }
 
-        texture = TextureLoaders::LoadTexture2D(mCtx, "MaterialTexture", imgData);
+        texture            = MakeTexture::FromData(mCtx, "MaterialTexture", imgData);
         imgData.IsUpToDate = true;
     }
 

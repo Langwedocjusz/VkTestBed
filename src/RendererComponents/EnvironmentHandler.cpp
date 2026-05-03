@@ -4,7 +4,6 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Descriptor.h"
-#include "ImageLoaders.h"
 #include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Pipeline.h"
@@ -83,9 +82,8 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         {
             const auto name = "EnvPrefilteredViewMip" + std::to_string(mip);
 
-            auto view = MakeView::ViewCubeSingleMip(mCtx, name, mPrefiltered.Img,
-                                                    prefilteredInfo.Format,
-                                                    VK_IMAGE_ASPECT_COLOR_BIT, mip);
+            auto view = MakeView::ViewCube(mCtx, name,
+                                           {.Img = mPrefiltered.Img, .SelectLevel = mip});
 
             mPrefilteredMipViews.push_back(view);
             mDeletionQueue.push_back(view);
@@ -389,7 +387,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
     vassert(data.Format == VK_FORMAT_R32G32B32A32_SFLOAT);
 
     // Load equirectangular environment map:
-    auto envMap = TextureLoaders::LoadTexture2D(mCtx, "EnvEnvironmentMap", data);
+    auto envMap = MakeTexture::FromData(mCtx, "EnvEnvironmentMap", data);
 
     DescriptorUpdater(mTexToImgDescriptorSet)
         .WriteStorageImage(0, mCubemap.View)
@@ -410,10 +408,13 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
         mEquiRectToCubePipeline.Bind(cmd);
         mEquiRectToCubePipeline.BindDescriptorSet(cmd, mTexToImgDescriptorSet, 0);
 
-        uint32_t localSizeX = 32, localSizeY = 32;
+        uint32_t localSizeX = 16, localSizeY = 16;
 
-        uint32_t dispCountX = mCubemap.Img.Info.extent.width / localSizeX;
-        uint32_t dispCountY = mCubemap.Img.Info.extent.width / localSizeY;
+        uint32_t targetSizeX = mCubemap.Img.Info.extent.width;
+        uint32_t targetSizeY = mCubemap.Img.Info.extent.height;
+
+        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
+        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
 
         vkCmdDispatch(cmd, dispCountX, dispCountY, 6);
 
@@ -450,8 +451,8 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
 
         mIrradianceSHPipeline.PushConstants(cmd, data);
 
-        uint32_t localSizeX = 1024;
-        uint32_t dispCountX = mFirstBufferLen / localSizeX;
+        uint32_t localSizeX = 256;
+        uint32_t dispCountX = (mFirstBufferLen + localSizeX - 1) / localSizeX;
 
         vkCmdDispatch(cmd, dispCountX, 1, 1);
     });
@@ -540,7 +541,12 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
                 mPrefilteredGenPipeline.PushConstants(cmd, data);
 
-                vkCmdDispatch(cmd, resX, resY, 6);
+                uint32_t localSizeX = 8, localSizeY = 8;
+
+                uint32_t dispCountX = (resX + localSizeX - 1) / localSizeX;
+                uint32_t dispCountY = (resY + localSizeY - 1) / localSizeY;
+
+                vkCmdDispatch(cmd, dispCountX, dispCountY, 6);
             });
 
             resX = resX / 2;
@@ -573,10 +579,13 @@ void EnvironmentHandler::GenerateIntegrationMap()
         mIntegrationGenPipeline.Bind(cmd);
         mIntegrationGenPipeline.BindDescriptorSet(cmd, mIntegrationDescriptorSet, 0);
 
-        uint32_t localSizeX = 32, localSizeY = 32;
+        uint32_t localSizeX = 16, localSizeY = 16;
 
-        uint32_t dispCountX = mIntegration.Img.Info.extent.width / localSizeX;
-        uint32_t dispCountY = mIntegration.Img.Info.extent.width / localSizeY;
+        uint32_t targetSizeX = mIntegration.Img.Info.extent.width;
+        uint32_t targetSizeY = mIntegration.Img.Info.extent.height;
+
+        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
+        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
 
         vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
 

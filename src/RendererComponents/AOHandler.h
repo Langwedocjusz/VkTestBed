@@ -35,8 +35,8 @@ class AOHandler {
     }
 
   private:
-    struct PCDataZ{
-      glm::mat4 Proj;
+    struct PCDataZ {
+        glm::mat4 Proj;
     };
 
     struct PCDataAO {

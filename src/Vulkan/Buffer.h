@@ -6,13 +6,12 @@
 
 #include <string>
 
-struct CopyBufferInfo {
-    VkBuffer     Src;
-    VkBuffer     Dst;
-    VkDeviceSize Size;
-};
-
 struct Buffer {
+  public:
+    VkBuffer          Handle;
+    VmaAllocation     Allocation;
+    VmaAllocationInfo AllocInfo;
+
   public:
     static Buffer Create(VulkanContext &ctx, const std::string &debugName,
                          VkDeviceSize size, VkBufferUsageFlags usage,
@@ -23,10 +22,11 @@ struct Buffer {
                        VkDeviceSize size);
     static void UploadToMapped(Buffer buff, const void *data, VkDeviceSize size);
 
-    static void CopyBuffer(VkCommandBuffer cmd, CopyBufferInfo info);
+    struct CopyInfo {
+        VkBuffer     Src;
+        VkBuffer     Dst;
+        VkDeviceSize Size;
+    };
 
-  public:
-    VkBuffer          Handle;
-    VmaAllocation     Allocation;
-    VmaAllocationInfo AllocInfo;
+    static void CopyBuffer(VkCommandBuffer cmd, CopyInfo info);
 };

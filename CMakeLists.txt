@@ -177,8 +177,6 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Descriptor.cpp
         src/Vulkan/Image.h
         src/Vulkan/Image.cpp
-        src/Vulkan/ImageLoaders.h
-        src/Vulkan/ImageLoaders.cpp
         src/Vulkan/MakeImage.h
         src/Vulkan/MakeImage.cpp
         src/Vulkan/Pipeline.h

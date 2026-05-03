@@ -36,12 +36,9 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
     // Create per-layer views for rendering into cascades:
     for (uint32_t i = 0; i < NumCascades; i++)
     {
-        std::string name        = "ShadowmapView" + std::to_string(i);
-        auto        format      = shadowmapInfo.Format;
-        auto        aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-        mCascadeViews[i] = MakeView::ViewArraySingleLayer(mCtx, name, mShadowmap.Img,
-                                                          format, aspectFlags, i);
+        std::string name = "ShadowmapView" + std::to_string(i);
+        mCascadeViews[i] =
+            MakeView::View2DArray(mCtx, name, {.Img = mShadowmap.Img, .SelectLayer = i});
     }
 
     // TODO: Move this inside the loop above

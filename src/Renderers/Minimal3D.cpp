@@ -3,7 +3,6 @@
 
 #include "Common.h"
 #include "Descriptor.h"
-#include "ImageLoaders.h"
 #include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Renderer.h"
@@ -53,7 +52,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     // Create the default texture:
     auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255}, false);
 
-    mDefaultImage = TextureLoaders::LoadTexture2D(mCtx, "DefaultTexture", imgData);
+    mDefaultImage = MakeTexture::FromData(mCtx, "DefaultTexture", imgData);
     mMainDeletionQueue.push_back(mDefaultImage);
 
     // Create the texture sampler:
@@ -310,7 +309,7 @@ void Minimal3DRenderer::LoadImages(const Scene &scene)
 
         auto &texture = mImages[key];
 
-        texture = TextureLoaders::LoadTexture2D(mCtx, "MaterialTexture", imgData);
+        texture = MakeTexture::FromData(mCtx, "MaterialTexture", imgData);
 
         mSceneDeletionQueue.push_back(texture);
     }

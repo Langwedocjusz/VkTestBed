@@ -44,7 +44,7 @@ void Buffer::UploadToMapped(Buffer buff, const void *data, VkDeviceSize size)
     std::memcpy(buff.AllocInfo.pMappedData, data, size);
 }
 
-void Buffer::CopyBuffer(VkCommandBuffer cmd, CopyBufferInfo info)
+void Buffer::CopyBuffer(VkCommandBuffer cmd, Buffer::CopyInfo info)
 {
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0;

@@ -549,8 +549,8 @@ void EnvironmentHandler::GeneratePrefilteredMap()
                 vkCmdDispatch(cmd, dispCountX, dispCountY, 6);
             });
 
-            resX = resX / 2;
-            resY = resY / 2;
+            resX = std::max(1u, resX / 2);
+            resY = std::max(1u, resY / 2);
         }
     }
 

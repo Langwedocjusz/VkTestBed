@@ -29,21 +29,41 @@ AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
                        .SetMaxLod(12.0f)
                        .Build(mCtx, mMainDeletionQueue);
 
-    // Build descriptor sets for z buffer and AO generation (same layout):
+    // Build descriptor sets for z buffer and AO generation:
+    DescriptorBindingCounts totalCounts{};
+
     {
-        auto [layout, counts] = DescriptorSetLayoutBuilder("AOGenDSLayout")
-                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .Build(mCtx, mMainDeletionQueue);
-
-        counts = 2 * counts;
-
-        auto rawCounts    = counts.ToRaw();
-        mAODescriptorPool = Descriptor::InitPool(mCtx, 2, rawCounts, mMainDeletionQueue);
-
+        auto [layout, counts]  = DescriptorSetLayoutBuilder("AOGenDSLayout")
+                                     .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                                     .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                     .Build(mCtx, mMainDeletionQueue);
         mAODescriptorSetLayout = layout;
-        mAOGenDescriptorSet    = Descriptor::Allocate(mCtx, mAODescriptorPool, layout);
-        mZGenDescriptorSet     = Descriptor::Allocate(mCtx, mAODescriptorPool, layout);
+        totalCounts += 2 * counts;
+    }
+
+    {
+        auto [layout, counts]       = DescriptorSetLayoutBuilder("AOGenZMipDSLayout")
+                                          .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                                          .AddStorageImage(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                          .Build(mCtx, mMainDeletionQueue);
+        mZMipGenDescriptorSetLayout = layout;
+        totalCounts += mZMipGenDescriptorSets.size() * counts;
+    }
+
+    auto bindingCounts   = totalCounts.ToRaw();
+    auto descriptorCount = 2 + mZMipGenDescriptorSets.size();
+
+    mAODescriptorPool =
+        Descriptor::InitPool(mCtx, descriptorCount, bindingCounts, mMainDeletionQueue);
+
+    mAOGenDescriptorSet =
+        Descriptor::Allocate(mCtx, mAODescriptorPool, mAODescriptorSetLayout);
+    mZGenDescriptorSet =
+        Descriptor::Allocate(mCtx, mAODescriptorPool, mAODescriptorSetLayout);
+
+    for (auto &set : mZMipGenDescriptorSets)
+    {
+        set = Descriptor::Allocate(mCtx, mAODescriptorPool, mZMipGenDescriptorSetLayout);
     }
 }
 
@@ -70,6 +90,11 @@ void AOHandler::RebuildPipelines()
                         .AddDescriptorSetLayout(mAODescriptorSetLayout)
                         .SetPushConstantSize(sizeof(PCDataZ))
                         .Build(mCtx, mPipelineDeletionQueue);
+
+    mZMipGenPipeline = ComputePipelineBuilder("AOZBufferMipPipeline")
+                           .SetShaderPath("assets/spirv/ao/ZMipGenComp.spv")
+                           .AddDescriptorSetLayout(mZMipGenDescriptorSetLayout)
+                           .Build(mCtx, mPipelineDeletionQueue);
 
     mAOGenPipeline = ComputePipelineBuilder("AOGenPipeline")
                          .SetShaderPath("assets/spirv/ao/AOGenComp.spv")
@@ -102,18 +127,25 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .height = ScaleResolution(drawExtent.height),
         };
 
-        // TODO: Original paper used a fixed number of 4 mips
-        // Measure what works better.
         Image2DInfo zBufferInfo{
             .Extent    = targetExtent,
             .Format    = VK_FORMAT_R32_SFLOAT,
             .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            .MipLevels = Image::CalcNumMips(targetExtent.width, targetExtent.height),
+            .MipLevels = ZBufferMips,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
         mZBuffer =
             MakeTexture::Texture2D(mCtx, "ZBuffer", zBufferInfo, mSwapchainDeletionQueue);
+
+        for (uint32_t mip = 0; mip < ZBufferMips; mip++)
+        {
+            auto view = MakeView::View2D(mCtx, "ZBufferSingleMipView",
+                                         {.Img = mZBuffer.Img, .SelectLevel = mip});
+            mSwapchainDeletionQueue.push_back(view);
+
+            mZSingleLevelViews[mip] = view;
+        }
 
         Image2DInfo aoTargetInfo{
             .Extent = targetExtent,
@@ -144,6 +176,16 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .WriteStorageImage(0, mZBuffer.View)
             .WriteCombinedSampler(1, depthOnlyView, mDepthSampler)
             .Update(mCtx);
+
+        for (size_t srcLvl = 0; srcLvl < mZMipGenDescriptorSets.size(); srcLvl++)
+        {
+            auto &set = mZMipGenDescriptorSets[srcLvl];
+
+            DescriptorUpdater(set)
+                .WriteStorageImage(0, mZSingleLevelViews[srcLvl + 1])
+                .WriteStorageImage(1, mZSingleLevelViews[srcLvl])
+                .Update(mCtx);
+        }
 
         // Transition depth buffer and z-buffer to correct layouts:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
@@ -216,7 +258,7 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         };
         barrier::ImageLayoutCoarse(cmd, barrierInfoZ);
 
-        // Generate the Z-buffer:
+        // Generate the 0 level of the Z-buffer:
         PCDataZ data{
             .Proj = mCamera.GetProj(),
         };
@@ -231,6 +273,40 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         barrierInfoDepth.OldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barrierInfoDepth.NewLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         barrier::ImageLayoutCoarse(cmd, barrierInfoDepth);
+
+        // Create higher mip-levels of the Z-buffer:
+        uint32_t resX = mZBuffer.Img.Info.extent.width / 2;
+        uint32_t resY = mZBuffer.Img.Info.extent.height / 2;
+
+        for (uint32_t mip = 1; mip < mZBuffer.Img.Info.mipLevels; mip++)
+        {
+            mZMipGenPipeline.Bind(cmd);
+            mZMipGenPipeline.BindDescriptorSet(cmd, mZMipGenDescriptorSets[mip - 1], 0);
+
+            uint32_t localSizeX = 16, localSizeY = 16;
+
+            uint32_t dispCountX = (resX + localSizeX - 1) / localSizeX;
+            uint32_t dispCountY = (resY + localSizeY - 1) / localSizeY;
+
+            vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+
+            // Barrier to synchronize subsequent dispatches:
+            auto currentRange         = Image::GetDefaultRange(mZBuffer.Img);
+            currentRange.baseMipLevel = mip;
+            currentRange.levelCount   = 1;
+
+            auto barrierInfo = barrier::LayoutTransitionInfo{
+                .Image            = mZBuffer.Img,
+                .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
+                .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
+                .SubresourceRange = currentRange,
+            };
+            barrier::ImageLayoutCoarse(cmd, barrierInfo);
+
+            // Update next mip resolution:
+            resX = std::max(1u, resX / 2);
+            resY = std::max(1u, resY / 2);
+        }
     }
 
     // Generate the AO:

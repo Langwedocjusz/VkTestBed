@@ -61,16 +61,25 @@ class AOHandler {
     float mResolutionScale = 1.0f;
 
     Pipeline mZGenPipeline;
+    Pipeline mZMipGenPipeline;
     Pipeline mAOGenPipeline;
 
     Texture mZBuffer;
     Texture mAOTarget;
 
+    // TODO: Test different counts impact on perf:
+    static constexpr uint32_t            ZBufferMips = 4;
+    std::array<VkImageView, ZBufferMips> mZSingleLevelViews;
+
     // Descriptor set for AO generation:
-    VkDescriptorPool      mAODescriptorPool;
+    VkDescriptorPool mAODescriptorPool;
+
     VkDescriptorSetLayout mAODescriptorSetLayout;
     VkDescriptorSet       mAOGenDescriptorSet;
     VkDescriptorSet       mZGenDescriptorSet;
+
+    VkDescriptorSetLayout                        mZMipGenDescriptorSetLayout;
+    std::array<VkDescriptorSet, ZBufferMips - 1> mZMipGenDescriptorSets;
 
     VkSampler mDepthSampler;
     VkSampler mAOutSampler;

@@ -223,7 +223,7 @@ void Minimal3DRenderer::RecreateSwapchainResources()
         .Usage  = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
-    mRenderTarget = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
+    mDepthBuffer = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
                                            mSwapchainDeletionQueue);
 }
 
@@ -319,10 +319,11 @@ void Minimal3DRenderer::LoadMaterials(const Scene &scene)
 {
     for (auto &[key, sceneMat] : scene.Materials)
     {
+        const bool firstLoad = mMaterials.count(key) == 0;
         auto &mat = mMaterials[key];
 
         // Allocate descripor set only on first load:
-        if (mMaterials.count(key) == 0)
+        if (firstLoad)
         {
             mat.DescriptorSet =
                 mTextureDescriptorAllocator.Allocate(mTextureDescriptorSetLayout);

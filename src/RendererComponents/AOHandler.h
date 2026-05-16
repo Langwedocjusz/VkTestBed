@@ -40,7 +40,6 @@ class AOHandler {
     };
 
     struct PCDataAO {
-        glm::mat4 Proj;
         glm::vec4 TopLeft;
         glm::vec4 TopRight;
         glm::vec4 BottomLeft;

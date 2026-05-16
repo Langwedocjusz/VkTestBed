@@ -332,7 +332,6 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         auto frBack = mCamera.GetFrustumBackEye();
 
         PCDataAO data{
-            .Proj        = mCamera.GetProj(),
             .TopLeft     = frBack.TopLeft,
             .TopRight    = frBack.TopRight,
             .BottomLeft  = frBack.BottomLeft,

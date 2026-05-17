@@ -40,9 +40,11 @@ class MinimalPbrRenderer final : public IRenderer {
         Buffer          UBO;
 
         struct {
-            float     AlphaCutoff      = 0.5f;
-            glm::vec3 TranslucentColor = glm::vec3(0.0f);
-            int32_t   DoubleSided      = 0;
+            int32_t           DoubleSided      = 0;
+            MaterialAlphaMode AlphaMode        = MaterialAlphaMode::Opaque;
+            float             AlphaCutoff      = 0.5f;
+            glm::vec3         TranslucentColor = glm::vec3(0.0f);
+
         } UboData;
     };
 
@@ -235,9 +237,16 @@ class MinimalPbrRenderer final : public IRenderer {
 
     // More granular drawable subset for various tasks:
 
-    // Drawable keys separated by wheter the underlying material is double sided:
+    // NOTE: We currently make a simplifying assumption that:
+    // 1) alpha mode opaque == single sided
+    // 2) alpha mode mask == double sided
+    // 3) alpha mode bend == single sided
+    // In the future this will probably need to be relaxed to
+    // allow all combinations of those settings.
+
     std::vector<DrawableKey> mSingleSidedDrawableKeys;
     std::vector<DrawableKey> mDoubleSidedDrawableKeys;
+    std::vector<DrawableKey> mBlendedDrawableKeys;
 
     // Drawables whose outline should be drawn:
     std::optional<SceneKey> mLastHighlightedObjKey = std::nullopt;

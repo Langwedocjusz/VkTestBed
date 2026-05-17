@@ -68,16 +68,17 @@ layout(set = 3, binding = 1) uniform sampler2D sRougnessMap;
 layout(set = 3, binding = 2) uniform sampler2D sNormalMap;
 
 layout(scalar, set = 3, binding = 3) uniform MaterialBlock {
+    int   DoubleSided;
+    int   AlphaMode;
     float AlphaCutoff;
     vec3  TranslucentColor;
-    int   DoubleSided;
 } uMaterial;
 
 layout(push_constant) uniform PushConstants {
     mat4 Model;
 } uPushConstants;
 
-//https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
+//https://knarkowicz.wordplitColors.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)
 {
     float a = 2.51f;
@@ -105,14 +106,31 @@ vec3 GetSkyLight(vec3 normal, vec3 view, vec3 diffuse, vec3 f0, float roughness)
     return uDynamic.EnvironmentFactor * (diffuseIBL + specularIBL);
 }
 
+// Matches enum definitions from cpp:
+#define ALPHA_MODE_MASK 1
+#define ALPHA_MODE_BLEND 2
+
 void main()
 {
     //Sample albedo:
     vec4 albedo = texture(sAlbedoMap, vInData.TexCoord);
 
-    //Discard fragment if transparent:
-    if (albedo.a < uMaterial.AlphaCutoff)
-        discard;
+    // Handle 'mask' mode by discarding fragments
+    // below the alpha cutoff:
+    if (uMaterial.AlphaMode == ALPHA_MODE_MASK)
+    {
+        if (albedo.a < uMaterial.AlphaCutoff)
+            discard;
+    }
+
+    // For 'blend' mode get fragment's opacity
+    // from albedo map:
+    float alpha = 1.0;
+
+    if (uMaterial.AlphaMode == ALPHA_MODE_BLEND)
+    {
+        alpha = albedo.a;
+    }
 
     //Handle debug views:
     #ifdef NO_ALBEDO_DEBUG_VIEW
@@ -205,9 +223,9 @@ void main()
     vec3 diffuse = (1.0 - metallic) * albedo.rgb;
 
     //Calculate lighting:
-    vec4 res = vec4(0,0,0,1);
+    vec3 litColor = vec3(0);
 
-    res.rgb = GetSkyLight(normal, view, diffuse, f0, roughness);
+    litColor = GetSkyLight(normal, view, diffuse, f0, roughness);
 
     if (uDynamic.AOEnabled == 1)
     {
@@ -215,14 +233,14 @@ void main()
 
         float ao = texture(sAOMap, aoUV).a;
         
-        res.rgb *= ao;
+        litColor *= ao;
     }
 
     #ifdef TRANSLUCENCY
     if(uMaterial.DoubleSided == 1)
     {
         vec3 irradiance = SH_HemisphereConvolve(bIrradiance, -normal);
-        res.rgb += uDynamic.EnvironmentFactor * uMaterial.TranslucentColor * diffuse * irradiance;
+        litColor += uDynamic.EnvironmentFactor * uMaterial.TranslucentColor * diffuse * irradiance;
     }
     #endif
 
@@ -259,21 +277,21 @@ void main()
             shadow = pow(shadow, 2.2);
         }
 
-        res.rgb += shadow * lcol * dirResponse;
+        litColor += shadow * lcol * dirResponse;
 
         #ifdef TRANSLUCENCY
         if(uMaterial.DoubleSided == 1)
         {
             vec3 translucent = BRDF(-normal, view, uEnv.LightDir, roughness, diffuse, f0);
 
-            res.rgb += uMaterial.TranslucentColor * shadow * lcol * translucent;
+            litColor += uMaterial.TranslucentColor * shadow * lcol * translucent;
         }
         #endif
     }
 
     //Do color correction:
-    res.rgb = ACESFilm(res.rgb);
-    res.rgb = pow(res.rgb, vec3(1.0/2.2));
+    litColor = ACESFilm(litColor);
+    litColor = pow(litColor, vec3(1.0/2.2));
 
-    vOutColor = res;
+    vOutColor = vec4(litColor, alpha);
 }

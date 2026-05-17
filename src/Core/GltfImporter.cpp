@@ -147,10 +147,22 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
 
         keyMap[id] = matKey;
 
-        // Load alpha cutoff where applicable
-        if (material.alphaMode == fastgltf::AlphaMode::Mask)
+        // Load alpha information:
+        switch (material.alphaMode)
         {
+        case fastgltf::AlphaMode::Opaque: {
+            mat.AlphaMode = MaterialAlphaMode::Opaque;
+            break;
+        }
+        case fastgltf::AlphaMode::Mask: {
+            mat.AlphaMode   = MaterialAlphaMode::Mask;
             mat.AlphaCutoff = material.alphaCutoff;
+            break;
+        }
+        case fastgltf::AlphaMode::Blend: {
+            mat.AlphaMode = MaterialAlphaMode::Blend;
+            break;
+        }
         }
 
         // Load info about double-sidedness:

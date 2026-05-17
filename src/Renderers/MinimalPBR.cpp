@@ -465,6 +465,18 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
     mShadowmapHandler.OnUpdate(mCamera, mEnvHandler.GetLightDir(), mSceneAABB);
 
+    if (mAOHandler.RecreateRequested())
+    {
+        vkDeviceWaitIdle(mCtx.Device);
+        mAOHandler.RecreateSwapchainResources();
+
+        auto [aoView, aoSampler] = mAOHandler.GetViewAndSampler();
+
+        DescriptorUpdater(mAuxDescriptorSet)
+            .WriteCombinedSampler(1, aoView, aoSampler)
+            .Update(mCtx);
+    }
+
     glm::vec2 drawExtent{
         mRenderTarget.Img.Info.extent.width,
         mRenderTarget.Img.Info.extent.height,
@@ -485,6 +497,10 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 void MinimalPbrRenderer::OnImGui()
 {
     ImGui::Begin("Renderer settings");
+
+    ImGui::Text("Num Single Sided: %zu", mSingleSidedDrawableKeys.size());
+    ImGui::Text("Num Double Sided: %zu", mDoubleSidedDrawableKeys.size());
+    ImGui::Text("Num Blended: %zu", mBlendedDrawableKeys.size());
 
     if (ImGui::Checkbox("Enable Z Prepass", &mEnablePrepass))
     {
@@ -1169,8 +1185,9 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         }
 
         // Update the non-image parameters:
-        mat.UboData.AlphaCutoff = sceneMat.AlphaCutoff;
         mat.UboData.DoubleSided = sceneMat.DoubleSided;
+        mat.UboData.AlphaMode = sceneMat.AlphaMode;
+        mat.UboData.AlphaCutoff = sceneMat.AlphaCutoff;
 
         if (sceneMat.TranslucentColor.has_value())
             mat.UboData.TranslucentColor = *sceneMat.TranslucentColor;
@@ -1225,10 +1242,15 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
                 if (prim.Material)
                     drawable.MaterialKey = matKey;
 
-                if (mat.UboData.DoubleSided)
-                    mDoubleSidedDrawableKeys.push_back(drawableKey);
+                if (mat.UboData.AlphaMode == MaterialAlphaMode::Blend)
+                    mBlendedDrawableKeys.push_back(drawableKey);
                 else
-                    mSingleSidedDrawableKeys.push_back(drawableKey);
+                {
+                    if (mat.UboData.DoubleSided)
+                        mDoubleSidedDrawableKeys.push_back(drawableKey);
+                    else
+                        mSingleSidedDrawableKeys.push_back(drawableKey);
+                }
             }
         }
     }

@@ -48,6 +48,13 @@ struct SceneMesh {
     std::vector<ScenePrimitive> Primitives;
 };
 
+enum class MaterialAlphaMode : int32_t
+{
+    Opaque = 0,
+    Mask   = 1,
+    Blend  = 2
+};
+
 struct SceneMaterial {
     std::string Name;
 
@@ -55,8 +62,9 @@ struct SceneMaterial {
     std::optional<SceneKey> Roughness = std::nullopt;
     std::optional<SceneKey> Normal    = std::nullopt;
 
-    bool  DoubleSided = false;
-    float AlphaCutoff = 0.5f;
+    bool              DoubleSided = false;
+    MaterialAlphaMode AlphaMode   = MaterialAlphaMode::Opaque;
+    float             AlphaCutoff = 0.5f;
 
     std::optional<glm::vec3> TranslucentColor;
 };

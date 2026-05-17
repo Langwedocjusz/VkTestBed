@@ -12,9 +12,10 @@ layout(location = 0) out vec4 vOutColor;
 layout(set = 1, binding = 0) uniform sampler2D sAlbedoMap;
 
 layout(scalar, set = 1, binding = 3) uniform MaterialBlock {
+    int   DoubleSided;
+    int   AlphaMode;
     float AlphaCutoff;
     vec3  TranslucentColor;
-    int   DoubleSided;
 } uMaterial;
 
 layout(push_constant) uniform constants {

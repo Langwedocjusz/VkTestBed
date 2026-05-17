@@ -10,9 +10,10 @@ layout(location = 0) in VertexData {
 layout(set = 1, binding = 0) uniform sampler2D sAlbedoMap;
 
 layout(scalar, set = 1, binding = 3) uniform MaterialBlock {
+    int   DoubleSided;
+    int   AlphaMode;
     float AlphaCutoff;
-    vec3 TranslucentColor;
-    int DoubleSided;
+    vec3  TranslucentColor;
 } uMaterial;
 
 layout(push_constant) uniform PushConstants {

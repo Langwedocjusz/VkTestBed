@@ -23,6 +23,9 @@ class AOHandler {
     void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
                                     VkExtent2D drawExtent);
 
+    // This overload re-uses cached versions of the arguments:
+    void RecreateSwapchainResources();
+
     // Both RebuildPipelines and RecreateSwapchainResources
     // must be called before first invocation of RunAOPass.
     void RunAOPass(VkCommandBuffer cmd);
@@ -32,6 +35,13 @@ class AOHandler {
     [[nodiscard]] std::pair<VkImageView, VkSampler> GetViewAndSampler() const
     {
         return {mAOTarget.View, mAOutSampler};
+    }
+
+    // Whether or not the AOHandler internally requested
+    // its swapchain resources to be recreated.
+    [[nodiscard]] bool RecreateRequested() const
+    {
+        return mRecreateRequested;
     }
 
   private:
@@ -57,7 +67,8 @@ class AOHandler {
 
     std::unique_ptr<ResourceCache> mResourceCache = nullptr;
 
-    float mResolutionScale = 1.0f;
+    float mResolutionScale   = 1.0f;
+    bool  mRecreateRequested = false;
 
     Pipeline mZGenPipeline;
     Pipeline mZMipGenPipeline;

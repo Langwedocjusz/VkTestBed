@@ -73,11 +73,7 @@ void AOHandler::OnImGui()
 
     if (ImGui::Button("Recreate target"))
     {
-        vkDeviceWaitIdle(mCtx.Device);
-
-        RecreateSwapchainResources(mResourceCache->DepthBuffer,
-                                   mResourceCache->DepthOnlyView,
-                                   mResourceCache->DrawExtent);
+        mRecreateRequested = true;
     }
 }
 
@@ -103,10 +99,19 @@ void AOHandler::RebuildPipelines()
                          .Build(mCtx, mPipelineDeletionQueue);
 }
 
+void AOHandler::RecreateSwapchainResources()
+{
+    RecreateSwapchainResources(mResourceCache->DepthBuffer, mResourceCache->DepthOnlyView,
+                               mResourceCache->DrawExtent);
+}
+
 void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
                                            VkExtent2D drawExtent)
 {
     mSwapchainDeletionQueue.flush();
+
+    // Consume the update flag:
+    mRecreateRequested = false;
 
     // Update resource cache:
     mResourceCache = std::make_unique<ResourceCache>(ResourceCache{

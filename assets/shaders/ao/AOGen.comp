@@ -231,7 +231,7 @@ float KernelSSAOAlchemy(vec3 pos, Basis TBN, float hash)
 {
     const int SSAO_SAMPLE_COUNT = 48;
     const float SSAO_RADIUS = 0.1;
-    const float SSAO_HEURISTIC_THICKNESS = 1.0;
+    const float SSAO_HEURISTIC_THICKNESS = 0.5;
 
     float volTotal = 0.0;
     float volOccupied = 0.0;

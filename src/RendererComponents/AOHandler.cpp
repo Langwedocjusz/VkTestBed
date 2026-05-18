@@ -33,19 +33,19 @@ AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
     DescriptorBindingCounts totalCounts{};
 
     {
-        auto [layout, counts]  = DescriptorSetLayoutBuilder("AOGenDSLayout")
-                                     .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                     .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                     .Build(mCtx, mMainDeletionQueue);
+        auto [layout, counts] = DescriptorSetLayoutBuilder("AOGenDSLayout")
+                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                                    .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                    .Build(mCtx, mMainDeletionQueue);
         mAODescriptorSetLayout = layout;
         totalCounts += 2 * counts;
     }
 
     {
-        auto [layout, counts]       = DescriptorSetLayoutBuilder("AOGenZMipDSLayout")
-                                          .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                          .AddStorageImage(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                          .Build(mCtx, mMainDeletionQueue);
+        auto [layout, counts] = DescriptorSetLayoutBuilder("AOGenZMipDSLayout")
+                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                                    .AddStorageImage(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                    .Build(mCtx, mMainDeletionQueue);
         mZMipGenDescriptorSetLayout = layout;
         totalCounts += mZMipGenDescriptorSets.size() * counts;
     }

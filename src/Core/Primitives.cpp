@@ -21,8 +21,8 @@ GeometryData primitive::TexturedCubeWithTangent()
     primData.VertexCount = vertCount;
     primData.IndexCount  = idxCount;
     primData.BBox        = AABB{
-        .Center = glm::vec3(0.0f),
-        .Extent = glm::vec3(0.5f),
+               .Center = glm::vec3(0.0f),
+               .Extent = glm::vec3(0.5f),
     };
 
     // Convention is Top Bottom Front Back Right Left
@@ -95,8 +95,8 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     primData.VertexCount = numVertices;
     primData.IndexCount  = numIndices;
     primData.BBox        = AABB{
-        .Center = glm::vec3(0.0f),
-        .Extent = glm::vec3(radius),
+               .Center = glm::vec3(0.0f),
+               .Extent = glm::vec3(radius),
     };
 
     // Generate base vertex data:

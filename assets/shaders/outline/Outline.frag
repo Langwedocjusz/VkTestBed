@@ -22,14 +22,22 @@ layout(push_constant) uniform constants {
     mat4 Model;
 } PushConstants;
 
+// Matches enum definitions from cpp:
+#define ALPHA_MODE_MASK 1
+#define ALPHA_MODE_BLEND 2
+
 void main()
 {
     //Sample albedo:
     vec4 albedo = texture(sAlbedoMap, vInData.TexCoord);
 
-    //Discard fragment if transparent:
-    if (albedo.a < uMaterial.AlphaCutoff)
-        discard;
+    // Handle 'mask' mode by discarding fragments
+    // below the alpha cutoff:
+    if (uMaterial.AlphaMode == ALPHA_MODE_MASK)
+    {
+        if (albedo.a < uMaterial.AlphaCutoff)
+            discard;
+    }
 
     //Draw the outline:
     const vec4 outlineColor = vec4(1.0);

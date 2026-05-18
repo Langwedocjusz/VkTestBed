@@ -20,6 +20,7 @@
 #include <imgui.h>
 
 #include "volk.h"
+#include "vulkan/vulkan_core.h"
 
 #include <cstdint>
 #include <optional>
@@ -209,6 +210,14 @@ MinimalPbrRenderer::~MinimalPbrRenderer()
         DestroyTexture(tex);
 }
 
+VkCompareOp MinimalPbrRenderer::GetMainCompareOp() const
+{
+    if (mEnablePrepass)
+        return VK_COMPARE_OP_EQUAL;
+    else
+        return VK_COMPARE_OP_LESS;
+}
+
 void MinimalPbrRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
@@ -251,13 +260,6 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetMultisampling(mMultisample)
             .Build(mCtx, mPipelineDeletionQueue);
 
-    VkCompareOp mainCompareOp{};
-
-    if (mEnablePrepass)
-        mainCompareOp = VK_COMPARE_OP_EQUAL;
-    else
-        mainCompareOp = VK_COMPARE_OP_LESS;
-
     mMainPipeline =
         PipelineBuilder("MinimalPBRMainPipeline")
             .SetShaderPathVertex("assets/spirv/MinimalPBRVert.spv")
@@ -268,14 +270,17 @@ void MinimalPbrRenderer::RebuildPipelines()
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .EnableBlending()
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+            .RequestDynamicState(VK_DYNAMIC_STATE_COLOR_BLEND_ENABLE_EXT)
+            .RequestDynamicState(VK_DYNAMIC_STATE_DEPTH_COMPARE_OP)
             .SetColorFormat(RenderTargetFormat)
             .SetPushConstantSize(sizeof(PCDataMain))
             .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
             .AddDescriptorSetLayout(mAuxDescriptorSetLayout)
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-            .EnableDepthTest(mainCompareOp)
+            .EnableDepthTest(GetMainCompareOp())
             .SetDepthFormat(DepthStencilFormat)
             .SetStencilFormat(DepthStencilFormat)
             .SetMultisampling(mMultisample)
@@ -675,15 +680,19 @@ void MinimalPbrRenderer::DrawDoubleSidedFrustumCulled(VkCommandBuffer cmd,
 }
 
 template <typename MaterialFn, typename InstanceFn>
-void MinimalPbrRenderer::DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                                MaterialFn materialCallback,
-                                                InstanceFn instanceCallback,
-                                                DrawStats &stats)
+void MinimalPbrRenderer::DrawBlendedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
+                                                  MaterialFn materialCallback,
+                                                  InstanceFn instanceCallback,
+                                                  DrawStats &stats)
 {
-    DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
-                                 stats);
-    DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
-                                 stats);
+    vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
+
+    for (auto key : mBlendedDrawableKeys)
+    {
+        auto &drawable = mDrawables[key];
+        DrawAllInstancesCulled(cmd, drawable, viewProj, materialCallback,
+                               instanceCallback, stats);
+    }
 }
 
 void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
@@ -864,7 +873,27 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         mMainPipeline.PushConstants(cmd, data);
     };
 
-    DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
+    {
+        // Disable blending, set depth op to default:
+        VkBool32 blendEnables[] = {VK_FALSE};
+        vkCmdSetColorBlendEnableEXT(cmd, 0, 1, blendEnables);
+        vkCmdSetDepthCompareOp(cmd, GetMainCompareOp());
+    }
+
+    DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                 stats);
+    DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                 stats);
+
+    {
+        // Enable blending, set depth op to less:
+        VkBool32 blendEnables[] = {VK_TRUE};
+        vkCmdSetColorBlendEnableEXT(cmd, 0, 1, blendEnables);
+        vkCmdSetDepthCompareOp(cmd, VK_COMPARE_OP_LESS);
+    }
+
+    // TODO: Add sorting by depth:
+    DrawBlendedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
 
     // At this point debug visuals from the shadow map can optionally be drawn:
     // TODO: This is kind of ugly, but debug needs to have acces to the main depth
@@ -1054,7 +1083,11 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
 
     DrawStats stats;
 
-    DrawSceneFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
+    DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                 stats);
+    DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
+                                 stats);
+    DrawBlendedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback, stats);
 }
 
 void MinimalPbrRenderer::LoadScene(const Scene &scene)
@@ -1186,7 +1219,7 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
 
         // Update the non-image parameters:
         mat.UboData.DoubleSided = sceneMat.DoubleSided;
-        mat.UboData.AlphaMode = sceneMat.AlphaMode;
+        mat.UboData.AlphaMode   = sceneMat.AlphaMode;
         mat.UboData.AlphaCutoff = sceneMat.AlphaCutoff;
 
         if (sceneMat.TranslucentColor.has_value())

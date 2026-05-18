@@ -97,6 +97,8 @@ class MinimalPbrRenderer final : public IRenderer {
     void LoadMeshMaterials(const Scene &scene);
     void LoadObjects(const Scene &scene);
 
+    [[nodiscard]] VkCompareOp GetMainCompareOp() const;
+
     void ShadowPass(VkCommandBuffer cmd, DrawStats &stats);
     void Prepass(VkCommandBuffer cmd, DrawStats &stats);
     void MainPass(VkCommandBuffer cmd, DrawStats &stats);
@@ -120,9 +122,9 @@ class MinimalPbrRenderer final : public IRenderer {
                                       InstanceFn instanceCallback, DrawStats &stats);
 
     template <typename MaterialFn, typename InstanceFn>
-    void DrawSceneFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                MaterialFn materialCallback, InstanceFn instanceCallback,
-                                DrawStats &stats);
+    void DrawBlendedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
+                                  MaterialFn materialCallback,
+                                  InstanceFn instanceCallback, DrawStats &stats);
 
   private:
     // Various render targets:

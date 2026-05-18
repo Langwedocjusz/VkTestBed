@@ -106,6 +106,7 @@ vec3 GetSkyLight(vec3 normal, vec3 view, vec3 diffuse, vec3 f0, float roughness)
     return uDynamic.EnvironmentFactor * (diffuseIBL + specularIBL);
 }
 
+// TODO: Centralize this
 // Matches enum definitions from cpp:
 #define ALPHA_MODE_MASK 1
 #define ALPHA_MODE_BLEND 2
@@ -227,7 +228,8 @@ void main()
 
     litColor = GetSkyLight(normal, view, diffuse, f0, roughness);
 
-    if (uDynamic.AOEnabled == 1)
+    // Apply ambient occlusion if enabled, and material is not transparent:
+    if (uDynamic.AOEnabled == 1 && uMaterial.AlphaMode != ALPHA_MODE_BLEND)
     {
         vec2 aoUV = vec2(gl_FragCoord.xy) / uDynamic.DrawExtent;
 

@@ -80,6 +80,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                          .set_required_features_11(features11)
                          .set_required_features_12(features12)
                          .set_required_features_13(features13)
+                         .add_required_extension("VK_EXT_extended_dynamic_state3")
                          .select()
                          .value();
 
@@ -89,7 +90,16 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
 
     PhysicalDevice.enable_features_if_present(optionalFeatures);
 
-    Device = vkb::DeviceBuilder(PhysicalDevice).build().value();
+    // Additional extension info:
+    VkPhysicalDeviceExtendedDynamicState3FeaturesEXT dynamicState3Features{};
+    dynamicState3Features.sType =
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
+    dynamicState3Features.extendedDynamicState3ColorBlendEnable = true;
+
+    Device = vkb::DeviceBuilder(PhysicalDevice)
+                 .add_pNext(&dynamicState3Features)
+                 .build()
+                 .value();
     volkLoadDevice(Device);
 
     // Create queues:

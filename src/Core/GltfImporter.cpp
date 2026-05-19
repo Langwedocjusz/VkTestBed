@@ -325,30 +325,64 @@ static auto UnpackTransform(fastgltf::Node &node)
     return {translation, rotation, scale};
 }
 
+static void ProcessNode(fastgltf::Asset& gltf, 
+                 const std::map<size_t, SceneKey> &meshKeyMap,
+                 fastgltf::Node& current, 
+                 SceneGraphNode& graphNode)
+{   
+    auto [translation, rotation, scale] = UnpackTransform(current);
+    
+    graphNode.Name        = current.name;
+    graphNode.Translation = translation;
+    graphNode.Rotation    = rotation;
+    graphNode.Scale       = scale;
+
+    for (auto &child_id : current.children)
+    {
+        auto& child = gltf.nodes[child_id];
+
+        if (auto meshIdx = child.meshIndex)
+        {
+            auto meshKey = meshKeyMap.at(*meshIdx);
+            auto &graphChild = graphNode.EmplaceChild(meshKey);
+
+            ProcessNode(gltf, meshKeyMap, child, graphChild);
+        }   
+        else
+        {
+            auto &graphChild = graphNode.EmplaceChild();
+            ProcessNode(gltf, meshKeyMap, child, graphChild);
+        } 
+    }
+}
+
 void GltfAsset::PreprocessHierarchy(SceneGraphNode                   &root,
                                     const std::map<size_t, SceneKey> &meshKeyMap)
 {
     // TODO: Currently we assume gltf holds one scene.
     auto &scene = mPImpl->Asset.scenes[0];
 
-    for (auto nodeIdx : scene.nodeIndices)
+    // TODO: This is still not fully tested:
+    for (auto &sceneNodeIdx : scene.nodeIndices)
     {
-        auto &node = mPImpl->Asset.nodes[nodeIdx];
+        auto &node = mPImpl->Asset.nodes[sceneNodeIdx];
 
-        // TODO: Only handles first-level nodes that hold meshes
-        if (!node.meshIndex.has_value())
-            return;
-
-        size_t meshIdx = *node.meshIndex;
-        auto   meshKey = meshKeyMap.at(meshIdx);
-
-        auto [translation, rotation, scale] = UnpackTransform(node);
-
-        auto &prefabNode       = root.EmplaceChild(meshKey);
-        prefabNode.Translation = translation;
-        prefabNode.Rotation    = rotation;
-        prefabNode.Scale       = scale;
-        prefabNode.Name        = node.name;
+        if (auto meshIdx = node.meshIndex)
+        {
+            auto meshKey = meshKeyMap.at(*meshIdx);
+        
+            auto [translation, rotation, scale] = UnpackTransform(node);
+        
+            auto &prefabNode       = root.EmplaceChild(meshKey);
+            prefabNode.Translation = translation;
+            prefabNode.Rotation    = rotation;
+            prefabNode.Scale       = scale;
+            prefabNode.Name        = node.name;
+        }
+        else
+        {
+            ProcessNode(mPImpl->Asset, meshKeyMap, node, root);
+        }
     }
 }
 

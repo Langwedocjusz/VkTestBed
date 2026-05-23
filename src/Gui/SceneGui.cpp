@@ -15,6 +15,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <filesystem>
 #include <optional>
@@ -401,29 +402,7 @@ void SceneGui::MeshesTab()
 
         if (nodeState.IsOpen)
         {
-            //// Display vertex layout:
-            // std::string vertLayout = "Vertex Layout: ";
-            //
-            // for (auto type : mesh.GeoProvider.Layout.VertexLayout)
-            //     vertLayout += Vertex::ToString(type) + ", ";
-            //
-            // ImGui::Text("%s", vertLayout.c_str());
-            //
-            // ImGui::Separator();
-
             // Material editing gui:
-            ImGui::Text("Primitives:");
-
-            // TODO: this is kind of ugly:
-            // static used here because this value is accessed across
-            // two different calls of this function.
-            struct PrimId {
-                SceneKey Mesh;
-                int64_t  Idx;
-            };
-
-            static std::optional<PrimId> primToChange = std::nullopt;
-
             for (const auto [primIdx, prim] : enumerate(mesh.Primitives))
             {
                 auto id = prim.Material;
@@ -431,42 +410,52 @@ void SceneGui::MeshesTab()
                 const std::string matName = id ? mEditor.GetMaterial(*id).Name : "None";
                 const std::string suffix  = "##mat" + mesh.Name + std::to_string(primIdx);
 
-                ImGui::Text("Primitive %lu", primIdx);
+                const std::string primName = std::format("Primitive {}", primIdx);
 
-                ImGui::Text("Material: ");
-                ImGui::SameLine();
-
-                if (ImGui::Selectable((matName + suffix).c_str()))
+                if (ImGui::TreeNodeEx(primName.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
                 {
-                    primToChange = {.Mesh = meshKey, .Idx = primIdx};
-                    ImGui::OpenPopup("Select material:");
-                }
-                // TODO: adding new materials
+                    ImGui::Text("Material: ");
+                    ImGui::SameLine();
 
-                ImGui::Text("TexBound Center: %f, %f", prim.TexCoordCenter.x,
-                            prim.TexCoordCenter.y);
-                ImGui::Text("TexBound Extent: %f, %f", prim.TexCoordExtent.x,
-                            prim.TexCoordExtent.y);
-            }
-
-            if (ImGui::BeginPopup("Select material:"))
-            {
-                if (primToChange)
-                {
-                    for (auto &[id, mat] : mEditor.Materials())
+                    if (ImGui::Selectable((matName + suffix).c_str()))
                     {
-                        if (ImGui::Selectable(mat.Name.c_str()))
-                        {
-                            auto &originMesh = mEditor.GetMesh((*primToChange).Mesh);
-                            auto &prim       = originMesh.Primitives[(*primToChange).Idx];
-
-                            prim.Material = id;
-                            mEditor.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
-                        }
+                        ImGui::OpenPopup("Select material:");
                     }
-                }
 
-                ImGui::EndPopup();
+                    if (ImGui::BeginPopup("Select material:"))
+                    {
+                        static std::array<char, 255> filterBuf{};
+                        ImGui::InputText("Filter", &filterBuf[0], 255);
+
+                        for (auto &[id, mat] : mEditor.Materials())
+                        {
+                            if (mat.Name.find(std::string(&filterBuf[0])) ==
+                                std::string::npos)
+                                continue;
+
+                            if (ImGui::Selectable(mat.Name.c_str()))
+                            {
+                                auto &mesh = mEditor.GetMesh(meshKey);
+                                auto &prim = mesh.Primitives[primIdx];
+
+                                prim.Material = id;
+
+                                mEditor.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
+                            }
+                        }
+
+                        ImGui::EndPopup();
+                    }
+
+                    // Auxiliary material info:
+                    ImGui::Text("TexBound Center: %f, %f", prim.TexCoordCenter.x,
+                                prim.TexCoordCenter.y);
+                    ImGui::Text("TexBound Extent: %f, %f", prim.TexCoordExtent.x,
+                                prim.TexCoordExtent.y);
+
+                    // TODO: adding new materials
+                    ImGui::TreePop();
+                }
             }
 
             ImGui::TreePop();
@@ -477,7 +466,7 @@ void SceneGui::MeshesTab()
 
     if (keyToDelete)
     {
-        // Just to be safe:
+        // Otherwise Object Properties menu may crash:
         mSelectedNode = nullptr;
 
         mEditor.EraseMesh(*keyToDelete);
@@ -497,8 +486,8 @@ std::string SceneGui::GetMaterialName(std::optional<SceneKey> key,
 
 void SceneGui::MaterialsTab()
 {
-    auto KeyImageSelection = [this](std::optional<SceneKey> &key,
-                                    const std::string       &keyName) {
+    auto SelectImageKey = [this](std::optional<SceneKey> &key, const std::string &keyName,
+                                 bool &keyChanged) {
         ImGui::Text("%s", keyName.c_str());
         ImGui::SameLine();
 
@@ -518,15 +507,15 @@ void SceneGui::MaterialsTab()
             for (auto &[imgPick, _] : mEditor.Images())
             {
                 auto imgName =
-                    std::format("({}) ", imgPick) + mEditor.GetImage(imgPick).Name;
+                    std::format("({}) {}", imgPick, mEditor.GetImage(imgPick).Name);
 
                 if (imgName.find(std::string(&filterBuf[0])) == std::string::npos)
                     continue;
 
                 if (ImGui::Selectable(imgName.c_str()))
                 {
-                    key = imgPick;
-                    mEditor.RequestUpdate(Scene::UpdateFlag::Materials);
+                    key        = imgPick;
+                    keyChanged = true;
                 }
             }
 
@@ -534,25 +523,49 @@ void SceneGui::MaterialsTab()
         }
     };
 
-    for (auto &[_, mat] : mEditor.Materials())
+    // Setup filter for materials:
+    static std::array<char, 255> filterBuf{};
+    ImGui::InputText("Filter", &filterBuf[0], 255);
+
+    for (auto &[key, mat] : mEditor.Materials())
     {
+        if (mat.Name.find(std::string(&filterBuf[0])) == std::string::npos)
+            continue;
+
         if (ImGui::TreeNodeEx(mat.Name.c_str()))
         {
-            KeyImageSelection(mat.Albedo, "Albedo");
-            KeyImageSelection(mat.Roughness, "Roughness");
-            KeyImageSelection(mat.Normal, "Normal");
+            ImGui::PushID(static_cast<int32_t>(key));
 
-            ImGui::Text("Alpha Cutoff: ");
-            ImGui::SameLine();
+            bool matChanged = false;
 
-            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            SelectImageKey(mat.Albedo, "Albedo", matChanged);
+            SelectImageKey(mat.Roughness, "Roughness", matChanged);
+            SelectImageKey(mat.Normal, "Normal", matChanged);
 
-            auto lastCutoff = mat.AlphaCutoff;
-            ImGui::SliderFloat("##AlphaCutoff", &mat.AlphaCutoff, 0.0f, 1.0f);
+            {
+                static int        choice;
+                static std::array names{"OPAQUE", "MASK", "BLEND"};
 
-            if (mat.AlphaCutoff != lastCutoff)
+                if (imutils::Combo("Alpha Mode", choice, names))
+                {
+                    mat.AlphaMode = static_cast<MaterialAlphaMode>(choice);
+                    matChanged    = true;
+                }
+            }
+
+            if (ImGui::SliderFloat("AlphaCutoff", &mat.AlphaCutoff, 0.0f, 1.0f))
+                matChanged = true;
+
+            if (ImGui::Checkbox("Double Sided", &mat.DoubleSided))
+                matChanged = true;
+
+            if (matChanged)
+            {
                 mEditor.RequestUpdate(Scene::UpdateFlag::Materials);
+                mEditor.RequestUpdate(Scene::UpdateFlag::MeshMaterials);
+            }
 
+            ImGui::PopID();
             ImGui::TreePop();
         }
     }
@@ -560,10 +573,17 @@ void SceneGui::MaterialsTab()
 
 void SceneGui::ImagesTab()
 {
+    // Setup filter for images:
+    static std::array<char, 255> filterBuf{};
+    ImGui::InputText("Filter", &filterBuf[0], 255);
+
     std::optional<SceneKey> imgToErase = std::nullopt;
 
     for (auto &[imgKey, img] : mEditor.Images())
     {
+        if (img.Name.find(std::string(&filterBuf[0])) == std::string::npos)
+            continue;
+
         auto nodeState = imutils::TreeNodeExDeletable(img.Name.c_str());
 
         if (nodeState.IsDeleted)
@@ -739,9 +759,11 @@ void SceneGui::ObjectPropertiesMenu()
         {
             auto &obj = mEditor.GetObject(mSelectedNode->GetObjectKey());
 
-            if (auto mesh = obj.Mesh)
+            if (auto meshKey = obj.Mesh)
             {
-                ImGui::Text("Mesh: %i", *mesh);
+                auto &mesh = mEditor.GetMesh(*meshKey);
+
+                ImGui::Text("Mesh: %s", mesh.Name.c_str());
             }
         }
 
@@ -777,7 +799,28 @@ void SceneGui::ObjectPropertiesMenu()
             glm::mat4 currentNonAggregate = mSelectedNode->GetTransform();
             glm::mat4 parentAggregate = mSelectedNode->Parent->GetAggregateTransform();
 
-            auto view = mCamera.GetView() * parentAggregate;
+            glm::mat4 parentWithoutScale{};
+
+            {
+                glm::vec3 scale;
+                glm::quat rotation;
+                glm::vec3 translation;
+                glm::vec3 skew;
+                glm::vec4 perspective;
+                glm::decompose(parentAggregate, scale, rotation, translation, skew,
+                               perspective);
+
+                auto matTranslation = glm::translate(glm::mat4(1.0f), translation);
+                auto matRotation    = glm::toMat4(glm::quat(rotation));
+
+                parentWithoutScale = matTranslation * matRotation;
+            }
+
+            // TODO: Using parentWithoutScale makes size of the imguizmo
+            // widget consistent in view-space, but it makes it so
+            // the speed of translation etc is affected by
+            // scale embedded in parent transform :(
+            auto view = mCamera.GetView() * parentWithoutScale; // parentAggregate;
             auto proj = mCamera.GetProj();
             // As usual - Vulkan y orientation:
             proj[1][1] *= -1.0f;

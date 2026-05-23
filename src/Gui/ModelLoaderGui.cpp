@@ -1,6 +1,7 @@
 #include "ModelLoaderGui.h"
 #include "Pch.h"
 
+#include "ImGuiUtils.h"
 #include "Vassert.h"
 #include "VertexLayout.h"
 
@@ -65,10 +66,9 @@ void ModelLoaderGui::ImportMenu()
         ImGui::Separator();
 
         static int32_t    choice = 1;
-        static std::array names{"Push", "Pull Naive", "Pull Compressed"};
+        static std::array options{"Push", "Pull Naive", "Pull Compressed"};
 
-        bool typeChanged = ImGui::Combo("Type", &choice, names.data(),
-                                        static_cast<int32_t>(names.size()));
+        bool typeChanged = imutils::Combo("Type", choice, options);
 
         if (typeChanged)
         {

@@ -325,13 +325,12 @@ static auto UnpackTransform(fastgltf::Node &node)
     return {translation, rotation, scale};
 }
 
-static void ProcessNode(fastgltf::Asset& gltf, 
-                 const std::map<size_t, SceneKey> &meshKeyMap,
-                 fastgltf::Node& current, 
-                 SceneGraphNode& graphNode)
-{   
+static void ProcessNode(fastgltf::Asset                  &gltf,
+                        const std::map<size_t, SceneKey> &meshKeyMap,
+                        fastgltf::Node &current, SceneGraphNode &graphNode)
+{
     auto [translation, rotation, scale] = UnpackTransform(current);
-    
+
     graphNode.Name        = current.name;
     graphNode.Translation = translation;
     graphNode.Rotation    = rotation;
@@ -339,20 +338,20 @@ static void ProcessNode(fastgltf::Asset& gltf,
 
     for (auto &child_id : current.children)
     {
-        auto& child = gltf.nodes[child_id];
+        auto &child = gltf.nodes[child_id];
 
         if (auto meshIdx = child.meshIndex)
         {
-            auto meshKey = meshKeyMap.at(*meshIdx);
+            auto  meshKey    = meshKeyMap.at(*meshIdx);
             auto &graphChild = graphNode.EmplaceChild(meshKey);
 
             ProcessNode(gltf, meshKeyMap, child, graphChild);
-        }   
+        }
         else
         {
             auto &graphChild = graphNode.EmplaceChild();
             ProcessNode(gltf, meshKeyMap, child, graphChild);
-        } 
+        }
     }
 }
 
@@ -362,17 +361,27 @@ void GltfAsset::PreprocessHierarchy(SceneGraphNode                   &root,
     // TODO: Currently we assume gltf holds one scene.
     auto &scene = mPImpl->Asset.scenes[0];
 
-    // TODO: This is still not fully tested:
+    // NOTE: This will break and result in duplicate
+    // objects if the graph of nodes is not acyclic.
+    // I have observed such non-cylicity
+    // converting obj -> gltf in blender.
+
     for (auto &sceneNodeIdx : scene.nodeIndices)
     {
         auto &node = mPImpl->Asset.nodes[sceneNodeIdx];
 
         if (auto meshIdx = node.meshIndex)
         {
+            if (!meshKeyMap.contains(*meshIdx))
+            {
+                std::cerr << "INVALID MESH KEY: " << *meshIdx << "\n";
+                continue;
+            }
+
             auto meshKey = meshKeyMap.at(*meshIdx);
-        
+
             auto [translation, rotation, scale] = UnpackTransform(node);
-        
+
             auto &prefabNode       = root.EmplaceChild(meshKey);
             prefabNode.Translation = translation;
             prefabNode.Rotation    = rotation;

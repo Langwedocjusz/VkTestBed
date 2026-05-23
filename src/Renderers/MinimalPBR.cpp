@@ -5,6 +5,7 @@
 #include "Common.h"
 #include "Descriptor.h"
 #include "GeometryData.h"
+#include "ImGuiUtils.h"
 #include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Pipeline.h"
@@ -20,7 +21,6 @@
 #include <imgui.h>
 
 #include "volk.h"
-#include "vulkan/vulkan_core.h"
 
 #include <cstdint>
 #include <optional>
@@ -540,10 +540,9 @@ void MinimalPbrRenderer::OnImGui()
         ImGui::SliderFloat("Internal Res Scale", &mInternalResolutionScale, 0.25f, 2.0f);
 
         static int        choice;
-        static std::array names{"1x", "2x", "4x", "8x"};
+        static std::array options{"1x", "2x", "4x", "8x"};
 
-        ImGui::Combo("Multisampling", &choice, names.data(),
-                     static_cast<int32_t>(names.size()));
+        imutils::Combo("Multisampling", choice, options);
 
         if (ImGui::Button("Recreate"))
         {
@@ -1258,6 +1257,7 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
 
     mSingleSidedDrawableKeys.clear();
     mDoubleSidedDrawableKeys.clear();
+    mBlendedDrawableKeys.clear();
 
     for (const auto &[meshKey, mesh] : scene.Meshes)
     {

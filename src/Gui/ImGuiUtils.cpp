@@ -13,6 +13,12 @@ bool imutils::CloseButton(const char *name, ImVec2 pos)
     return ImGui::CloseButton(id, pos);
 }
 
+bool imutils::Combo(const char *name, int32_t &choice, std::span<const char *> options)
+{
+    return ImGui::Combo(name, &choice, options.data(),
+                        static_cast<int32_t>(options.size()));
+}
+
 imutils::NodeDeletableState imutils::TreeNodeExDeletable(const char        *name,
                                                          ImGuiTreeNodeFlags flags)
 {

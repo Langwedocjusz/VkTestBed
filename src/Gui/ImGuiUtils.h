@@ -3,12 +3,14 @@
 #include "Frame.h"
 #include "imgui.h"
 
+#include <span>
 #include <string>
 
 namespace imutils
 {
 bool CloseButton(const char *name, ImVec2 pos);
-void DisplayStats(FrameStats &stats);
+
+bool Combo(const char *name, int32_t &choice, std::span<const char *> options);
 
 struct NodeDeletableState {
     bool IsOpen    = false;
@@ -25,4 +27,6 @@ struct NodeCopyDeletableState {
 NodeDeletableState TreeNodeExDeletable(const char *name, ImGuiTreeNodeFlags flags = 0);
 NodeCopyDeletableState TreeNodeExDeleteCopyAble(std::string       &name,
                                                 ImGuiTreeNodeFlags flags = 0);
+
+void DisplayStats(FrameStats &stats);
 } // namespace imutils

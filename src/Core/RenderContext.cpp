@@ -226,20 +226,16 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     {
         mStatsCollector.TimestampTop(cmd, mFrameInfo.Index);
 
-        // 1. Transition render target to rendering:
-        // TODO: Maybe renderer should handle it by itself to make it more flexible
-        barrier::ColorToRender(cmd, mRenderer->GetTargetImage().Handle);
-
-        // 2. Render to image:
+        // 1. Render to image:
         mStatsCollector.PipelineStatsStart(cmd, mFrameInfo.Index);
         mRenderer->OnRender(highlightedObj);
         mStatsCollector.PipelineStatsEnd(cmd, mFrameInfo.Index);
 
-        // 3. Transition render target and swapchain image for copy:
-        barrier::ColorToTransfer(cmd, mRenderer->GetTargetImage().Handle);
+        // 2. Transition render target and swapchain image for copy:
+        mRenderer->TargetToTransfer(cmd);
         barrier::SwapchainToBlitDST(cmd, swapchainImage);
 
-        // 4. Copy render target to swapchain image
+        // 3. Copy render target to swapchain image
         auto &swapExt = mCtx.Swapchain.extent;
 
         auto swapchainInfo = vkutils::BlitImageInfo{
@@ -250,13 +246,13 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 
         vkutils::BlitImageZeroMip(cmd, mRenderer->GetTargetImage(), swapchainInfo);
 
-        // 5. Transition swapchain image to render:
+        // 4. Transition swapchain image to render:
         barrier::SwapchainToRender(cmd, swapchainImage);
 
-        // 6. Draw the ui on top (in native res)
+        // 5. Draw the ui on top (in native res)
         DrawUI(cmd);
 
-        // 7. Transition swapchain image to presentation:
+        // 6. Transition swapchain image to presentation:
         barrier::SwapchainToPresent(cmd, swapchainImage);
 
         mStatsCollector.TimestampBottom(cmd, mFrameInfo.Index);

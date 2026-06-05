@@ -1,0 +1,48 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout (set = 0, binding = 0, Rgba8) uniform writeonly image2D iTarget;
+
+layout(set = 0, binding = 1) uniform sampler2D sSourceImage;
+layout(set = 0, binding = 2) uniform sampler2D sSourceBloom;
+
+layout(push_constant) uniform PushConstants {
+    float BloomStrength;
+} uPushConstants;
+
+//https://knarkowicz.wordplitColors.com/2016/01/06/aces-filmic-tone-mapping-curve/
+vec3 ACESFilm(vec3 x)
+{
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+
+    return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
+}
+
+void main()
+{
+    ivec2 outTexelCoords = ivec2(gl_GlobalInvocationID.xy);
+
+    vec2 uv = (vec2(outTexelCoords) + 0.5) / imageSize(iTarget);
+
+    // Lerp render target towards bloom:
+    vec3 base  = texture(sSourceImage, uv).rgb;
+    vec3 bloom = texture(sSourceBloom, uv).rgb;
+    
+    float strength = uPushConstants.BloomStrength;
+
+    vec3 result = mix(base, bloom, strength);
+
+    // Tonemapping:
+    // TODO: Switch to a non-per-channel tonemapper
+    result = ACESFilm(result);
+
+    // Color correction:
+    result = pow(result, vec3(1.0/2.2));
+
+    imageStore(iTarget, outTexelCoords, vec4(result, 1.0));
+}

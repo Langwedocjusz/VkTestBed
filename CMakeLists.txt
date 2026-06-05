@@ -152,6 +152,8 @@ target_sources(${PROJECT_NAME}
         src/RendererComponents/DynamicUniformBuffer.cpp
         src/RendererComponents/EnvironmentHandler.h
         src/RendererComponents/EnvironmentHandler.cpp
+        src/RendererComponents/PostProcessor.h
+        src/RendererComponents/PostProcessor.cpp
         src/RendererComponents/ShadowmapHandler.h
         src/RendererComponents/ShadowmapHandler.cpp
         src/Renderers/HelloRenderer.h

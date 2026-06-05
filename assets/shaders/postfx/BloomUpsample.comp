@@ -1,0 +1,52 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout (set = 0, binding = 0, Rgba16f) uniform writeonly image2D iTarget;
+
+layout(set = 0, binding = 1) uniform sampler2D sSource;
+
+layout(push_constant) uniform PushConstants {
+    float UVRadius;
+} uPushConstants;
+
+// Upsampling kernel based on the following presentation:
+// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+// Also referenced the nice guest article at learnopengl.com:
+// https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
+
+void main()
+{
+    ivec2 outTexelCoords = ivec2(gl_GlobalInvocationID.xy);
+
+    vec2 uv = (vec2(outTexelCoords) + 0.5) / imageSize(iTarget);
+
+    float radius = uPushConstants.UVRadius;
+
+    // Gather samples using the following pattern:
+    // a - b - c
+    // d - e - f  e is central, non-offset sample
+    // g - h - i
+    
+    vec3 a = texture(sSource, uv + radius * vec2(-1,  1)).rgb;
+    vec3 b = texture(sSource, uv + radius * vec2( 0,  1)).rgb;
+    vec3 c = texture(sSource, uv + radius * vec2( 1,  1)).rgb;
+
+    vec3 d = texture(sSource, uv + radius * vec2(-1,  0)).rgb;
+    vec3 e = texture(sSource, uv + radius * vec2( 0,  0)).rgb;
+    vec3 f = texture(sSource, uv + radius * vec2( 1,  0)).rgb;
+
+    vec3 g = texture(sSource, uv + radius * vec2(-1, -1)).rgb;
+    vec3 h = texture(sSource, uv + radius * vec2( 0  -1)).rgb;
+    vec3 i = texture(sSource, uv + radius * vec2( 1, -1)).rgb;
+
+    // Accumulate result using normalized piramidal weights:
+    vec3 result = vec3(0.0);
+
+    result += 0.2500 * e;
+    result += 0.1250 * (b+d+f+h);
+    result += 0.0625 * (a+c+g+i);
+    
+    // Store downsampled result in target:
+    imageStore(iTarget, outTexelCoords, vec4(result, 1.0));
+}

@@ -31,6 +31,9 @@ void main()
     //Sample environment:
     vec3 col = texture(sEnvironment, dir).rgb;
 
+    // To linear space:
+    col = pow(col, vec3(2.2));
+
     //Output:
     vOutColor = vec4(col, 1.0);
 }

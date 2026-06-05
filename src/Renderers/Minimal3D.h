@@ -16,6 +16,12 @@ class Minimal3DRenderer final : public IRenderer {
     void OnImGui() override;
     void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) override;
 
+    void   TargetToTransfer(VkCommandBuffer cmd) override;
+    Image &GetTargetImage() override
+    {
+        return mRenderTarget.Img;
+    };
+
     void RecreateSwapchainResources() override;
     void RebuildPipelines() override;
     void LoadScene(const Scene &scene) override;
@@ -31,9 +37,10 @@ class Minimal3DRenderer final : public IRenderer {
   private:
     const float    mInternalResolutionScale = 1.0f;
     const VkFormat mRenderTargetFormat      = VK_FORMAT_R8G8B8A8_SRGB;
+    const VkFormat mDepthFormat             = VK_FORMAT_D32_SFLOAT;
 
-    const VkFormat mDepthFormat = VK_FORMAT_D32_SFLOAT;
-    Texture        mDepthBuffer;
+    Texture mRenderTarget;
+    Texture mDepthBuffer;
 
     Pipeline mColoredPipeline;
     Pipeline mTexturedPipeline;

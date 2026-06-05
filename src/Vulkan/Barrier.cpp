@@ -91,7 +91,7 @@ void barrier::SwapchainToPresent(VkCommandBuffer cmd, VkImage image)
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::ColorToRender(VkCommandBuffer cmd, VkImage image)
+void barrier::TransferSrcToColorAttachment(VkCommandBuffer cmd, VkImage image)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -112,7 +112,7 @@ void barrier::ColorToRender(VkCommandBuffer cmd, VkImage image)
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::ColorToTransfer(VkCommandBuffer cmd, VkImage image)
+void barrier::ColorAttachmentToTransferSrc(VkCommandBuffer cmd, VkImage image)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -125,6 +125,48 @@ void barrier::ColorToTransfer(VkCommandBuffer cmd, VkImage image)
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+
+    barrier.image = image;
+    barrier.subresourceRange =
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    ImageBarrier(cmd, barrier);
+}
+
+void barrier::SampledToColorAttachment(VkCommandBuffer cmd, VkImage image)
+{
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR;
+
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+
+    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    barrier.image = image;
+    barrier.subresourceRange =
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    ImageBarrier(cmd, barrier);
+}
+
+void barrier::ColorAttachmentToSampled(VkCommandBuffer cmd, VkImage image)
+{
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR;
+
+    barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     barrier.image = image;
     barrier.subresourceRange =

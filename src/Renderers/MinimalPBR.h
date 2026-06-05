@@ -7,6 +7,7 @@
 #include "EnvironmentHandler.h"
 #include "GeometryData.h"
 #include "Pipeline.h"
+#include "PostProcessor.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "ShadowmapHandler.h"
@@ -22,6 +23,13 @@ class MinimalPbrRenderer final : public IRenderer {
     void OnUpdate([[maybe_unused]] float deltaTime) override;
     void OnImGui() override;
     void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) override;
+
+    void   TargetToTransfer(VkCommandBuffer cmd) override;
+    Image &GetTargetImage() override
+    {
+        // return mRenderTarget.Img;
+        return mPostProcessor.GetTargetImage();
+    };
 
     void RecreateSwapchainResources() override;
     void RebuildPipelines() override;
@@ -128,12 +136,15 @@ class MinimalPbrRenderer final : public IRenderer {
 
   private:
     // Various render targets:
-    static constexpr VkFormat RenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    // static constexpr VkFormat RenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    // TODO: Maybe use lower precision?
+    static constexpr VkFormat RenderTargetFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     static constexpr VkFormat DepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
     std::optional<Texture> mRenderTargetMsaa;
     std::optional<Texture> mDepthStencilMsaa;
 
+    Texture     mRenderTarget;
     Texture     mDepthStencilBuffer;
     VkImageView mDepthOnlyView;
 
@@ -267,6 +278,8 @@ class MinimalPbrRenderer final : public IRenderer {
     AABB             mSceneAABB;
     // SSAO generation:
     AOHandler mAOHandler;
+    // Post fx and final image composition:
+    PostProcessor mPostProcessor;
 
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;

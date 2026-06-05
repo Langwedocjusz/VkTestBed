@@ -18,11 +18,21 @@ void SwapchainToBlitDST(VkCommandBuffer cmd, VkImage image);
 void SwapchainToRender(VkCommandBuffer cmd, VkImage image);
 void SwapchainToPresent(VkCommandBuffer cmd, VkImage image);
 
-// Assumes color target has layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-void ColorToRender(VkCommandBuffer cmd, VkImage image);
-void ColorToTransfer(VkCommandBuffer cmd, VkImage image);
+// Barriers for synchronizing intermediate render target:
+// COLOR ATTACHMENT -> BLIT TO SWAPCHAIN -> COLOR ATTACHMENT -> ...
 
-// Assumes depth target has layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+void TransferSrcToColorAttachment(VkCommandBuffer cmd, VkImage image);
+void ColorAttachmentToTransferSrc(VkCommandBuffer cmd, VkImage image);
+
+// Barriers for synchronizing intermediate render target:
+// COLOR ATTACHMENT -> SAMPLED -> COLOR ATTACHMENT -> ...
+
+void SampledToColorAttachment(VkCommandBuffer cmd, VkImage image);
+void ColorAttachmentToSampled(VkCommandBuffer cmd, VkImage image);
+
+// Barriers for synchronizing depth buffer access:
+// DEPTH ATTACHMENT -> SAMPLED -> DEPTH ATTACHMENT -> ...
+
 void DepthToRender(VkCommandBuffer cmd, VkImage depthImage, uint32_t numLayers = 1);
 void DepthToSample(VkCommandBuffer cmd, VkImage depthImage, uint32_t numLayers = 1);
 

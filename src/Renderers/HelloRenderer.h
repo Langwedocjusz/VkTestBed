@@ -16,6 +16,12 @@ class HelloRenderer final : public IRenderer {
     void OnImGui() override;
     void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) override;
 
+    void   TargetToTransfer(VkCommandBuffer cmd) override;
+    Image &GetTargetImage() override
+    {
+        return mRenderTarget.Img;
+    };
+
     void RecreateSwapchainResources() override;
     void RebuildPipelines() override;
     void LoadScene(const Scene &scene) override;
@@ -28,6 +34,8 @@ class HelloRenderer final : public IRenderer {
   private:
     const float    mInternalResolutionScale = 1.0f;
     const VkFormat mRenderTargetFormat      = VK_FORMAT_R8G8B8A8_SRGB;
+
+    Texture mRenderTarget;
 
     Pipeline mGraphicsPipeline;
 

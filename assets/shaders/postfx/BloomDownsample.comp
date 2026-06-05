@@ -1,0 +1,75 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout (set = 0, binding = 0, Rgba16f) uniform writeonly image2D iTarget;
+
+layout(set = 0, binding = 1) uniform sampler2D sSource;
+
+layout(push_constant) uniform PushConstants {
+    uvec2 SourceResolution;
+    uint  RawCopy;
+} uPushConstants;
+
+// Downsampling kernel based on the following presentation:
+// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+// Also referenced the nice guest article at learnopengl.com:
+// https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
+
+void main()
+{
+    ivec2 outTexelCoords = ivec2(gl_GlobalInvocationID.xy);
+
+    vec2 uv = (vec2(outTexelCoords) + 0.5) / imageSize(iTarget);
+
+    // Separate branch to effectively also handle blit
+    // onto 0th mip level, without additional
+    // image usage flags etc:
+    if (uPushConstants.RawCopy == 1)
+    {
+        vec3 color = texture(sSource, uv).rgb;
+        imageStore(iTarget, outTexelCoords, vec4(color, 1.0));
+        return;
+    }
+
+    // Gather samples using the following pattern:
+    // a  -  b  -  c
+    // -  j  -  k  -
+    // d  -  e  -  f    e is central, non-offset sample
+    // -  l  -  m  -
+    // g  -  h  -  i
+
+    vec2 texelSize = 1.0 / vec2(uPushConstants.SourceResolution);
+
+    vec3 a = texture(sSource, uv + texelSize * vec2(-2,  2)).rgb;
+    vec3 b = texture(sSource, uv + texelSize * vec2( 0,  2)).rgb;
+    vec3 c = texture(sSource, uv + texelSize * vec2( 2,  2)).rgb;
+
+    vec3 d = texture(sSource, uv + texelSize * vec2(-2,  0)).rgb;
+    vec3 e = texture(sSource, uv + texelSize * vec2( 0,  0)).rgb;
+    vec3 f = texture(sSource, uv + texelSize * vec2( 2,  0)).rgb;
+
+    vec3 g = texture(sSource, uv + texelSize * vec2(-2, -2)).rgb;
+    vec3 h = texture(sSource, uv + texelSize * vec2( 0  -2)).rgb;
+    vec3 i = texture(sSource, uv + texelSize * vec2( 2, -2)).rgb;
+
+    vec3 j = texture(sSource, uv + texelSize * vec2(-1,  1)).rgb;
+    vec3 k = texture(sSource, uv + texelSize * vec2( 1,  1)).rgb;
+    vec3 l = texture(sSource, uv + texelSize * vec2(-1, -1)).rgb;
+    vec3 m = texture(sSource, uv + texelSize * vec2( 1, -1)).rgb;
+
+    // Accumulate result using normalized piramidal weights:
+    vec3 result = vec3(0.0);
+
+    result += 0.12500 * e;
+    result += 0.12500 * (j+k+l+m);
+    result += 0.06250 * (b+d+f+h);
+    result += 0.03125 * (a+c+g+i);
+
+    // Minimal intensity to prevent zero-valued
+    // pixels killing further convolutions:
+    result = max(result, 0.0001f);
+    
+    // Store downsampled result in target:
+    imageStore(iTarget, outTexelCoords, vec4(result, 1.0));
+}

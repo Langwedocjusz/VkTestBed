@@ -1,6 +1,7 @@
 #include "HelloRenderer.h"
 #include "Pch.h"
 
+#include "Barrier.h"
 #include "Common.h"
 #include "MakeBuffer.h"
 #include "MakeImage.h"
@@ -69,6 +70,8 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 {
     auto &cmd = mFrame.CurrentCmd();
 
+    barrier::TransferSrcToColorAttachment(cmd, mRenderTarget.Img.Handle);
+
     // This is not OnUpdate since, uniform buffers are per-image index
     // and as such need to be acquired after new image index is set.
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
@@ -105,6 +108,11 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
         }
     }
     vkCmdEndRendering(cmd);
+}
+
+void HelloRenderer::TargetToTransfer(VkCommandBuffer cmd)
+{
+    barrier::ColorAttachmentToTransferSrc(cmd, mRenderTarget.Img.Handle);
 }
 
 void HelloRenderer::RecreateSwapchainResources()

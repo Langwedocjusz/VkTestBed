@@ -32,11 +32,6 @@ void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive
 {
     auto &geo = prim.Data;
 
-    // Create Vertex buffer:
-    // TODO: restore this codepath:
-    // VertexBuffer = MakeBuffer::Vertex(ctx, debugName, geo.VertexData);
-    // VertexCount  = static_cast<uint32_t>(geo.VertexCount);
-
     VertexBuffer = MakeBuffer::VertexStorage(ctx, debugName, geo.VertexData);
     VertexCount  = static_cast<uint32_t>(geo.VertexCount);
 
@@ -87,11 +82,6 @@ bool MinimalPbrRenderer::Drawable::IsVisible(glm::mat4 viewProj, size_t instance
 
 void MinimalPbrRenderer::Drawable::BindGeometryBuffers(VkCommandBuffer cmd)
 {
-    // TODO: restore this codepath:
-    // VkBuffer     vertBuffer = VertexBuffer.Handle;
-    // VkDeviceSize vertOffset = 0;
-    // vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
-
     vkCmdBindIndexBuffer(cmd, IndexBuffer.Handle, 0, MinimalPbrRenderer::IndexType);
 }
 
@@ -111,7 +101,8 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     : IRenderer(ctx, info, camera), mCamDynamicUBO(ctx, info, sizeof(mCamDynamicUBO)),
       mDynamicUBO(ctx, info, sizeof(mUBOData)), mDynamicDS(ctx, info),
       mMaterialDescriptorAllocator(ctx), mEnvHandler(ctx), mShadowmapHandler(ctx),
-      mAOHandler(ctx, camera), mSceneDeletionQueue(ctx), mMaterialDeletionQueue(ctx)
+      mAOHandler(ctx, camera), mPostProcessor(ctx), mSceneDeletionQueue(ctx),
+      mMaterialDeletionQueue(ctx)
 {
     // Create the material texture sampler:
     mMaterialSampler = SamplerBuilder("MinimalPbrMaterialSampler")
@@ -225,9 +216,6 @@ void MinimalPbrRenderer::RebuildPipelines()
     mZPrepassOpaquePipeline =
         PipelineBuilder("MinimalPBROpaquePrepassPipeline")
             .SetShaderPathVertex("assets/spirv/ZPrepassOpaqueVert.spv")
-            // TODO: restore this code in separate path:
-            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
-            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -244,9 +232,6 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRAlphaPrepassPipeline")
             .SetShaderPathVertex("assets/spirv/ZPrepassAlphaVert.spv")
             .SetShaderPathFragment("assets/spirv/ZPrepassAlphaFrag.spv")
-            // TODO: restore this code in separate path:
-            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
-            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -264,9 +249,6 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRMainPipeline")
             .SetShaderPathVertex("assets/spirv/MinimalPBRVert.spv")
             .SetShaderPathFragment("assets/spirv/MinimalPBRFrag.spv")
-            // TODO: restore this code in separate path:
-            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
-            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -300,9 +282,6 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRStencilPipeline")
             .SetShaderPathVertex("assets/spirv/outline/StencilVert.spv")
             .SetShaderPathFragment("assets/spirv/outline/StencilFrag.spv")
-            // TODO: restore this code in separate path:
-            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
-            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -331,9 +310,6 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRStencilPipeline")
             .SetShaderPathVertex("assets/spirv/outline/OutlineVert.spv")
             .SetShaderPathFragment("assets/spirv/outline/OutlineFrag.spv")
-            // TODO: restore this code in separate path:
-            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
-            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -352,9 +328,6 @@ void MinimalPbrRenderer::RebuildPipelines()
         PipelineBuilder("MinimalPBRObjectIdPipeline")
             .SetShaderPathVertex("assets/spirv/outline/ObjectIdVert.spv")
             .SetShaderPathFragment("assets/spirv/outline/ObjectIdFrag.spv")
-            // TODO: restore this code in separate path:
-            //.SetVertexInput(mGeometryLayout.VertexLayout, 0,
-            // VK_VERTEX_INPUT_RATE_VERTEX)
             .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
@@ -379,6 +352,7 @@ void MinimalPbrRenderer::RebuildPipelines()
     mEnvHandler.RebuildPipelines(RenderTargetFormat, DepthStencilFormat, mMultisample);
     mShadowmapHandler.RebuildPipelines(info);
     mAOHandler.RebuildPipelines();
+    mPostProcessor.RebuildPipelines();
 }
 
 void MinimalPbrRenderer::RecreateSwapchainResources()
@@ -392,67 +366,77 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
-    uint32_t width  = ScaleResolution(mCtx.Swapchain.extent.width);
-    uint32_t height = ScaleResolution(mCtx.Swapchain.extent.height);
-
     VkExtent2D drawExtent{
-        .width  = width,
-        .height = height,
+        .width  = ScaleResolution(mCtx.Swapchain.extent.width),
+        .height = ScaleResolution(mCtx.Swapchain.extent.height),
     };
 
-    VkImageUsageFlags drawUsage{};
-    drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    Image2DInfo renderTargetInfo{
-        .Extent = drawExtent,
-        .Format = RenderTargetFormat,
-        .Usage  = drawUsage,
-        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    };
-    mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
-                                           mSwapchainDeletionQueue);
-
-    // Create depth (and stencil) buffer:
-    VkImageUsageFlags depthUsage{};
-    depthUsage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    depthUsage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
-    Image2DInfo depthBufferInfo{
-        .Extent = drawExtent,
-        .Format = DepthStencilFormat,
-        .Usage  = depthUsage,
-        .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
-    mDepthStencilBuffer = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
-                                                 mSwapchainDeletionQueue);
-
-    // Create depth-only view for the depth buffer:
-    mDepthOnlyView = MakeView::View2D(
-        mCtx, "DepthOnlyView",
-        {.Img = mDepthStencilBuffer.Img, .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT});
-    mSwapchainDeletionQueue.push_back(mDepthOnlyView);
-
-    // If multisampling is used, create intermediate buffers for rendering, before
-    // resolving into usual images:
-    if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
+    // Create the (color) render target:
     {
-        renderTargetInfo.Multisampling = mMultisample;
-        renderTargetInfo.Layout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        VkImageUsageFlags drawUsage{};
+        drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        drawUsage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        // drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-        mRenderTargetMsaa = MakeTexture::Texture2D(
-            mCtx, "RenderTargetMSAA", renderTargetInfo, mSwapchainDeletionQueue);
+        Image2DInfo renderTargetInfo{
+            .Extent = drawExtent,
+            .Format = RenderTargetFormat,
+            .Usage  = drawUsage,
+            .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
 
-        depthBufferInfo.Multisampling = mMultisample;
-        depthBufferInfo.Layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
+                                               mSwapchainDeletionQueue);
 
-        mDepthStencilMsaa = MakeTexture::Texture2D(
-            mCtx, "DepthBufferMSAA", depthBufferInfo, mSwapchainDeletionQueue);
+        // If multisampling used, create intermediate buffer, before resolve:
+        if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
+        {
+            renderTargetInfo.Multisampling = mMultisample;
+            renderTargetInfo.Layout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+            mRenderTargetMsaa = MakeTexture::Texture2D(
+                mCtx, "RenderTargetMSAA", renderTargetInfo, mSwapchainDeletionQueue);
+        }
     }
 
-    // Create AO related resources:
+    // Create the depth (and stencil) buffer:
+    {
+        VkImageUsageFlags depthUsage{};
+        depthUsage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        depthUsage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+        Image2DInfo depthBufferInfo{
+            .Extent = drawExtent,
+            .Format = DepthStencilFormat,
+            .Usage  = depthUsage,
+            .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        };
+        mDepthStencilBuffer = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,
+                                                     mSwapchainDeletionQueue);
+
+        // Create depth-only view (without stencil) for the depth buffer:
+        mDepthOnlyView = MakeView::View2D(mCtx, "DepthOnlyView",
+                                          {.Img            = mDepthStencilBuffer.Img,
+                                           .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT});
+        mSwapchainDeletionQueue.push_back(mDepthOnlyView);
+
+        // If multisampling used, create intermediate buffer, before resolve:
+        if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
+        {
+            depthBufferInfo.Multisampling = mMultisample;
+            depthBufferInfo.Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+
+            mDepthStencilMsaa = MakeTexture::Texture2D(
+                mCtx, "DepthBufferMSAA", depthBufferInfo, mSwapchainDeletionQueue);
+        }
+    }
+
+    // (Re)Create AO related resources:
     mAOHandler.RecreateSwapchainResources(mDepthStencilBuffer.Img, mDepthOnlyView,
                                           drawExtent);
+
+    // (Re)Create postfx related resources:
+    mPostProcessor.RecreateSwapchainResources(mRenderTarget.Img, mRenderTarget.View);
 
     // Update auxiliary descriptor set:
     {
@@ -535,6 +519,11 @@ void MinimalPbrRenderer::OnImGui()
     ImGui::SliderFloat("Shadow Bias Light", &mUBOData.ShadowBiasLight, 0.0f, 3.0f);
     ImGui::SliderFloat("Shadow Bias Normal", &mUBOData.ShadowBiasNormal, 0.0f, 3.0f);
 
+    if (ImGui::CollapsingHeader("PostFX"))
+    {
+        mPostProcessor.OnImGui();
+    }
+
     if (ImGui::CollapsingHeader("Render Target"))
     {
         ImGui::SliderFloat("Internal Res Scale", &mInternalResolutionScale, 0.25f, 2.0f);
@@ -576,6 +565,10 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
 {
     auto &cmd = mFrame.CurrentCmd();
 
+    // TODO: This can probably be moved south safely:
+    // barrier::TransferSrcToColorAttachment(cmd, mRenderTarget.Img.Handle);
+    barrier::SampledToColorAttachment(cmd, mRenderTarget.Img.Handle);
+
     // This is not OnUpdate since, uniform buffers are per-image index
     // and as such need to be acquired after new image index is set.
     mCamDynamicUBO.UpdateData(&mCamUBOData, sizeof(mCamUBOData));
@@ -595,12 +588,23 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
 
     MainPass(cmd, stats);
 
+    // TODO: This should be moved after postfx
+    // and write to the final target:
     if (highlightedObj.has_value())
         OutlinePass(cmd, *highlightedObj);
+
+    barrier::ColorAttachmentToSampled(cmd, mRenderTarget.Img.Handle);
+    mPostProcessor.RunPostProcessPass(cmd);
 
     mFrame.Stats.NumTriangles = stats.NumIdx / 3;
     mFrame.Stats.NumDraws     = stats.NumDraws;
     mFrame.Stats.NumBinds     = stats.NumBinds;
+}
+
+void MinimalPbrRenderer::TargetToTransfer(VkCommandBuffer cmd)
+{
+    // barrier::ColorAttachmentToTransferSrc(cmd, mRenderTarget.Img.Handle);
+    (void)cmd;
 }
 
 template <typename MaterialFn, typename InstanceFn>

@@ -231,8 +231,6 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
 
 void AOHandler::RunAOPass(VkCommandBuffer cmd)
 {
-    // TODO: make the layout barriers non-coarse
-
     // Computing thread group sizes for both dispatches:
     uint32_t localSizeX = 16, localSizeY = 16;
 
@@ -244,24 +242,7 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 
     // Generate the Z buffer:
     {
-        // Transition depth target to be used as texture:
-        Image &depthBuffer = mResourceCache->DepthBuffer;
-
-        auto barrierInfoDepth = barrier::LayoutTransitionInfo{
-            .Image     = depthBuffer,
-            .OldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, barrierInfoDepth);
-
-        // Transition Z buffer to be used as storage image (can discard previous
-        // contents):
-        auto barrierInfoZ = barrier::LayoutTransitionInfo{
-            .Image     = mZBuffer.Img,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, barrierInfoZ);
+        barrier::TextureCompToGeneral(cmd, mZBuffer.Img);
 
         // Generate the 0 level of the Z-buffer:
         PCDataZ data{
@@ -273,11 +254,6 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         mZGenPipeline.PushConstants(cmd, data);
 
         vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
-
-        // Transition depth target back to be used as depth attachment:
-        barrierInfoDepth.OldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrierInfoDepth.NewLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        barrier::ImageLayoutCoarse(cmd, barrierInfoDepth);
 
         // Create higher mip-levels of the Z-buffer:
         uint32_t resX = mZBuffer.Img.Info.extent.width / 2;
@@ -300,13 +276,7 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
             currentRange.baseMipLevel = mip;
             currentRange.levelCount   = 1;
 
-            auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image            = mZBuffer.Img,
-                .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
-                .SubresourceRange = currentRange,
-            };
-            barrier::ImageLayoutCoarse(cmd, barrierInfo);
+            barrier::TextureGeneralToGeneral(cmd, mZBuffer.Img, currentRange);
 
             // Update next mip resolution:
             resX = std::max(1u, resX / 2);
@@ -316,22 +286,8 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 
     // Generate the AO:
     {
-        // Transition Z-buffer to be used as texture:
-        auto barrierInfoDepth = barrier::LayoutTransitionInfo{
-            .Image     = mZBuffer.Img,
-            .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, barrierInfoDepth);
-
-        // Transition AO target to be used as storage image (can discard previous
-        // contents):
-        auto barrierInfoAO = barrier::LayoutTransitionInfo{
-            .Image     = mAOTarget.Img,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, barrierInfoAO);
+        barrier::TextureCompToSample(cmd, mZBuffer.Img);
+        barrier::TextureFragToGeneral(cmd, mAOTarget.Img);
 
         // Calculate ambient occlusion:
         auto frBack = mCamera.GetFrustumBackEye();
@@ -349,9 +305,6 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 
         vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
 
-        // Transition AO target back to be used as a texture:
-        barrierInfoAO.OldLayout = VK_IMAGE_LAYOUT_GENERAL;
-        barrierInfoAO.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier::ImageLayoutCoarse(cmd, barrierInfoAO);
+        barrier::TextureFragToSample(cmd, mAOTarget.Img);
     }
 }

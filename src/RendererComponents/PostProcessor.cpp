@@ -290,8 +290,6 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
 
 void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
 {
-    // TODO: Make the barriers non-coarse
-
     std::vector<glm::uvec2> resolutions;
     {
         resolutions.resize(mBloomNumMips);
@@ -316,13 +314,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         dstRange.baseMipLevel = mip;
         dstRange.levelCount   = 1;
 
-        auto dstInfo = barrier::LayoutTransitionInfo{
-            .Image            = mBloomTarget.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .SubresourceRange = dstRange,
-        };
-        barrier::ImageLayoutCoarse(cmd, dstInfo);
+        barrier::TextureCompToGeneral(cmd, mBloomTarget.Img, dstRange);
 
         if (mip > 0)
         {
@@ -330,13 +322,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
             srcRange.baseMipLevel = mip - 1;
             srcRange.levelCount   = 1;
 
-            auto srcInfo = barrier::LayoutTransitionInfo{
-                .Image            = mBloomTarget.Img,
-                .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                .SubresourceRange = srcRange,
-            };
-            barrier::ImageLayoutCoarse(cmd, srcInfo);
+            barrier::TextureCompToSample(cmd, mBloomTarget.Img, srcRange);
         }
 
         auto ds = mBloomDownscaleDescriptorSets[mip];
@@ -369,29 +355,17 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
     // Upsample passes:
     for (size_t mip = mBloomNumMips - 2; mip != size_t(-1); mip--)
     {
-        auto dstRange         = Image::GetDefaultRange(mBloomTarget.Img);
-        dstRange.baseMipLevel = mip;
-        dstRange.levelCount   = 1;
-
-        auto dstInfo = barrier::LayoutTransitionInfo{
-            .Image            = mBloomTarget.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .SubresourceRange = dstRange,
-        };
-        barrier::ImageLayoutCoarse(cmd, dstInfo);
-
         auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
         srcRange.baseMipLevel = mip + 1;
         srcRange.levelCount   = 1;
 
-        auto srcInfo = barrier::LayoutTransitionInfo{
-            .Image            = mBloomTarget.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .SubresourceRange = srcRange,
-        };
-        barrier::ImageLayoutCoarse(cmd, srcInfo);
+        barrier::TextureCompToSample(cmd, mBloomTarget.Img, srcRange);
+
+        auto dstRange         = Image::GetDefaultRange(mBloomTarget.Img);
+        dstRange.baseMipLevel = mip;
+        dstRange.levelCount   = 1;
+        
+        barrier::TextureCompToGeneralRetained(cmd, mBloomTarget.Img, dstRange);
 
         auto ds = mBloomUpscaleDescriptorSets[mip];
 
@@ -418,20 +392,9 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         srcRange.baseMipLevel = 0;
         srcRange.levelCount   = 1;
 
-        auto srcInfo = barrier::LayoutTransitionInfo{
-            .Image            = mBloomTarget.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .SubresourceRange = srcRange,
-        };
-        barrier::ImageLayoutCoarse(cmd, srcInfo);
+        barrier::TextureCompToSample(cmd, mBloomTarget.Img, srcRange);
 
-        auto dstInfo = barrier::LayoutTransitionInfo{
-            .Image     = mFinalTarget.Img,
-            .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .NewLayout = VK_IMAGE_LAYOUT_GENERAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, dstInfo);
+        barrier::TransferSrcToGeneral(cmd, mFinalTarget.Img.Handle);
 
         mFinalPipeline.Bind(cmd);
         mFinalPipeline.BindDescriptorSet(cmd, mFinalDescriptorSet, 0);
@@ -450,10 +413,5 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
     }
 
-    auto dstInfo = barrier::LayoutTransitionInfo{
-        .Image     = mFinalTarget.Img,
-        .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-        .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    };
-    barrier::ImageLayoutCoarse(cmd, dstInfo);
+    barrier::GeneralToTransferSrc(cmd, mFinalTarget.Img.Handle);
 }

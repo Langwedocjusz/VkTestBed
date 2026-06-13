@@ -28,6 +28,7 @@ class AOHandler {
 
     // Both RebuildPipelines and RecreateSwapchainResources
     // must be called before first invocation of RunAOPass.
+    // Depth buffer is assumed to be in VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
     void RunAOPass(VkCommandBuffer cmd);
 
     // Retrieve data needed to access the ao texture:

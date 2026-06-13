@@ -119,7 +119,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 {
     auto &cmd = mFrame.CurrentCmd();
 
-    barrier::TransferSrcToColorAttachment(cmd, mRenderTarget.Img.Handle);
+    barrier::TransferSrcToColor(cmd, mRenderTarget.Img.Handle);
 
     // This is not OnUpdate since, uniform buffers are per-image index
     // and as such need to be acquired after new image index is set.
@@ -193,7 +193,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
 void Minimal3DRenderer::TargetToTransfer(VkCommandBuffer cmd)
 {
-    barrier::ColorAttachmentToTransferSrc(cmd, mRenderTarget.Img.Handle);
+    barrier::ColorToTransferSrc(cmd, mRenderTarget.Img.Handle);
 }
 
 void Minimal3DRenderer::RecreateSwapchainResources()

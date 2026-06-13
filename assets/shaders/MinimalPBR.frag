@@ -146,6 +146,8 @@ void main()
         vec4 aoSample = texture(sAOMap, aoUV);
 
         float ao = aoSample.a;
+        ao = pow(ao, 2.2);
+
         vOutColor = vec4(vec3(ao), 1.0);
         
         //Preview reconstructed normals:
@@ -181,7 +183,7 @@ void main()
         if (projCoords.z > 1.0) color *= more;     
         #endif
     
-        vOutColor = vec4(color, 1.0);
+        vOutColor = vec4(pow(color, vec3(2.2)), 1.0);
         return;
     }
     #endif

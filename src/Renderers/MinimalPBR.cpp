@@ -565,11 +565,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
 {
     auto &cmd = mFrame.CurrentCmd();
 
-    // TODO: This can probably be moved south safely:
-    // barrier::TransferSrcToColorAttachment(cmd, mRenderTarget.Img.Handle);
-    barrier::SampledToColorAttachment(cmd, mRenderTarget.Img.Handle);
-
-    // This is not OnUpdate since, uniform buffers are per-image index
+    // This is not OnUpdate, since uniform buffers are per-image index
     // and as such need to be acquired after new image index is set.
     mCamDynamicUBO.UpdateData(&mCamUBOData, sizeof(mCamUBOData));
     mDynamicUBO.UpdateData(&mUBOData, sizeof(mUBOData));
@@ -583,9 +579,16 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
         Prepass(cmd, stats);
 
         if (mEnableAO)
+        {
+            bool msaa = (mMultisample != VK_SAMPLE_COUNT_1_BIT);
+
+            barrier::Depth2ToSampledComp(cmd, mDepthStencilBuffer.Img, msaa);
             mAOHandler.RunAOPass(cmd);
+            barrier::Depth2ToRenderAfterComp(cmd, mDepthStencilBuffer.Img, msaa);
+        }
     }
 
+    barrier::SampledToColor(cmd, mRenderTarget.Img.Handle);
     MainPass(cmd, stats);
 
     // TODO: This should be moved after postfx
@@ -593,7 +596,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
     if (highlightedObj.has_value())
         OutlinePass(cmd, *highlightedObj);
 
-    barrier::ColorAttachmentToSampled(cmd, mRenderTarget.Img.Handle);
+    barrier::ColorToSampledComp(cmd, mRenderTarget.Img.Handle);
     mPostProcessor.RunPostProcessPass(cmd);
 
     mFrame.Stats.NumTriangles = stats.NumIdx / 3;
@@ -603,7 +606,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
 
 void MinimalPbrRenderer::TargetToTransfer(VkCommandBuffer cmd)
 {
-    // barrier::ColorAttachmentToTransferSrc(cmd, mRenderTarget.Img.Handle);
+    // barrier::ColorToTransferSrc(cmd, mRenderTarget.Img.Handle);
     (void)cmd;
 }
 

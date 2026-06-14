@@ -7,7 +7,7 @@ layout (set = 0, binding = 0, Rgba16f) uniform writeonly image2D iTarget;
 layout(set = 0, binding = 1) uniform sampler2D sSource;
 
 layout(push_constant) uniform PushConstants {
-    float UVRadius;
+    uvec2 SourceResolution;
 } uPushConstants;
 
 // Upsampling kernel based on the following presentation:
@@ -21,7 +21,8 @@ void main()
 
     vec2 uv = (vec2(outTexelCoords) + 0.5) / imageSize(iTarget);
 
-    float radius = uPushConstants.UVRadius;
+    vec2 srcTexelSize = 1.0 / vec2(uPushConstants.SourceResolution);
+    vec2 radius = 5.0 * srcTexelSize;
 
     // Gather samples using the following pattern:
     // a - b - c

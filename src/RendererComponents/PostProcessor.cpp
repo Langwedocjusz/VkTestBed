@@ -373,7 +373,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         mBloomUpscalePipeline.BindDescriptorSet(cmd, ds, 0);
 
         PCDataUpsample pcData{
-            .UVRadius = 0.01,
+            .SourceResolution = resolutions[mip+1],
         };
         mBloomUpscalePipeline.PushConstants(cmd, pcData);
 

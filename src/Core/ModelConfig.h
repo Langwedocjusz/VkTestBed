@@ -8,7 +8,7 @@ struct ModelConfig {
     std::filesystem::path Filepath;
 
     // Vertex loading:
-    Vertex::Layout VertexLayout = Vertex::PullLayout::Naive;
+    Vertex::Layout VertexLayout = Vertex::PullLayout::Compressed;
 
     // Material loading:
     bool FetchRoughness = true;

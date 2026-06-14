@@ -48,7 +48,7 @@ class PostProcessor {
     };
 
     struct PCDataUpsample {
-        float UVRadius;
+        glm::uvec2 SourceResolution;
     };
 
     struct PCDataFinal {

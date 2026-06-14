@@ -58,7 +58,12 @@ class MinimalPbrRenderer final : public IRenderer {
 
     struct Instance {
         SceneKey  ObjectId;
+        // This is used on BoundingBoxes to check visibility:
         glm::mat4 Transform;
+        // This includes potential position range remapping,
+        // dependent on used vertex compression, and is
+        // only supplied to final drawing shaders:
+        glm::mat4 TransformRaw;
     };
 
     // TODO: This will be remade in RAII fashion when VulkanContext is reworked as a
@@ -152,8 +157,8 @@ class MinimalPbrRenderer final : public IRenderer {
     static constexpr VkIndexType IndexType = VK_INDEX_TYPE_UINT32;
 
     GeometryLayout mGeometryLayout{
-        .VertexLayout = Vertex::PullLayout::Naive,
-        //.VertexLayout = Vertex::PullLayout::Compressed,
+        //.VertexLayout = Vertex::PullLayout::Naive,
+        .VertexLayout = Vertex::PullLayout::Compressed,
         .IndexType = IndexType,
     };
 

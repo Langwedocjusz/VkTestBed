@@ -65,7 +65,7 @@ void ModelLoaderGui::ImportMenu()
         ImGui::Text("Vertex Layout:");
         ImGui::Separator();
 
-        static int32_t    choice = 1;
+        static int32_t    choice = 2;
         static std::array options{"Push", "Pull Naive", "Pull Compressed"};
 
         bool typeChanged = imutils::Combo("Type", choice, options);

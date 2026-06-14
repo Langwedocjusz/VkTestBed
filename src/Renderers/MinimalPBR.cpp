@@ -712,7 +712,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
         auto instanceCallback = [&](VkCommandBuffer cmd, Drawable &drawable,
                                     Instance &instance) {
             ShadowmapHandler::PCData data{
-                .LightMVP       = viewProj * instance.Transform,
+                .LightMVP       = viewProj * instance.TransformRaw,
                 .VertexBuffer   = drawable.VertexAddress,
                 .TexBoundCenter = drawable.TexBoundsCenter,
                 .TexBoundExtent = drawable.TexBoundsExtent,
@@ -734,7 +734,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
         auto instanceCallback = [&](VkCommandBuffer cmd, Drawable &drawable,
                                     Instance &instance) {
             ShadowmapHandler::PCData data{
-                .LightMVP       = viewProj * instance.Transform,
+                .LightMVP       = viewProj * instance.TransformRaw,
                 .VertexBuffer   = drawable.VertexAddress,
                 .TexBoundCenter = drawable.TexBoundsCenter,
                 .TexBoundExtent = drawable.TexBoundsExtent,
@@ -782,7 +782,7 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
         auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
                                        Instance &instance) {
             PCDataPrepass data{
-                .Model          = instance.Transform,
+                .Model          = instance.TransformRaw,
                 .VertexBuffer   = drawable.VertexAddress,
                 .TexBoundCenter = drawable.TexBoundsCenter,
                 .TexBoundExtent = drawable.TexBoundsExtent,
@@ -809,7 +809,7 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
         auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
                                        Instance &instance) {
             PCDataPrepass data{
-                .Model          = instance.Transform,
+                .Model          = instance.TransformRaw,
                 .VertexBuffer   = drawable.VertexAddress,
                 .TexBoundCenter = drawable.TexBoundsCenter,
                 .TexBoundExtent = drawable.TexBoundsExtent,
@@ -870,7 +870,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
                                    Instance &instance) {
         PCDataMain data{
-            .Model          = instance.Transform,
+            .Model          = instance.TransformRaw,
             .VertexBuffer   = drawable.VertexAddress,
             .TexBoundCenter = drawable.TexBoundsCenter,
             .TexBoundExtent = drawable.TexBoundsExtent,
@@ -972,7 +972,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             mStencilPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             // Push per-instance data:
-            auto &model = drawable.Instances.at(instanceId).Transform;
+            auto &model = drawable.Instances.at(instanceId).TransformRaw;
 
             PCDataOutline data{
                 .Model          = model,
@@ -1031,7 +1031,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             mOutlinePipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
 
             // Push per-instance data:
-            auto &model = drawable.Instances.at(instanceId).Transform;
+            auto &model = drawable.Instances.at(instanceId).TransformRaw;
 
             PCDataOutline data{
                 .Model          = model,
@@ -1077,7 +1077,7 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Drawable &drawable,
                                              Instance &instance) {
         PCDataObjectID data{
-            .Model          = viewProj * instance.Transform,
+            .Model          = viewProj * instance.TransformRaw,
             .VertexBuffer   = drawable.VertexAddress,
             .TexBoundCenter = drawable.TexBoundsCenter,
             .TexBoundExtent = drawable.TexBoundsExtent,
@@ -1329,13 +1329,13 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 
             auto &list = mObjectCache[objKey];
             list.emplace_back(drawableKey, drawable.Instances.size());
+            
+            glm::mat4 transform = obj.Transform;
 
             glm::mat4 base = glm::translate(glm::mat4(1.0f), prim.BaseOffset) *
                              glm::scale(glm::mat4(1.0f), prim.BaseScale);
 
-            glm::mat4 transform = obj.Transform * base;
-
-            drawable.Instances.emplace_back(objKey, transform);
+            drawable.Instances.emplace_back(objKey, transform, transform * base);
         }
     }
 }

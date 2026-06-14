@@ -105,16 +105,9 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
         .IndexType    = VK_INDEX_TYPE_UINT32,
     };
 
-    // Store bounding box:
-    // If using compressed vertex layout positions will be normalized:
-    if (vLayout == Vertex::PullLayout::Compressed)
-    {
-        geo.BBox = AABB{.Center = glm::vec3(0.0f), .Extent = glm::vec3(1.0f)};
-    }
-    else
-    {
-        geo.BBox = prim.BBox;
-    }
+    // Store bounding box - this is kept the same even for
+    // compressed layouts that normalzie coords:
+    geo.BBox = prim.BBox;
 
     // Retrieve indices:
     std::memcpy(geo.IndexData.Data, prim.Indices.data(),

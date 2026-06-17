@@ -68,9 +68,9 @@ GeometryData primitive::TexturedCubeWithTangent()
 
     tangen::GenerateTangents(primData);
 
-    //Vertex::Layout layout = Vertex::PullLayout::Naive;
+    // Vertex::Layout layout = Vertex::PullLayout::Naive;
     Vertex::Layout layout = Vertex::PullLayout::Compressed;
-    GeometryData res = VertexPacking::Encode(primData, layout);
+    GeometryData   res    = VertexPacking::Encode(primData, layout);
 
     return res;
 }
@@ -209,9 +209,9 @@ GeometryData primitive::TexturedSphereWithTangent(float radius, uint32_t subdivi
     tangen::GenerateTangents(primData);
 
     // Pack to the desired vertex format:
-    //Vertex::Layout layout = Vertex::PullLayout::Naive;
+    // Vertex::Layout layout = Vertex::PullLayout::Naive;
     Vertex::Layout layout = Vertex::PullLayout::Compressed;
-    GeometryData res = VertexPacking::Encode(primData, layout);
+    GeometryData   res    = VertexPacking::Encode(primData, layout);
 
     return res;
 }

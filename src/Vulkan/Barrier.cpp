@@ -249,16 +249,16 @@ void barrier::DepthToSampledComp(VkCommandBuffer cmd, Image &depthImage,
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::Depth2ToSampledComp(VkCommandBuffer cmd, Image &depthImage, bool msaa) 
+void barrier::Depth2ToSampledComp(VkCommandBuffer cmd, Image &depthImage, bool msaa)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    // NOTE: Resolving msaa image (even depth/stencil) classifies as color attachment write.
-    // See Vulkan Specification 8.7. Render Pass Multisample Resolve Operations.
+    // NOTE: Resolving msaa image (even depth/stencil) classifies as color attachment
+    // write. See Vulkan Specification 8.7. Render Pass Multisample Resolve Operations.
     if (msaa)
     {
-        barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
         barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
     }
     else
@@ -288,18 +288,19 @@ void barrier::Depth2ToRenderAfterComp(VkCommandBuffer cmd, Image &depthImage, bo
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
 
-    // NOTE: Resolving msaa image (even depth/stencil) classifies as color attachment write.
-    // See Vulkan Specification 8.7. Render Pass Multisample Resolve Operations.
+    // NOTE: Resolving msaa image (even depth/stencil) classifies as color attachment
+    // write. See Vulkan Specification 8.7. Render Pass Multisample Resolve Operations.
     if (msaa)
     {
-        barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
         barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
     }
     else
     {
-        barrier.dstStageMask  = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
         // We must use both read and write for future depth comparison:
-        barrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                                VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     }
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -312,7 +313,8 @@ void barrier::Depth2ToRenderAfterComp(VkCommandBuffer cmd, Image &depthImage, bo
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureFragToGeneral(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
+void barrier::TextureFragToGeneral(VkCommandBuffer cmd, Image &image,
+                                   std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -320,7 +322,7 @@ void barrier::TextureFragToGeneral(VkCommandBuffer cmd, Image &image, std::optio
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -336,7 +338,8 @@ void barrier::TextureFragToGeneral(VkCommandBuffer cmd, Image &image, std::optio
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureFragToGeneralRetained(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
+void barrier::TextureFragToGeneralRetained(VkCommandBuffer cmd, Image &image,
+                                           std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -344,7 +347,7 @@ void barrier::TextureFragToGeneralRetained(VkCommandBuffer cmd, Image &image, st
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -360,7 +363,8 @@ void barrier::TextureFragToGeneralRetained(VkCommandBuffer cmd, Image &image, st
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureFragToSample(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
+void barrier::TextureFragToSample(VkCommandBuffer cmd, Image &image,
+                                  std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -368,14 +372,14 @@ void barrier::TextureFragToSample(VkCommandBuffer cmd, Image &image, std::option
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     barrier.image = image.Handle;
-    
+
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
@@ -384,7 +388,8 @@ void barrier::TextureFragToSample(VkCommandBuffer cmd, Image &image, std::option
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureCompToGeneral(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
+void barrier::TextureCompToGeneral(VkCommandBuffer cmd, Image &image,
+                                   std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -392,14 +397,14 @@ void barrier::TextureCompToGeneral(VkCommandBuffer cmd, Image &image, std::optio
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     barrier.image = image.Handle;
-    
+
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
@@ -408,7 +413,8 @@ void barrier::TextureCompToGeneral(VkCommandBuffer cmd, Image &image, std::optio
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureCompToGeneralRetained(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
+void barrier::TextureCompToGeneralRetained(VkCommandBuffer cmd, Image &image,
+                                           std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -416,14 +422,14 @@ void barrier::TextureCompToGeneralRetained(VkCommandBuffer cmd, Image &image, st
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     barrier.image = image.Handle;
-    
+
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
@@ -432,7 +438,8 @@ void barrier::TextureCompToGeneralRetained(VkCommandBuffer cmd, Image &image, st
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureCompToSample(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
+void barrier::TextureCompToSample(VkCommandBuffer cmd, Image &image,
+                                  std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -440,14 +447,14 @@ void barrier::TextureCompToSample(VkCommandBuffer cmd, Image &image, std::option
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     barrier.image = image.Handle;
-    
+
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
@@ -456,7 +463,8 @@ void barrier::TextureCompToSample(VkCommandBuffer cmd, Image &image, std::option
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureGeneralToGeneral(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
+void barrier::TextureGeneralToGeneral(VkCommandBuffer cmd, Image &image,
+                                      std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -464,14 +472,14 @@ void barrier::TextureGeneralToGeneral(VkCommandBuffer cmd, Image &image, std::op
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     barrier.image = image.Handle;
-    
+
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
@@ -523,7 +531,6 @@ void barrier::GeneralToTransferSrc(VkCommandBuffer cmd, VkImage image)
 
     ImageBarrier(cmd, barrier);
 }
-
 
 void barrier::ImageLayoutCoarse(VkCommandBuffer cmd, LayoutTransitionInfo info)
 {

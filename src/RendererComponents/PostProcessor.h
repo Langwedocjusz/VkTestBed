@@ -30,7 +30,7 @@ class PostProcessor {
     static constexpr VkFormat FinalFormat = VK_FORMAT_R8G8B8A8_UNORM;
     Texture                   mFinalTarget;
 
-    float mBloomStrength = 0.05f;
+    float mBloomStrength = 0.1f;
 
     // TODO: This should be scaled along with screen resolution
     // to make the effect consistent:

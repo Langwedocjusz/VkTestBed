@@ -364,7 +364,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         auto dstRange         = Image::GetDefaultRange(mBloomTarget.Img);
         dstRange.baseMipLevel = mip;
         dstRange.levelCount   = 1;
-        
+
         barrier::TextureCompToGeneralRetained(cmd, mBloomTarget.Img, dstRange);
 
         auto ds = mBloomUpscaleDescriptorSets[mip];
@@ -373,7 +373,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         mBloomUpscalePipeline.BindDescriptorSet(cmd, ds, 0);
 
         PCDataUpsample pcData{
-            .SourceResolution = resolutions[mip+1],
+            .SourceResolution = resolutions[mip + 1],
         };
         mBloomUpscalePipeline.PushConstants(cmd, pcData);
 

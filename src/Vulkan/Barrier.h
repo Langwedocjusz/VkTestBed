@@ -72,19 +72,28 @@ void Depth2ToRenderAfterComp(VkCommandBuffer cmd, Image &depthImage, bool msaa);
 // TextureFragToGeneral and TextureCompToGeneral discard contents.
 // TextureFragToGeneralRetained and TextureCompToGeneralRetained don't.
 
-void TextureFragToGeneral(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range = std::nullopt);
-void TextureFragToGeneralRetained(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range = std::nullopt);
-void TextureFragToSample(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range= std::nullopt);
+void TextureFragToGeneral(VkCommandBuffer cmd, Image &image,
+                          std::optional<VkImageSubresourceRange> range = std::nullopt);
+void TextureFragToGeneralRetained(
+    VkCommandBuffer cmd, Image &image,
+    std::optional<VkImageSubresourceRange> range = std::nullopt);
+void TextureFragToSample(VkCommandBuffer cmd, Image &image,
+                         std::optional<VkImageSubresourceRange> range = std::nullopt);
 
-void TextureCompToGeneral(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range= std::nullopt);
-void TextureCompToGeneralRetained(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range= std::nullopt);
-void TextureCompToSample(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range= std::nullopt);
+void TextureCompToGeneral(VkCommandBuffer cmd, Image &image,
+                          std::optional<VkImageSubresourceRange> range = std::nullopt);
+void TextureCompToGeneralRetained(
+    VkCommandBuffer cmd, Image &image,
+    std::optional<VkImageSubresourceRange> range = std::nullopt);
+void TextureCompToSample(VkCommandBuffer cmd, Image &image,
+                         std::optional<VkImageSubresourceRange> range = std::nullopt);
 
 // Barrier that synchronizes acess to auxiliary texture,
 // used strictly by compute shaders:
 // ... -> GENERAL (writeonly) -> GENERAL (readonly) -> ...
 
-void TextureGeneralToGeneral(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range= std::nullopt);
+void TextureGeneralToGeneral(VkCommandBuffer cmd, Image &image,
+                             std::optional<VkImageSubresourceRange> range = std::nullopt);
 
 // Barriers for synchronizing access to auxiliary texture,
 // that is filled with compute, and then transferred (like postfx -> swapchain).

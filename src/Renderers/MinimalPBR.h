@@ -57,7 +57,7 @@ class MinimalPbrRenderer final : public IRenderer {
     };
 
     struct Instance {
-        SceneKey  ObjectId;
+        SceneKey ObjectId;
         // This is used on BoundingBoxes to check visibility:
         glm::mat4 Transform;
         // This includes potential position range remapping,
@@ -159,7 +159,7 @@ class MinimalPbrRenderer final : public IRenderer {
     GeometryLayout mGeometryLayout{
         //.VertexLayout = Vertex::PullLayout::Naive,
         .VertexLayout = Vertex::PullLayout::Compressed,
-        .IndexType = IndexType,
+        .IndexType    = IndexType,
     };
 
     // Some renderer settings:
@@ -217,8 +217,9 @@ class MinimalPbrRenderer final : public IRenderer {
         ShadowmapHandler::Matrices   ShadowMatrices;
         ShadowmapHandler::Bounds     ShadowBounds;
         ShadowmapHandler::TexelSizes ShadowTexelSizes;
-        float                        DirectionalFactor = 3.0f;
-        float                        EnvironmentFactor = 0.05f;
+        float                        DirectionalFactor = 5.0f;
+        float                        EnvironmentFactor = 0.1f;
+        float                        EnvSaturation     = 1.3f;
         float                        ShadowBiasLight   = 0.2f;
         float                        ShadowBiasNormal  = 2.0f;
         int                          AOEnabled         = 0;

@@ -39,6 +39,7 @@ layout(scalar, set = 0, binding = 1) uniform DynamicBlock {
     float CascadeTexelSizes[SHADOW_NUM_CASCADES];
     float DirectionalFactor;
     float EnvironmentFactor;
+    float EnvironmentSaturation;
     float ShadowBiasLight;
     float ShadowBiasNormal;
     int   AOEnabled;
@@ -229,6 +230,11 @@ void main()
     vec3 litColor = vec3(0);
 
     litColor = GetSkyLight(normal, view, diffuse, f0, roughness);
+    
+    // Adjust sky lighting saturation:
+    const vec3 lumaWeights = vec3(0.299, 0.587, 0.114);
+    float gray = dot(litColor, lumaWeights);
+    litColor = mix(vec3(gray), litColor, uDynamic.EnvironmentSaturation);
 
     // Apply ambient occlusion if enabled, and material is not transparent:
     if (uDynamic.AOEnabled == 1 && uMaterial.AlphaMode != ALPHA_MODE_BLEND)

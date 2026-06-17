@@ -231,7 +231,7 @@ float KernelSSAOAlchemy(vec3 pos, Basis TBN, float hash)
 {
     const int SSAO_SAMPLE_COUNT = 48;
     const float SSAO_RADIUS = 0.1;
-    const float SSAO_HEURISTIC_THICKNESS = 0.5;
+    const float SSAO_HEURISTIC_THICKNESS = 0.33;
 
     float volTotal = 0.0;
     float volOccupied = 0.0;
@@ -314,8 +314,11 @@ void main()
     #elif(USED_KERNEL == KERNEL_ALCHEMY)
     float hash = 2.0 * 3.1415 * hash12(texelCoords);
     ao = KernelSSAOAlchemy(pos, TBN, hash);
-
     #endif
+
+    // TODO: Expose control over overall
+    // contrast from the gui:
+    ao = pow(ao, 1.5);
 
     vec4 res = vec4(0.5*TBN.N+0.5, ao);
 

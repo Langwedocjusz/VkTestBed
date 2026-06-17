@@ -515,6 +515,7 @@ void MinimalPbrRenderer::OnImGui()
 
     ImGui::SliderFloat("Directional Factor", &mUBOData.DirectionalFactor, 0.0f, 6.0f);
     ImGui::SliderFloat("Environment Factor", &mUBOData.EnvironmentFactor, 0.0f, 1.0f);
+    ImGui::SliderFloat("Environment Saturation", &mUBOData.EnvSaturation, 0.0f, 2.0f);
 
     ImGui::SliderFloat("Shadow Bias Light", &mUBOData.ShadowBiasLight, 0.0f, 3.0f);
     ImGui::SliderFloat("Shadow Bias Normal", &mUBOData.ShadowBiasNormal, 0.0f, 3.0f);
@@ -1329,7 +1330,7 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
 
             auto &list = mObjectCache[objKey];
             list.emplace_back(drawableKey, drawable.Instances.size());
-            
+
             glm::mat4 transform = obj.Transform;
 
             glm::mat4 base = glm::translate(glm::mat4(1.0f), prim.BaseOffset) *

@@ -56,7 +56,8 @@ DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(std::string_view debugNam
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t binding,
                                                                    VkDescriptorType type,
-                                                                   uint32_t stages, uint32_t count)
+                                                                   uint32_t stages,
+                                                                   uint32_t count)
 {
     VkDescriptorSetLayoutBinding layoutBinding{};
     layoutBinding.binding         = binding;
@@ -73,14 +74,16 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t bind
 }
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddUniformBuffer(uint32_t binding,
-                                                                         uint32_t stages, uint32_t count)
+                                                                         uint32_t stages,
+                                                                         uint32_t count)
 {
     mBindingCounts.UniformBuffer += count;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stages, count);
 }
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageBuffer(uint32_t binding,
-                                                                         uint32_t stages, uint32_t count)
+                                                                         uint32_t stages,
+                                                                         uint32_t count)
 {
     mBindingCounts.StorageBuffer += count;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stages, count);
@@ -94,7 +97,8 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddCombinedSampler(
 }
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageImage(uint32_t binding,
-                                                                        uint32_t stages, uint32_t count)
+                                                                        uint32_t stages,
+                                                                        uint32_t count)
 {
     mBindingCounts.StorageImage += count;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stages, count);
@@ -236,13 +240,14 @@ DescriptorUpdater &DescriptorUpdater::WriteStorageBuffer(uint32_t     binding,
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteCombinedSampler(uint32_t    binding,
-                                                           VkImageView imageView,
-                                                           VkSampler   sampler)
+DescriptorUpdater &DescriptorUpdater::WriteCombinedSampler(uint32_t      binding,
+                                                           VkImageView   imageView,
+                                                           VkSampler     sampler,
+                                                           VkImageLayout layout)
 {
     auto &imageInfo = mImageInfos.emplace_back();
 
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.imageLayout = layout;
     imageInfo.imageView   = imageView;
     imageInfo.sampler     = sampler;
 
@@ -331,20 +336,21 @@ DescriptorUpdater &DescriptorUpdater::WriteStorageBuffers(uint32_t              
 }
 
 DescriptorUpdater &DescriptorUpdater::WriteCombinedSamplers(
-    uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers)
+    uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers,
+    VkImageLayout layout)
 {
     vassert(imageViews.size() == samplers.size(),
             "Numbers of provided image views and samplers must be equal!");
 
     using namespace std::views;
 
-    const size_t startIdx = mBufferInfos.size();
+    const size_t startIdx = mImageInfos.size();
 
     for (auto [imageView, sampler] : zip(imageViews, samplers))
     {
         auto &imageInfo = mImageInfos.emplace_back();
 
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageLayout = layout;
         imageInfo.imageView   = imageView;
         imageInfo.sampler     = sampler;
     }
@@ -362,7 +368,7 @@ DescriptorUpdater &DescriptorUpdater::WriteCombinedSamplers(
 DescriptorUpdater &DescriptorUpdater::WriteStorageImages(
     uint32_t binding, std::span<VkImageView> imageViews)
 {
-    const size_t startIdx = mBufferInfos.size();
+    const size_t startIdx = mImageInfos.size();
 
     for (auto &imageView : imageViews)
     {

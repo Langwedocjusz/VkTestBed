@@ -2,12 +2,15 @@
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-layout (set = 0, binding = 0, Rgba16f) uniform writeonly image2D iTarget;
+#define NUM_BLOOM_MIPS 5
 
-layout(set = 0, binding = 1) uniform sampler2D sSource;
+layout (set = 0, binding = 0, Rgba16f) uniform writeonly image2D iBloomMips[NUM_BLOOM_MIPS];
+layout (set = 0, binding = 1)          uniform sampler2D         sBloomMips[NUM_BLOOM_MIPS];
+layout (set = 0, binding = 2)          uniform sampler2D         sRenderTarget;
 
 layout(push_constant) uniform PushConstants {
     uvec2 SourceResolution;
+    uint  CurrentMip;
 } uPushConstants;
 
 // Upsampling kernel based on the following presentation:
@@ -19,7 +22,9 @@ void main()
 {
     ivec2 outTexelCoords = ivec2(gl_GlobalInvocationID.xy);
 
-    vec2 uv = (vec2(outTexelCoords) + 0.5) / imageSize(iTarget);
+    uint mip = uPushConstants.CurrentMip;
+
+    vec2 uv = (vec2(outTexelCoords) + 0.5) / imageSize(iBloomMips[mip]);
 
     vec2 srcTexelSize = 1.0 / vec2(uPushConstants.SourceResolution);
     vec2 radius = 5.0 * srcTexelSize;
@@ -29,17 +34,17 @@ void main()
     // d - e - f  e is central, non-offset sample
     // g - h - i
     
-    vec3 a = texture(sSource, uv + radius * vec2(-1,  1)).rgb;
-    vec3 b = texture(sSource, uv + radius * vec2( 0,  1)).rgb;
-    vec3 c = texture(sSource, uv + radius * vec2( 1,  1)).rgb;
+    vec3 a = texture(sBloomMips[mip+1], uv + radius * vec2(-1,  1)).rgb;
+    vec3 b = texture(sBloomMips[mip+1], uv + radius * vec2( 0,  1)).rgb;
+    vec3 c = texture(sBloomMips[mip+1], uv + radius * vec2( 1,  1)).rgb;
 
-    vec3 d = texture(sSource, uv + radius * vec2(-1,  0)).rgb;
-    vec3 e = texture(sSource, uv + radius * vec2( 0,  0)).rgb;
-    vec3 f = texture(sSource, uv + radius * vec2( 1,  0)).rgb;
+    vec3 d = texture(sBloomMips[mip+1], uv + radius * vec2(-1,  0)).rgb;
+    vec3 e = texture(sBloomMips[mip+1], uv + radius * vec2( 0,  0)).rgb;
+    vec3 f = texture(sBloomMips[mip+1], uv + radius * vec2( 1,  0)).rgb;
 
-    vec3 g = texture(sSource, uv + radius * vec2(-1, -1)).rgb;
-    vec3 h = texture(sSource, uv + radius * vec2( 0  -1)).rgb;
-    vec3 i = texture(sSource, uv + radius * vec2( 1, -1)).rgb;
+    vec3 g = texture(sBloomMips[mip+1], uv + radius * vec2(-1, -1)).rgb;
+    vec3 h = texture(sBloomMips[mip+1], uv + radius * vec2( 0, -1)).rgb;
+    vec3 i = texture(sBloomMips[mip+1], uv + radius * vec2( 1, -1)).rgb;
 
     // Accumulate result using normalized piramidal weights:
     vec3 result = vec3(0.0);
@@ -49,5 +54,5 @@ void main()
     result += 0.0625 * (a+c+g+i);
     
     // Store downsampled result in target:
-    imageStore(iTarget, outTexelCoords, vec4(result, 1.0));
+    imageStore(iBloomMips[mip], outTexelCoords, vec4(result, 1.0));
 }

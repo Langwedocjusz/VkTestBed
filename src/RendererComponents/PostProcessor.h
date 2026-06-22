@@ -34,21 +34,16 @@ class PostProcessor {
 
     // TODO: This should be scaled along with screen resolution
     // to make the effect consistent:
-    const uint32_t mBloomNumMips  = 5;
-    const uint32_t mDownsampleNum = mBloomNumMips;
-    const uint32_t mUpsampleNum   = mBloomNumMips - 1;
+    const uint32_t mBloomNumMips = 5;
 
     Pipeline mBloomDownscalePipeline;
     Pipeline mBloomUpscalePipeline;
     Pipeline mFinalPipeline;
 
-    struct PCDataDownsample {
+    struct PCDataBloom {
         glm::uvec2 SourceResolution;
-        uint32_t   RawCopy;
-    };
-
-    struct PCDataUpsample {
-        glm::uvec2 SourceResolution;
+        // uint32_t   RawCopy;
+        uint32_t CurrentMip;
     };
 
     struct PCDataFinal {
@@ -59,10 +54,8 @@ class PostProcessor {
     Texture                  mBloomTarget;
     std::vector<VkImageView> mBloomSingleMipViews;
 
-    // For both downscale and upscale (src image -> dst image):
-    VkDescriptorSetLayout        mBloomDescriptorSetLayout;
-    std::vector<VkDescriptorSet> mBloomDownscaleDescriptorSets;
-    std::vector<VkDescriptorSet> mBloomUpscaleDescriptorSets;
+    VkDescriptorSetLayout mBloomDescriptorSetLayout;
+    VkDescriptorSet       mBloomDescriptorSet;
 
     // For the final composition:
     VkDescriptorSetLayout mFinalDescriptorSetLayout;

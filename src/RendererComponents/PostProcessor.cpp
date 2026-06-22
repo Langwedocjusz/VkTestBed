@@ -7,6 +7,7 @@
 #include "Sampler.h"
 
 #include "imgui.h"
+#include "vulkan/vulkan_core.h"
 
 PostProcessor::PostProcessor(VulkanContext &ctx)
     : mCtx(ctx), mPipelineDeletionQueue(ctx), mSwapchainDeletionQueue(ctx),
@@ -26,18 +27,30 @@ PostProcessor::PostProcessor(VulkanContext &ctx)
 
     // TODO: When this is dynamic the descriptor sets
     // will have to be re-allocated per-swapchain:
-    uint32_t dsCountBase  = mDownsampleNum + mUpsampleNum;
+    // uint32_t dsCountBase  = mDownsampleNum + mUpsampleNum;
+    uint32_t dsCountBloom = 1;
     uint32_t dsCountFinal = 1;
 
+    //{
+    //    auto [layout, counts] =
+    //        DescriptorSetLayoutBuilder("PostfxBloomDescriptorSetLayout")
+    //            .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+    //            .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+    //            .Build(mCtx, mMainDeletionQueue);
+    //
+    //    mBloomDescriptorSetLayout = layout;
+    //    totalCounts += dsCountBloom * counts;
+    //}
     {
         auto [layout, counts] =
             DescriptorSetLayoutBuilder("PostfxBloomDescriptorSetLayout")
-                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
+                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
+                .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
                 .Build(mCtx, mMainDeletionQueue);
 
         mBloomDescriptorSetLayout = layout;
-        totalCounts += dsCountBase * counts;
+        totalCounts += dsCountBloom * counts;
     }
 
     {
@@ -53,23 +66,26 @@ PostProcessor::PostProcessor(VulkanContext &ctx)
     }
 
     auto rawCounts          = totalCounts.ToRaw();
-    auto descriptorSetCount = dsCountBase + dsCountFinal;
+    auto descriptorSetCount = dsCountBloom + dsCountFinal;
 
     mDescriptorPool =
         Descriptor::InitPool(mCtx, descriptorSetCount, rawCounts, mMainDeletionQueue);
 
-    mBloomDownscaleDescriptorSets.resize(mDownsampleNum);
-    mBloomUpscaleDescriptorSets.resize(mUpsampleNum);
+    // mBloomDownscaleDescriptorSets.resize(mDownsampleNum);
+    // mBloomUpscaleDescriptorSets.resize(mUpsampleNum);
+    //
+    // for (auto &set : mBloomDownscaleDescriptorSets)
+    //{
+    //     set = Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
+    // }
+    //
+    // for (auto &set : mBloomUpscaleDescriptorSets)
+    //{
+    //     set = Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
+    // }
 
-    for (auto &set : mBloomDownscaleDescriptorSets)
-    {
-        set = Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
-    }
-
-    for (auto &set : mBloomUpscaleDescriptorSets)
-    {
-        set = Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
-    }
+    mBloomDescriptorSet =
+        Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
 
     mFinalDescriptorSet =
         Descriptor::Allocate(mCtx, mDescriptorPool, mFinalDescriptorSetLayout);
@@ -86,14 +102,14 @@ void PostProcessor::RebuildPipelines()
         ComputePipelineBuilder("PostfxBloomDownsample")
             .SetShaderPath("assets/spirv/postfx/BloomDownsampleComp.spv")
             .AddDescriptorSetLayout(mBloomDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(PCDataDownsample))
+            .SetPushConstantSize(sizeof(PCDataBloom))
             .Build(mCtx, mPipelineDeletionQueue);
 
     mBloomUpscalePipeline =
         ComputePipelineBuilder("PostfxBloomUpsample")
             .SetShaderPath("assets/spirv/postfx/BloomUpsampleComp.spv")
             .AddDescriptorSetLayout(mBloomDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(PCDataUpsample))
+            .SetPushConstantSize(sizeof(PCDataBloom))
             .Build(mCtx, mPipelineDeletionQueue);
 
     mFinalPipeline = ComputePipelineBuilder("PostxFinal")
@@ -165,97 +181,22 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
 
     // Update the descriptor sets:
 
-    // First downscale descriptor: renderTarget -> bloomTarget[0]
-    DescriptorUpdater(mBloomDownscaleDescriptorSets[0])
-        .WriteStorageImage(0, mBloomSingleMipViews[0])
-        .WriteCombinedSampler(1, renderTargetView, mBloomSampler)
+    std::vector<VkSampler> mipSamplers(mBloomNumMips, mBloomSampler);
+
+    DescriptorUpdater(mBloomDescriptorSet)
+        .WriteStorageImages(0, mBloomSingleMipViews)
+        .WriteCombinedSamplers(1, mBloomSingleMipViews, mipSamplers,
+                               VK_IMAGE_LAYOUT_GENERAL)
+        .WriteCombinedSampler(2, renderTargetView, mBloomSampler)
         .Update(mCtx);
 
-    // N-1 downscale descriptors: bloomTarget[i-1] -> bloomTarget[i]
-    for (size_t i = 1; i < mBloomNumMips; i++)
-    {
-        mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            // Transition read image (i-1) to read only:
-            auto currentRange         = Image::GetDefaultRange(mBloomTarget.Img);
-            currentRange.baseMipLevel = i - 1;
-            currentRange.levelCount   = 1;
-
-            auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image            = mBloomTarget.Img,
-                .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                .SubresourceRange = currentRange,
-            };
-
-            barrier::ImageLayoutCoarse(cmd, barrierInfo);
-        });
-
-        DescriptorUpdater(mBloomDownscaleDescriptorSets[i])
-            .WriteStorageImage(0, mBloomSingleMipViews[i])
-            .WriteCombinedSampler(1, mBloomSingleMipViews[i - 1], mBloomSampler)
-            .Update(mCtx);
-    }
-
-    // N upscale descriptors: bloomTarget[i+1] -> bloomTarget[i]
-
-    // Transition final mip to sampled:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        // Transition read image (i) to read only:
-        auto currentRange         = Image::GetDefaultRange(mBloomTarget.Img);
-        currentRange.baseMipLevel = mBloomNumMips - 1;
-        currentRange.levelCount   = 1;
-
-        auto barrierInfo = barrier::LayoutTransitionInfo{
-            .Image            = mBloomTarget.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .SubresourceRange = currentRange,
+        auto barrierFinal = barrier::LayoutTransitionInfo{
+            .Image     = mBloomTarget.Img,
+            .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
-
-        barrier::ImageLayoutCoarse(cmd, barrierInfo);
-    });
-
-    for (size_t i = mBloomNumMips - 2; i != size_t(-1); i--)
-    {
-        mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            // Transition target image (i) to general:
-            auto rangeDst         = Image::GetDefaultRange(mBloomTarget.Img);
-            rangeDst.baseMipLevel = i;
-            rangeDst.levelCount   = 1;
-
-            auto barrierDst = barrier::LayoutTransitionInfo{
-                .Image            = mBloomTarget.Img,
-                .OldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                .NewLayout        = VK_IMAGE_LAYOUT_GENERAL,
-                .SubresourceRange = rangeDst,
-            };
-
-            barrier::ImageLayoutCoarse(cmd, barrierDst);
-        });
-
-        DescriptorUpdater(mBloomUpscaleDescriptorSets[i])
-            .WriteStorageImage(0, mBloomSingleMipViews[i])
-            .WriteCombinedSampler(1, mBloomSingleMipViews[i + 1], mBloomSampler)
-            .Update(mCtx);
-    }
-
-    // Final composition descriptor:
-
-    // Transition zeroth mip to sample:
-
-    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        auto rangeSrc         = Image::GetDefaultRange(mBloomTarget.Img);
-        rangeSrc.baseMipLevel = 0;
-        rangeSrc.levelCount   = 1;
-
-        auto barrierSrc = barrier::LayoutTransitionInfo{
-            .Image            = mBloomTarget.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .SubresourceRange = rangeSrc,
-        };
-
-        barrier::ImageLayoutCoarse(cmd, barrierSrc);
+        barrier::ImageLayoutCoarse(cmd, barrierFinal);
     });
 
     DescriptorUpdater(mFinalDescriptorSet)
@@ -264,21 +205,8 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
         .WriteCombinedSampler(2, mBloomSingleMipViews[0], mBloomSampler)
         .Update(mCtx);
 
-    // Transition images to correct layouts:
+    // Transition final target to correct layout:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        // Only transition 1 - N-1, 0 and N already correct:
-        auto bloomRange         = Image::GetDefaultRange(mBloomTarget.Img);
-        bloomRange.baseMipLevel = 1;
-        bloomRange.levelCount   = mBloomNumMips - 2;
-
-        auto barrierBloom = barrier::LayoutTransitionInfo{
-            .Image            = mBloomTarget.Img,
-            .OldLayout        = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .SubresourceRange = bloomRange,
-        };
-        barrier::ImageLayoutCoarse(cmd, barrierBloom);
-
         auto barrierFinal = barrier::LayoutTransitionInfo{
             .Image     = mFinalTarget.Img,
             .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -307,28 +235,22 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         resY = std::max(1u, resY / 2);
     }
 
+    barrier::TextureCompToGeneral(cmd, mBloomTarget.Img);
+
     // Downsampling passes:
+    mBloomDownscalePipeline.Bind(cmd);
+    mBloomDownscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
+
     for (size_t mip = 0; mip < mBloomNumMips; mip++)
     {
-        auto dstRange         = Image::GetDefaultRange(mBloomTarget.Img);
-        dstRange.baseMipLevel = mip;
-        dstRange.levelCount   = 1;
-
-        barrier::TextureCompToGeneral(cmd, mBloomTarget.Img, dstRange);
-
         if (mip > 0)
         {
             auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
             srcRange.baseMipLevel = mip - 1;
             srcRange.levelCount   = 1;
 
-            barrier::TextureCompToSample(cmd, mBloomTarget.Img, srcRange);
+            barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
         }
-
-        auto ds = mBloomDownscaleDescriptorSets[mip];
-
-        mBloomDownscalePipeline.Bind(cmd);
-        mBloomDownscalePipeline.BindDescriptorSet(cmd, ds, 0);
 
         glm::uvec2 srcResolution;
 
@@ -337,10 +259,11 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         else
             srcResolution = resolutions[0];
 
-        PCDataDownsample pcData{
+        PCDataBloom pcData{
             .SourceResolution = srcResolution,
-            .RawCopy          = (mip == 0),
+            .CurrentMip       = static_cast<uint32_t>(mip),
         };
+
         mBloomDownscalePipeline.PushConstants(cmd, pcData);
 
         auto     res        = resolutions[mip];
@@ -353,28 +276,26 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
     }
 
     // Upsample passes:
+    mBloomUpscalePipeline.Bind(cmd);
+    mBloomUpscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
+
     for (size_t mip = mBloomNumMips - 2; mip != size_t(-1); mip--)
     {
         auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
         srcRange.baseMipLevel = mip + 1;
         srcRange.levelCount   = 1;
 
-        barrier::TextureCompToSample(cmd, mBloomTarget.Img, srcRange);
+        barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
 
         auto dstRange         = Image::GetDefaultRange(mBloomTarget.Img);
         dstRange.baseMipLevel = mip;
         dstRange.levelCount   = 1;
 
-        barrier::TextureCompToGeneralRetained(cmd, mBloomTarget.Img, dstRange);
-
-        auto ds = mBloomUpscaleDescriptorSets[mip];
-
-        mBloomUpscalePipeline.Bind(cmd);
-        mBloomUpscalePipeline.BindDescriptorSet(cmd, ds, 0);
-
-        PCDataUpsample pcData{
+        PCDataBloom pcData{
             .SourceResolution = resolutions[mip + 1],
+            .CurrentMip       = static_cast<uint32_t>(mip),
         };
+
         mBloomUpscalePipeline.PushConstants(cmd, pcData);
 
         auto     res        = resolutions[mip];

@@ -4,6 +4,7 @@
 #include "VulkanContext.h"
 
 #include "volk.h"
+#include "vulkan/vulkan_core.h"
 
 #include <span>
 #include <string>
@@ -24,10 +25,14 @@ class DescriptorSetLayoutBuilder {
   public:
     DescriptorSetLayoutBuilder(std::string_view debugName);
 
-    DescriptorSetLayoutBuilder &AddUniformBuffer(uint32_t binding, uint32_t stages, uint32_t count = 1);
-    DescriptorSetLayoutBuilder &AddStorageBuffer(uint32_t binding, uint32_t stages, uint32_t count = 1);
-    DescriptorSetLayoutBuilder &AddCombinedSampler(uint32_t binding, uint32_t stages, uint32_t count = 1);
-    DescriptorSetLayoutBuilder &AddStorageImage(uint32_t binding, uint32_t stages, uint32_t count = 1);
+    DescriptorSetLayoutBuilder &AddUniformBuffer(uint32_t binding, uint32_t stages,
+                                                 uint32_t count = 1);
+    DescriptorSetLayoutBuilder &AddStorageBuffer(uint32_t binding, uint32_t stages,
+                                                 uint32_t count = 1);
+    DescriptorSetLayoutBuilder &AddCombinedSampler(uint32_t binding, uint32_t stages,
+                                                   uint32_t count = 1);
+    DescriptorSetLayoutBuilder &AddStorageImage(uint32_t binding, uint32_t stages,
+                                                uint32_t count = 1);
 
     using Result = std::pair<VkDescriptorSetLayout, DescriptorBindingCounts>;
 
@@ -80,12 +85,15 @@ class DescriptorUpdater {
     DescriptorUpdater &WriteStorageBuffers(uint32_t binding, std::span<VkBuffer> buffers,
                                            std::span<VkDeviceSize> sizes);
 
-    /// Uses combined sampler, with read only optimal layout
-    DescriptorUpdater &WriteCombinedSampler(uint32_t binding, VkImageView imageView,
-                                            VkSampler sampler);
-    DescriptorUpdater &WriteCombinedSamplers(uint32_t               binding,
-                                             std::span<VkImageView> imageViews,
-                                             std::span<VkSampler>   samplers);
+    /// Uses combined sampler, by default assumes read only optimal layout, can be
+    /// overriden:
+    DescriptorUpdater &WriteCombinedSampler(
+        uint32_t binding, VkImageView imageView, VkSampler sampler,
+        VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    DescriptorUpdater &WriteCombinedSamplers(
+        uint32_t binding, std::span<VkImageView> imageViews,
+        std::span<VkSampler> samplers,
+        VkImageLayout        layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     /// Assumes general layout of the image
     DescriptorUpdater &WriteStorageImage(uint32_t binding, VkImageView imageView);

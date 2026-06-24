@@ -7,7 +7,6 @@
 #include "Sampler.h"
 
 #include "imgui.h"
-#include "vulkan/vulkan_core.h"
 
 PostProcessor::PostProcessor(VulkanContext &ctx)
     : mCtx(ctx), mPipelineDeletionQueue(ctx), mSwapchainDeletionQueue(ctx),

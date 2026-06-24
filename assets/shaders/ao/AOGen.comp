@@ -60,6 +60,19 @@ float DepthAtSample(vec3 samplePos, float lod)
     return SampleZ(uv, lod);
 }
 
+float LodFromOffset(vec3 samplePos, vec3 offset)
+{
+    // Using higher lod of the Z-buffer for further away samples
+    // to prevent cache-trashing:
+    // TODO: fNear should be fetched from camera.    
+    // TODO: Lod calculation should be performed in
+    // texel-units, where the magic value "13.0"
+    // would be translated to something more meaningful.
+    const float F_NEAR = 0.01;
+    float screenOffset = (F_NEAR/samplePos.z) * length(offset);
+    return log2(screenOffset) + 13.0; 
+}
+
 struct Basis{
     vec3 T;
     vec3 B;
@@ -188,16 +201,7 @@ float KernelSSAONaive(vec3 pos, Basis TBN, inout uvec3 rngState)
     
         vec3 samplePos = pos + offset;
 
-        // Using higher lod of the Z-buffer for further away samples
-        // to prevent cache-trashing:
-        // TODO: fNear should be fetched from camera.    
-        // TODO: Lod calculation should be performed in
-        // texel-units, where the magic value "13.0"
-        // would be translated to something more meaningful.
-        const float F_NEAR = 0.01;
-        float screenOffset = (F_NEAR/pos.z) * length(offsetTan);
-        float lod = log2(screenOffset) + 13.0; 
-
+        float lod = LodFromOffset(samplePos, offsetTan);
         float bufferDepth = DepthAtSample(samplePos, lod);
     
         //TODO: continuous attenuation function would remove cutoff artefacts.
@@ -229,7 +233,7 @@ vec2 VogelDisk(int idx, int num_samples, float rotation)
 // Visibility is treated differently to Alchemy paper.
 float KernelSSAOAlchemy(vec3 pos, Basis TBN, float hash)
 {
-    const int SSAO_SAMPLE_COUNT = 48;
+    const int SSAO_SAMPLE_COUNT = 24;
     const float SSAO_RADIUS = 0.1;
     const float SSAO_HEURISTIC_THICKNESS = 0.33;
 
@@ -274,8 +278,9 @@ float KernelSSAOAlchemy(vec3 pos, Basis TBN, float hash)
         bottomZ = min(bottomZ, samplePos.z + halfHeight);
 
         // Position snapped to the 'ground' (Z-buffer):
+        float lod = LodFromOffset(samplePos, offset);
 
-        float ground_z = DepthAtSample(samplePos, 1.0);
+        float ground_z = DepthAtSample(samplePos, lod);
 
         if (abs(pos.z - ground_z) > SSAO_HEURISTIC_THICKNESS)
             ground_z = bottomZ;

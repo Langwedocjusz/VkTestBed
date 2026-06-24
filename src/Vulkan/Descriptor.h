@@ -4,7 +4,6 @@
 #include "VulkanContext.h"
 
 #include "volk.h"
-#include "vulkan/vulkan_core.h"
 
 #include <span>
 #include <string>

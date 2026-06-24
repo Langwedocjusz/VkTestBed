@@ -2,18 +2,26 @@
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-layout (set = 0, binding = 0, R32f) uniform writeonly image2D iZResult;
-layout (set = 0, binding = 1, R32f) uniform readonly image2D iZSource;
+#define Z_NUM_MIPS  4
+
+layout (set = 0, binding = 0, R32f) uniform image2D iZBuffer[Z_NUM_MIPS];
+
+layout(push_constant) uniform PushConstants {
+    uint CurrentMip;
+} uPushConstants;
 
 void main()
 {
     ivec2 texelCoords = ivec2(gl_GlobalInvocationID.xy);
 
-    vec4 res = imageLoad(iZSource, 2 * texelCoords);
+    const uint dstMip = uPushConstants.CurrentMip;
+    const uint srcMip = dstMip - 1;
 
-    res = min(res, imageLoad(iZSource, 2 * texelCoords + ivec2(1,0)));
-    res = min(res, imageLoad(iZSource, 2 * texelCoords + ivec2(0,1)));
-    res = min(res, imageLoad(iZSource, 2 * texelCoords + ivec2(1,1)));
+    vec4 res = imageLoad(iZBuffer[srcMip], 2 * texelCoords);
 
-    imageStore(iZResult, texelCoords, res);
+    res = min(res, imageLoad(iZBuffer[srcMip], 2 * texelCoords + ivec2(1,0)));
+    res = min(res, imageLoad(iZBuffer[srcMip], 2 * texelCoords + ivec2(0,1)));
+    res = min(res, imageLoad(iZBuffer[srcMip], 2 * texelCoords + ivec2(1,1)));
+
+    imageStore(iZBuffer[dstMip], texelCoords, res);
 }

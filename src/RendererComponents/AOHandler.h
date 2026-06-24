@@ -50,6 +50,10 @@ class AOHandler {
         glm::mat4 Proj;
     };
 
+    struct PCDataZMip {
+        uint32_t CurrentMip;
+    };
+
     struct PCDataAO {
         glm::vec4 TopLeft;
         glm::vec4 TopRight;
@@ -89,8 +93,8 @@ class AOHandler {
     VkDescriptorSet       mAOGenDescriptorSet;
     VkDescriptorSet       mZGenDescriptorSet;
 
-    VkDescriptorSetLayout                        mZMipGenDescriptorSetLayout;
-    std::array<VkDescriptorSet, ZBufferMips - 1> mZMipGenDescriptorSets;
+    VkDescriptorSetLayout mZMipGenDescriptorSetLayout;
+    VkDescriptorSet       mZMipGenDescriptorSet;
 
     VkSampler mDepthSampler;
     VkSampler mAOutSampler;

@@ -32,26 +32,29 @@ AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
     // Build descriptor sets for z buffer and AO generation:
     DescriptorBindingCounts totalCounts{};
 
+    const uint32_t aoGenDSCount = 2;
+    const uint32_t zMipDSCount  = 1;
+
     {
         auto [layout, counts]  = DescriptorSetLayoutBuilder("AOGenDSLayout")
                                      .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
                                      .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
                                      .Build(mCtx, mMainDeletionQueue);
         mAODescriptorSetLayout = layout;
-        totalCounts += 2 * counts;
+        totalCounts += aoGenDSCount * counts;
     }
 
     {
         auto [layout, counts]       = DescriptorSetLayoutBuilder("AOGenZMipDSLayout")
-                                          .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                          .AddStorageImage(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                          .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, ZBufferMips)
                                           .Build(mCtx, mMainDeletionQueue);
+
         mZMipGenDescriptorSetLayout = layout;
-        totalCounts += mZMipGenDescriptorSets.size() * counts;
+        totalCounts += zMipDSCount * counts;
     }
 
     auto bindingCounts   = totalCounts.ToRaw();
-    auto descriptorCount = 2 + mZMipGenDescriptorSets.size();
+    auto descriptorCount = aoGenDSCount + zMipDSCount;
 
     mAODescriptorPool =
         Descriptor::InitPool(mCtx, descriptorCount, bindingCounts, mMainDeletionQueue);
@@ -60,11 +63,8 @@ AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
         Descriptor::Allocate(mCtx, mAODescriptorPool, mAODescriptorSetLayout);
     mZGenDescriptorSet =
         Descriptor::Allocate(mCtx, mAODescriptorPool, mAODescriptorSetLayout);
-
-    for (auto &set : mZMipGenDescriptorSets)
-    {
-        set = Descriptor::Allocate(mCtx, mAODescriptorPool, mZMipGenDescriptorSetLayout);
-    }
+    mZMipGenDescriptorSet =
+        Descriptor::Allocate(mCtx, mAODescriptorPool, mZMipGenDescriptorSetLayout);
 }
 
 void AOHandler::OnImGui()
@@ -90,6 +90,7 @@ void AOHandler::RebuildPipelines()
     mZMipGenPipeline = ComputePipelineBuilder("AOZBufferMipPipeline")
                            .SetShaderPath("assets/spirv/ao/ZMipGenComp.spv")
                            .AddDescriptorSetLayout(mZMipGenDescriptorSetLayout)
+                           .SetPushConstantSize(sizeof(PCDataZMip))
                            .Build(mCtx, mPipelineDeletionQueue);
 
     mAOGenPipeline = ComputePipelineBuilder("AOGenPipeline")
@@ -182,15 +183,9 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .WriteCombinedSampler(1, depthOnlyView, mDepthSampler)
             .Update(mCtx);
 
-        for (size_t srcLvl = 0; srcLvl < mZMipGenDescriptorSets.size(); srcLvl++)
-        {
-            auto &set = mZMipGenDescriptorSets[srcLvl];
-
-            DescriptorUpdater(set)
-                .WriteStorageImage(0, mZSingleLevelViews[srcLvl + 1])
-                .WriteStorageImage(1, mZSingleLevelViews[srcLvl])
-                .Update(mCtx);
-        }
+        DescriptorUpdater(mZMipGenDescriptorSet)
+            .WriteStorageImages(0, mZSingleLevelViews)
+            .Update(mCtx);
 
         // Transition depth buffer and z-buffer to correct layouts:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
@@ -256,18 +251,24 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
 
         // Create higher mip-levels of the Z-buffer:
+        mZMipGenPipeline.Bind(cmd);
+        mZMipGenPipeline.BindDescriptorSet(cmd, mZMipGenDescriptorSet, 0);
+
         uint32_t resX = mZBuffer.Img.Info.extent.width / 2;
         uint32_t resY = mZBuffer.Img.Info.extent.height / 2;
 
         for (uint32_t mip = 1; mip < mZBuffer.Img.Info.mipLevels; mip++)
         {
-            mZMipGenPipeline.Bind(cmd);
-            mZMipGenPipeline.BindDescriptorSet(cmd, mZMipGenDescriptorSets[mip - 1], 0);
-
             uint32_t localSizeX = 16, localSizeY = 16;
 
             uint32_t dispCountX = (resX + localSizeX - 1) / localSizeX;
             uint32_t dispCountY = (resY + localSizeY - 1) / localSizeY;
+
+            PCDataZMip data{
+                .CurrentMip = mip,
+            };
+
+            mZMipGenPipeline.PushConstants(cmd, data);
 
             vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
 

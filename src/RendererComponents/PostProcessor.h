@@ -26,7 +26,7 @@ class PostProcessor {
     VulkanContext &mCtx;
 
     // Using UNORM, since my driver didn't support image with
-    // rgba8_srgb | transfer_src | storgate image:
+    // rgba8_srgb | transfer_src | storage image:
     static constexpr VkFormat FinalFormat = VK_FORMAT_R8G8B8A8_UNORM;
     Texture                   mFinalTarget;
 

@@ -4,12 +4,11 @@ layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 #define NUM_BLOOM_MIPS 5
 
-layout (set = 0, binding = 0, Rgba16f) uniform writeonly image2D iBloomMips[NUM_BLOOM_MIPS];
+layout (set = 0, binding = 0, Rgba16f) uniform image2D iBloomMips[NUM_BLOOM_MIPS];
 layout (set = 0, binding = 1)          uniform sampler2D         sBloomMips[NUM_BLOOM_MIPS];
 layout (set = 0, binding = 2)          uniform sampler2D         sRenderTarget;
 
 layout(push_constant) uniform PushConstants {
-    uvec2 SourceResolution;
     uint  CurrentMip;
 } uPushConstants;
 
@@ -26,8 +25,8 @@ void main()
 
     vec2 uv = (vec2(outTexelCoords) + 0.5) / imageSize(iBloomMips[mip]);
 
-    vec2 srcTexelSize = 1.0 / vec2(uPushConstants.SourceResolution);
-    vec2 radius = 5.0 * srcTexelSize;
+    vec2 srcTexelSize = 1.0 / imageSize(iBloomMips[mip+1]);
+    vec2 radius = 1.0 * srcTexelSize;
 
     // Gather samples using the following pattern:
     // a - b - c
@@ -53,6 +52,11 @@ void main()
     result += 0.1250 * (b+d+f+h);
     result += 0.0625 * (a+c+g+i);
     
-    // Store downsampled result in target:
+    // Additively blend the upsampled image with original color:
+    vec3 original = imageLoad(iBloomMips[mip], outTexelCoords).rgb;
+
+    const float blendFac = 1.0;
+    result = mix(original, original + result, blendFac);
+
     imageStore(iBloomMips[mip], outTexelCoords, vec4(result, 1.0));
 }

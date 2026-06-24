@@ -30,6 +30,7 @@ class PostProcessor {
     static constexpr VkFormat FinalFormat = VK_FORMAT_R8G8B8A8_UNORM;
     Texture                   mFinalTarget;
 
+    bool  mBloomEnabled  = true;
     float mBloomStrength = 0.1f;
 
     // TODO: This should be scaled along with screen resolution
@@ -41,12 +42,11 @@ class PostProcessor {
     Pipeline mFinalPipeline;
 
     struct PCDataBloom {
-        glm::uvec2 SourceResolution;
-        // uint32_t   RawCopy;
         uint32_t CurrentMip;
     };
 
     struct PCDataFinal {
+        int   BloomEnabled;
         float BloomStrength;
     };
 

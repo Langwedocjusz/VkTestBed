@@ -27,20 +27,9 @@ PostProcessor::PostProcessor(VulkanContext &ctx)
 
     // TODO: When this is dynamic the descriptor sets
     // will have to be re-allocated per-swapchain:
-    // uint32_t dsCountBase  = mDownsampleNum + mUpsampleNum;
-    uint32_t dsCountBloom = 1;
-    uint32_t dsCountFinal = 1;
+    const uint32_t dsCountBloom = 1;
+    const uint32_t dsCountFinal = 1;
 
-    //{
-    //    auto [layout, counts] =
-    //        DescriptorSetLayoutBuilder("PostfxBloomDescriptorSetLayout")
-    //            .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-    //            .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-    //            .Build(mCtx, mMainDeletionQueue);
-    //
-    //    mBloomDescriptorSetLayout = layout;
-    //    totalCounts += dsCountBloom * counts;
-    //}
     {
         auto [layout, counts] =
             DescriptorSetLayoutBuilder("PostfxBloomDescriptorSetLayout")
@@ -71,19 +60,6 @@ PostProcessor::PostProcessor(VulkanContext &ctx)
     mDescriptorPool =
         Descriptor::InitPool(mCtx, descriptorSetCount, rawCounts, mMainDeletionQueue);
 
-    // mBloomDownscaleDescriptorSets.resize(mDownsampleNum);
-    // mBloomUpscaleDescriptorSets.resize(mUpsampleNum);
-    //
-    // for (auto &set : mBloomDownscaleDescriptorSets)
-    //{
-    //     set = Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
-    // }
-    //
-    // for (auto &set : mBloomUpscaleDescriptorSets)
-    //{
-    //     set = Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
-    // }
-
     mBloomDescriptorSet =
         Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
 
@@ -93,6 +69,7 @@ PostProcessor::PostProcessor(VulkanContext &ctx)
 
 void PostProcessor::OnImGui()
 {
+    ImGui::Checkbox("Bloom Enabled", &mBloomEnabled);
     ImGui::SliderFloat("Bloom Strength", &mBloomStrength, 0.0f, 1.0f);
 }
 
@@ -228,99 +205,90 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         for (size_t mip = 0; mip < mBloomNumMips; mip++)
         {
             resolutions[mip] = glm::uvec2(resX, resY);
-        }
 
-        // Update next mip resolution:
-        resX = std::max(1u, resX / 2);
-        resY = std::max(1u, resY / 2);
+            // Update next mip resolution:
+            resX = std::max(1u, resX / 2);
+            resY = std::max(1u, resY / 2);
+        }
     }
 
-    barrier::TextureCompToGeneral(cmd, mBloomTarget.Img);
-
-    // Downsampling passes:
-    mBloomDownscalePipeline.Bind(cmd);
-    mBloomDownscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
-
-    for (size_t mip = 0; mip < mBloomNumMips; mip++)
+    if (mBloomEnabled)
     {
-        if (mip > 0)
+        barrier::TextureCompToGeneral(cmd, mBloomTarget.Img);
+
+        // Downsampling passes:
+        mBloomDownscalePipeline.Bind(cmd);
+        mBloomDownscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
+
+        for (size_t mip = 0; mip < mBloomNumMips; mip++)
+        {
+            if (mip > 0)
+            {
+                auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
+                srcRange.baseMipLevel = mip - 1;
+                srcRange.levelCount   = 1;
+
+                barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
+            }
+
+            PCDataBloom pcData{
+                .CurrentMip = static_cast<uint32_t>(mip),
+            };
+
+            mBloomDownscalePipeline.PushConstants(cmd, pcData);
+
+            auto     res        = resolutions[mip];
+            uint32_t localSizeX = 16, localSizeY = 16;
+
+            uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
+            uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
+
+            vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        }
+
+        // Upsample passes:
+        mBloomUpscalePipeline.Bind(cmd);
+        mBloomUpscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
+
+        for (size_t mip = mBloomNumMips - 2; mip != size_t(-1); mip--)
         {
             auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
-            srcRange.baseMipLevel = mip - 1;
+            srcRange.baseMipLevel = mip + 1;
             srcRange.levelCount   = 1;
 
             barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
+
+            auto dstRange         = Image::GetDefaultRange(mBloomTarget.Img);
+            dstRange.baseMipLevel = mip;
+            dstRange.levelCount   = 1;
+
+            PCDataBloom pcData{
+                .CurrentMip = static_cast<uint32_t>(mip),
+            };
+
+            mBloomUpscalePipeline.PushConstants(cmd, pcData);
+
+            auto     res        = resolutions[mip];
+            uint32_t localSizeX = 16, localSizeY = 16;
+
+            uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
+            uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
+
+            vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
         }
 
-        glm::uvec2 srcResolution;
-
-        if (mip > 0)
-            srcResolution = resolutions[mip - 1];
-        else
-            srcResolution = resolutions[0];
-
-        PCDataBloom pcData{
-            .SourceResolution = srcResolution,
-            .CurrentMip       = static_cast<uint32_t>(mip),
-        };
-
-        mBloomDownscalePipeline.PushConstants(cmd, pcData);
-
-        auto     res        = resolutions[mip];
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
-    }
-
-    // Upsample passes:
-    mBloomUpscalePipeline.Bind(cmd);
-    mBloomUpscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
-
-    for (size_t mip = mBloomNumMips - 2; mip != size_t(-1); mip--)
-    {
-        auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
-        srcRange.baseMipLevel = mip + 1;
-        srcRange.levelCount   = 1;
-
-        barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
-
-        auto dstRange         = Image::GetDefaultRange(mBloomTarget.Img);
-        dstRange.baseMipLevel = mip;
-        dstRange.levelCount   = 1;
-
-        PCDataBloom pcData{
-            .SourceResolution = resolutions[mip + 1],
-            .CurrentMip       = static_cast<uint32_t>(mip),
-        };
-
-        mBloomUpscalePipeline.PushConstants(cmd, pcData);
-
-        auto     res        = resolutions[mip];
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        barrier::TextureCompToSample(cmd, mBloomTarget.Img);
     }
 
     // Final composition pass:
     {
-        auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
-        srcRange.baseMipLevel = 0;
-        srcRange.levelCount   = 1;
-
-        barrier::TextureCompToSample(cmd, mBloomTarget.Img, srcRange);
-
         barrier::TransferSrcToGeneral(cmd, mFinalTarget.Img.Handle);
 
         mFinalPipeline.Bind(cmd);
         mFinalPipeline.BindDescriptorSet(cmd, mFinalDescriptorSet, 0);
 
         PCDataFinal pcData{
+            .BloomEnabled  = static_cast<int32_t>(mBloomEnabled),
             .BloomStrength = mBloomStrength,
         };
         mFinalPipeline.PushConstants(cmd, pcData);

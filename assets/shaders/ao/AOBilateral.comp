@@ -1,0 +1,78 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout (set = 0, binding = 0, Rgba8) uniform writeonly image2D iResult;
+
+layout(set = 0, binding = 1) uniform sampler2D sAOBuffer;
+layout(set = 0, binding = 2) uniform sampler2D sZBuffer;
+
+layout(push_constant) uniform PushConstants {
+    uvec2 AOResolution;
+    float SigmaSpatial;
+    float SigmaVal;
+} uPushConstants;
+
+float Gauss(float x2, float sigma2)
+{
+    return exp(-0.5*x2/sigma2);
+}
+
+//#define SKIP_EFFECT 
+
+const int FILTER_RAD = 1;
+
+void main()
+{
+    ivec2 texelCoords = ivec2(gl_GlobalInvocationID.xy);
+
+    vec2 baseUV =  (vec2(texelCoords) + 0.5) / vec2(imageSize(iResult));
+
+    #ifdef SKIP_EFFECT
+    {
+        vec4 result = texture(sAOBuffer, baseUV);
+        imageStore(iResult, texelCoords, result);
+        return;
+    }
+    #endif
+
+    // Assumes sizes of z buffer and result are equal:
+    const vec2 zTexelSize  = 1.0 / vec2(imageSize(iResult));
+    const vec2 aoTexelSize = 1.0 / vec2(uPushConstants.AOResolution);
+
+    const float sigmaSpatial2 = uPushConstants.SigmaSpatial * uPushConstants.SigmaSpatial;
+    const float sigmaVal2     = uPushConstants.SigmaVal     * uPushConstants.SigmaVal;
+
+    const float baseZ = texture(sZBuffer, baseUV).r;
+
+    vec4 result = vec4(0);
+    float norm = 0.0;
+
+    for (int x=-FILTER_RAD; x<=FILTER_RAD; x++)
+    for (int y=-FILTER_RAD; y<=FILTER_RAD; y++)
+    {
+        vec2 offset = vec2(x, y);
+
+        vec2 aoUV = baseUV + aoTexelSize * offset;
+        vec2 zUV  = baseUV + zTexelSize  * offset;
+
+        float dist2 = dot(offset, offset);
+
+        float z = texture(sZBuffer, zUV).r;
+        float diffZ2 = (z - baseZ) * (z - baseZ);
+
+        float weightSpatial = Gauss(dist2, sigmaSpatial2);
+        float weightVal     = Gauss(diffZ2, sigmaVal2);
+
+        float weight = weightSpatial * weightVal;
+
+        vec4 ao = texture(sAOBuffer, aoUV);
+
+        result += weight * ao;
+        norm += weight;
+    }
+
+    result /= norm;
+
+    imageStore(iResult, texelCoords, result);
+}

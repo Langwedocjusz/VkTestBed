@@ -35,7 +35,7 @@ class AOHandler {
     // RecreateSwapchainResources must have been called beforehand.
     [[nodiscard]] std::pair<VkImageView, VkSampler> GetViewAndSampler() const
     {
-        return {mAOTarget.View, mAOutSampler};
+        return {mBilateralTarget.View, mSampler};
     }
 
     // Whether or not the AOHandler internally requested
@@ -61,6 +61,12 @@ class AOHandler {
         glm::vec4 BottomRight;
     };
 
+    struct PCDataBilateral{
+        glm::uvec2 AOResolution;
+        float      SigmaSpatial;
+        float      SigmaVal;
+    };
+
     struct ResourceCache {
         Image      &DepthBuffer;
         VkImageView DepthOnlyView;
@@ -72,15 +78,17 @@ class AOHandler {
 
     std::unique_ptr<ResourceCache> mResourceCache = nullptr;
 
-    float mResolutionScale   = 1.0f;
+    float mResolutionScale   = 0.67f;
     bool  mRecreateRequested = false;
 
     Pipeline mZGenPipeline;
     Pipeline mZMipGenPipeline;
     Pipeline mAOGenPipeline;
+    Pipeline mBilateralPipeline;
 
     Texture mZBuffer;
     Texture mAOTarget;
+    Texture mBilateralTarget;
 
     // TODO: Test different counts impact on perf:
     static constexpr uint32_t            ZBufferMips = 4;
@@ -96,8 +104,10 @@ class AOHandler {
     VkDescriptorSetLayout mZMipGenDescriptorSetLayout;
     VkDescriptorSet       mZMipGenDescriptorSet;
 
-    VkSampler mDepthSampler;
-    VkSampler mAOutSampler;
+    VkDescriptorSetLayout mBilateralDescriptorSetLayout;
+    VkDescriptorSet       mBilateralDescriptorSet;
+
+    VkSampler mSampler;
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;

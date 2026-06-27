@@ -475,11 +475,20 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
         {
             res.TexCoords.resize(res.VertexCount);
 
-            auto minCoords = glm::vec2(std::numeric_limits<float>::max());
-            auto maxCoords = glm::vec2(std::numeric_limits<float>::lowest());
-
             fastgltf::Accessor &texcoordAccessor =
                 gltf.accessors[texcoordIt->accessorIndex];
+
+            if (texcoordAccessor.count != res.VertexCount)
+            {
+                std::cerr << "In gltf file " << config.Filepath.string()
+                          << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                          << "Attribute count discrepancy:"
+                          << "num vertices: " << res.VertexCount << ", "
+                          << "num texcoords:" << texcoordAccessor.count << '\n';
+            }
+
+            auto minCoords = glm::vec2(std::numeric_limits<float>::max());
+            auto maxCoords = glm::vec2(std::numeric_limits<float>::lowest());
 
             fastgltf::iterateAccessorWithIndex<glm::vec2>(
                 gltf, texcoordAccessor, [&](glm::vec2 v, size_t index) {
@@ -510,7 +519,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
         else
         {
             std::cerr << "Gltf file: " << config.Filepath.string()
-                      << "primitive doesn't contain texture coordinates.\n";
+                      << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                      << "The primitive doesn't contain texture coordinates.\n";
         }
     }
 
@@ -521,13 +531,50 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
         if (normalIt != primitive.attributes.end())
         {
-            res.Normals.resize(res.VertexCount);
+            const glm::vec3 defaultNormal{0,-1,0};
+            res.Normals.resize(res.VertexCount, defaultNormal);
+
+            auto normalHandler = [&](glm::vec3 v, size_t index) 
+            {
+                const float tolerance = 0.01f;
+
+                float len = glm::length(v);
+                
+                if (len < tolerance)
+                {
+                    std::cerr << "Gltf file: " << config.Filepath.string()
+                              << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                              << "Normal vector is degenerate (close to zero): "
+                              << v.x << " " << v.y << " " << v.z << '\n';
+                    return;
+                }
+
+                if (std::abs(len - 1.0f) > tolerance)
+                {
+                    std::cerr << "Gltf file: " << config.Filepath.string()
+                              << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                              << "Provided normal vector is not normalized:"
+                              << v.x << " " << v.y << " " << v.z << '\n';
+                }
+
+                // Renormalize anyway just to be sure:
+                res.Normals[index] = glm::normalize(v); 
+            };
 
             fastgltf::Accessor &normalAccessor = gltf.accessors[normalIt->accessorIndex];
 
+            if (normalAccessor.count != res.VertexCount)
+            {
+                std::cerr << "In gltf file " << config.Filepath.string()
+                          << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                          << "Attribute count discrepancy:"
+                          << "num vertices: " << res.VertexCount << ", "
+                          << "num normals:" << normalAccessor.count << '\n';
+            }
+
             fastgltf::iterateAccessorWithIndex<glm::vec3>(
-                gltf, normalAccessor,
-                [&](glm::vec3 v, size_t index) { res.Normals[index] = v; });
+                gltf, normalAccessor, normalHandler
+            );
         }
 
         else
@@ -544,14 +591,51 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
         if (tangentIt != primitive.attributes.end())
         {
-            res.Tangents.resize(res.VertexCount);
+            const glm::vec4 defaultTangent{1,0,0,1};
+
+            res.Tangents.resize(res.VertexCount, defaultTangent);
+
+            auto tangentHandler = [&](glm::vec4 v, size_t index) 
+            {
+                const float tolerance = 0.01f;
+                
+                float len = glm::length(glm::vec3(v));
+                
+                if (len < tolerance)
+                {
+                    std::cerr << "Gltf file: " << config.Filepath.string()
+                              << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                              << "Tangent vector is degenerate (close to zero): "
+                              << v.x << " " << v.y << " " << v.z << '\n';
+                    return;
+                }
+
+                if (std::abs(len - 1.0f) > tolerance)
+                {
+                    std::cerr << "Gltf file: " << config.Filepath.string()
+                              << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                              << "Provided tangent vector is not normalized:"
+                              << v.x << " " << v.y << " " << v.z << '\n';
+                }
+
+                 res.Tangents[index] = {glm::normalize(glm::vec3(v)), v.w};
+            };
 
             fastgltf::Accessor &tangentAccessor =
                 gltf.accessors[tangentIt->accessorIndex];
 
+            if (tangentAccessor.count != res.VertexCount)
+            {
+                std::cerr << "In gltf file " << config.Filepath.string()
+                          << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                          << "Attribute count discrepancy:"
+                          << "num vertices: " << res.VertexCount << ", "
+                          << "num tangents:" << tangentAccessor.count << '\n';
+            }
+
             fastgltf::iterateAccessorWithIndex<glm::vec4>(
-                gltf, tangentAccessor,
-                [&](glm::vec4 v, size_t index) { res.Tangents[index] = v; });
+                gltf, tangentAccessor, tangentHandler
+            );
         }
         else
         {

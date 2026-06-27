@@ -39,14 +39,13 @@ struct PullNaive {
     glm::vec4 Tangent;
 };
 
-// Currently just quantizes all attributes as uint16
-// TODO: Normal and Tangent should be further compressed
-// for example with octahedral mapping.
+// TODO: Tangent can be further compressed with Rodriguez
+// formula, and both it and tangent can be quantized to uint8
 struct PullCompressed {
     std::array<uint16_t, 3> Pos;
     std::array<uint16_t, 2> TexCoord;
-    std::array<uint16_t, 3> Normal;
-    std::array<uint16_t, 4> Tangent;
+    std::array<uint16_t, 2> Normal;
+    std::array<uint16_t, 3> Tangent;
 };
 
 uint32_t GetSize(const Layout &layout);

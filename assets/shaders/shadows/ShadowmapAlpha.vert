@@ -22,7 +22,6 @@ void main() {
     vec3 position = GetPosition(vert);
     vec2 texcoord = GetTexCoord(vert);
 
-    texcoord = 2.0 * texcoord - 1.0;
     texcoord *= PushConstants.TexExtent;
     texcoord += PushConstants.TexCenter;
 

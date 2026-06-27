@@ -118,7 +118,21 @@ void tangen::GenerateTangents(PrimitiveData &prim)
 
             auto sign = bIsOrientationPreserving ? 1.0f : (-1.0f);
 
-            glm::vec4 tangent{fvTangent[0], fvTangent[1], fvTangent[2], sign};
+            // Make sure the tangent vector is not degenerate:
+            glm::vec3 tan3{fvTangent[0], fvTangent[1], fvTangent[2]};
+            
+            const float tolerance = 0.01f;
+            
+            if (glm::length(tan3) < tolerance)
+            {
+                tan3 = glm::vec3(1,0,0);
+            }
+            else
+            {
+                tan3 = glm::normalize(tan3);
+            }
+
+            glm::vec4 tangent{tan3, sign};
 
             prim->Tangents[index] = tangent;
         };

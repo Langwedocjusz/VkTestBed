@@ -79,18 +79,6 @@ layout(push_constant) uniform PushConstants {
     mat4 Model;
 } uPushConstants;
 
-////https://knarkowicz.wordplitColors.com/2016/01/06/aces-filmic-tone-mapping-curve/
-//vec3 ACESFilm(vec3 x)
-//{
-//    float a = 2.51f;
-//    float b = 0.03f;
-//    float c = 2.43f;
-//    float d = 0.59f;
-//    float e = 0.14f;
-//
-//    return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
-//}
-
 vec3 GetSkyLight(vec3 normal, vec3 view, vec3 diffuse, vec3 f0, float roughness)
 {
     vec3 irradiance = SH_HemisphereConvolve(bIrradiance, normal);
@@ -298,11 +286,6 @@ void main()
         }
         #endif
     }
-
-    // MOVED TO POSTFX:
-    //Do color correction:
-    //litColor = ACESFilm(litColor);
-    //litColor = pow(litColor, vec3(1.0/2.2));
 
     vOutColor = vec4(litColor, alpha);
 }

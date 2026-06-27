@@ -90,6 +90,48 @@ static bool IsNormalized(T v)
     return lower && upper;
 }
 
+static glm::vec2 OctahedralMap(glm::vec3 v)
+{
+    if (std::abs(glm::length(v) - 1.0f) > 0.01f)
+    {
+        auto message = std::format("Provided vector should be normalized! Instead got: {} {} {}", v.x, v.y, v.z);
+        vpanic(message);
+    }
+
+    // To catch numeric errors:
+    v = glm::normalize(v);
+
+    // Octahedron is a sphere in L1 norm.
+    // To project from regular sphere onto it
+    // it's enough to divide vector by this norm:
+    float l1 = std::abs(v.x) + std::abs(v.y) + std::abs(v.z);
+    v = v / l1;
+
+    // If vector is above xy plane we just project it downwards.
+    // It will end up in a square, rotated 45 degrees inscribed
+    // in a unit [-1,1] square. If the vector is below we also project
+    // it, but then mirror it along the closest edge. In this way we
+    // map the octahedron to the full [-1, 1] square.
+    glm::vec2 res{v.x, v.y};
+    
+    if (v.z < 0.0f)
+    {
+        // Abs moves all quadrants to upper-right.
+        // 1 - (...) and xy-swap then do reflection about the diagonal.
+        glm::vec2 wrapped = 1.0f - glm::abs(glm::vec2{res.y, res.x});
+        
+        // Now we just need to move the result back to original quadrant:
+        glm::vec2 sgn{
+            res.x > 0.0f ? 1.0f : -1.0f,
+            res.y > 0.0f ? 1.0f : -1.0f,
+        };
+        
+        res = sgn * wrapped;
+    }
+
+    return res;
+}
+
 GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
 {
     // Allocate memory:
@@ -192,49 +234,56 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
                 glm::vec4 tangent  = prim.Tangents[vertIdx];
 
                 // Normalize position to [0,1]^3:
-                pos = pos - prim.BBox.Center;
                 // TODO: Think if there is a better way to prevent division by zero:
+                pos = pos - prim.BBox.Center;
                 pos = pos / (prim.BBox.Extent + 0.001f);
                 pos = 0.5f * pos + 0.5f;
-
+                
                 // Normalize texcoords to [0,1]^2:
                 texcoord = texcoord - prim.TexBounds.Center;
                 texcoord = texcoord / (prim.TexBounds.Extent);
                 texcoord = 0.5f * texcoord + 0.5f;
+                
+                // Make sure normal and tangent are not ill-defined:
+                // TODO: This should be already caught by logic in the importer,
+                // not sure how this keeps slipping through...
+                glm::vec3 tan3{tangent};
 
-                // Normalize normal to [0,1]^3:
-                normal = 0.5f * normal + 0.5f;
+                if (glm::length(normal) < 1e-6)
+                    normal = glm::vec3(0,-1,0);
 
-                // Normalize tangent to [0,1]^3 x {0,1}:
-                auto tan3 = glm::vec3(tangent);
-                tan3      = 0.5f * tan3 + 0.5f;
+                if (glm::length(tan3) < 1e-6)
+                    tan3 = glm::vec3(1,0,0);
+
+                // Compress normal and tangent with octahedral mapping:
+                glm::vec2 normal2 = OctahedralMap(normal);
+                glm::vec2 tan2    = OctahedralMap(tan3);
+
+                // Normalize normal and tangent to [0,1]^2:
+                normal2 = 0.5f * normal2 + 0.5f;
+                tan2    = 0.5f * tan2 + 0.5f;
 
                 // Do clamp to catch small numerical inaccuracies:
-                pos      = glm::clamp(pos, 0.0f, 1.0f);
-                texcoord = glm::clamp(texcoord, 0.0f, 1.0f);
-                normal   = glm::clamp(normal, 0.0f, 1.0f);
-                tan3     = glm::clamp(tan3, 0.0f, 1.0f);
+                pos       = glm::clamp(pos, 0.0f, 1.0f);
+                texcoord  = glm::clamp(texcoord, 0.0f, 1.0f);
+                normal2   = glm::clamp(normal2, 0.0f, 1.0f);
+                tan2      = glm::clamp(tan2, 0.0f, 1.0f);
 
-                std::string message =
-                    std::format("Center: {},{} Extent: {},{} Texcoord: {},{}",
-                                prim.TexBounds.Center.x, prim.TexBounds.Center.y,
-                                prim.TexBounds.Extent.x, prim.TexBounds.Extent.y,
-                                texcoord.x, texcoord.y);
-
+                // Sanity check - is everything normalized?
                 vassert(IsNormalized(pos));
-                vassert(IsNormalized(texcoord), message);
-                vassert(IsNormalized(normal));
-                vassert(IsNormalized(tan3));
+                vassert(IsNormalized(texcoord));
+                vassert(IsNormalized(normal2));
+                vassert(IsNormalized(tan2));
 
                 // Quantize to uint16 and store:
                 auto qSign    = static_cast<uint16_t>(tangent.w > 0.0f);
-                auto qTangent = QuantizeVec3(tan3);
+                auto qTangent = QuantizeVec2(tan2);
 
                 data[vertIdx] = Vertex::PullCompressed{
                     .Pos      = QuantizeVec3(pos),
                     .TexCoord = QuantizeVec2(texcoord),
-                    .Normal   = QuantizeVec3(normal),
-                    .Tangent  = {qTangent[0], qTangent[1], qTangent[2], qSign},
+                    .Normal   = QuantizeVec2(normal2),
+                    .Tangent  = {qTangent[0], qTangent[1], qSign},
                 };
             }
 

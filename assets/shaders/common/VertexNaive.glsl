@@ -31,7 +31,7 @@ vec3 GetNormal(Vertex vert)
     return vert.Normal;
 }
 
-vec4 GetTangent(Vertex vert)
+vec4 GetTangent(Vertex vert, vec3 normal)
 {
     return vert.Tangent;
 }

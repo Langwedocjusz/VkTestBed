@@ -6,14 +6,15 @@
 struct Vertex{
     uint16_t PositionX, PositionY, PositionZ;
     uint16_t TexCoordX, TexCoordY;
-    uint16_t Normal1, Normal2;
-    uint16_t Tangent1, Tangent2, BitangentPositive;
+    uint16_t Normal;
+    uint16_t Tangent;
 };
 
 layout(buffer_reference, std430) readonly buffer VertexBuffer{ 
 	Vertex Vertices[];
 };
 
+const float normUint8  = 1.0 / 255.0;
 const float normUint16 = 1.0 / 65535.0;
 
 vec3 OctahedralDecode(vec2 v2)
@@ -33,6 +34,21 @@ vec3 OctahedralDecode(vec2 v2)
     return normalize(v);
 }
 
+vec3 RodriguezDecode(vec3 normal, float tanAngle)
+{
+    // Reconstruct reference tangent direction:
+    vec3 refTan;
+    
+    if (abs(normal.z) > (normal.x))
+        refTan = cross(normal, vec3(1,0,0));
+    else
+        refTan = cross(normal, vec3(0,0,1));
+
+    // Apply the rodriguez formula:
+    vec3 tangent = cos(tanAngle) * refTan  + sin(tanAngle) * cross(normal, refTan);
+
+    return tangent;
+}
 
 vec3 GetPosition(Vertex vert)
 {
@@ -52,7 +68,7 @@ vec2 GetTexCoord(Vertex vert)
 
 vec3 GetNormal(Vertex vert)
 {
-    vec2 normal2 = normUint16 * vec2(vert.Normal1, vert.Normal2);
+    vec2 normal2 = normUint8 * vec2(vert.Normal >> 8, vert.Normal & 0xFF);
     normal2 = 2.0 * normal2 - 1.0;
 
     vec3 normal = OctahedralDecode(normal2);
@@ -60,14 +76,14 @@ vec3 GetNormal(Vertex vert)
     return normal;
 }
 
-vec4 GetTangent(Vertex vert)
+vec4 GetTangent(Vertex vert, vec3 normal)
 {
-    vec2 tangent2 = normUint16 * vec2(vert.Tangent1, vert.Tangent2);
-    tangent2 = 2.0 * tangent2 - 1.0;
+    const float PI = 3.1415926535;
+    float tanAngle = 2.0 * PI * normUint8 * float(vert.Tangent >> 8);
 
-    vec3 tangent = OctahedralDecode(tangent2);    
+    vec3 tangent = RodriguezDecode(normal, tanAngle);
 
-    float bitangentSign = 2.0 * float(vert.BitangentPositive) - 1.0;
+    float bitangentSign = 2.0 * float(vert.Tangent & 0xFF) - 1.0;
 
     return vec4(tangent, bitangentSign);
 }

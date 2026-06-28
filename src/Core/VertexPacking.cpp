@@ -3,6 +3,7 @@
 
 #include "Vassert.h"
 #include "VertexLayout.h"
+
 #include "glm/vector_relational.hpp"
 
 #include <cstring>
@@ -57,28 +58,31 @@ static PushVertexOffsets GetOffsets(const Vertex::PushLayout &layout)
     };
 }
 
+template <std::unsigned_integral T>
 static uint16_t QuantizeNormalized(float value)
 {
     vassert(0.0f <= value && value <= 1.0f, "Value must be normalied!");
 
-    const float maximum = std::numeric_limits<uint16_t>::max();
-    return static_cast<uint16_t>(maximum * value);
+    const float maximum = std::numeric_limits<T>::max();
+    return static_cast<T>(maximum * value);
 }
 
+template <std::unsigned_integral T>
 static std::array<uint16_t, 2> QuantizeVec2(glm::vec2 v)
 {
     return {
-        QuantizeNormalized(v.x),
-        QuantizeNormalized(v.y),
+        QuantizeNormalized<T>(v.x),
+        QuantizeNormalized<T>(v.y),
     };
 };
 
+template <std::unsigned_integral T>
 static std::array<uint16_t, 3> QuantizeVec3(glm::vec3 v)
 {
     return {
-        QuantizeNormalized(v.x),
-        QuantizeNormalized(v.y),
-        QuantizeNormalized(v.z),
+        QuantizeNormalized<T>(v.x),
+        QuantizeNormalized<T>(v.y),
+        QuantizeNormalized<T>(v.z),
     };
 };
 
@@ -90,11 +94,18 @@ static bool IsNormalized(T v)
     return lower && upper;
 }
 
+template<>
+bool IsNormalized(float v)
+{
+    return (0.0f <= v && v <= 1.0f);
+}
+
 static glm::vec2 OctahedralMap(glm::vec3 v)
 {
     if (std::abs(glm::length(v) - 1.0f) > 0.01f)
     {
-        auto message = std::format("Provided vector should be normalized! Instead got: {} {} {}", v.x, v.y, v.z);
+        auto message = std::format(
+            "Provided vector should be normalized! Instead got: {} {} {}", v.x, v.y, v.z);
         vpanic(message);
     }
 
@@ -105,7 +116,7 @@ static glm::vec2 OctahedralMap(glm::vec3 v)
     // To project from regular sphere onto it
     // it's enough to divide vector by this norm:
     float l1 = std::abs(v.x) + std::abs(v.y) + std::abs(v.z);
-    v = v / l1;
+    v        = v / l1;
 
     // If vector is above xy plane we just project it downwards.
     // It will end up in a square, rotated 45 degrees inscribed
@@ -113,23 +124,58 @@ static glm::vec2 OctahedralMap(glm::vec3 v)
     // it, but then mirror it along the closest edge. In this way we
     // map the octahedron to the full [-1, 1] square.
     glm::vec2 res{v.x, v.y};
-    
+
     if (v.z < 0.0f)
     {
         // Abs moves all quadrants to upper-right.
         // 1 - (...) and xy-swap then do reflection about the diagonal.
         glm::vec2 wrapped = 1.0f - glm::abs(glm::vec2{res.y, res.x});
-        
+
         // Now we just need to move the result back to original quadrant:
         glm::vec2 sgn{
             res.x > 0.0f ? 1.0f : -1.0f,
             res.y > 0.0f ? 1.0f : -1.0f,
         };
-        
+
         res = sgn * wrapped;
     }
 
     return res;
+}
+
+static float RodriguezAngleNormalized(glm::vec3 normal, glm::vec3 tangent)
+{
+    // Generate referece tangent vector:
+    glm::vec3 refTan{};
+    
+    // To prevent singularity when normal points towards z:
+    if (std::abs(normal.z) > std::abs(normal.x))
+        refTan = glm::cross(normal, glm::vec3(1,0,0));
+    else
+        refTan = glm::cross(normal, glm::vec3(0,0,1));
+
+    // Get direction orthogonal to both normal and ref tangent:
+    glm::vec3 refPerp = glm::cross(normal, refTan);
+    
+    // Calculate angle from reference to actual tangent:
+    float alongRefTan  = glm::dot(refTan, tangent);
+    float alongRefPerp = glm::dot(refPerp, tangent);
+
+    float angle = glm::atan(alongRefPerp, alongRefTan);
+
+    // Make sure the angle is in [0, 2pi):
+    if (angle <= 0.0f)
+        angle += 2.0f * std::numbers::pi;
+
+    // Normalize to [0,1]:
+    angle /= 2.0f * std::numbers::pi;
+
+    return angle;
+}
+
+static uint16_t PackUint8sToUint16(uint8_t high, uint8_t low)
+{
+    return (high << 8) | low;
 }
 
 GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
@@ -238,52 +284,64 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
                 pos = pos - prim.BBox.Center;
                 pos = pos / (prim.BBox.Extent + 0.001f);
                 pos = 0.5f * pos + 0.5f;
-                
+
                 // Normalize texcoords to [0,1]^2:
                 texcoord = texcoord - prim.TexBounds.Center;
                 texcoord = texcoord / (prim.TexBounds.Extent);
                 texcoord = 0.5f * texcoord + 0.5f;
-                
+
                 // Make sure normal and tangent are not ill-defined:
                 // TODO: This should be already caught by logic in the importer,
                 // not sure how this keeps slipping through...
                 glm::vec3 tan3{tangent};
 
                 if (glm::length(normal) < 1e-6)
-                    normal = glm::vec3(0,-1,0);
+                    normal = glm::vec3(0, -1, 0);
 
                 if (glm::length(tan3) < 1e-6)
-                    tan3 = glm::vec3(1,0,0);
+                    tan3 = glm::vec3(1, 0, 0);
 
-                // Compress normal and tangent with octahedral mapping:
+                // Compress normal  with octahedral mapping,
+                // encode tangent with Rodriguez angle:
                 glm::vec2 normal2 = OctahedralMap(normal);
-                glm::vec2 tan2    = OctahedralMap(tan3);
+                //glm::vec2 tan2    = OctahedralMap(tan3);
+                float tanAngle = RodriguezAngleNormalized(normal, tan3);
 
                 // Normalize normal and tangent to [0,1]^2:
                 normal2 = 0.5f * normal2 + 0.5f;
-                tan2    = 0.5f * tan2 + 0.5f;
+                //tan2    = 0.5f * tan2 + 0.5f;
 
                 // Do clamp to catch small numerical inaccuracies:
-                pos       = glm::clamp(pos, 0.0f, 1.0f);
-                texcoord  = glm::clamp(texcoord, 0.0f, 1.0f);
-                normal2   = glm::clamp(normal2, 0.0f, 1.0f);
-                tan2      = glm::clamp(tan2, 0.0f, 1.0f);
+                pos      = glm::clamp(pos, 0.0f, 1.0f);
+                texcoord = glm::clamp(texcoord, 0.0f, 1.0f);
+                normal2  = glm::clamp(normal2, 0.0f, 1.0f);
+                //tan2     = glm::clamp(tan2, 0.0f, 1.0f);
+                tanAngle = glm::clamp(tanAngle, 0.0f, 1.0f);
 
                 // Sanity check - is everything normalized?
                 vassert(IsNormalized(pos));
                 vassert(IsNormalized(texcoord));
                 vassert(IsNormalized(normal2));
-                vassert(IsNormalized(tan2));
+                //vassert(IsNormalized(tan2));
+                vassert(IsNormalized(tanAngle));
 
-                // Quantize to uint16 and store:
-                auto qSign    = static_cast<uint16_t>(tangent.w > 0.0f);
-                auto qTangent = QuantizeVec2(tan2);
+                // Quantize to uint16/uint8 and store:
+                auto qPos      = QuantizeVec3<uint16_t>(pos);
+                auto qTexCoord = QuantizeVec2<uint16_t>(texcoord);
+
+                auto normalU8 = QuantizeVec2<uint8_t>(normal2);
+                auto qNormal = PackUint8sToUint16(normalU8[0], normalU8[1]);
+
+                auto tangentU8 = QuantizeNormalized<uint8_t>(tanAngle);
+                auto signU8    = static_cast<uint16_t>(tangent.w > 0.0f);
+
+                auto qTangent = PackUint8sToUint16(tangentU8, signU8);
 
                 data[vertIdx] = Vertex::PullCompressed{
-                    .Pos      = QuantizeVec3(pos),
-                    .TexCoord = QuantizeVec2(texcoord),
-                    .Normal   = QuantizeVec2(normal2),
-                    .Tangent  = {qTangent[0], qTangent[1], qSign},
+                    .Pos      = qPos,
+                    .TexCoord = qTexCoord,
+                    .Normal   = qNormal,
+                    .Tangent  = qTangent,
                 };
             }
 

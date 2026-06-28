@@ -43,7 +43,7 @@ void main() {
     vec3 position = GetPosition(vert);
     vec2 texcoord = GetTexCoord(vert);
     vec3 normal   = GetNormal(vert);
-    vec4 tangent  = GetTangent(vert);
+    vec4 tangent  = GetTangent(vert, normal);
 
     texcoord *= uPushConstants.TexExtent;
     texcoord += uPushConstants.TexCenter;

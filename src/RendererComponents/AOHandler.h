@@ -61,7 +61,7 @@ class AOHandler {
         glm::vec4 BottomRight;
     };
 
-    struct PCDataBilateral{
+    struct PCDataBilateral {
         glm::uvec2 AOResolution;
         float      SigmaSpatial;
         float      SigmaVal;

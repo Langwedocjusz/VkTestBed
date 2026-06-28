@@ -39,13 +39,11 @@ struct PullNaive {
     glm::vec4 Tangent;
 };
 
-// TODO: Tangent can be further compressed with Rodriguez
-// formula, and both it and tangent can be quantized to uint8
 struct PullCompressed {
     std::array<uint16_t, 3> Pos;
     std::array<uint16_t, 2> TexCoord;
-    std::array<uint16_t, 2> Normal;
-    std::array<uint16_t, 3> Tangent;
+    uint16_t                Normal;
+    uint16_t                Tangent;
 };
 
 uint32_t GetSize(const Layout &layout);

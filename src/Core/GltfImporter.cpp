@@ -531,21 +531,20 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
         if (normalIt != primitive.attributes.end())
         {
-            const glm::vec3 defaultNormal{0,-1,0};
+            const glm::vec3 defaultNormal{0, -1, 0};
             res.Normals.resize(res.VertexCount, defaultNormal);
 
-            auto normalHandler = [&](glm::vec3 v, size_t index) 
-            {
+            auto normalHandler = [&](glm::vec3 v, size_t index) {
                 const float tolerance = 0.01f;
 
                 float len = glm::length(v);
-                
+
                 if (len < tolerance)
                 {
                     std::cerr << "Gltf file: " << config.Filepath.string()
                               << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
-                              << "Normal vector is degenerate (close to zero): "
-                              << v.x << " " << v.y << " " << v.z << '\n';
+                              << "Normal vector is degenerate (close to zero): " << v.x
+                              << " " << v.y << " " << v.z << '\n';
                     return;
                 }
 
@@ -553,12 +552,12 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
                 {
                     std::cerr << "Gltf file: " << config.Filepath.string()
                               << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
-                              << "Provided normal vector is not normalized:"
-                              << v.x << " " << v.y << " " << v.z << '\n';
+                              << "Provided normal vector is not normalized:" << v.x << " "
+                              << v.y << " " << v.z << '\n';
                 }
 
                 // Renormalize anyway just to be sure:
-                res.Normals[index] = glm::normalize(v); 
+                res.Normals[index] = glm::normalize(v);
             };
 
             fastgltf::Accessor &normalAccessor = gltf.accessors[normalIt->accessorIndex];
@@ -572,9 +571,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
                           << "num normals:" << normalAccessor.count << '\n';
             }
 
-            fastgltf::iterateAccessorWithIndex<glm::vec3>(
-                gltf, normalAccessor, normalHandler
-            );
+            fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, normalAccessor,
+                                                          normalHandler);
         }
 
         else
@@ -591,22 +589,21 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
         if (tangentIt != primitive.attributes.end())
         {
-            const glm::vec4 defaultTangent{1,0,0,1};
+            const glm::vec4 defaultTangent{1, 0, 0, 1};
 
             res.Tangents.resize(res.VertexCount, defaultTangent);
 
-            auto tangentHandler = [&](glm::vec4 v, size_t index) 
-            {
+            auto tangentHandler = [&](glm::vec4 v, size_t index) {
                 const float tolerance = 0.01f;
-                
+
                 float len = glm::length(glm::vec3(v));
-                
+
                 if (len < tolerance)
                 {
                     std::cerr << "Gltf file: " << config.Filepath.string()
                               << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
-                              << "Tangent vector is degenerate (close to zero): "
-                              << v.x << " " << v.y << " " << v.z << '\n';
+                              << "Tangent vector is degenerate (close to zero): " << v.x
+                              << " " << v.y << " " << v.z << '\n';
                     return;
                 }
 
@@ -614,11 +611,11 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
                 {
                     std::cerr << "Gltf file: " << config.Filepath.string()
                               << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
-                              << "Provided tangent vector is not normalized:"
-                              << v.x << " " << v.y << " " << v.z << '\n';
+                              << "Provided tangent vector is not normalized:" << v.x
+                              << " " << v.y << " " << v.z << '\n';
                 }
 
-                 res.Tangents[index] = {glm::normalize(glm::vec3(v)), v.w};
+                res.Tangents[index] = {glm::normalize(glm::vec3(v)), v.w};
             };
 
             fastgltf::Accessor &tangentAccessor =
@@ -633,9 +630,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
                           << "num tangents:" << tangentAccessor.count << '\n';
             }
 
-            fastgltf::iterateAccessorWithIndex<glm::vec4>(
-                gltf, tangentAccessor, tangentHandler
-            );
+            fastgltf::iterateAccessorWithIndex<glm::vec4>(gltf, tangentAccessor,
+                                                          tangentHandler);
         }
         else
         {

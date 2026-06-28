@@ -50,12 +50,12 @@ AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
     }
 
     {
-        auto [layout, counts]  = DescriptorSetLayoutBuilder("AOGenDSLayout")
-                                     .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                     .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                     .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-                                     .Build(mCtx, mMainDeletionQueue);
-        
+        auto [layout, counts] = DescriptorSetLayoutBuilder("AOGenDSLayout")
+                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                                    .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                    .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
+                                    .Build(mCtx, mMainDeletionQueue);
+
         mBilateralDescriptorSetLayout = layout;
         totalCounts += bilateralDSCount * counts;
     }
@@ -369,7 +369,8 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         mBilateralPipeline.Bind(cmd);
         mBilateralPipeline.BindDescriptorSet(cmd, mBilateralDescriptorSet, 0);
 
-        glm::uvec2 aoSize{mAOTarget.Img.Info.extent.width, mAOTarget.Img.Info.extent.height};
+        glm::uvec2 aoSize{mAOTarget.Img.Info.extent.width,
+                          mAOTarget.Img.Info.extent.height};
 
         PCDataBilateral data{
             .AOResolution = aoSize,

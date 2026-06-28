@@ -120,12 +120,12 @@ void tangen::GenerateTangents(PrimitiveData &prim)
 
             // Make sure the tangent vector is not degenerate:
             glm::vec3 tan3{fvTangent[0], fvTangent[1], fvTangent[2]};
-            
+
             const float tolerance = 0.01f;
-            
+
             if (glm::length(tan3) < tolerance)
             {
-                tan3 = glm::vec3(1,0,0);
+                tan3 = glm::vec3(1, 0, 0);
             }
             else
             {

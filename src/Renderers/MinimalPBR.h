@@ -86,9 +86,6 @@ class MinimalPbrRenderer final : public IRenderer {
         Buffer   IndexBuffer;
         uint32_t IndexCount;
 
-        // TODO: this is only for vertex pulling code-path
-        // maybe this should be lumped together with vertex
-        //(storage) buffer?
         VkDeviceAddress VertexAddress;
 
         AABB      Bbox;
@@ -141,7 +138,6 @@ class MinimalPbrRenderer final : public IRenderer {
 
   private:
     // Various render targets:
-    // static constexpr VkFormat RenderTargetFormat = VK_FORMAT_R8G8B8A8_SRGB;
     // TODO: Maybe use lower precision?
     static constexpr VkFormat RenderTargetFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     static constexpr VkFormat DepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;

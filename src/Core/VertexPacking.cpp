@@ -140,6 +140,9 @@ static glm::vec2 OctahedralMap(glm::vec3 v)
         res = sgn * wrapped;
     }
 
+    // Normalize results to [0,1]:
+    res = 0.5f * res + 0.5f;
+
     return res;
 }
 
@@ -304,25 +307,18 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
                 // Compress normal  with octahedral mapping,
                 // encode tangent with Rodriguez angle:
                 glm::vec2 normal2 = OctahedralMap(normal);
-                //glm::vec2 tan2    = OctahedralMap(tan3);
-                float tanAngle = RodriguezAngleNormalized(normal, tan3);
-
-                // Normalize normal and tangent to [0,1]^2:
-                normal2 = 0.5f * normal2 + 0.5f;
-                //tan2    = 0.5f * tan2 + 0.5f;
+                float tanAngle    = RodriguezAngleNormalized(normal, tan3);
 
                 // Do clamp to catch small numerical inaccuracies:
                 pos      = glm::clamp(pos, 0.0f, 1.0f);
                 texcoord = glm::clamp(texcoord, 0.0f, 1.0f);
                 normal2  = glm::clamp(normal2, 0.0f, 1.0f);
-                //tan2     = glm::clamp(tan2, 0.0f, 1.0f);
                 tanAngle = glm::clamp(tanAngle, 0.0f, 1.0f);
 
                 // Sanity check - is everything normalized?
                 vassert(IsNormalized(pos));
                 vassert(IsNormalized(texcoord));
                 vassert(IsNormalized(normal2));
-                //vassert(IsNormalized(tan2));
                 vassert(IsNormalized(tanAngle));
 
                 // Quantize to uint16/uint8 and store:

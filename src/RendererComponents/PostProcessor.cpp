@@ -98,7 +98,6 @@ void PostProcessor::RebuildPipelines()
 void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
                                                VkImageView renderTargetView)
 {
-    // TODO: Make barriers non-coarse
     mSwapchainDeletionQueue.flush();
 
     // Create bloom render target:

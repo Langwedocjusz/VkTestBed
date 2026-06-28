@@ -358,8 +358,12 @@ void MinimalPbrRenderer::RebuildPipelines()
 void MinimalPbrRenderer::RecreateSwapchainResources()
 {
     mSwapchainDeletionQueue.flush();
-    // TODO: If multisampling is set back to 1, then multisample target optionals can be
-    // set back to nullopt
+
+    if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
+    {
+        mRenderTargetMsaa = std::nullopt;
+        mDepthStencilMsaa = std::nullopt;
+    }
 
     // Create the render target:
     auto ScaleResolution = [this](uint32_t res) {

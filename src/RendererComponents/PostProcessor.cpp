@@ -218,7 +218,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         mBloomDownscalePipeline.Bind(cmd);
         mBloomDownscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
 
-        for (size_t mip = 0; mip < mBloomNumMips; mip++)
+        for (uint32_t mip = 0; mip < mBloomNumMips; mip++)
         {
             if (mip > 0)
             {
@@ -248,7 +248,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         mBloomUpscalePipeline.Bind(cmd);
         mBloomUpscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
 
-        for (size_t mip = mBloomNumMips - 2; mip != size_t(-1); mip--)
+        for (uint32_t mip = mBloomNumMips - 2; mip != uint32_t(-1); mip--)
         {
             auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
             srcRange.baseMipLevel = mip + 1;

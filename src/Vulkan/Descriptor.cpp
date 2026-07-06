@@ -214,9 +214,9 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t     binding,
     bufferInfo.range  = size;
 
     mWriteInfos.push_back(WriteInfo{
+        .Id      = mBufferInfos.size() - 1,
         .Binding = binding,
         .Type    = WriteType::UniformBuffer,
-        .Id      = mBufferInfos.size() - 1,
     });
 
     return *this;
@@ -232,9 +232,9 @@ DescriptorUpdater &DescriptorUpdater::WriteStorageBuffer(uint32_t     binding,
     bufferInfo.range  = size;
 
     mWriteInfos.push_back(WriteInfo{
+        .Id      = mBufferInfos.size() - 1,
         .Binding = binding,
         .Type    = WriteType::ShaderStorageBuffer,
-        .Id      = mBufferInfos.size() - 1,
     });
 
     return *this;
@@ -252,9 +252,9 @@ DescriptorUpdater &DescriptorUpdater::WriteCombinedSampler(uint32_t      binding
     imageInfo.sampler     = sampler;
 
     mWriteInfos.push_back(WriteInfo{
+        .Id      = mImageInfos.size() - 1,
         .Binding = binding,
         .Type    = WriteType::CombinedImageSampler,
-        .Id      = mImageInfos.size() - 1,
     });
 
     return *this;
@@ -269,9 +269,9 @@ DescriptorUpdater &DescriptorUpdater::WriteStorageImage(uint32_t    binding,
     imageInfo.imageView   = imageView;
 
     mWriteInfos.push_back(WriteInfo{
+        .Id      = mImageInfos.size() - 1,
         .Binding = binding,
         .Type    = WriteType::StorageImage,
-        .Id      = mImageInfos.size() - 1,
     });
 
     return *this;
@@ -297,10 +297,10 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffers(uint32_t              
     }
 
     mWriteInfos.push_back(WriteInfo{
+        .Id      = startIdx,
+        .Count   = static_cast<uint32_t>(buffers.size()),
         .Binding = binding,
         .Type    = WriteType::UniformBuffer,
-        .Id      = startIdx,
-        .Count   = buffers.size(),
     });
 
     return *this;
@@ -326,10 +326,10 @@ DescriptorUpdater &DescriptorUpdater::WriteStorageBuffers(uint32_t              
     }
 
     mWriteInfos.push_back(WriteInfo{
+        .Id      = startIdx,
+        .Count   = static_cast<uint32_t>(buffers.size()),
         .Binding = binding,
         .Type    = WriteType::ShaderStorageBuffer,
-        .Id      = startIdx,
-        .Count   = buffers.size(),
     });
 
     return *this;
@@ -356,10 +356,10 @@ DescriptorUpdater &DescriptorUpdater::WriteCombinedSamplers(
     }
 
     mWriteInfos.push_back(WriteInfo{
+        .Id      = startIdx,
+        .Count   = static_cast<uint32_t>(imageViews.size()),
         .Binding = binding,
         .Type    = WriteType::CombinedImageSampler,
-        .Id      = startIdx,
-        .Count   = imageViews.size(),
     });
 
     return *this;
@@ -379,10 +379,10 @@ DescriptorUpdater &DescriptorUpdater::WriteStorageImages(
     }
 
     mWriteInfos.push_back(WriteInfo{
+        .Id      = startIdx,
+        .Count   = static_cast<uint32_t>(imageViews.size()),
         .Binding = binding,
         .Type    = WriteType::StorageImage,
-        .Id      = startIdx,
-        .Count   = imageViews.size(),
     });
 
     return *this;

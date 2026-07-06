@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.30.2)
 
 project(VkTestBed)
 
-option(USE_VALIDATION_LAYERS "Wether or not to use the Vulkan Validation Layers" ON)
-
 #=Global setup============================================================================
 
 #Enable parallel compilation for MSVC:
@@ -66,6 +64,9 @@ endif(USE_VALIDATION_LAYERS)
 #Enable max warnings and warnings as errors:
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX)
+    # Disabling some warnings I don't find helpful:
+    target_compile_options(${PROJECT_NAME} PRIVATE /wd4456) # Local variable name shadowing
+    
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
@@ -238,7 +239,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
 target_link_libraries(${PROJECT_NAME} PRIVATE efsw)
 target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
 target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)
-target_link_libraries(${PROJECT_NAME} PRIVATE ktx)
+target_link_libraries(${PROJECT_NAME} PRIVATE ktx_read)
 target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
 target_link_libraries(${PROJECT_NAME} PRIVATE cpptrace::cpptrace)
 target_link_libraries(${PROJECT_NAME} PRIVATE volk)

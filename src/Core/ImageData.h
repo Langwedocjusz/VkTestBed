@@ -49,7 +49,7 @@ class ImageData {
     uint32_t            Width   = 0;
     uint32_t            Height  = 0;
     MipStrategy         Mips    = MipStrategy::DoNothing;
-    size_t              NumMips = 1;
+    uint32_t            NumMips = 1;
     std::vector<size_t> MipOffsets;
     VkFormat            Format;
 

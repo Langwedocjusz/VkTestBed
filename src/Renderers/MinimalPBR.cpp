@@ -1335,12 +1335,10 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
             auto &list = mObjectCache[objKey];
             list.emplace_back(drawableKey, drawable.Instances.size());
 
-            glm::mat4 transform = obj.Transform;
-
             glm::mat4 base = glm::translate(glm::mat4(1.0f), prim.BaseOffset) *
                              glm::scale(glm::mat4(1.0f), prim.BaseScale);
 
-            drawable.Instances.emplace_back(objKey, transform, transform * base);
+            drawable.Instances.emplace_back(objKey, obj.Transform, obj.Transform * base);
         }
     }
 }

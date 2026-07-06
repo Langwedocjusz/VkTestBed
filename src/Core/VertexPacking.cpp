@@ -7,6 +7,7 @@
 #include "glm/vector_relational.hpp"
 
 #include <cstring>
+#include <numbers>
 
 struct PushVertexOffsets {
     uint32_t                  ComponentStride;
@@ -59,16 +60,16 @@ static PushVertexOffsets GetOffsets(const Vertex::PushLayout &layout)
 }
 
 template <std::unsigned_integral T>
-static uint16_t QuantizeNormalized(float value)
+static T QuantizeNormalized(float value)
 {
     vassert(0.0f <= value && value <= 1.0f, "Value must be normalied!");
 
-    const float maximum = std::numeric_limits<T>::max();
+    const auto maximum = static_cast<float>(std::numeric_limits<T>::max());
     return static_cast<T>(maximum * value);
 }
 
 template <std::unsigned_integral T>
-static std::array<uint16_t, 2> QuantizeVec2(glm::vec2 v)
+static std::array<T, 2> QuantizeVec2(glm::vec2 v)
 {
     return {
         QuantizeNormalized<T>(v.x),
@@ -77,7 +78,7 @@ static std::array<uint16_t, 2> QuantizeVec2(glm::vec2 v)
 };
 
 template <std::unsigned_integral T>
-static std::array<uint16_t, 3> QuantizeVec3(glm::vec3 v)
+static std::array<T, 3> QuantizeVec3(glm::vec3 v)
 {
     return {
         QuantizeNormalized<T>(v.x),
@@ -167,11 +168,13 @@ static float RodriguezAngleNormalized(glm::vec3 normal, glm::vec3 tangent)
     float angle = glm::atan(alongRefPerp, alongRefTan);
 
     // Make sure the angle is in [0, 2pi):
-    if (angle <= 0.0f)
-        angle += 2.0f * std::numbers::pi;
+    const float pi = std::numbers::pi_v<float>;
 
-    // Normalize to [0,1]:
-    angle /= 2.0f * std::numbers::pi;
+    if (angle <= 0.0f)
+        angle += 2.0f * pi;
+
+    // Normalize to [0,1]: 
+    angle /= 2.0f * pi;
 
     return angle;
 }
@@ -329,7 +332,7 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
                 auto qNormal = PackUint8sToUint16(normalU8[0], normalU8[1]);
 
                 auto tangentU8 = QuantizeNormalized<uint8_t>(tanAngle);
-                auto signU8    = static_cast<uint16_t>(tangent.w > 0.0f);
+                auto signU8    = static_cast<uint8_t>(tangent.w > 0.0f);
 
                 auto qTangent = PackUint8sToUint16(tangentU8, signU8);
 

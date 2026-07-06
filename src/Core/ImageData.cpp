@@ -3,7 +3,7 @@
 
 #include "Vassert.h"
 
-#define KHRONOS_STATIC
+//#define KHRONOS_STATIC
 #include "ktx.h"
 #include "ktxvulkan.h"
 
@@ -88,7 +88,7 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
         {
             res.NumMips = texture->numLevels;
 
-            for (size_t lvl = 0; lvl < res.NumMips; lvl++)
+            for (uint32_t lvl = 0; lvl < res.NumMips; lvl++)
             {
                 ktx_size_t offset{0};
                 auto       ret = ktxTexture_GetImageOffset(texture, lvl, 0, 0, &offset);

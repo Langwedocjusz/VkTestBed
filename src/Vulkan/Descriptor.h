@@ -111,10 +111,10 @@ class DescriptorUpdater {
     };
 
     struct WriteInfo {
+        size_t    Id;
+        uint32_t  Count = 1;
         uint32_t  Binding;
         WriteType Type;
-        size_t    Id;
-        size_t    Count = 1;
     };
 
     std::vector<VkDescriptorBufferInfo> mBufferInfos;

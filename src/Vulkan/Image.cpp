@@ -80,7 +80,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, Image::UploadInfo info
             // Multiple copy regions - one per mip level:
             std::vector<VkBufferImageCopy> regions{};
 
-            for (size_t lvl = 0; lvl < img.Info.mipLevels; lvl++)
+            for (uint32_t lvl = 0; lvl < img.Info.mipLevels; lvl++)
             {
                 VkBufferImageCopy region{};
 
@@ -109,7 +109,8 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, Image::UploadInfo info
             }
 
             vkCmdCopyBufferToImage(cmd, stagingBuffer.Handle, img.Handle,
-                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regions.size(),
+                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                   static_cast<uint32_t>(regions.size()),
                                    regions.data());
         }
         else

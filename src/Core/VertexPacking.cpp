@@ -95,7 +95,7 @@ static bool IsNormalized(T v)
     return lower && upper;
 }
 
-template<>
+template <>
 bool IsNormalized(float v)
 {
     return (0.0f <= v && v <= 1.0f);
@@ -151,16 +151,16 @@ static float RodriguezAngleNormalized(glm::vec3 normal, glm::vec3 tangent)
 {
     // Generate referece tangent vector:
     glm::vec3 refTan{};
-    
+
     // To prevent singularity when normal points towards z:
     if (std::abs(normal.z) > std::abs(normal.x))
-        refTan = glm::cross(normal, glm::vec3(1,0,0));
+        refTan = glm::cross(normal, glm::vec3(1, 0, 0));
     else
-        refTan = glm::cross(normal, glm::vec3(0,0,1));
+        refTan = glm::cross(normal, glm::vec3(0, 0, 1));
 
     // Get direction orthogonal to both normal and ref tangent:
     glm::vec3 refPerp = glm::cross(normal, refTan);
-    
+
     // Calculate angle from reference to actual tangent:
     float alongRefTan  = glm::dot(refTan, tangent);
     float alongRefPerp = glm::dot(refPerp, tangent);
@@ -173,7 +173,7 @@ static float RodriguezAngleNormalized(glm::vec3 normal, glm::vec3 tangent)
     if (angle <= 0.0f)
         angle += 2.0f * pi;
 
-    // Normalize to [0,1]: 
+    // Normalize to [0,1]:
     angle /= 2.0f * pi;
 
     return angle;
@@ -309,8 +309,8 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
 
                 // Compress normal  with octahedral mapping,
                 // encode tangent with Rodriguez angle:
-                glm::vec2 normal2 = OctahedralMap(normal);
-                float tanAngle    = RodriguezAngleNormalized(normal, tan3);
+                glm::vec2 normal2  = OctahedralMap(normal);
+                float     tanAngle = RodriguezAngleNormalized(normal, tan3);
 
                 // Do clamp to catch small numerical inaccuracies:
                 pos      = glm::clamp(pos, 0.0f, 1.0f);
@@ -329,7 +329,7 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
                 auto qTexCoord = QuantizeVec2<uint16_t>(texcoord);
 
                 auto normalU8 = QuantizeVec2<uint8_t>(normal2);
-                auto qNormal = PackUint8sToUint16(normalU8[0], normalU8[1]);
+                auto qNormal  = PackUint8sToUint16(normalU8[0], normalU8[1]);
 
                 auto tangentU8 = QuantizeNormalized<uint8_t>(tanAngle);
                 auto signU8    = static_cast<uint8_t>(tangent.w > 0.0f);

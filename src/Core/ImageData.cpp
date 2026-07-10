@@ -3,17 +3,18 @@
 
 #include "Vassert.h"
 
-//#define KHRONOS_STATIC
-#include "ktx.h"
-#include "ktxvulkan.h"
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+#define TINYKTX_IMPLEMENTATION
+#include "tinyktx.h"
 
 #define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <utility>
 
 static VkDeviceSize BytesPerPixel(VkFormat format)
@@ -65,43 +66,120 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
 
     if (pathObj.extension().string() == ".ktx" || pathObj.extension().string() == ".ktx2")
     {
-        ktxTexture *texture; // TODO: This needs to be stored as well
+        // Read entire file to memory:
+        struct FileHandle {
+            char   *Data;
+            int64_t Size;
+            size_t  CurrentByte = 0;
+        } fileHandle;
 
-        auto result = ktxTexture_CreateFromNamedFile(
-            path, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture);
-        vassert(result == KTX_SUCCESS);
-
-        // Retrieve info about the texture:
-        ktx_uint32_t baseWidth  = texture->baseWidth;
-        ktx_uint32_t baseHeight = texture->baseHeight;
-
-        ktx_size_t dataSize = ktxTexture_GetDataSize(texture);
-
-        // TODO: Support more image types
-        // ktx_uint32_t baseDepth = texture->baseDepth;
-        // ktx_uint32_t numLevels = texture->numLevels;
-        // ktx_bool_t isArray = texture->isArray;
-
-        auto mips = texture->generateMipmaps ? MipStrategy::Generate : MipStrategy::Load;
-
-        if (mips == MipStrategy::Load)
         {
-            res.NumMips = texture->numLevels;
+            // This automatically puts as at the end:
+            std::ifstream file(path, std::ios::binary | std::ios::ate);
 
-            for (uint32_t lvl = 0; lvl < res.NumMips; lvl++)
+            if (!file)
             {
-                ktx_size_t offset{0};
-                auto       ret = ktxTexture_GetImageOffset(texture, lvl, 0, 0, &offset);
-
-                vassert(ret == KTX_SUCCESS);
-
-                res.MipOffsets.push_back(offset);
+                auto msg = std::format("Failed to open file: {}", path);
+                vpanic(msg);
             }
+
+            // So we can recover file-size this way:
+            fileHandle.Size = static_cast<int64_t>(file.tellg());
+
+            // And read the whole thing:
+            file.seekg(0, file.beg);
+
+            fileHandle.Data = new char[fileHandle.Size];
+            file.read(fileHandle.Data, fileHandle.Size);
         }
 
-        ktx_uint8_t *image = ktxTexture_GetData(texture);
+        // Initialize tiny_ktx context:
+        auto tinyktxCallbackError = []([[maybe_unused]] void *user, char const *msg) {
+            std::cerr << "Tiny_Ktx ERROR: " << msg << '\n';
+        };
 
-        VkFormat format = ktxTexture_GetVkFormat(texture);
+        auto tinyktxCallbackAlloc = []([[maybe_unused]] void *user,
+                                       size_t                 size) -> void                 *{
+            auto ptr = new uint8_t[size];
+            return static_cast<void *>(ptr);
+        };
+
+        auto tinyktxCallbackFree = []([[maybe_unused]] void *user, void *data) {
+            auto ptr = static_cast<uint8_t *>(data);
+            delete[] ptr;
+        };
+
+        auto tinyktxCallbackRead = [](void *user, void *dest, size_t size) -> size_t {
+            auto fileHandle = static_cast<FileHandle *>(user);
+
+            size_t remaining = fileHandle->Size - fileHandle->CurrentByte;
+            size_t toRead    = std::min(size, remaining);
+
+            if (toRead > 0)
+            {
+                auto srcPtr = fileHandle->Data + fileHandle->CurrentByte;
+                std::memcpy(dest, srcPtr, toRead);
+
+                fileHandle->CurrentByte += toRead;
+            }
+
+            return toRead;
+        };
+
+        auto tinyktxCallbackSeek = [](void *user, int64_t offset) -> bool {
+            auto fileHandle = static_cast<FileHandle *>(user);
+
+            // Assume file is smaller than int64 max.
+            if (offset < 0 || offset >= static_cast<int64_t>(fileHandle->Size))
+            {
+                return false;
+            }
+
+            fileHandle->CurrentByte = offset;
+
+            return true;
+        };
+
+        auto tinyktxCallbackTell = [](void *user) -> int64_t {
+            auto fileHandle = static_cast<FileHandle *>(user);
+
+            return static_cast<int64_t>(fileHandle->CurrentByte);
+        };
+
+        TinyKtx_Callbacks callbacks{.errorFn = tinyktxCallbackError,
+                                    .allocFn = tinyktxCallbackAlloc,
+                                    .freeFn  = tinyktxCallbackFree,
+                                    .readFn  = tinyktxCallbackRead,
+                                    .seekFn  = tinyktxCallbackSeek,
+                                    .tellFn  = tinyktxCallbackTell};
+
+        auto ctx = TinyKtx_CreateContext(&callbacks, &fileHandle);
+
+        TinyKtx_ReadHeader(ctx);
+        uint32_t       baseWidth  = TinyKtx_Width(ctx);
+        uint32_t       baseHeight = TinyKtx_Height(ctx);
+        uint32_t       baseDepth  = TinyKtx_Depth(ctx);
+        uint32_t       slices     = TinyKtx_ArraySlices(ctx);
+        TinyKtx_Format fmt        = TinyKtx_GetFormat(ctx);
+
+        vassert(fmt != TKTX_UNDEFINED, "Image format not defined!");
+
+        if (baseDepth > 1)
+        {
+            auto msg = std::format("3D Images currently not supported! Got {} depth.",
+                                   baseDepth);
+            vpanic(msg);
+        }
+
+        if (slices > 1)
+        {
+            auto msg = std::format(
+                "Texture Arrays currently not supported! Got {} slices.", slices);
+            vpanic(msg);
+        }
+
+        // Ktx formats are equal to VkFormats where possible:
+        auto format = static_cast<VkFormat>(fmt);
 
         // TODO: this is a horrible hack:
         if (unorm && (format == VK_FORMAT_BC7_SRGB_BLOCK))
@@ -110,16 +188,45 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
         if (!unorm && (format == VK_FORMAT_BC7_UNORM_BLOCK))
             format = VK_FORMAT_BC7_SRGB_BLOCK;
 
+        // Precalculate image size and mip offsets:
+        size_t imageBytes = 0;
+
+        for (uint32_t mip = 0; mip < TinyKtx_NumberOfMipmaps(ctx); mip++)
+        {
+            res.MipOffsets.push_back(imageBytes);
+            imageBytes += TinyKtx_ImageSize(ctx, mip);
+        }
+
+        // Allocate memory and copy all image levels:
+        auto ourData = new uint8_t[imageBytes];
+
+        size_t currentOffset = 0;
+
+        for (uint32_t mip = 0; mip < TinyKtx_NumberOfMipmaps(ctx); mip++)
+        {
+            auto currentSize = TinyKtx_ImageSize(ctx, mip);
+
+            std::memcpy(ourData + currentOffset, TinyKtx_ImageRawData(ctx, mip),
+                        currentSize);
+
+            currentOffset += currentSize;
+        }
+
         res.Width  = baseWidth;
         res.Height = baseHeight;
-        res.Mips   = mips;
-        res.Format = format;
-        res.Data   = static_cast<void *>(image);
-        res.Size   = dataSize;
-        res.mType  = Type::Ktx;
+        // TODO: Should branch on wether or not mips are present.
+        // But that would require compute shaders that can write
+        // to compressed images...
+        res.Mips    = MipStrategy::Load;
+        res.NumMips = res.MipOffsets.size();
+        res.Format  = format;
+        res.Data    = static_cast<void *>(ourData);
+        res.Size    = imageBytes;
+        res.mType   = Type::Ktx;
 
-        // Store texture handle to use when freeing memory:
-        res.mExtra = static_cast<void *>(texture);
+        // This apparently also frees any image memory
+        // tiny_ktx allocated along the way:
+        TinyKtx_DestroyContext(ctx);
     }
     else
     {
@@ -212,8 +319,10 @@ ImageData::~ImageData()
         break;
     }
     case Type::Ktx: {
-        auto tex = static_cast<ktxTexture *>(mExtra);
-        ktxTexture_Destroy(tex);
+        // auto tex = static_cast<ktxTexture *>(mExtra);
+        // ktxTexture_Destroy(tex);
+        auto ptr = static_cast<uint8_t *>(Data);
+        delete[] ptr;
         break;
     }
     case Type::Stb: {

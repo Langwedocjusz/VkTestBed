@@ -29,7 +29,7 @@ add_subdirectory(vendor/ImGuizmo)
 add_subdirectory(vendor/mikktspace)
 add_subdirectory(vendor/stb_image)
 add_subdirectory(vendor/tinyexr)
-add_subdirectory(vendor/KTX-Software/lib ktx)
+add_subdirectory(vendor/ktx)
 add_subdirectory(vendor/tracy)
 add_subdirectory(vendor/vk-bootstrap)
 add_subdirectory(vendor/volk)
@@ -207,13 +207,6 @@ target_include_directories(${PROJECT_NAME}
         src/Vulkan
 )
 
-# This idiotic maneuver is needed because libktx cannot
-# expose khr_df.h file it includes...
-target_include_directories(${PROJECT_NAME}
-    PRIVATE
-        vendor/KTX-Software/external/dfdutils
-)
-
 #Add filters for IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")
 source_group(src/Core REGULAR_EXPRESSION "src/Core/*")
@@ -239,7 +232,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
 target_link_libraries(${PROJECT_NAME} PRIVATE efsw)
 target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
 target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)
-target_link_libraries(${PROJECT_NAME} PRIVATE ktx_read)
+target_link_libraries(${PROJECT_NAME} PRIVATE tiny_ktx)
 target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
 target_link_libraries(${PROJECT_NAME} PRIVATE cpptrace::cpptrace)
 target_link_libraries(${PROJECT_NAME} PRIVATE volk)

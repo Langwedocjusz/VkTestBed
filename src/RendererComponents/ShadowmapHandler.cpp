@@ -37,7 +37,8 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
     for (uint32_t i = 0; i < NumCascades; i++)
     {
         std::string name = "ShadowmapView" + std::to_string(i);
-        auto view = MakeView::View2DArray(mCtx, name, {.Img = mShadowmap.Img, .SelectLayer = i});
+        auto        view =
+            MakeView::View2DArray(mCtx, name, {.Img = mShadowmap.Img, .SelectLayer = i});
 
         mCascadeViews[i] = view;
         mMainDeletionQueue.push_back(view);

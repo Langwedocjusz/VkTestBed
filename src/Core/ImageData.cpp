@@ -218,7 +218,7 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
         // But that would require compute shaders that can write
         // to compressed images...
         res.Mips    = MipStrategy::Load;
-        res.NumMips = res.MipOffsets.size();
+        res.NumMips = static_cast<uint32_t>(res.MipOffsets.size());
         res.Format  = format;
         res.Data    = static_cast<void *>(ourData);
         res.Size    = imageBytes;

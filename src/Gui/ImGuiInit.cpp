@@ -120,7 +120,7 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
         VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
     init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats =
-        &ctx.Swapchain.image_format;
+        &ctx.SwapchainFormat;
 
     // init_info.PipelineRenderingCreateInfo.depthAttachmentFormat =
     //     vkutils::FindDepthFormat(ctx);

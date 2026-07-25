@@ -46,8 +46,9 @@ class PostProcessor {
     };
 
     struct PCDataFinal {
-        int   BloomEnabled;
-        float BloomStrength;
+        int32_t BloomEnabled;
+        float   BloomStrength;
+        int32_t AdditionalColorCorrect;
     };
 
     VkSampler                mBloomSampler;

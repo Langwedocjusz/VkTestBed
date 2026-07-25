@@ -2,6 +2,16 @@ cmake_minimum_required(VERSION 3.30.2)
 
 project(VkTestBed)
 
+#=Options=================================================================================
+
+include(CMakeDependentOption)
+
+# Dependent option, since it doesn't make sense on non-windows platforms:
+cmake_dependent_option(VULKAN_ON_DXGI
+    "Enable dxgi swapchain usage" ON
+    "WIN32" OFF
+)
+
 #=Global setup============================================================================
 
 #Enable parallel compilation for MSVC:
@@ -26,10 +36,10 @@ add_subdirectory(vendor/glm)
 add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/ImGuizmo)
+add_subdirectory(vendor/ktx)
 add_subdirectory(vendor/mikktspace)
 add_subdirectory(vendor/stb_image)
 add_subdirectory(vendor/tinyexr)
-add_subdirectory(vendor/ktx)
 add_subdirectory(vendor/tracy)
 add_subdirectory(vendor/vk-bootstrap)
 add_subdirectory(vendor/volk)
@@ -42,7 +52,7 @@ target_include_directories(VulkanMemoryAllocator SYSTEM INTERFACE ${_inc})
 get_target_property(_inc fastgltf::fastgltf INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 
-#Some additional linking for dependencies:
+#Some additional linking between the dependencies:
 target_link_libraries(imgui PRIVATE glfw)
 target_link_libraries(imgui PRIVATE volk)
 target_link_libraries(ImGuizmo PRIVATE imgui)
@@ -57,16 +67,15 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 #Compile definitions:
 target_compile_definitions(${PROJECT_NAME} PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
-if(USE_VALIDATION_LAYERS)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_VALIDATION_LAYERS)
-endif(USE_VALIDATION_LAYERS)
+if(VULKAN_ON_DXGI)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE VULKAN_ON_DXGI)
+endif(VULKAN_ON_DXGI)
 
 #Enable max warnings and warnings as errors:
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX)
     # Disabling some warnings I don't find helpful:
     target_compile_options(${PROJECT_NAME} PRIVATE /wd4456) # Local variable name shadowing
-    
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
@@ -236,3 +245,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE tiny_ktx)
 target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
 target_link_libraries(${PROJECT_NAME} PRIVATE cpptrace::cpptrace)
 target_link_libraries(${PROJECT_NAME} PRIVATE volk)
+
+
+#Additional Windows-only dependencies to enable dxgi swapchain:
+if(VULKAN_ON_DXGI)
+    add_subdirectory(vendor/vk_dxgi)
+    target_link_libraries(${PROJECT_NAME} PRIVATE vk_dxgi)
+    target_link_libraries(${PROJECT_NAME} PRIVATE d3d12 dxgi)
+endif(VULKAN_ON_DXGI)
+

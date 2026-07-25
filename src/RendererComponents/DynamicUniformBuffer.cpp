@@ -12,7 +12,7 @@ DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame,
     : mBufferSize(bufferSize), mCtx(ctx), mFrame(frame), mDeletionQueue(ctx)
 {
     // Create Uniform Buffers:
-    mUniformBuffers.resize(mCtx.Swapchain.image_count);
+    mUniformBuffers.resize(mCtx.SwapchainImages.size());
 
     for (auto &uniformBuffer : mUniformBuffers)
     {
@@ -56,7 +56,7 @@ void DynamicDescriptorSet::Initialize(VkDescriptorSetLayout   layout,
     mInitialized = true;
 
     // Initialize descriptor pool:
-    uint32_t numDescriptors = mCtx.Swapchain.image_count;
+    auto numDescriptors = static_cast<uint32_t>(mCtx.SwapchainImages.size());
 
     auto totalCounts = numDescriptors * poolCounts;
     auto rawCounts   = totalCounts.ToRaw();

@@ -10,6 +10,7 @@ layout(set = 0, binding = 2) uniform sampler2D sSourceBloom;
 layout(push_constant) uniform PushConstants {
     int   BloomEnabled;
     float BloomStrength;
+    int   AdditionalColorCorrect;
 } uPushConstants;
 
 //https://knarkowicz.wordplitColors.com/2016/01/06/aces-filmic-tone-mapping-curve/
@@ -46,6 +47,12 @@ void main()
 
     // Color correction:
     result = pow(result, vec3(1.0/2.2));
+
+    // TODO: Temporary fix. This is cursed, need to systematically
+    // solve the issue of gamma, dependent on swapchain
+    // format.
+    if (uPushConstants.AdditionalColorCorrect == 1)
+        result = pow(result, vec3(1.0/2.2));
 
     imageStore(iTarget, outTexelCoords, vec4(result, 1.0));
 }

@@ -203,8 +203,8 @@ void Minimal3DRenderer::RecreateSwapchainResources()
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
-    uint32_t width  = ScaleResolution(mCtx.Swapchain.extent.width);
-    uint32_t height = ScaleResolution(mCtx.Swapchain.extent.height);
+    uint32_t width  = ScaleResolution(mCtx.SwapchainExtent.width);
+    uint32_t height = ScaleResolution(mCtx.SwapchainExtent.height);
 
     VkExtent2D drawExtent{
         .width  = width,

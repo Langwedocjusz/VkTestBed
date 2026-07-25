@@ -30,7 +30,7 @@ class RenderContext {
 
   private:
     void DrawFrame(std::optional<SceneKey> highlightedObj);
-    void DrawUI(VkCommandBuffer cmd);
+    void DrawUI(VkCommandBuffer cmd, VkImageView swapchainView);
 
     void CreateSwapchainResources();
     void DestroySwapchainResources();

@@ -114,8 +114,8 @@ void Application::Impl::Run()
         mWindow.PollEvents();
 
         // Update Renderer and Scene Editor
-        mCamera.OnUpdate(mDeltaTimeSeconds, mCtx.Swapchain.extent.width,
-                         mCtx.Swapchain.extent.height);
+        mCamera.OnUpdate(mDeltaTimeSeconds, mCtx.SwapchainExtent.width,
+                         mCtx.SwapchainExtent.height);
         mRender.OnUpdate(mDeltaTimeSeconds);
         mSceneEditor.OnUpdate();
 

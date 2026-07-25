@@ -319,8 +319,6 @@ ImageData::~ImageData()
         break;
     }
     case Type::Ktx: {
-        // auto tex = static_cast<ktxTexture *>(mExtra);
-        // ktxTexture_Destroy(tex);
         auto ptr = static_cast<uint8_t *>(Data);
         delete[] ptr;
         break;

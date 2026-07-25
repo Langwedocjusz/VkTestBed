@@ -4,7 +4,16 @@
 #include "Vassert.h"
 
 #include "volk.h"
+
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+
+#include <windows.h>
+#else
+#include <GLFW/glfw3.h>
+#endif
 
 #include <iostream>
 
@@ -88,6 +97,7 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, const char *title,
     vassert(glfwInit(), "Failed to initialize glfw!");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
 
     mWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
 
@@ -128,11 +138,18 @@ VkSurfaceKHR SystemWindow::CreateSurface(VkInstance             instance,
 {
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkResult     err = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
-
+    
     vassert(err == VK_SUCCESS, "Failed to create a surface!");
 
     return surface;
 }
+
+#ifdef _WIN32
+HWND SystemWindow::GetNativeHandle()
+{
+    return glfwGetWin32Window(mWindow);
+}
+#endif
 
 bool SystemWindow::ShouldClose()
 {
@@ -141,7 +158,7 @@ bool SystemWindow::ShouldClose()
 
 void SystemWindow::PollEvents()
 {
-    glfwPollEvents();
+   glfwPollEvents();
 }
 
 void SystemWindow::WaitEvents()

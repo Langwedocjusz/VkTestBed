@@ -8,6 +8,11 @@
 
 struct GLFWwindow;
 
+#ifdef _WIN32
+struct HWND__;
+typedef struct HWND__ *HWND;
+#endif
+
 class SystemWindow {
   public:
     using EventHandlerFn = void (*)(void *, Event::EventVariant);
@@ -34,6 +39,13 @@ class SystemWindow {
         return mWindow;
     }
 
+    // Only used to initialize dxgi on windows.
+    // Same as above:
+    #ifdef _WIN32
+    HWND GetNativeHandle();
+    #endif
+
   private:
+    HWND        mNativeHandle;
     GLFWwindow *mWindow = nullptr;
 };

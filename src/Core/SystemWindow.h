@@ -8,7 +8,7 @@
 
 struct GLFWwindow;
 
-#ifdef _WIN32
+#ifdef VULKAN_ON_DXGI
 struct HWND__;
 typedef struct HWND__ *HWND;
 #endif
@@ -41,11 +41,10 @@ class SystemWindow {
 
     // Only used to initialize dxgi on windows.
     // Same as above:
-    #ifdef _WIN32
+    #ifdef VULKAN_ON_DXGI
     HWND GetNativeHandle();
     #endif
 
   private:
-    HWND        mNativeHandle;
     GLFWwindow *mWindow = nullptr;
 };

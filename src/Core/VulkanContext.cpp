@@ -78,7 +78,9 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
                    .set_app_name(appName.c_str())
                    .set_engine_name("No Engine")
                    .require_api_version(1, 3, 0)
+                   #ifdef VULKAN_ON_DXGI
                    .enable_extension("VK_KHR_win32_surface")
+                   #endif
                    .use_default_debug_messenger()
                    .build()
                    .value();

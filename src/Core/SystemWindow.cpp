@@ -144,7 +144,7 @@ VkSurfaceKHR SystemWindow::CreateSurface(VkInstance             instance,
     return surface;
 }
 
-#ifdef _WIN32
+#ifdef VULKAN_ON_DXGI
 HWND SystemWindow::GetNativeHandle()
 {
     return glfwGetWin32Window(mWindow);

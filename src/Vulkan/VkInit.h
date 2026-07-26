@@ -11,7 +11,7 @@ namespace vkinit
 void CreateSignalledFence(VulkanContext &ctx, VkFence &fence);
 void CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore);
 
-VkCommandPool CreateCommandPool(VulkanContext &ctx, vkb::QueueType qtype);
+VkCommandPool CreateCommandPool(VulkanContext &ctx, QueueType qtype);
 
 VkCommandBuffer AllocateCommandBuffer(VulkanContext &ctx, VkCommandPool pool);
 

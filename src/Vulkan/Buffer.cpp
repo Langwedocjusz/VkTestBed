@@ -5,6 +5,8 @@
 
 #include "volk.h"
 
+#include <cstring>
+
 Buffer Buffer::Create(VulkanContext &ctx, const std::string &debugName, VkDeviceSize size,
                       VkBufferUsageFlags usage, VmaAllocationCreateFlags flags)
 {

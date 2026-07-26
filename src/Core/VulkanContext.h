@@ -3,7 +3,6 @@
 #include "Frame.h"
 #include "SystemWindow.h"
 
-#include "VkBootstrap.h"
 #include "vk_mem_alloc.h"
 #include "volk.h"
 
@@ -39,30 +38,24 @@ class VulkanContext {
                  [[maybe_unused]] uint32_t           &imageIndex);
 
   public:
-    vkb::Instance       Instance;
-    vkb::PhysicalDevice PhysicalDevice;
-    vkb::Device         Device;
+    VkInstance       Instance;
+    VkPhysicalDevice PhysicalDevice;
+    VkDevice         Device;
+
+    struct Queue{
+        VkQueue                 Handle     = VK_NULL_HANDLE;
+        VkQueueFamilyProperties Properties = {};
+        uint32_t                Index      = 0;
+    };
 
     struct Queues {
-        VkQueue Graphics = VK_NULL_HANDLE;
-        VkQueue Present  = VK_NULL_HANDLE;
+        Queue Graphics = {};
+        Queue Present  = {};
     } Queues;
 
-    struct QueueProperties {
-        VkQueueFamilyProperties Graphics;
-        VkQueueFamilyProperties Present;
-    } QueueProperties;
-
     VmaAllocator Allocator;
-
+    
     VkSurfaceKHR Surface;
-
-    #ifdef VULKAN_ON_DXGI
-    struct DxgiData;
-    std::unique_ptr<DxgiData> mDxgiData;
-    #else    
-    vkb::Swapchain Swapchain;
-    #endif
 
     VkFormat                 SwapchainFormat;
     VkExtent2D               SwapchainExtent;
@@ -74,6 +67,15 @@ class VulkanContext {
     uint32_t RequestedWidth;
     uint32_t RequestedHeight;
 
+    struct {
+      bool  Timestamps         = false;
+      bool  PipelineStatistics = false;
+      float TimestampPeriod    = 0.0f;
+    } OptionalFeatures;
+
   private:
+    struct ExtraData;
+    std::unique_ptr<ExtraData> mExtraData;
+
     VkCommandPool mImmGraphicsCommandPool;
 };

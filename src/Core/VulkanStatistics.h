@@ -28,9 +28,6 @@ class VulkanStatisticsCollector {
     VulkanContext &mCtx;
 
     // Timestamps:
-    bool  mTimestampSupported;
-    float mTimestampPeriod;
-
     struct Timestamp {
         uint64_t Value        = 0;
         uint64_t Availability = 0;
@@ -40,8 +37,6 @@ class VulkanStatisticsCollector {
     using FrameTimestamps = std::array<Timestamp, TimestampsPerFrame>;
 
     // Pipeline statistics stuff:
-    bool mPipelineStatisticsSupported;
-
     static constexpr std::array QueriedStatistics{
         VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT};
 

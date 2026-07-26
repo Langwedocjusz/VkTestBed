@@ -28,7 +28,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     // Create per frame command pools/buffers and sync-objects:
     for (auto &data : mFrameInfo.FrameData)
     {
-        data.CommandPool   = vkinit::CreateCommandPool(mCtx, vkb::QueueType::graphics);
+        data.CommandPool   = vkinit::CreateCommandPool(mCtx, QueueType::Graphics);
         data.CommandBuffer = vkinit::AllocateCommandBuffer(mCtx, data.CommandPool);
 
         vkinit::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
@@ -192,7 +192,7 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     #endif
 
     auto submitRes =
-         vkQueueSubmit(mCtx.Queues.Graphics, 1, &submitInfo, frameData.InFlightFence);
+         vkQueueSubmit(mCtx.Queues.Graphics.Handle, 1, &submitInfo, frameData.InFlightFence);
 
      vassert(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
 

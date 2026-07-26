@@ -19,8 +19,7 @@ inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handl
     debugLayoutInfo.objectHandle = (uint64_t)handle;
     debugLayoutInfo.pObjectName  = name.c_str();
 
-    // ctx.SetDebugUtilsObjectName(ctx.Device.device, &debugLayoutInfo);
-    vkSetDebugUtilsObjectNameEXT(ctx.Device.device, &debugLayoutInfo);
+    vkSetDebugUtilsObjectNameEXT(ctx.Device, &debugLayoutInfo);
 }
 
 void BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags = 0);

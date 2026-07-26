@@ -26,11 +26,22 @@ void vkinit::CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore)
     vassert(ret == VK_SUCCESS, "Failed to create a semaphore!");
 }
 
-VkCommandPool vkinit::CreateCommandPool(VulkanContext &ctx, vkb::QueueType qtype)
+VkCommandPool vkinit::CreateCommandPool(VulkanContext &ctx, QueueType qtype)
 {
-    VkCommandPool pool;
+    VkCommandPool pool{};
 
-    auto queueFamilyId = ctx.Device.get_queue_index(qtype).value();
+    uint32_t queueFamilyId = 0;
+
+    switch(qtype) {
+        case QueueType::Graphics: {
+            queueFamilyId = ctx.Queues.Graphics.Index;
+            break;
+        }
+        case QueueType::Present: {
+            queueFamilyId = ctx.Queues.Present.Index;
+            break;
+        }
+    }
 
     VkCommandPoolCreateInfo poolInfo = {};
     poolInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;

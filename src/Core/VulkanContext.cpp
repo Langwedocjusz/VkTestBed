@@ -20,18 +20,6 @@
 
 #include <format>
 
-struct VulkanContext::DxgiData {
-    dvk_dxgiDeviceContext_t Context;
-    dvk_functions_t         Functions;
-    dvk_vulkanContext_t     VkContext;
-    dvk_allocator_t         Allocator;         
-    HWND                    Window;
-    dvk_dxgiSwapChain_t     Swapchain;
-    // Presentation info returned
-    // by last frame's acquire image:
-    dvk_presentationInfo_t LastPresentInfo;
-};
-
 static void *dxgiAlloc(size_t size, size_t alignment, void *)
 {
     return _aligned_malloc(size, alignment);
@@ -44,21 +32,26 @@ static void dxgiFree(void *address, void *)
 
 #endif
 
-static VkQueue CreateQueue(VulkanContext &ctx, vkb::QueueType type,
-                           VkQueueFamilyProperties &properties)
-{
-    auto idx = ctx.Device.get_queue_index(type);
-
-    auto queue = ctx.Device.get_queue(type);
-
-    if (!queue.has_value())
-        vpanic(queue.error().message());
-
-    auto propVector = ctx.PhysicalDevice.get_queue_families();
-    properties      = propVector[idx.value()];
-
-    return queue.value();
-}
+#ifdef VULKAN_ON_DXGI
+struct VulkanContext::ExtraData {
+    vkb::Instance           Instance;
+    dvk_dxgiDeviceContext_t Context;
+    dvk_functions_t         Functions;
+    dvk_vulkanContext_t     VkContext;
+    dvk_allocator_t         Allocator;         
+    HWND                    Window;
+    dvk_dxgiSwapChain_t     Swapchain;
+    // Presentation info returned
+    // by last frame's acquire image:
+    dvk_presentationInfo_t LastPresentInfo;
+};
+#else
+struct VulkanContext::ExtraData {
+    vkb::Instance  Instance;
+    vkb::Device    Device;
+    vkb::Swapchain Swapchain;
+};
+#endif
 
 VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string &appName,
                              SystemWindow &window)
@@ -74,17 +67,18 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     // Not requesting layers since their usage can be
     // configured as needed via vkconfig and that
     // doesn't require recompiling the whole program.
-    Instance = vkb::InstanceBuilder()
-                   .set_app_name(appName.c_str())
-                   .set_engine_name("No Engine")
-                   .require_api_version(1, 3, 0)
-                   #ifdef VULKAN_ON_DXGI
-                   .enable_extension("VK_KHR_win32_surface")
-                   #endif
-                   .use_default_debug_messenger()
-                   .build()
-                   .value();
+    auto vkbInstance = vkb::InstanceBuilder()
+                     .set_app_name(appName.c_str())
+                     .set_engine_name("No Engine")
+                     .require_api_version(1, 3, 0)
+                     #ifdef VULKAN_ON_DXGI
+                     .enable_extension("VK_KHR_win32_surface")
+                     #endif
+                     .use_default_debug_messenger()
+                     .build()
+                     .value();
 
+    Instance = vkbInstance.instance;
     volkLoadInstance(Instance);
 
     // Surface creation:
@@ -124,7 +118,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
 
     //PhysicalDevice 
         auto physDevCandidates =
-        vkb::PhysicalDeviceSelector(Instance)
+        vkb::PhysicalDeviceSelector(vkbInstance)
                          .set_surface(Surface)
                          .set_required_features(features)
                          .set_required_features_11(features11)
@@ -137,20 +131,22 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
             //.select()
             //.value();
 
+    vkb::PhysicalDevice vkbPhysicalDevice{};
+
     for (const auto &device : physDevCandidates)
     {
         printf("Candidate device found: %s \n", device.name.c_str());
     
         if (device.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
         {
-            PhysicalDevice = device;
+            vkbPhysicalDevice = device;
             break;
         }
     }
 
-    printf("Selected device: %s \n", PhysicalDevice.name.c_str());
+    printf("Selected device: %s \n", vkbPhysicalDevice.name.c_str());
 
-    uint32_t apiVersion = PhysicalDevice.properties.apiVersion;
+    uint32_t apiVersion = vkbPhysicalDevice.properties.apiVersion;
 
     printf("Using Vulkan API Version: %u.%u.%u\n", VK_API_VERSION_MAJOR(apiVersion),
            VK_API_VERSION_MINOR(apiVersion), VK_API_VERSION_PATCH(apiVersion));
@@ -159,7 +155,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     VkPhysicalDeviceFeatures optionalFeatures{};
     optionalFeatures.pipelineStatisticsQuery = true;
 
-    PhysicalDevice.enable_features_if_present(optionalFeatures);
+    vkbPhysicalDevice.enable_features_if_present(optionalFeatures);
 
     // Additional extension info:
     VkPhysicalDeviceExtendedDynamicState3FeaturesEXT dynamicState3Features{};
@@ -167,19 +163,42 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
     dynamicState3Features.extendedDynamicState3ColorBlendEnable = true;
 
-    // Build logical device and load related function pointers through volk:
-    Device = vkb::DeviceBuilder(PhysicalDevice)
-                 .add_pNext(&dynamicState3Features)
-                 .build()
-                 .value();
+    PhysicalDevice = vkbPhysicalDevice.physical_device;
 
+    // Build logical device and load related function pointers through volk:
+    auto vkbDevice = vkb::DeviceBuilder(vkbPhysicalDevice)
+                    .add_pNext(&dynamicState3Features)
+                    .build()
+                    .value();
+
+    Device = vkbDevice.device;
     volkLoadDevice(Device);
 
     // Create queues:
-    Queues.Graphics =
-        CreateQueue(*this, vkb::QueueType::graphics, QueueProperties.Graphics);
+    auto CreateQueue = [&](vkb::QueueType type, Queue &out)
+    {
+        auto idx = vkbDevice.get_queue_index(type);
 
-    Queues.Present = CreateQueue(*this, vkb::QueueType::present, QueueProperties.Present);
+        if (!idx.has_value())
+            vpanic(idx.error().message());
+
+        auto handle = vkbDevice.get_queue(type);
+
+        if (!handle.has_value())
+            vpanic(handle.error().message());
+
+        auto propVector = vkbPhysicalDevice.get_queue_families();
+        auto properties = propVector[idx.value()];
+
+        out = Queue{
+            .Handle     = *handle,
+            .Properties = properties,
+            .Index      = *idx,
+        };
+    };
+
+    CreateQueue(vkb::QueueType::graphics, Queues.Graphics);
+    CreateQueue(vkb::QueueType::present, Queues.Present);
 
     // Vma Allocator creation:
     {
@@ -266,21 +285,44 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
         .free     = dxgiFree,
     };
 
-    mDxgiData = std::make_unique<DxgiData>(DxgiData{
+    mExtraData = std::make_unique<ExtraData>(ExtraData{
+        .Instance  = vkbInstance,
         .Context   = dxgiContext, 
         .Functions = dvkFunctions,
         .VkContext = dxgiVkContext,
         .Allocator = dxgiAllocator,
         .Window    = window.GetNativeHandle(),
     });
-
+    #else
+    mExtraData = std::make_unique<ExtraData>();
+    mExtraData->Instance = vkbInstance;
+    mExtraData->Device   = vkbDevice;
     #endif
 
     // Swapchain creation:
     CreateSwapchain(true);
 
+    // Retrieve info about optional features:
+    // Check for timestamp support:
+    auto &limits = vkbPhysicalDevice.properties.limits;
+    auto timestampPeriod = limits.timestampPeriod;
+
+    OptionalFeatures.Timestamps      = (timestampPeriod != 0.0f);
+    OptionalFeatures.TimestampPeriod = timestampPeriod;
+
+    if (!limits.timestampComputeAndGraphics)
+    {
+        if (Queues.Graphics.Properties.timestampValidBits == 0)
+        {
+            OptionalFeatures.Timestamps = false;
+        }
+    }
+
+    // Check for pipeline statistics support:
+    OptionalFeatures.PipelineStatistics = vkbPhysicalDevice.features.pipelineStatisticsQuery;
+
     // Allocate command pools for immediate submit:
-    mImmGraphicsCommandPool = vkinit::CreateCommandPool(*this, vkb::QueueType::graphics);
+    mImmGraphicsCommandPool = vkinit::CreateCommandPool(*this, QueueType::Graphics);
 }
 
 VulkanContext::~VulkanContext()
@@ -288,23 +330,26 @@ VulkanContext::~VulkanContext()
     vkDestroyCommandPool(Device, mImmGraphicsCommandPool, nullptr);
 
     #ifdef VULKAN_ON_DXGI
-    dvk_destroySwapChain(&mDxgiData->Swapchain);
-    dvk_destroyDevice(mDxgiData->Context);
+    dvk_destroySwapChain(&mExtraData->Swapchain);
+    dvk_destroyDevice(mExtraData->Context);
 
     for (auto imgView : SwapchainImageViews)
     {
         vkDestroyImageView(Device, imgView, nullptr);
     }
     #else
-    Swapchain.destroy_image_views(SwapchainImageViews);
-    vkb::destroy_swapchain(Swapchain);
+    mExtraData->Swapchain.destroy_image_views(SwapchainImageViews);
+    vkb::destroy_swapchain(mExtraData->Swapchain);
     #endif
 
     vmaDestroyAllocator(Allocator);
 
-    vkb::destroy_device(Device);
-    vkb::destroy_surface(Instance, Surface);
-    vkb::destroy_instance(Instance);
+    vkDestroyDevice(Device, nullptr);
+    vkDestroySurfaceKHR(Instance, Surface, nullptr);
+
+    // Using vkb function here to also destry
+    // the library-supplied debug messenger:
+    vkb::destroy_instance(mExtraData->Instance);
 }
 
 void VulkanContext::CreateSwapchain(bool firstRun)
@@ -318,11 +363,11 @@ void VulkanContext::CreateSwapchain(bool firstRun)
     {
         dvk_createSwapChainParameters_t swapChainParameters{};
 
-        swapChainParameters.pFunctions     = &mDxgiData->Functions;
-        swapChainParameters.pAllocator     = &mDxgiData->Allocator;
-        swapChainParameters.pDeviceContext = &mDxgiData->Context;
-        swapChainParameters.pVulkanContext = &mDxgiData->VkContext;
-        swapChainParameters.window         = mDxgiData->Window;
+        swapChainParameters.pFunctions     = &mExtraData->Functions;
+        swapChainParameters.pAllocator     = &mExtraData->Allocator;
+        swapChainParameters.pDeviceContext = &mExtraData->Context;
+        swapChainParameters.pVulkanContext = &mExtraData->VkContext;
+        swapChainParameters.window         = mExtraData->Window;
         swapChainParameters.width          = static_cast<uint16_t>(extent.width);
         swapChainParameters.height         = static_cast<uint16_t>(extent.height);
         swapChainParameters.format         = VK_FORMAT_R8G8B8A8_UNORM;
@@ -334,7 +379,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
         swapChainParameters.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         {
-            auto res = dvk_createSwapChain(swapChainParameters, &mDxgiData->Swapchain);
+            auto res = dvk_createSwapChain(swapChainParameters, &mExtraData->Swapchain);
 
             if (res.code != DVK_OK)
             {
@@ -344,7 +389,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
         }
 
         {
-            auto res = dvk_getSwapChainInfo(mDxgiData->Swapchain, &dvkInfo);
+            auto res = dvk_getSwapChainInfo(mExtraData->Swapchain, &dvkInfo);
             vassert(res.code == DVK_OK);
         }
     }
@@ -356,7 +401,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
         SwapchainImages.clear();
         SwapchainImageViews.clear();
 
-        auto res = dvk_resizeSwapChain(&mDxgiData->Swapchain, static_cast<uint16_t>(extent.width), static_cast<uint16_t>(extent.height));
+        auto res = dvk_resizeSwapChain(&mExtraData->Swapchain, static_cast<uint16_t>(extent.width), static_cast<uint16_t>(extent.height));
 
         if (res.code != DVK_OK)
         {
@@ -365,7 +410,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
         }
 
         {
-            auto res = dvk_getSwapChainInfo(mDxgiData->Swapchain, &dvkInfo);
+            auto res = dvk_getSwapChainInfo(mExtraData->Swapchain, &dvkInfo);
             vassert(res.code == DVK_OK);
         }
     }
@@ -379,7 +424,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
 
     for (uint32_t index = 0; index < imageCount; index++)
     {
-        auto image = mDxgiData->Swapchain.pSwapChainImages[index];
+        auto image = mExtraData->Swapchain.pSwapChainImages[index];
 
         SwapchainImages[index] = image;
     }
@@ -405,13 +450,13 @@ void VulkanContext::CreateSwapchain(bool firstRun)
     #else
 
     if (!firstRun)
-        Swapchain.destroy_image_views(SwapchainImageViews);
+        mExtraData->Swapchain.destroy_image_views(SwapchainImageViews);
 
     // To manually specify format:
     //.set_desired_format(VkSurfaceFormatKHR)
 
-    auto swapRet = vkb::SwapchainBuilder(Device)
-                       .set_old_swapchain(Swapchain)
+    auto swapRet = vkb::SwapchainBuilder(mExtraData->Device)
+                       .set_old_swapchain(mExtraData->Swapchain)
                        .set_desired_extent(RequestedWidth, RequestedHeight)
                        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
                        // To enable blit from secondary render target:
@@ -421,15 +466,15 @@ void VulkanContext::CreateSwapchain(bool firstRun)
     if (!swapRet.has_value())
         vpanic(swapRet.error().message());
 
-    vkb::destroy_swapchain(Swapchain);
+    vkb::destroy_swapchain(mExtraData->Swapchain);
 
-    Swapchain = swapRet.value();
+    mExtraData->Swapchain = swapRet.value();
 
-    SwapchainFormat = Swapchain.image_format; 
+    SwapchainFormat = mExtraData->Swapchain.image_format; 
     SwapchainExtent = extent;
 
-    SwapchainImages     = Swapchain.get_images().value();
-    SwapchainImageViews = Swapchain.get_image_views().value();
+    SwapchainImages     = mExtraData->Swapchain.get_images().value();
+    SwapchainImageViews = mExtraData->Swapchain.get_image_views().value();
     #endif
 }
 
@@ -441,7 +486,7 @@ PresentationInfo VulkanContext::AcquireSwapchainImage(
 
     #ifdef VULKAN_ON_DXGI
     dvk_presentationInfo_t presentationInfo{};
-    auto res = dvk_acquireImage(&mDxgiData->Swapchain, &presentationInfo);
+    auto res = dvk_acquireImage(&mExtraData->Swapchain, &presentationInfo);
 
     if (dvk_isError(res))
     {
@@ -449,7 +494,7 @@ PresentationInfo VulkanContext::AcquireSwapchainImage(
     }
 
     imageIndex = presentationInfo.imageIndex;
-    mDxgiData->LastPresentInfo = presentationInfo;
+    mExtraData->LastPresentInfo = presentationInfo;
 
     return PresentationInfo{
         .WaitSemaphore   = presentationInfo.waitSemaphore,
@@ -459,7 +504,7 @@ PresentationInfo VulkanContext::AcquireSwapchainImage(
     };
 
     #else
-    VkResult result = vkAcquireNextImageKHR(Device, Swapchain, UINT64_MAX,
+    VkResult result = vkAcquireNextImageKHR(Device, mExtraData->Swapchain, UINT64_MAX,
                                             frameData.ImageAcquiredSemaphore,
                                             VK_NULL_HANDLE, &imageIndex);
 
@@ -480,7 +525,7 @@ void VulkanContext::Present([[maybe_unused]] SwapchainResources &swapResources,
                             [[maybe_unused]] uint32_t           &imageIndex)
 {
     #ifdef VULKAN_ON_DXGI
-    auto &presentInfo = mDxgiData->LastPresentInfo;
+    auto &presentInfo = mExtraData->LastPresentInfo;
 
     dvk_presentParameters_t presentParameters{};
 
@@ -504,10 +549,10 @@ void VulkanContext::Present([[maybe_unused]] SwapchainResources &swapResources,
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores    = &swapResources.RenderCompletedSemaphore;
     present_info.swapchainCount     = 1;
-    present_info.pSwapchains        = &Swapchain.swapchain;
+    present_info.pSwapchains        = &mExtraData->Swapchain.swapchain;
     present_info.pImageIndices      = &imageIndex;
 
-    VkResult result = vkQueuePresentKHR(Queues.Present, &present_info);
+    VkResult result = vkQueuePresentKHR(Queues.Present.Handle, &present_info);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
@@ -538,8 +583,8 @@ void VulkanContext::ImmediateSubmitGraphics(
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers    = &buffer;
 
-    vkQueueSubmit(Queues.Graphics, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(Queues.Graphics);
+    vkQueueSubmit(Queues.Graphics.Handle, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(Queues.Graphics.Handle);
 
     vkFreeCommandBuffers(Device, mImmGraphicsCommandPool, 1, &buffer);
 }

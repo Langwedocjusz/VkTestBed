@@ -105,7 +105,7 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
     init_info.PhysicalDevice = ctx.PhysicalDevice;
     init_info.Device         = ctx.Device;
 
-    init_info.Queue          = ctx.Queues.Graphics;
+    init_info.Queue          = ctx.Queues.Graphics.Handle;
     init_info.DescriptorPool = sDescriptorPool;
     init_info.MinImageCount  = framesInFlight;
     init_info.ImageCount     = framesInFlight;

@@ -10,31 +10,8 @@
 VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
     : mCtx(ctx), mDeletionQueue(ctx)
 {
-    // Check for timestamp support:
-    auto &limits = mCtx.PhysicalDevice.properties.limits;
-
-    mTimestampPeriod    = limits.timestampPeriod;
-    mTimestampSupported = (mTimestampPeriod != 0.0f);
-
-    if (!limits.timestampComputeAndGraphics)
-    {
-        if (mCtx.QueueProperties.Graphics.timestampValidBits == 0)
-        {
-            mTimestampSupported = false;
-        }
-    }
-
-    if (!mTimestampSupported)
-        std::cout << "Timestamp queries not supported!\n";
-
-    // Check for pipeline statistics support:
-    mPipelineStatisticsSupported = mCtx.PhysicalDevice.features.pipelineStatisticsQuery;
-
-    if (!mPipelineStatisticsSupported)
-        std::cout << "Pipeline statistics queries not supported!\n";
-
     // Setup timestamp queries if possible:
-    if (mTimestampSupported)
+    if (mCtx.OptionalFeatures.Timestamps)
     {
         for (auto &res : mResources)
         {
@@ -58,7 +35,7 @@ VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
     }
 
     // Setup statistics queries if possible:
-    if (mPipelineStatisticsSupported)
+    if (mCtx.OptionalFeatures.PipelineStatistics)
     {
         for (auto &res : mResources)
         {
@@ -94,14 +71,14 @@ StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
 
     StatisticsResult ret{};
 
-    if (mTimestampSupported)
+    if (mCtx.OptionalFeatures.Timestamps)
     {
         // Detect first run:
         bool firstRun          = res.TimestampsFirstRun;
         res.TimestampsFirstRun = false;
 
         // Query for timestamp results from the previous run of this frame:
-        if (!firstRun && mTimestampSupported)
+        if (!firstRun && mCtx.OptionalFeatures.Timestamps)
         {
             auto queryRes = vkGetQueryPoolResults(
                 mCtx.Device, res.TimestampQueryPool,
@@ -125,13 +102,14 @@ StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
         // Store timestamp results if ready:
         if (timestampsReady)
         {
-            auto diff = static_cast<float>(timestamps[1].Value - timestamps[0].Value);
-            ret.FrameTimeMS =
-                diff * mTimestampPeriod / 1e6f; // nanoseconds to miliseconds
+            auto diffPeriod = static_cast<float>(timestamps[1].Value - timestamps[0].Value);
+            auto diffNS = diffPeriod * mCtx.OptionalFeatures.TimestampPeriod;
+            
+            ret.FrameTimeMS = diffNS / 1e6f; // nanoseconds to miliseconds
         }
     }
 
-    if (mPipelineStatisticsSupported)
+    if (mCtx.OptionalFeatures.PipelineStatistics)
     {
         auto queryRes = vkGetQueryPoolResults(
             mCtx.Device, res.StatisticsQueryPool, 0, 1,
@@ -156,7 +134,7 @@ void VulkanStatisticsCollector::TimestampTop(VkCommandBuffer cmd, uint32_t frame
 {
     auto &res = mResources.at(frameIdx);
 
-    if (mTimestampSupported && res.WriteTimestamps)
+    if (mCtx.OptionalFeatures.Timestamps && res.WriteTimestamps)
     {
         vkCmdResetQueryPool(cmd, res.TimestampQueryPool, 0, 1);
         vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -168,7 +146,7 @@ void VulkanStatisticsCollector::TimestampBottom(VkCommandBuffer cmd, uint32_t fr
 {
     auto &res = mResources.at(frameIdx);
 
-    if (mTimestampSupported && res.WriteTimestamps)
+    if (mCtx.OptionalFeatures.Timestamps && res.WriteTimestamps)
     {
         vkCmdResetQueryPool(cmd, res.TimestampQueryPool, 1, 1);
         vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
@@ -180,7 +158,7 @@ void VulkanStatisticsCollector::PipelineStatsStart(VkCommandBuffer cmd, uint32_t
 {
     auto &res = mResources.at(frameIdx);
 
-    if (mPipelineStatisticsSupported)
+    if (mCtx.OptionalFeatures.PipelineStatistics)
     {
         vkCmdResetQueryPool(cmd, res.StatisticsQueryPool, 0, 1);
         vkCmdBeginQuery(cmd, res.StatisticsQueryPool, 0, 0);
@@ -191,7 +169,7 @@ void VulkanStatisticsCollector::PipelineStatsEnd(VkCommandBuffer cmd, uint32_t f
 {
     auto &res = mResources.at(frameIdx);
 
-    if (mPipelineStatisticsSupported)
+    if (mCtx.OptionalFeatures.PipelineStatistics)
     {
         vkCmdEndQuery(cmd, res.StatisticsQueryPool, 0);
     }

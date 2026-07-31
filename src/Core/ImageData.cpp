@@ -66,31 +66,26 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
 
     if (pathObj.extension().string() == ".ktx" || pathObj.extension().string() == ".ktx2")
     {
-        // Read entire file to memory:
-        struct FileHandle {
-            char   *Data;
-            int64_t Size;
-            size_t  CurrentByte = 0;
-        } fileHandle;
+        struct FileHandle{
+            std::ifstream Stream;
+            int64_t       Size;
+        } fileHandle{};
 
         {
-            // This automatically puts as at the end:
-            std::ifstream file(path, std::ios::binary | std::ios::ate);
+            // We use std::ios::ate to automatically go to the end:
+            fileHandle.Stream.open(path, std::ios::binary | std::ios::ate);
 
-            if (!file)
+            if (!fileHandle.Stream)
             {
                 auto msg = std::format("Failed to open file: {}", path);
                 vpanic(msg);
             }
 
             // So we can recover file-size this way:
-            fileHandle.Size = static_cast<int64_t>(file.tellg());
+            fileHandle.Size = static_cast<int64_t>(fileHandle.Stream.tellg());
 
-            // And read the whole thing:
-            file.seekg(0, file.beg);
-
-            fileHandle.Data = new char[fileHandle.Size];
-            file.read(fileHandle.Data, fileHandle.Size);
+            // And now reset:
+            fileHandle.Stream.seekg(0, fileHandle.Stream.beg);
         }
 
         // Initialize tiny_ktx context:
@@ -112,38 +107,33 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
         auto tinyktxCallbackRead = [](void *user, void *dest, size_t size) -> size_t {
             auto fileHandle = static_cast<FileHandle *>(user);
 
-            size_t remaining = fileHandle->Size - fileHandle->CurrentByte;
-            size_t toRead    = std::min(size, remaining);
-
-            if (toRead > 0)
-            {
-                auto srcPtr = fileHandle->Data + fileHandle->CurrentByte;
-                std::memcpy(dest, srcPtr, toRead);
-
-                fileHandle->CurrentByte += toRead;
-            }
-
-            return toRead;
+            fileHandle->Stream.read(static_cast<char *>(dest), static_cast<std::streamsize>(size));
+            return static_cast<size_t>(fileHandle->Stream.gcount());
         };
 
         auto tinyktxCallbackSeek = [](void *user, int64_t offset) -> bool {
             auto fileHandle = static_cast<FileHandle *>(user);
 
-            // Assume file is smaller than int64 max.
-            if (offset < 0 || offset >= static_cast<int64_t>(fileHandle->Size))
+            if (offset < 0 || offset > fileHandle->Size)
             {
                 return false;
             }
+        
+            // Clearing previous error flags:
+            fileHandle->Stream.clear();
 
-            fileHandle->CurrentByte = offset;
-
-            return true;
+            fileHandle->Stream.seekg(offset, std::ios::beg);
+        
+            return static_cast<bool>(fileHandle->Stream);
         };
 
         auto tinyktxCallbackTell = [](void *user) -> int64_t {
             auto fileHandle = static_cast<FileHandle *>(user);
+            
+            // Clear previous error flags:
+            fileHandle->Stream.clear();
 
-            return static_cast<int64_t>(fileHandle->CurrentByte);
+            return static_cast<int64_t>(fileHandle->Stream.tellg());
         };
 
         TinyKtx_Callbacks callbacks{.errorFn = tinyktxCallbackError,

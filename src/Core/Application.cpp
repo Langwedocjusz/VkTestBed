@@ -76,12 +76,21 @@ void Application::Impl::Run()
         mDeltaTimeSeconds = Timer::GetDiffSeconds(currentTime, mOldTime);
         mOldTime          = currentTime;
 
-        // Recreate swapchain and related resources if necessary:
-        bool handleResize = false;
-        handleResize      = handleResize || !mCtx.SwapchainOk;
-        handleResize      = handleResize || (!mStillResizing && mResizeRequested);
+        // Poll system events:
+        mWindow.PollEvents();
 
-        mStillResizing = false;
+        // Recreate swapchain and related resources if necessary:
+        bool handleResize = !mStillResizing && (mResizeRequested || !mCtx.SwapchainOk);
+
+        // Bailing from doing the rendering while resizing as with current
+        // setup it would be invalid anyway, and recreating all resources
+        // each frame to make it valid makes the resize less responsive.
+        if (mStillResizing)
+        {
+            // Setting this to false each frame to catch first non-resizing frame:
+            mStillResizing = false;
+            continue;
+        }        
 
         if (handleResize)
         {
@@ -110,16 +119,13 @@ void Application::Impl::Run()
             mSceneGui.SetSelection(pickedId);
         }
 
-        // Poll system events:
-        mWindow.PollEvents();
-
         // Update Renderer and Scene Editor
         mCamera.OnUpdate(mDeltaTimeSeconds, mCtx.SwapchainExtent.width,
                          mCtx.SwapchainExtent.height);
         mRender.OnUpdate(mDeltaTimeSeconds);
         mSceneEditor.OnUpdate();
 
-        // Collect imgui calls
+        // Collect imgui calls:
         iminit::BeginGuiFrame();
         mCamera.OnImGui();
         mRender.OnImGui();

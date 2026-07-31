@@ -64,8 +64,8 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
                             .Build(mCtx, mMainDeletionQueue);
 
         // TODO: for now only has preview for first cascade:
-        //mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
-        //    mDebugSampler, mCascadeViews[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
+            mDebugSampler, mCascadeViews[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
     // Create Vertex Buffer for debug vizualiztion:

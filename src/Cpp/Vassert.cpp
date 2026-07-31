@@ -5,47 +5,51 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
+#include <optional>
+
+static void ThreadSafeLog(std::string_view header, const std::source_location location, std::optional<std::string_view> message = std::nullopt)
+{
+    // Using local static to avoid initialization order fiasco:
+    static std::mutex logMutex{};
+
+    // Locking for the entire logging scope:
+    std::lock_guard lock{logMutex};
+
+    std::cout << header << '\n';
+    std::cout << "FILE: " << location.file_name() << '\n';
+    std::cout << "LINE: " << location.line() << "\n\n";
+
+    if (message.has_value())
+        std::cout << *message << "\n\n";
+
+    cpptrace::generate_trace().print();
+}
 
 void vassert(bool condition, const std::source_location location)
 {
-    if (!condition)
-    {
-        std::cout << "ASSERTION FAILED\n";
-        std::cout << "FILE: " << location.file_name() << '\n';
-        std::cout << "LINE: " << location.line() << "\n\n";
+    if (condition)
+        return;
 
-        cpptrace::generate_trace().print();
+    ThreadSafeLog("ASSERTION FAILED", location);
 
-        std::abort();
-    }
+    std::abort();
 }
 
 void vassert(bool condition, std::string_view message,
              const std::source_location location)
 {
-    if (!condition)
-    {
-        std::cout << "ASSERTION FAILED\n";
-        std::cout << "FILE: " << location.file_name() << '\n';
-        std::cout << "LINE: " << location.line() << "\n\n";
+    if (condition)
+        return;
 
-        std::cout << message << "\n\n";
+    ThreadSafeLog("ASSERTION FAILED", location, message);
 
-        cpptrace::generate_trace().print();
-
-        std::abort();
-    }
+    std::abort();
 }
 
 void vpanic(std::string_view message, const std::source_location location)
 {
-    std::cout << "PANIC TRIGGERED\n";
-    std::cout << "FILE: " << location.file_name() << '\n';
-    std::cout << "LINE: " << location.line() << "\n\n";
-
-    std::cout << message << "\n\n";
-
-    cpptrace::generate_trace().print();
+    ThreadSafeLog("PANIC TRIGGERED", location, message);
 
     std::abort();
 }

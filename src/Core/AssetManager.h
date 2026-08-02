@@ -15,7 +15,8 @@ class AssetManager {
     void OnUpdate();
 
     void LoadModel(const ModelConfig &config, SceneGraphNode &root, bool &isReady);
-    void LoadHdri(const std::filesystem::path &path);
+    // Path is assumed to be utf8 encoded:
+    void LoadHdri(const std::string &path);
 
     void ClearCachedHDRI();
 
@@ -38,9 +39,10 @@ class AssetManager {
 
     ModelStage mModelStage = ModelStage::Idle;
 
+    // Path assumed to be utf8 encoded:
     struct {
-        ImageTaskData                        Data;
-        std::optional<std::filesystem::path> LastPath;
+        ImageTaskData              Data;
+        std::optional<std::string> LastPath;
     } mHDRI;
 
     std::unique_ptr<ThreadPool> mThreadPool;

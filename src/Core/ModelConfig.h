@@ -2,10 +2,11 @@
 
 #include "VertexLayout.h"
 
-#include <filesystem>
+#include <string>
 
 struct ModelConfig {
-    std::filesystem::path Filepath;
+    // Assumed to be utf8 encoded:
+    std::string Filepath;
 
     // Vertex loading:
     Vertex::Layout VertexLayout = Vertex::PullLayout::Compressed;

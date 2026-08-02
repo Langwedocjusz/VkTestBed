@@ -3,7 +3,6 @@
 #include "AssetManager.h"
 #include "SceneGraph.h"
 
-#include <filesystem>
 #include <ranges>
 
 class SceneEditor {
@@ -39,7 +38,8 @@ class SceneEditor {
     void ClearCachedHDRI();
 
     void LoadModel(const ModelConfig &config);
-    void SetHdri(const std::filesystem::path &path);
+    // Path is assumed to be utf8 encoded:
+    void SetHdri(const std::string &path);
     void RequestFullReload();
     void RequestUpdate(Scene::UpdateFlag flag);
 

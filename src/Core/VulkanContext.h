@@ -6,8 +6,8 @@
 #include "vk_mem_alloc.h"
 #include "volk.h"
 
-#include <memory>
 #include <functional>
+#include <memory>
 
 enum class QueueType
 {
@@ -15,7 +15,7 @@ enum class QueueType
     Present
 };
 
-struct PresentationInfo{
+struct PresentationInfo {
     VkSemaphore WaitSemaphore   = VK_NULL_HANDLE;
     uint64_t    WaitValue       = 0;
     VkSemaphore SubmitSemaphore = VK_NULL_HANDLE;
@@ -33,7 +33,7 @@ class VulkanContext {
 
     PresentationInfo AcquireSwapchainImage([[maybe_unused]] FrameResources &frameData,
                                            [[maybe_unused]] uint32_t       &imageIndex);
-    
+
     void Present([[maybe_unused]] SwapchainResources &swapResources,
                  [[maybe_unused]] uint32_t           &imageIndex);
 
@@ -42,7 +42,7 @@ class VulkanContext {
     VkPhysicalDevice PhysicalDevice;
     VkDevice         Device;
 
-    struct Queue{
+    struct Queue {
         VkQueue                 Handle     = VK_NULL_HANDLE;
         VkQueueFamilyProperties Properties = {};
         uint32_t                Index      = 0;
@@ -54,11 +54,11 @@ class VulkanContext {
     } Queues;
 
     VmaAllocator Allocator;
-    
+
     VkSurfaceKHR Surface;
 
-    VkFormat                 SwapchainFormat;
-    VkExtent2D               SwapchainExtent;
+    VkFormat   SwapchainFormat;
+    VkExtent2D SwapchainExtent;
 
     std::vector<VkImage>     SwapchainImages;
     std::vector<VkImageView> SwapchainImageViews;
@@ -68,9 +68,9 @@ class VulkanContext {
     uint32_t RequestedHeight;
 
     struct {
-      bool  Timestamps         = false;
-      bool  PipelineStatistics = false;
-      float TimestampPeriod    = 0.0f;
+        bool  Timestamps         = false;
+        bool  PipelineStatistics = false;
+        float TimestampPeriod    = 0.0f;
     } OptionalFeatures;
 
   private:

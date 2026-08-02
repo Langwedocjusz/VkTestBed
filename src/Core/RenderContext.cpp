@@ -138,7 +138,7 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 {
     auto &frameData = mFrameInfo.CurrentFrameData();
 
-    // 1. Wait for the in-Flight fence 
+    // 1. Wait for the in-Flight fence
     // (signalled by previous submission of the same command buffer):
     vkWaitForFences(mCtx.Device, 1, &frameData.InFlightFence, VK_TRUE, UINT64_MAX);
 
@@ -156,7 +156,7 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     DrawFrame(highlightedObj);
 
     auto &swapchainData = mFrameInfo.CurrentSwapchainData();
-    
+
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     VkSubmitInfo submitInfo{};
@@ -164,7 +164,7 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers    = &frameData.CommandBuffer;
 
-    #ifdef VULKAN_ON_DXGI
+#ifdef VULKAN_ON_DXGI
     VkTimelineSemaphoreSubmitInfo timelineInfo = {};
     timelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
     timelineInfo.waitSemaphoreValueCount   = 1;
@@ -172,15 +172,15 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     timelineInfo.signalSemaphoreValueCount = 1;
     timelineInfo.pSignalSemaphoreValues    = &presentInfo.SubmitValue;
 
-    submitInfo.waitSemaphoreCount   = 1;
-    submitInfo.pWaitSemaphores      = &presentInfo.WaitSemaphore;
-    submitInfo.pWaitDstStageMask    = &waitStage;
-    
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores    = &presentInfo.WaitSemaphore;
+    submitInfo.pWaitDstStageMask  = &waitStage;
+
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores    = &presentInfo.SubmitSemaphore;
 
-    submitInfo.pNext                = &timelineInfo;
-    #else
+    submitInfo.pNext = &timelineInfo;
+#else
     (void)presentInfo;
 
     submitInfo.waitSemaphoreCount = 1;
@@ -189,12 +189,12 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores    = &swapchainData.RenderCompletedSemaphore;
-    #endif
+#endif
 
-    auto submitRes =
-         vkQueueSubmit(mCtx.Queues.Graphics.Handle, 1, &submitInfo, frameData.InFlightFence);
+    auto submitRes = vkQueueSubmit(mCtx.Queues.Graphics.Handle, 1, &submitInfo,
+                                   frameData.InFlightFence);
 
-     vassert(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
+    vassert(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
 
     // 5. Present the frame to swapchain:
     mCtx.Present(swapchainData, mFrameInfo.ImageIndex);
@@ -210,7 +210,7 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 {
     (void)highlightedObj;
-    auto &cmd   = mFrameInfo.CurrentCmd();
+    auto &cmd = mFrameInfo.CurrentCmd();
 
     auto &swapchainImage     = mCtx.SwapchainImages[mFrameInfo.ImageIndex];
     auto &swapchainImageView = mCtx.SwapchainImageViews[mFrameInfo.ImageIndex];
@@ -238,7 +238,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     vkutils::BeginRecording(cmd);
     {
         mStatsCollector.TimestampTop(cmd, mFrameInfo.Index);
-        
+
         // 1. Render to image:
         mStatsCollector.PipelineStatsStart(cmd, mFrameInfo.Index);
         mRenderer->OnRender(highlightedObj);
@@ -261,7 +261,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 
         // 4. Transition swapchain image to render:
         barrier::SwapchainToRender(cmd, swapchainImage);
-        
+
         // 5. Draw the ui on top (in native res)
         DrawUI(cmd, swapchainImageView);
 

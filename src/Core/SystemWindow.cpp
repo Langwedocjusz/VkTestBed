@@ -138,7 +138,7 @@ VkSurfaceKHR SystemWindow::CreateSurface(VkInstance             instance,
 {
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkResult     err = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
-    
+
     vassert(err == VK_SUCCESS, "Failed to create a surface!");
 
     return surface;
@@ -158,7 +158,7 @@ bool SystemWindow::ShouldClose()
 
 void SystemWindow::PollEvents()
 {
-   glfwPollEvents();
+    glfwPollEvents();
 }
 
 void SystemWindow::WaitEvents()

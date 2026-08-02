@@ -1,6 +1,7 @@
 #include "GltfImporter.h"
 #include "Pch.h"
 
+#include "Path.h"
 #include "TangentsGenerator.h"
 #include "Vassert.h"
 #include "VertexLayout.h"
@@ -12,6 +13,12 @@
 
 #include <glm/gtc/quaternion.hpp>
 
+// TODO: All usage of <filesystem> in this
+// file should be replaced with my wrapper.
+// Currently used fastgltf apis require std::filesystem::path,
+// but there are alternatives that take-in raw memory
+// (as span<byte>) that can be manually read by us.
+#include <filesystem>
 #include <iostream>
 #include <ranges>
 
@@ -44,23 +51,27 @@ static VertexLoadFlags GetLoadFlags(Vertex::Layout vLayout)
 }
 
 struct GltfAsset::Impl {
-    Impl(const std::filesystem::path &path, bool loadBuffers)
+    Impl(const std::string &path, bool loadBuffers)
     {
         fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_diffuse_transmission);
         auto             data = fastgltf::GltfDataBuffer::FromPath(path);
 
+        // Done explicitly only because loadGltf wants std::filesystem::path:
+        std::u8string_view u8view{reinterpret_cast<const char8_t*>(path.data()), path.size()};
+        std::filesystem::path pathObj{u8view};
+
         vassert(data.error() == fastgltf::Error::None,
-                "Failed to load a gltf file: " + path.string());
+                "Failed to load a gltf file: " + pathObj.string());
 
         auto loadOptions = fastgltf::Options::None;
 
         if (loadBuffers)
             loadOptions = fastgltf::Options::LoadExternalBuffers;
 
-        auto load = parser.loadGltf(data.get(), path.parent_path(), loadOptions);
+        auto load = parser.loadGltf(data.get(), pathObj.parent_path(), loadOptions);
 
         vassert(load.error() == fastgltf::Error::None,
-                "Failed to load a gltf file: " + path.string());
+                "Failed to load a gltf file: " + pathObj.string());
 
         Asset = std::move(load.get());
     }
@@ -68,7 +79,7 @@ struct GltfAsset::Impl {
     fastgltf::Asset Asset;
 };
 
-GltfAsset::GltfAsset(const std::filesystem::path &filepath)
+GltfAsset::GltfAsset(const std::string &filepath)
 {
     mPImpl = std::make_unique<GltfAsset::Impl>(filepath, true);
 }
@@ -94,7 +105,7 @@ GltfAsset &GltfAsset::operator=(GltfAsset &&other) noexcept
 template <typename T>
 static auto GetTexturePath(fastgltf::Asset &gltf, std::optional<T> &texInfo,
                            const std::filesystem::path &workingDir)
-    -> std::optional<std::filesystem::path>
+    -> std::optional<std::string>
 {
     // 1. Check if info has value
     if (!texInfo.has_value())
@@ -113,10 +124,12 @@ static auto GetTexturePath(fastgltf::Asset &gltf, std::optional<T> &texInfo,
     if (!std::holds_alternative<fastgltf::sources::URI>(dataSource))
         return std::nullopt;
 
-    auto &uri = std::get<fastgltf::sources::URI>(dataSource);
-
     // 5. Retrieve the filepath:
-    return workingDir / uri.uri.fspath();
+    auto &uri = std::get<fastgltf::sources::URI>(dataSource);
+    auto u8path = (workingDir / uri.uri.fspath()).u8string();
+
+    std::string path{reinterpret_cast<const char*>(u8path.c_str()), u8path.size()};
+    return path;
 }
 
 // Small utility to convert from normalized float
@@ -135,8 +148,10 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
     vassert(keyMap.empty(), "Key map should be empty!");
     vassert(tasks.empty(), "Tasks vector should be empty!");
 
-    const std::filesystem::path workingDir = config.Filepath.parent_path();
-    const std::string           baseName   = config.Filepath.stem().string();
+    std::filesystem::path pathObj{config.Filepath};
+
+    const std::filesystem::path workingDir = pathObj.parent_path();
+    const std::string           baseName   = pathObj.stem().string();
 
     // Loop over all materials in gltf:
     for (auto [id, material] : enumerate(mPImpl->Asset.materials))
@@ -260,7 +275,7 @@ void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> &meshK
     vassert(meshKeyMap.empty(), "Key map should be empty!");
     vassert(tasks.empty(), "Tasks vector should be empty!");
 
-    const std::string baseName = config.Filepath.stem().string();
+    const std::string baseName = Path(config.Filepath).Stem();
 
     // Iterate all gltf meshes:
     for (auto [gltfMeshId, gltfMesh] : enumerate(mPImpl->Asset.meshes))
@@ -480,7 +495,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
             if (texcoordAccessor.count != res.VertexCount)
             {
-                std::cerr << "In gltf file " << config.Filepath.string()
+                std::cerr << "In gltf file "
+                          << reinterpret_cast<const char *>(config.Filepath.c_str())
                           << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
                           << "Attribute count discrepancy:"
                           << "num vertices: " << res.VertexCount << ", "
@@ -508,7 +524,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
             }
             else
             {
-                std::cerr << "In gltf file " << config.Filepath.string()
+                std::cerr << "In gltf file "
+                          << reinterpret_cast<const char *>(config.Filepath.c_str())
                           << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
                           << "degenerate texcoord range: " << minCoords.x << ", "
                           << minCoords.y << "to " << maxCoords.x << ", " << maxCoords.y
@@ -518,7 +535,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
         else
         {
-            std::cerr << "Gltf file: " << config.Filepath.string()
+            std::cerr << "Gltf file: "
+                      << reinterpret_cast<const char *>(config.Filepath.c_str())
                       << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
                       << "The primitive doesn't contain texture coordinates.\n";
         }
@@ -541,7 +559,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
                 if (len < tolerance)
                 {
-                    std::cerr << "Gltf file: " << config.Filepath.string()
+                    std::cerr << "Gltf file: "
+                              << reinterpret_cast<const char *>(config.Filepath.c_str())
                               << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
                               << "Normal vector is degenerate (close to zero): " << v.x
                               << " " << v.y << " " << v.z << '\n';
@@ -550,7 +569,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
                 if (std::abs(len - 1.0f) > tolerance)
                 {
-                    std::cerr << "Gltf file: " << config.Filepath.string()
+                    std::cerr << "Gltf file: "
+                              << reinterpret_cast<const char *>(config.Filepath.c_str())
                               << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
                               << "Provided normal vector is not normalized:" << v.x << " "
                               << v.y << " " << v.z << '\n';
@@ -564,7 +584,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
             if (normalAccessor.count != res.VertexCount)
             {
-                std::cerr << "In gltf file " << config.Filepath.string()
+                std::cerr << "In gltf file "
+                          << reinterpret_cast<const char *>(config.Filepath.c_str())
                           << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
                           << "Attribute count discrepancy:"
                           << "num vertices: " << res.VertexCount << ", "
@@ -577,7 +598,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
         else
         {
-            std::cerr << "Gltf file: " << config.Filepath.string()
+            std::cerr << "Gltf file: "
+                      << reinterpret_cast<const char *>(config.Filepath.c_str())
                       << "primitive doesn't contain normals.\n";
         }
     }
@@ -600,7 +622,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
                 if (len < tolerance)
                 {
-                    std::cerr << "Gltf file: " << config.Filepath.string()
+                    std::cerr << "Gltf file: "
+                              << reinterpret_cast<const char *>(config.Filepath.c_str())
                               << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
                               << "Tangent vector is degenerate (close to zero): " << v.x
                               << " " << v.y << " " << v.z << '\n';
@@ -609,7 +632,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
                 if (std::abs(len - 1.0f) > tolerance)
                 {
-                    std::cerr << "Gltf file: " << config.Filepath.string()
+                    std::cerr << "Gltf file: "
+                              << reinterpret_cast<const char *>(config.Filepath.c_str())
                               << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
                               << "Provided tangent vector is not normalized:" << v.x
                               << " " << v.y << " " << v.z << '\n';
@@ -623,7 +647,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
             if (tangentAccessor.count != res.VertexCount)
             {
-                std::cerr << "In gltf file " << config.Filepath.string()
+                std::cerr << "In gltf file "
+                          << reinterpret_cast<const char *>(config.Filepath.c_str())
                           << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
                           << "Attribute count discrepancy:"
                           << "num vertices: " << res.VertexCount << ", "

@@ -288,12 +288,12 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         PCDataFinal pcData{
             .BloomEnabled  = static_cast<int32_t>(mBloomEnabled),
             .BloomStrength = mBloomStrength,
-            //TODO: This is a bit cursed:
-            #ifdef VULKAN_ON_DXGI
+// TODO: This is a bit cursed:
+#ifdef VULKAN_ON_DXGI
             .AdditionalColorCorrect = 1,
-            #else
+#else
             .AdditionalColorCorrect = 0,
-            #endif
+#endif
         };
         mFinalPipeline.PushConstants(cmd, pcData);
 

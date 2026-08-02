@@ -90,7 +90,7 @@ void Application::Impl::Run()
             // Setting this to false each frame to catch first non-resizing frame:
             mStillResizing = false;
             continue;
-        }        
+        }
 
         if (handleResize)
         {

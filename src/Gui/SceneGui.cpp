@@ -4,6 +4,7 @@
 #include "ImGuiUtils.h"
 #include "ImageData.h"
 #include "Keycodes.h"
+#include "Path.h"
 #include "Scene.h"
 #include "Vassert.h"
 
@@ -17,7 +18,6 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include <filesystem>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -43,19 +43,19 @@ static ImGuizmo::OPERATION TranslateMode(GizmoMode mode)
 SceneGui::SceneGui(SceneEditor &editor, const Camera &camera)
     : mEditor(editor), mCamera(camera), mModelLoader(editor)
 {
-    auto path = std::filesystem::current_path() / "assets/cubemaps";
+    auto path = Path::Current() / Path("assets/cubemaps");
 
-    if (std::filesystem::exists(path))
+    if (path.Exists())
     {
-        mHdriBrowser.CurrentPath = path;
+        mHdriBrowser.CurrentPath = path.String();
     }
 
     mHdriBrowser.AddExtensionToFilter(".exr");
 
     mHdriBrowser.SetCallbackFn([&]() { mEditor.SetHdri(mHdriBrowser.ChosenFile); });
 
-    mHdriBrowser.SetCheckFn([](const std::filesystem::path &path) {
-        return std::filesystem::is_regular_file(path);
+    mHdriBrowser.SetCheckFn([](const std::string &path) {
+        return Path(path).IsRegularFile();
     });
 }
 
@@ -410,7 +410,7 @@ void SceneGui::MeshesTab()
                 const std::string matName = id ? mEditor.GetMaterial(*id).Name : "None";
                 const std::string suffix  = "##mat" + mesh.Name + std::to_string(primIdx);
 
-                const std::string primName = std::format("Primitive {}", primIdx);
+                const std::string primName = "Primitive " + std::to_string(primIdx);
 
                 if (ImGui::TreeNodeEx(primName.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
                 {
@@ -477,11 +477,12 @@ std::string SceneGui::GetMaterialName(std::optional<SceneKey> key,
                                       std::string_view        postfix)
 {
     if (!key.has_value())
-        return std::format("##{}", postfix);
+        return "##" + std::string(postfix);
 
     const auto &imgStr = mEditor.GetImage(*key).Name;
 
-    return std::format("({}) {} ##{}", *key, imgStr, postfix);
+    std::string name = "(" + std::to_string(*key) + ") " + imgStr + " ##" + std::string(postfix);
+    return name;
 }
 
 void SceneGui::MaterialsTab()
@@ -491,7 +492,7 @@ void SceneGui::MaterialsTab()
         ImGui::Text("%s", keyName.c_str());
         ImGui::SameLine();
 
-        auto popupName      = std::format("Select {}", keyName);
+        auto popupName      = "Select " + keyName;
         auto selectableText = GetMaterialName(key, keyName);
 
         if (ImGui::Selectable(selectableText.c_str()))
@@ -506,8 +507,8 @@ void SceneGui::MaterialsTab()
 
             for (auto &[imgPick, _] : mEditor.Images())
             {
-                auto imgName =
-                    std::format("({}) {}", imgPick, mEditor.GetImage(imgPick).Name);
+                std::string imgName =
+                    "(" + std::to_string(imgPick) + ") " + mEditor.GetImage(imgPick).Name;
 
                 if (imgName.find(std::string(&filterBuf[0])) == std::string::npos)
                     continue;

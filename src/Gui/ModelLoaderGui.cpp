@@ -2,20 +2,19 @@
 #include "Pch.h"
 
 #include "ImGuiUtils.h"
+#include "Path.h"
 #include "Vassert.h"
 #include "VertexLayout.h"
 
 #include "imgui.h"
 
-#include <filesystem>
-
 ModelLoaderGui::ModelLoaderGui(SceneEditor &editor) : mEditor(editor)
 {
-    auto path = std::filesystem::current_path() / "assets/gltf";
+    auto path = Path::Current() / Path("assets/gltf");
 
-    if (std::filesystem::exists(path))
+    if (path.Exists())
     {
-        mBrowser.CurrentPath = path;
+        mBrowser.CurrentPath = path.String();
     }
 
     mBrowser.AddExtensionToFilter(".exr");
@@ -24,8 +23,8 @@ ModelLoaderGui::ModelLoaderGui(SceneEditor &editor) : mEditor(editor)
 
     mBrowser.SetCallbackFn([&]() { mImportPopup = true; });
 
-    mBrowser.SetCheckFn([](const std::filesystem::path &path) {
-        return std::filesystem::is_regular_file(path);
+    mBrowser.SetCheckFn([](const std::string &path) {
+        return Path(path).IsRegularFile();
     });
 }
 

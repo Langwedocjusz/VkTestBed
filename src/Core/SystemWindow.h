@@ -39,11 +39,11 @@ class SystemWindow {
         return mWindow;
     }
 
-    // Only used to initialize dxgi on windows.
-    // Same as above:
-    #ifdef VULKAN_ON_DXGI
+// Only used to initialize dxgi on windows.
+// Same as above:
+#ifdef VULKAN_ON_DXGI
     HWND GetNativeHandle();
-    #endif
+#endif
 
   private:
     GLFWwindow *mWindow = nullptr;

@@ -32,15 +32,16 @@ VkCommandPool vkinit::CreateCommandPool(VulkanContext &ctx, QueueType qtype)
 
     uint32_t queueFamilyId = 0;
 
-    switch(qtype) {
-        case QueueType::Graphics: {
-            queueFamilyId = ctx.Queues.Graphics.Index;
-            break;
-        }
-        case QueueType::Present: {
-            queueFamilyId = ctx.Queues.Present.Index;
-            break;
-        }
+    switch (qtype)
+    {
+    case QueueType::Graphics: {
+        queueFamilyId = ctx.Queues.Graphics.Index;
+        break;
+    }
+    case QueueType::Present: {
+        queueFamilyId = ctx.Queues.Present.Index;
+        break;
+    }
     }
 
     VkCommandPoolCreateInfo poolInfo = {};

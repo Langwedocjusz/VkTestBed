@@ -8,7 +8,8 @@
 #include <mutex>
 #include <optional>
 
-static void ThreadSafeLog(std::string_view header, const std::source_location location, std::optional<std::string_view> message = std::nullopt)
+static void ThreadSafeLog(std::string_view header, const std::source_location location,
+                          std::optional<std::string_view> message = std::nullopt)
 {
     // Using local static to avoid initialization order fiasco:
     static std::mutex logMutex{};

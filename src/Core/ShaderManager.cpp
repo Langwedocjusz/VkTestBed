@@ -1,6 +1,12 @@
 #include "ShaderManager.h"
 #include "Pch.h"
 
+// TODO: There is a lot of ugly conversions
+// back and forth between Path and std::filesystem::path
+// in this file.
+
+#include "Path.h"
+
 #include <efsw/efsw.hpp>
 
 #include <algorithm>
@@ -42,22 +48,27 @@ class UpdateListener : public efsw::FileWatchListener {
     std::function<void()> mCallback;
 };
 
-ShaderManager::ShaderManager(std::string_view srcDir, std::string_view byteDir)
+ShaderManager::ShaderManager(const std::string &srcDir, const std::string &byteDir)
 {
-    mSourceDir   = std::filesystem::current_path() / srcDir;
-    mBytecodeDir = std::filesystem::current_path() / byteDir;
+    mSourceDir   = Path::Current() / Path(srcDir);
+    mBytecodeDir = Path::Current() / Path(byteDir);
 
     // Create bytecode dir if it doesn't already exist:
-    std::filesystem::create_directory(mBytecodeDir);
+    mBytecodeDir.CreateDirectory();
 
-    for (auto &subdir : std::filesystem::recursive_directory_iterator(mSourceDir))
+    // TODO: Implement recursive iterator wrapper:
+    for (auto &subdir : std::filesystem::recursive_directory_iterator(mSourceDir.U8String()))
     {
         if (!subdir.is_directory())
             continue;
 
-        auto relative = std::filesystem::relative(subdir, mSourceDir);
-        auto rebased  = mBytecodeDir / relative;
-        std::filesystem::create_directory(rebased);
+        auto relative = std::filesystem::relative(subdir, mSourceDir.U8String());
+        auto u8str    = relative.u8string();
+        
+        std::string str{reinterpret_cast<const char*>(u8str.data()), u8str.size()};
+
+        auto rebased  = mBytecodeDir / Path(str);
+        rebased.CreateDirectory();
     }
 
     CompileToBytecode();
@@ -66,7 +77,10 @@ ShaderManager::ShaderManager(std::string_view srcDir, std::string_view byteDir)
     mFileWatcher    = new efsw::FileWatcher();
     mUpdateListener = new UpdateListener([this]() { mCompilationScheduled = true; });
 
-    mFileWatcher->addWatch(mSourceDir.string(), mUpdateListener, true);
+    auto pathU8Str = mSourceDir.U8String();
+    auto pathStr = std::string(reinterpret_cast<const char*>(pathU8Str.c_str()), pathU8Str.size());
+
+    mFileWatcher->addWatch(pathStr, mUpdateListener, true);
     mFileWatcher->watch();
 }
 
@@ -75,14 +89,13 @@ bool ShaderManager::CompilationScheduled()
     return mCompilationScheduled;
 }
 
-std::optional<std::filesystem::path> ShaderManager::GetDstPath(std::filesystem::path &src)
+std::optional<Path> ShaderManager::GetDstPath(Path &src)
 {
-    auto parentPath    = src.parent_path();
-    auto relParentPath = std::filesystem::relative(parentPath, mSourceDir);
+    auto parentPath    = src.Parent();
+    auto relParentPath = parentPath.Relative(mSourceDir);
 
-    auto extension = src.extension();
-
-    std::string filename = src.stem().string();
+    auto extension = src.Extension();
+    std::string filename = src.Stem();
 
     if (extension == ".vert")
         filename += "Vert.spv";
@@ -92,6 +105,8 @@ std::optional<std::filesystem::path> ShaderManager::GetDstPath(std::filesystem::
         filename += "Comp.spv";
     else
         return std::nullopt;
+
+    
 
     return mBytecodeDir / relParentPath / filename;
 }
@@ -105,9 +120,11 @@ static std::string GetFilename(const std::string &includeLine)
 }
 
 static std::vector<size_t> GetIncludedFileIds(
-    std::filesystem::path &srcDir, const std::vector<std::filesystem::path> &fileList,
+    Path &srcDir, const std::vector<std::filesystem::path> &fileList,
     size_t id)
 {
+    std::filesystem::path srcDirPath(srcDir.U8String());
+
     std::vector<size_t> res;
 
     const auto   &path = fileList.at(id);
@@ -120,7 +137,7 @@ static std::vector<size_t> GetIncludedFileIds(
     {
         if (std::regex_match(currentLine, incRegex))
         {
-            auto filepath = srcDir / GetFilename(currentLine);
+            auto filepath = srcDirPath / GetFilename(currentLine);
 
             auto iter = std::ranges::find(fileList, filepath);
 
@@ -137,7 +154,7 @@ static std::vector<size_t> GetIncludedFileIds(
 }
 
 static std::vector<std::vector<size_t>> GetAdjacencyList(
-    std::filesystem::path &srcDir, const std::vector<std::filesystem::path> &fileList)
+    Path &srcDir, const std::vector<std::filesystem::path> &fileList)
 {
     const size_t numFiles = fileList.size();
 
@@ -160,7 +177,7 @@ void ShaderManager::CompileToBytecode()
     // Retrieve shader source file list:
     std::vector<std::filesystem::path> fileList;
 
-    for (const auto &dir : std::filesystem::recursive_directory_iterator(mSourceDir))
+    for (const auto &dir : std::filesystem::recursive_directory_iterator(mSourceDir.U8String()))
     {
         if (std::filesystem::is_regular_file(dir.path()))
         {
@@ -207,21 +224,27 @@ void ShaderManager::CompileToBytecode()
 
     for (auto id : nonHeaderIds)
     {
-        auto srcPath    = fileList.at(id);
-        auto dstPathOpt = GetDstPath(srcPath);
+        auto srcPath = fileList.at(id);
+
+        auto u8path = srcPath.u8string();
+        std::string pathStr{reinterpret_cast<const char*>(u8path.c_str()), u8path.size()};
+        auto wrappedPath = Path(pathStr);
+
+        auto dstPathOpt = GetDstPath(wrappedPath);
 
         if (!dstPathOpt.has_value())
             continue;
 
-        auto dstPath = dstPathOpt.value();
+        Path &dstPath = *dstPathOpt;
+        std::filesystem::path dstPathRaw(dstPath.U8String());
 
         // If dst exists and is newer than src
         // there is no need to call the compiler.
-        bool alreadyExists = std::filesystem::exists(dstPath);
+        bool alreadyExists = dstPath.Exists();
 
         if (alreadyExists)
         {
-            auto dstTime = std::filesystem::last_write_time(dstPath);
+            auto dstTime = std::filesystem::last_write_time(dstPathRaw);
             auto srcTime = std::filesystem::last_write_time(srcPath);
 
             // TODO: this currently only supporst 1-long include chains
@@ -240,7 +263,7 @@ void ShaderManager::CompileToBytecode()
         // Append compiler call arguments:
         data.push_back(CompilerArgs{
             .Src = srcPath,
-            .Dst = dstPath,
+            .Dst = dstPathRaw,
         });
     }
 

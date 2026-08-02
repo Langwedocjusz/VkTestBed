@@ -1,30 +1,32 @@
 #pragma once
 
-#include <filesystem>
 #include <functional>
 #include <optional>
 #include <set>
+#include <string>
+#include <utility>
 
 class FilesystemBrowser {
   public:
     using CallbackFn   = std::function<void()>;
-    using CheckFn      = std::function<bool(const std::filesystem::path &)>;
+    using CheckFn      = std::function<bool(const std::string &)>;
     using ExtensionSet = std::set<std::string>;
 
   public:
     FilesystemBrowser();
-    FilesystemBrowser(std::filesystem::path currentPath);
+    // Path is assumed to be utf8 encoded:
+    FilesystemBrowser(const std::string &currentPath);
 
     void AddExtensionToFilter(const std::string &ext);
     void ClearExtensionFilter();
 
     void SetCallbackFn(CallbackFn callback)
     {
-        mCallback = callback;
+        mCallback = std::move(callback);
     }
     void SetCheckFn(CheckFn check)
     {
-        mCheck = check;
+        mCheck = std::move(check);
     }
 
     void ImGuiLoadPopup(const std::string &name, bool &open);
@@ -36,8 +38,9 @@ class FilesystemBrowser {
     void OnImGuiRaw(float lowerMargin);
 
   public:
-    std::filesystem::path CurrentPath;
-    std::filesystem::path ChosenFile;
+    // Utf8 encoded:
+    std::string CurrentPath;
+    std::string ChosenFile;
 
   private:
     CallbackFn mCallback;

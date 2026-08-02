@@ -102,9 +102,10 @@ StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
         // Store timestamp results if ready:
         if (timestampsReady)
         {
-            auto diffPeriod = static_cast<float>(timestamps[1].Value - timestamps[0].Value);
+            auto diffPeriod =
+                static_cast<float>(timestamps[1].Value - timestamps[0].Value);
             auto diffNS = diffPeriod * mCtx.OptionalFeatures.TimestampPeriod;
-            
+
             ret.FrameTimeMS = diffNS / 1e6f; // nanoseconds to miliseconds
         }
     }
@@ -117,7 +118,6 @@ StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
             res.Statistics.size() * sizeof(Statistic),
             VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
 
-        
         vassert(queryRes == VK_SUCCESS || queryRes == VK_NOT_READY);
 
         bool statsReady = res.Statistics.at(0).Availability != 0;

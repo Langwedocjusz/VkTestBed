@@ -70,10 +70,7 @@ void AssetManager::OnUpdate()
                 auto &img = mScene.Images[data.ImageKey];
 
                 if (data.Path)
-                {
-                    auto pathStr = data.Path->string();
-                    img          = ImageData::ImportImage(pathStr.c_str(), data.Unorm);
-                }
+                    img = ImageData::ImportImage(*data.Path, data.Unorm);
                 else
                     img = ImageData::SinglePixel(data.BaseColor, data.Unorm);
 
@@ -162,15 +159,14 @@ void AssetManager::PreprocessGltf(SceneGraphNode &root)
     mModel->TasksLeft = static_cast<int64_t>(primCount + imgCount);
 }
 
-void AssetManager::LoadHdri(const std::filesystem::path &path)
+void AssetManager::LoadHdri(const std::string &path)
 {
     mThreadPool->Push([this, path]() {
         if (mHDRI.LastPath != path)
         {
             mHDRI.LastPath = path;
 
-            auto pathStr           = path.string();
-            mScene.Env.HdriImage   = ImageData::ImportHDRI(pathStr.c_str());
+            mScene.Env.HdriImage   = ImageData::ImportHDRI(path);
             mScene.Env.ReloadImage = true;
 
             mScene.RequestUpdate(Scene::UpdateFlag::Images);

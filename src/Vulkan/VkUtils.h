@@ -14,8 +14,11 @@ inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handl
     VkDebugUtilsObjectNameInfoEXT debugLayoutInfo{};
     debugLayoutInfo.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
     debugLayoutInfo.objectType = type;
-    // This is ugly, but the only way to use the extension (static cast is too
-    // restrictive):
+    // Using ugly C-style cast here, since to use extension,
+    // multiple handle types (some pointers, some not)
+    // need to be cast to uint64. So at the minimum I would
+    // need to do constexpr branch and combine
+    // reinterpret and static casts myself:
     debugLayoutInfo.objectHandle = (uint64_t)handle;
     debugLayoutInfo.pObjectName  = name.c_str();
 

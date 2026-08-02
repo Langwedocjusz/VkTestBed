@@ -105,8 +105,9 @@ static glm::vec2 OctahedralMap(glm::vec3 v)
 {
     if (std::abs(glm::length(v) - 1.0f) > 0.01f)
     {
-        auto message = std::format(
-            "Provided vector should be normalized! Instead got: {} {} {}", v.x, v.y, v.z);
+        auto message 
+            = std::string("Provided vector should be normalized! Instead got:")
+            + std::to_string(v.x) + " " + std::to_string(v.y) + " " + std::to_string(v.z);
         vpanic(message);
     }
 

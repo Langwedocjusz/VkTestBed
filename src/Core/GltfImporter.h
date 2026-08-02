@@ -4,7 +4,6 @@
 #include "Scene.h"
 #include "SceneGraph.h"
 
-#include <filesystem>
 #include <memory>
 
 struct TextureBounds {
@@ -28,11 +27,11 @@ struct PrimitiveData {
 };
 
 struct ImageTaskData {
-    SceneKey                             ImageKey;
-    std::optional<std::filesystem::path> Path;
-    Pixel                                BaseColor;
-    std::string                          Name;
-    bool                                 Unorm;
+    SceneKey                   ImageKey;
+    std::optional<std::string> Path;      // Utf8 encoded
+    Pixel                      BaseColor;
+    std::string                Name;
+    bool                       Unorm;
 };
 
 struct PrimitiveTaskData {
@@ -45,7 +44,8 @@ struct PrimitiveTaskData {
 class GltfAsset {
   public:
     // Will load gltf buffers into memory:
-    GltfAsset(const std::filesystem::path &filepath);
+    // Filepath is assumed to be utf8 encoded:
+    GltfAsset(const std::string &filepath);
     ~GltfAsset();
 
     GltfAsset(const GltfAsset &)            = delete;

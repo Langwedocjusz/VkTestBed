@@ -1,6 +1,7 @@
 #include "SceneEditor.h"
 #include "Pch.h"
 
+#include "Path.h"
 #include "Primitives.h"
 #include "Scene.h"
 #include "Vassert.h"
@@ -196,12 +197,12 @@ void SceneEditor::LoadModel(const ModelConfig &config)
     auto [_, prefab] = EmplacePrefab();
 
     auto &root = prefab.Root;
-    root.Name  = config.Filepath.stem().string();
+    root.Name  = Path(config.Filepath).Stem();
 
     mAssetManager.LoadModel(config, root, prefab.IsReady);
 }
 
-void SceneEditor::SetHdri(const std::filesystem::path &path)
+void SceneEditor::SetHdri(const std::string &path)
 {
     mAssetManager.LoadHdri(path);
 }

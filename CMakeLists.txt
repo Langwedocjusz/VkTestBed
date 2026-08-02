@@ -140,8 +140,12 @@ target_sources(${PROJECT_NAME}
         src/Cpp/Vassert.cpp
         src/Cpp/Bitflags.h
         src/Cpp/CppUtils.h
+        src/Cpp/FileHandle.h            
+        src/Cpp/FileHandle.cpp   
         src/Cpp/OpaqueBuffer.h
         src/Cpp/OpaqueBuffer.cpp
+        src/Cpp/Path.h
+        src/Cpp/Path.cpp       
         src/Cpp/SyncQueue.h
         src/Cpp/ThreadPool.h
         src/Cpp/Timer.h

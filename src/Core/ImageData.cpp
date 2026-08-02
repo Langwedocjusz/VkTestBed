@@ -1,6 +1,8 @@
 #include "ImageData.h"
 #include "Pch.h"
 
+#include "FileHandle.h"
+#include "Path.h"
 #include "Vassert.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -12,8 +14,7 @@
 #define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
-#include <filesystem>
-#include <fstream>
+#include <cstddef>
 #include <iostream>
 #include <utility>
 
@@ -57,37 +58,18 @@ ImageData ImageData::SinglePixel(Pixel p, bool unorm)
     return res;
 }
 
-ImageData ImageData::ImportImage(const char *path, bool unorm)
+ImageData ImageData::ImportImage(const std::string &path, bool unorm)
 {
-    std::filesystem::path pathObj(path);
+    Path pathObj(path);
 
-    auto res = ImageData();
-    res.Name = pathObj.stem().string();
+    ImageData res{};
+    res.Name = pathObj.Stem();
 
-    if (pathObj.extension().string() == ".ktx" || pathObj.extension().string() == ".ktx2")
+    // Open file handle:
+    FileHandle file(path);
+
+    if (pathObj.Extension() == ".ktx" || pathObj.Extension() == ".ktx2")
     {
-        struct FileHandle{
-            std::ifstream Stream;
-            int64_t       Size;
-        } fileHandle{};
-
-        {
-            // We use std::ios::ate to automatically go to the end:
-            fileHandle.Stream.open(path, std::ios::binary | std::ios::ate);
-
-            if (!fileHandle.Stream)
-            {
-                auto msg = std::format("Failed to open file: {}", path);
-                vpanic(msg);
-            }
-
-            // So we can recover file-size this way:
-            fileHandle.Size = static_cast<int64_t>(fileHandle.Stream.tellg());
-
-            // And now reset:
-            fileHandle.Stream.seekg(0, fileHandle.Stream.beg);
-        }
-
         // Initialize tiny_ktx context:
         auto tinyktxCallbackError = []([[maybe_unused]] void *user, char const *msg) {
             std::cerr << "Tiny_Ktx ERROR: " << msg << '\n';
@@ -105,35 +87,33 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
         };
 
         auto tinyktxCallbackRead = [](void *user, void *dest, size_t size) -> size_t {
-            auto fileHandle = static_cast<FileHandle *>(user);
+            auto file = static_cast<FileHandle *>(user);
 
-            fileHandle->Stream.read(static_cast<char *>(dest), static_cast<std::streamsize>(size));
-            return static_cast<size_t>(fileHandle->Stream.gcount());
+            file->Read(static_cast<char *>(dest), static_cast<int64_t>(size));
+            return static_cast<size_t>(file->GCount());
         };
 
         auto tinyktxCallbackSeek = [](void *user, int64_t offset) -> bool {
-            auto fileHandle = static_cast<FileHandle *>(user);
+            auto file = static_cast<FileHandle *>(user);
 
-            if (offset < 0 || offset > fileHandle->Size)
+            if (offset < 0 || offset > file->Size())
             {
                 return false;
             }
-        
-            // Clearing previous error flags:
-            fileHandle->Stream.clear();
 
-            fileHandle->Stream.seekg(offset, std::ios::beg);
-        
-            return static_cast<bool>(fileHandle->Stream);
+            // Clearing previous error flags:
+            file->Clear();
+            file->SeekG(offset, FileHandle::Dir::Beg);
+
+            return file->Good();
         };
 
         auto tinyktxCallbackTell = [](void *user) -> int64_t {
             auto fileHandle = static_cast<FileHandle *>(user);
-            
-            // Clear previous error flags:
-            fileHandle->Stream.clear();
 
-            return static_cast<int64_t>(fileHandle->Stream.tellg());
+            // Clear previous error flags:
+            fileHandle->Clear();
+            return fileHandle->TellG();
         };
 
         TinyKtx_Callbacks callbacks{.errorFn = tinyktxCallbackError,
@@ -143,7 +123,7 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
                                     .seekFn  = tinyktxCallbackSeek,
                                     .tellFn  = tinyktxCallbackTell};
 
-        auto ctx = TinyKtx_CreateContext(&callbacks, &fileHandle);
+        auto ctx = TinyKtx_CreateContext(&callbacks, &file);
 
         TinyKtx_ReadHeader(ctx);
         uint32_t       baseWidth  = TinyKtx_Width(ctx);
@@ -220,45 +200,83 @@ ImageData ImageData::ImportImage(const char *path, bool unorm)
     }
     else
     {
+        stbi_io_callbacks callbacks{
+            .read = [](void *user, char *data, int size) -> int {
+                auto *file = static_cast<FileHandle *>(user);
+
+                file->Clear();
+                file->Read(data, size);
+
+                return static_cast<int>(file->GCount());
+            },
+
+            .skip = [](void *user, int n) -> void {
+                auto *file = static_cast<FileHandle *>(user);
+
+                file->Clear();
+                file->SeekG(n, FileHandle::Dir::Cur);
+            },
+
+            .eof = [](void *user) -> int {
+                auto *file = static_cast<FileHandle *>(user);
+
+                auto pos = file->TellG();
+                return (pos < 0 || pos >= file->Size());
+            },
+        };
+
         int32_t width, height, channels;
 
         //'STBI_rgb_alpha' forces 4 channels, even if source image has less:
-        stbi_uc *pixels = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
+        stbi_uc *pixels = stbi_load_from_callbacks(&callbacks, &file, &width, &height,
+                                                   &channels, STBI_rgb_alpha);
 
         vassert(pixels != nullptr,
-                "Failed to load texture image. Filepath: " + std::string(path));
+                std::format("Failed to load texture image. Filepath: {}",
+                            reinterpret_cast<const char *>(path.c_str())));
 
         res.Width  = width;
         res.Height = height;
         res.Mips   = MipStrategy::Generate;
         res.Format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
         res.Data   = static_cast<void *>(pixels);
-        res.Size   = width * height * BytesPerPixel(res.Format);
-        res.mType  = Type::Stb;
+        res.Size  = static_cast<VkDeviceSize>(width * height) * BytesPerPixel(res.Format);
+        res.mType = Type::Stb;
     }
 
     return res;
 }
 
-ImageData ImageData::ImportHDRI(const char *path)
+ImageData ImageData::ImportHDRI(const std::string &path)
 {
+    // Preload image to ram. Fstream returns char*
+    // while tinyexr expects unsinged char*,
+    // so we reinterpret cast here:
+    std::vector<unsigned char> fileData{};
+
+    FileHandle file(path);
+    fileData.resize(file.Size());
+    file.Read(reinterpret_cast<char *>(fileData.data()), file.Size());
+
     int32_t     width, height;
     float      *data;
     const char *err = nullptr;
 
-    int32_t ret = LoadEXR(&data, &width, &height, path, &err);
+    auto ret =
+        LoadEXRFromMemory(&data, &width, &height, fileData.data(), fileData.size(), &err);
 
     vassert(ret == TINYEXR_SUCCESS,
-            "Error when trying to open image: " + std::string(path));
+            std::format("Error when trying to open image: {}",
+                        reinterpret_cast<const char *>(path.c_str())));
 
     auto res = ImageData();
 
-    res.Name   = std::filesystem::path(path).stem().string();
+    res.Name   = Path(path).Stem();
     res.Width  = width;
     res.Height = height;
     res.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
     res.Data   = static_cast<void *>(data);
-    res.Size   = width * height * BytesPerPixel(res.Format);
+    res.Size   = static_cast<VkDeviceSize>(width * height) * BytesPerPixel(res.Format);
     res.mType  = Type::Exr;
 
     return res;

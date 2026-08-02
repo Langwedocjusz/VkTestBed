@@ -1,19 +1,20 @@
 #include "FilesystemBrowser.h"
 #include "Pch.h"
 
+#include "Path.h"
+
 // #define IMGUI_DEFINE_MATH_OPERATORS
 // #include "imgui_internal.h"
-
 #include "imgui.h"
 
 #include <vector>
 
-FilesystemBrowser::FilesystemBrowser() : CurrentPath(std::filesystem::current_path())
+FilesystemBrowser::FilesystemBrowser() : CurrentPath(Path::Current().String())
 {
 }
 
-FilesystemBrowser::FilesystemBrowser(std::filesystem::path currentPath)
-    : CurrentPath(std::move(currentPath))
+FilesystemBrowser::FilesystemBrowser(const std::string &currentPath)
+    : CurrentPath(currentPath)
 {
 }
 
@@ -37,7 +38,7 @@ void FilesystemBrowser::OnImGuiRaw(float lowerMargin)
     // Parent Directory button
     if (ImGui::Button("Up"))
     {
-        CurrentPath = CurrentPath.parent_path();
+        CurrentPath = Path(CurrentPath).Parent().String();
     }
 
     ImGui::SameLine();
@@ -46,8 +47,7 @@ void FilesystemBrowser::OnImGuiRaw(float lowerMargin)
     const float text_width = ImGui::GetContentRegionAvail().x;
     ImGui::PushItemWidth(text_width);
 
-    std::string filepath = CurrentPath.string();
-    ImGui::InputText("##current_directory", filepath.data(), filepath.size(),
+    ImGui::InputText("##current_directory", CurrentPath.data(), CurrentPath.size(),
                      ImGuiInputTextFlags_ReadOnly);
 
     ImGui::PopItemWidth();
@@ -57,23 +57,22 @@ void FilesystemBrowser::OnImGuiRaw(float lowerMargin)
 
     ImGui::BeginChild("#Filesystem browser", ImVec2(0.0f, height), true);
 
-    std::vector<std::filesystem::path> directories, files;
+    std::vector<Path> directories, files;
 
-    for (const auto &entry : std::filesystem::directory_iterator(CurrentPath))
+    for (auto entry : DirectoryRange(CurrentPath))
     {
-        if (std::filesystem::is_directory(entry.path()))
-            directories.push_back(entry.path());
-
+        if (entry.IsDirectory())
+            directories.push_back(std::move(entry));
         else
-            files.push_back(entry.path());
+            files.push_back(std::move(entry));
     }
 
     for (const auto &path : directories)
     {
-        const std::string text = "<FOLDER> " + path.filename().string();
+        const std::string text = "<FOLDER> " + path.Filename();
 
         if (ImGui::Selectable(text.c_str()))
-            CurrentPath = path;
+            CurrentPath = path.String();
     }
 
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(192, 192, 192, 255));
@@ -81,18 +80,16 @@ void FilesystemBrowser::OnImGuiRaw(float lowerMargin)
     {
         if (mValidExtensions.has_value())
         {
-            auto ext = path.extension().string();
-
-            if (!mValidExtensions->contains(ext))
+            if (!mValidExtensions->contains(path.Extension()))
             {
                 continue;
             }
         }
 
-        const std::string text = "<FILE> " + path.filename().string();
+        const std::string text = "<FILE> " + path.Filename();
 
         if (ImGui::Selectable(text.c_str()))
-            ChosenFile = path;
+            ChosenFile = path.String();
     }
     ImGui::PopStyleColor();
 
@@ -121,7 +118,8 @@ void FilesystemBrowser::ImGuiLoadPopup(const std::string &name, bool &open)
         const float textWidth = ImGui::GetContentRegionAvail().x - buttonWidth;
 
         ImGui::PushItemWidth(textWidth);
-        ImGui::InputText("##load_filename", ChosenFile.string().data(), maxNameLength,
+
+        ImGui::InputText("##load_filename", ChosenFile.data(), maxNameLength,
                          ImGuiInputTextFlags_ReadOnly);
         ImGui::PopItemWidth();
 

@@ -145,7 +145,8 @@ void Path::CreateDirectory() const
 
 std::ifstream Path::Open() const
 {
-    return {mImpl->Path};
+    std::ifstream ret{ mImpl->Path };
+    return ret;
 }
 
 Path operator/(const Path &lhs, const Path&rhs)

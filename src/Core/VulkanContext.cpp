@@ -212,6 +212,9 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
     }
 
 // On Windows, initialize vk_dxgi library:
+// TODO: When running windows on a laptop, on an external display
+// that has different refresh-rat than the builtin, the synchronization is
+// wrong, resulting in tearing.
 #ifdef VULKAN_ON_DXGI
     // Set up the function table:
     const auto getMemoryWin32HandleProperties =

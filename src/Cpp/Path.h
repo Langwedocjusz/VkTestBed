@@ -2,6 +2,12 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
+#include <fstream>
+
+std::u8string_view Utf8FromString(const std::string& str);
+
+std::string_view CharFromUtf8String(const std::u8string &u8str);
 
 // Pimpl-based wrapper around std::filesystem::path
 // meant to imporve compilation times.
@@ -22,22 +28,26 @@ class Path {
     Path(const std::string &pathStr);
     // Explicitly defining destructor for pimpl idiom:
     // (otherwise due to inline linkage there is
-    // incomplete type error in orhter translation units).
+    // incomplete type error in other translation units).
     ~Path();
 
-    Path(const Path &)            = delete;
-    Path &operator=(const Path &) = delete;
+    Path(const Path &);
+    Path &operator=(const Path &);
     // Default moves, same story as destructor:
     Path(Path &&) noexcept;
     Path &operator=(Path &&) noexcept;
 
     [[nodiscard]] Path Parent() const;
-    // Returns relative path from other to this:
-    [[nodiscard]] Path Relative(const Path& other) const;
+    // Returns this path, reltive to base one:
+    [[nodiscard]] Path Relative(const Path& base) const;
 
     [[nodiscard]] bool Exists() const;
     [[nodiscard]] bool IsRegularFile() const;
     [[nodiscard]] bool IsDirectory() const;
+
+    // Returns last write time as number of
+    // microseconds since epoch start:
+    [[nodiscard]] int64_t LastWriteTime() const;
 
     void CreateDirectory() const;
 
@@ -52,13 +62,17 @@ class Path {
     // Returns extension as utf8-encoded string:
     [[nodiscard]] std::string Extension() const;
 
-    // Wrapper around the concatenation operator for paths:
+    [[nodiscard]] std::ifstream Open() const;
+
+    // Wrappers around operator overloads for paths:
     friend Path operator/(const Path &lhs, const Path&rhs);
+    friend bool operator==(const Path &lhs, const Path &rhs);
 
   private:
     struct Impl;
     std::unique_ptr<Impl> mImpl;
     friend class DirectoryIterator;
+    friend class RecursiveDirectoryIterator;
 };
 
 class DirectoryIterator {
@@ -67,7 +81,7 @@ class DirectoryIterator {
     // which we exploit as end-of-iteration value:
     DirectoryIterator();
     DirectoryIterator(const Path &path);
-    // Default constructor, same as above:
+    // Default destructor, same as above:
     ~DirectoryIterator();
 
     DirectoryIterator(const DirectoryIterator &)            = delete;
@@ -94,6 +108,47 @@ class DirectoryRange {
         return {mPath};
     }
     [[nodiscard]] DirectoryIterator end() const
+    {
+        return {};
+    }
+
+  private:
+    const Path &mPath;
+};
+
+class RecursiveDirectoryIterator {
+  public:
+    // This constructor leaves pimpl as nullptr,
+    // which we exploit as end-of-iteration value:
+    RecursiveDirectoryIterator();
+    RecursiveDirectoryIterator(const Path &path);
+    // Default destructor, same as above:
+    ~RecursiveDirectoryIterator();
+
+    RecursiveDirectoryIterator(const RecursiveDirectoryIterator &)            = delete;
+    RecursiveDirectoryIterator &operator=(const RecursiveDirectoryIterator &) = delete;
+    RecursiveDirectoryIterator(RecursiveDirectoryIterator &&) noexcept;
+    RecursiveDirectoryIterator &operator=(RecursiveDirectoryIterator &&) noexcept;
+
+    RecursiveDirectoryIterator &operator++();
+    Path               operator*() const;
+    bool               operator!=(const RecursiveDirectoryIterator &other) const;
+
+  private:
+    struct Impl;
+    std::unique_ptr<Impl> mImpl;
+};
+
+class RecursiveDirectoryRange {
+  public:
+    explicit RecursiveDirectoryRange(const Path &path) : mPath(path)
+    {
+    }
+    [[nodiscard]] RecursiveDirectoryIterator begin() const
+    {
+        return {mPath};
+    }
+    [[nodiscard]] RecursiveDirectoryIterator end() const
     {
         return {};
     }

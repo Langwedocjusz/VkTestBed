@@ -233,7 +233,7 @@ ImageData ImageData::ImportImage(const std::string &path, bool unorm)
 
         vassert(pixels != nullptr,
                 std::format("Failed to load texture image. Filepath: {}",
-                            reinterpret_cast<const char *>(path.c_str())));
+                            path.c_str()));
 
         res.Width  = width;
         res.Height = height;
@@ -266,8 +266,7 @@ ImageData ImageData::ImportHDRI(const std::string &path)
         LoadEXRFromMemory(&data, &width, &height, fileData.data(), fileData.size(), &err);
 
     vassert(ret == TINYEXR_SUCCESS,
-            std::format("Error when trying to open image: {}",
-                        reinterpret_cast<const char *>(path.c_str())));
+            std::format("Error when trying to open image: {}", path.c_str()));
 
     auto res = ImageData();
 

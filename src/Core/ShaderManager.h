@@ -2,6 +2,7 @@
 
 #include "Path.h"
 
+#include <memory>
 #include <optional>
 
 namespace efsw
@@ -14,6 +15,7 @@ class UpdateListener;
 class ShaderManager {
   public:
     ShaderManager(const std::string &srcDir, const std::string &byteDir);
+    ~ShaderManager();
 
     bool CompilationScheduled();
     void CompileToBytecode();
@@ -21,12 +23,11 @@ class ShaderManager {
   private:
     std::optional<Path> GetDstPath(Path &src);
 
-  private:
     Path mSourceDir;
     Path mBytecodeDir;
 
     bool mCompilationScheduled = false;
 
-    efsw::FileWatcher *mFileWatcher;
-    UpdateListener    *mUpdateListener;
+    std::unique_ptr<efsw::FileWatcher> mFileWatcher;
+    std::unique_ptr<UpdateListener>    mUpdateListener;
 };

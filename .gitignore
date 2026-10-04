@@ -2,6 +2,7 @@
 build/
 #Build cache:
 .cache
+.vscode
 
 #Compiled shader bytecode:
 assets/spirv

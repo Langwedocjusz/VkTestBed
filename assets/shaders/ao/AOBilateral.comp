@@ -20,7 +20,7 @@ float Gauss(float x2, float sigma2)
 
 //#define SKIP_EFFECT 
 
-const int FILTER_RAD = 1;
+const int FILTER_RAD = 3;
 
 void main()
 {
@@ -40,7 +40,7 @@ void main()
     const vec2 zTexelSize  = 1.0 / vec2(imageSize(iResult));
     const vec2 aoTexelSize = 1.0 / vec2(uPushConstants.AOResolution);
 
-    const float sigmaSpatial2 = uPushConstants.SigmaSpatial * uPushConstants.SigmaSpatial;
+    const float sigmaSpatial2 = FILTER_RAD * uPushConstants.SigmaSpatial * uPushConstants.SigmaSpatial;
     const float sigmaVal2     = uPushConstants.SigmaVal     * uPushConstants.SigmaVal;
 
     const float baseZ = texture(sZBuffer, baseUV).r;

@@ -1,18 +1,12 @@
 #include "ShaderManager.h"
 #include "Pch.h"
 
-// TODO: There is a lot of ugly conversions
-// back and forth between Path and std::filesystem::path
-// in this file.
-
 #include "Path.h"
 
 #include <efsw/efsw.hpp>
 
 #include <algorithm>
 #include <cstdlib>
-#include <filesystem>
-#include <fstream>
 #include <functional>
 #include <ranges>
 #include <regex>
@@ -21,7 +15,7 @@
 
 class UpdateListener : public efsw::FileWatchListener {
   public:
-    UpdateListener(std::function<void()> callback) : mCallback(std::move(callback))
+    UpdateListener([[maybe_unused]] std::function<void()> callback) : mCallback(std::move(callback))
     {
     }
 
@@ -32,8 +26,9 @@ class UpdateListener : public efsw::FileWatchListener {
         (void)watchid;
         (void)dir;
         (void)filename;
+        (void)action;
         (void)oldFilename;
-
+        
         switch (action)
         {
         case efsw::Actions::Modified:
@@ -56,33 +51,28 @@ ShaderManager::ShaderManager(const std::string &srcDir, const std::string &byteD
     // Create bytecode dir if it doesn't already exist:
     mBytecodeDir.CreateDirectory();
 
-    // TODO: Implement recursive iterator wrapper:
-    for (auto &subdir : std::filesystem::recursive_directory_iterator(mSourceDir.U8String()))
+    for (auto subdir: RecursiveDirectoryRange(mSourceDir)) 
     {
-        if (!subdir.is_directory())
+        if (!subdir.IsDirectory())
             continue;
 
-        auto relative = std::filesystem::relative(subdir, mSourceDir.U8String());
-        auto u8str    = relative.u8string();
-        
-        std::string str{reinterpret_cast<const char*>(u8str.data()), u8str.size()};
+        auto relative = subdir.Relative(mSourceDir);
 
-        auto rebased  = mBytecodeDir / Path(str);
+        auto rebased = mBytecodeDir / relative;
         rebased.CreateDirectory();
     }
 
     CompileToBytecode();
 
     // Setup directory watcher:
-    mFileWatcher    = new efsw::FileWatcher();
-    mUpdateListener = new UpdateListener([this]() { mCompilationScheduled = true; });
+    mFileWatcher    = std::make_unique<efsw::FileWatcher>();
+    mUpdateListener = std::make_unique<UpdateListener>([this]() { mCompilationScheduled = true; });
 
-    auto pathU8Str = mSourceDir.U8String();
-    auto pathStr = std::string(reinterpret_cast<const char*>(pathU8Str.c_str()), pathU8Str.size());
-
-    mFileWatcher->addWatch(pathStr, mUpdateListener, true);
+    mFileWatcher->addWatch(srcDir, mUpdateListener.get(), true);
     mFileWatcher->watch();
 }
+
+ShaderManager::~ShaderManager() = default;
 
 bool ShaderManager::CompilationScheduled()
 {
@@ -106,8 +96,6 @@ std::optional<Path> ShaderManager::GetDstPath(Path &src)
     else
         return std::nullopt;
 
-    
-
     return mBytecodeDir / relParentPath / filename;
 }
 
@@ -120,15 +108,13 @@ static std::string GetFilename(const std::string &includeLine)
 }
 
 static std::vector<size_t> GetIncludedFileIds(
-    Path &srcDir, const std::vector<std::filesystem::path> &fileList,
+    Path &srcDir, const std::vector<Path> &fileList,
     size_t id)
 {
-    std::filesystem::path srcDirPath(srcDir.U8String());
-
     std::vector<size_t> res;
 
-    const auto   &path = fileList.at(id);
-    std::ifstream file(path);
+    const auto &path = fileList.at(id);
+    auto file        = path.Open();
 
     const std::regex incRegex("[[:blank:]]*#[[:blank:]]*include[[:blank:]]+\".*\"");
 
@@ -137,7 +123,7 @@ static std::vector<size_t> GetIncludedFileIds(
     {
         if (std::regex_match(currentLine, incRegex))
         {
-            auto filepath = srcDirPath / GetFilename(currentLine);
+            auto filepath = srcDir / GetFilename(currentLine);
 
             auto iter = std::ranges::find(fileList, filepath);
 
@@ -154,7 +140,7 @@ static std::vector<size_t> GetIncludedFileIds(
 }
 
 static std::vector<std::vector<size_t>> GetAdjacencyList(
-    Path &srcDir, const std::vector<std::filesystem::path> &fileList)
+    Path &srcDir, const std::vector<Path> &fileList)
 {
     const size_t numFiles = fileList.size();
 
@@ -175,13 +161,13 @@ void ShaderManager::CompileToBytecode()
     mCompilationScheduled = false;
 
     // Retrieve shader source file list:
-    std::vector<std::filesystem::path> fileList;
+    std::vector<Path> fileList;
 
-    for (const auto &dir : std::filesystem::recursive_directory_iterator(mSourceDir.U8String()))
+    for (auto&& dir : RecursiveDirectoryRange(mSourceDir))
     {
-        if (std::filesystem::is_regular_file(dir.path()))
+        if (dir.IsRegularFile())
         {
-            fileList.emplace_back(dir.path());
+            fileList.emplace_back(dir);
         }
     }
 
@@ -216,8 +202,8 @@ void ShaderManager::CompileToBytecode()
     // have been updated since last run:
 
     struct CompilerArgs {
-        std::filesystem::path Src;
-        std::filesystem::path Dst;
+        Path Src;
+        Path Dst;
     };
 
     std::vector<CompilerArgs> data;
@@ -226,17 +212,12 @@ void ShaderManager::CompileToBytecode()
     {
         auto srcPath = fileList.at(id);
 
-        auto u8path = srcPath.u8string();
-        std::string pathStr{reinterpret_cast<const char*>(u8path.c_str()), u8path.size()};
-        auto wrappedPath = Path(pathStr);
-
-        auto dstPathOpt = GetDstPath(wrappedPath);
+        auto dstPathOpt = GetDstPath(srcPath);
 
         if (!dstPathOpt.has_value())
             continue;
 
         Path &dstPath = *dstPathOpt;
-        std::filesystem::path dstPathRaw(dstPath.U8String());
 
         // If dst exists and is newer than src
         // there is no need to call the compiler.
@@ -244,14 +225,14 @@ void ShaderManager::CompileToBytecode()
 
         if (alreadyExists)
         {
-            auto dstTime = std::filesystem::last_write_time(dstPathRaw);
-            auto srcTime = std::filesystem::last_write_time(srcPath);
+            auto dstTime = dstPath.LastWriteTime();
+            auto srcTime = srcPath.LastWriteTime();
 
             // TODO: this currently only supporst 1-long include chains
             // It should really traverse the whole include DAG.
             for (auto headerId : adjacencyList[id])
             {
-                auto headerTime = std::filesystem::last_write_time(fileList[headerId]);
+                auto headerTime = fileList[headerId].LastWriteTime();
 
                 srcTime = std::max(srcTime, headerTime);
             }
@@ -263,7 +244,7 @@ void ShaderManager::CompileToBytecode()
         // Append compiler call arguments:
         data.push_back(CompilerArgs{
             .Src = srcPath,
-            .Dst = dstPathRaw,
+            .Dst = dstPath,
         });
     }
 
@@ -271,8 +252,9 @@ void ShaderManager::CompileToBytecode()
 
     for (const auto &args : data)
     {
-        auto srcDir = args.Src.string();
-        auto dstDir = args.Dst.string();
+        // TODO: Check if string encoding is ok for system:
+        auto srcDir = args.Src.String();
+        auto dstDir = args.Dst.String();
 
         std::string cmd = "glslc --target-env=vulkan1.3 " + srcDir + " -o " + dstDir;
 

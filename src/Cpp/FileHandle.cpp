@@ -1,6 +1,8 @@
 #include "FileHandle.h"
 #include "Pch.h"
 
+#include "Path.h"
+
 #include "Vassert.h"
 
 #include <filesystem>
@@ -17,7 +19,7 @@ FileHandle::FileHandle(const std::string &path) : mImpl(std::make_unique<Impl>()
     // We use std::ios::ate to automatically go to the end:
     constexpr auto flags = std::ios::binary | std::ios::ate;
 
-    std::u8string_view u8view{reinterpret_cast<const char8_t*>(path.data()), path.size()};
+    auto u8view = Utf8FromString(path);
     mImpl->Stream.open(std::filesystem::path(u8view), flags);
 
     if (!mImpl->Stream)

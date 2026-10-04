@@ -62,9 +62,9 @@ void FilesystemBrowser::OnImGuiRaw(float lowerMargin)
     for (auto entry : DirectoryRange(CurrentPath))
     {
         if (entry.IsDirectory())
-            directories.push_back(std::move(entry));
+            directories.push_back(entry);
         else
-            files.push_back(std::move(entry));
+            files.push_back(entry);
     }
 
     for (const auto &path : directories)

@@ -6,7 +6,7 @@
 #include <fstream>
 #include <iostream>
 
-static std::vector<char> ReadFileBinary(const std::string &filename)
+static std::vector<uint32_t> ReadSpirvBinary(const std::string &filename)
 {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
@@ -15,24 +15,28 @@ static std::vector<char> ReadFileBinary(const std::string &filename)
         vpanic("Failed to open file: " + filename);
     }
 
-    size_t            file_size = (size_t)file.tellg();
-    std::vector<char> buffer(file_size);
+    const auto file_size = file.tellg();
+
+    if (file_size % sizeof(uint32_t) != 0)
+    {
+        vpanic("File: " + filename + " has invalid spirv. Size is " + std::to_string(file_size) + "bytes. Should be divisible by 4.");
+    }
+
+    std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
 
     file.seekg(0);
-    file.read(buffer.data(), static_cast<std::streamsize>(file_size));
-
-    file.close();
+    file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(file_size));
 
     return buffer;
 }
 
-static VkShaderModule CreateShaderModule(VulkanContext           &ctx,
-                                         const std::vector<char> &code)
+static VkShaderModule CreateShaderModule(VulkanContext               &ctx,
+                                         const std::vector<uint32_t> &code)
 {
     VkShaderModuleCreateInfo create_info = {};
     create_info.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    create_info.codeSize                 = code.size();
-    create_info.pCode = reinterpret_cast<const uint32_t *>(code.data());
+    create_info.codeSize                 = code.size() * sizeof(uint32_t); // In bytes
+    create_info.pCode                    = code.data();
 
     VkShaderModule shaderModule;
     auto ret = vkCreateShaderModule(ctx.Device, &create_info, nullptr, &shaderModule);
@@ -72,7 +76,7 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
 
     if (mVertexPath.has_value())
     {
-        auto vertCode = ReadFileBinary(mVertexPath.value());
+        auto vertCode = ReadSpirvBinary(mVertexPath.value());
 
         VkShaderModule vertModule = CreateShaderModule(ctx, vertCode);
         vassert(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
@@ -88,7 +92,7 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
 
     if (mFragmentPath.has_value())
     {
-        auto fragCode = ReadFileBinary(mFragmentPath.value());
+        auto fragCode = ReadSpirvBinary(mFragmentPath.value());
 
         VkShaderModule fragModule = CreateShaderModule(ctx, fragCode);
         vassert(fragModule != VK_NULL_HANDLE, "Failed to create a shader module!");
@@ -108,7 +112,7 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
 std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildCompute(
     VulkanContext &ctx)
 {
-    auto computeCode = ReadFileBinary(mComputePath.value());
+    auto computeCode = ReadSpirvBinary(mComputePath.value());
 
     VkShaderModule computeModule = CreateShaderModule(ctx, computeCode);
     vassert(computeModule != VK_NULL_HANDLE, "Failed to create a shader module!");

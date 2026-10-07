@@ -10,7 +10,8 @@
 Buffer Buffer::Create(VulkanContext &ctx, const std::string &debugName, VkDeviceSize size,
                       VkBufferUsageFlags usage, VmaAllocationCreateFlags flags)
 {
-    Buffer buf;
+    Buffer buf{};
+    buf.Size = size;
 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

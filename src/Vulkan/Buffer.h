@@ -9,6 +9,7 @@
 struct Buffer {
   public:
     VkBuffer          Handle;
+    VkDeviceSize      Size;
     VmaAllocation     Allocation;
     VmaAllocationInfo AllocInfo;
 

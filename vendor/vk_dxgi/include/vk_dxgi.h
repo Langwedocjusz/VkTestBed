@@ -144,6 +144,8 @@ typedef struct dvk_perFrameResources_t
   ID3D12CommandAllocator * pCommandAllocator = nullptr;
   uint64_t                 lastSubmitValue   = 0;
   uint64_t                 lastBlitValue     = 0;
+  VkImage                  vkBlitImage       = VK_NULL_HANDLE;
+  dvk_sharedImage_t        blitImage         = {};
 } dvk_perFrameResources_t;
 
 typedef enum dvk_swapChainFlagBits_e
@@ -167,9 +169,6 @@ typedef struct dvk_dxgiSwapChain_t
 
   dvk_perFrameResources_t * pPerFrameResources           = nullptr;
   size_t                    pImportedSwapChainImageCount = 0;
-
-  VkImage           vkBlitImage = VK_NULL_HANDLE;
-  dvk_sharedImage_t pBlitImage  = {};
 
   VkImage * pExternalSwapChainImages = nullptr;
   VkImage * pSwapChainImages         = nullptr;
@@ -718,61 +717,61 @@ static dvk_result_t dvk_acquireImage( dvk_dxgiSwapChain_t * pSwapChain, dvk_pres
   uint64_t submitFenceValue = 0;
   uint64_t blitFenceValue   = 0;
 
-  if ( __dvk_hasSwapChainFlag( pSwapChain->flags, DVK_SWAPCHAIN_BACKBUFFER_BLIT_FLAG ) )
+  if (__dvk_hasSwapChainFlag(pSwapChain->flags, DVK_SWAPCHAIN_BACKBUFFER_BLIT_FLAG))
   {
-    if ( pFrameResources->lastBlitValue != 0 && pSwapChain->pFence->GetCompletedValue() < pFrameResources->lastBlitValue )
-    {
-      HRESULT dxResult = pSwapChain->pFence->SetEventOnCompletion( pFrameResources->lastBlitValue, nullptr );
-      if ( FAILED( dxResult ) )
+      if (pFrameResources->lastBlitValue != 0 && pSwapChain->pFence->GetCompletedValue() < pFrameResources->lastBlitValue)
       {
-        return dvk_result_t{ .code = DVK_ERROR_DX12, .message = DVK_PREPEND( "Error waiting for the blit fence to be signaled" ) };
+          HRESULT dxResult = pSwapChain->pFence->SetEventOnCompletion(pFrameResources->lastBlitValue, nullptr);
+          if (FAILED(dxResult))
+          {
+              return dvk_result_t{ .code = DVK_ERROR_DX12, .message = DVK_PREPEND("Error waiting for the blit fence to be signaled") };
+          }
       }
-    }
 
-    HRESULT dxResult = pFrameResources->pCommandAllocator->Reset();
-    if ( FAILED( dxResult ) )
-    {
-      return dvk_result_t{ .code = DVK_ERROR_DX12, .message = DVK_PREPEND( "Failed to reset the frame command allocator" ) };
-    }
+      HRESULT dxResult = pFrameResources->pCommandAllocator->Reset();
+      if (FAILED(dxResult))
+      {
+          return dvk_result_t{ .code = DVK_ERROR_DX12, .message = DVK_PREPEND("Failed to reset the frame command allocator") };
+      }
 
-    dxResult = pSwapChain->pDeviceContext->pCommandList->Reset( pFrameResources->pCommandAllocator, nullptr );
-    if ( FAILED( dxResult ) )
-    {
-      return dvk_result_t{ .code = DVK_ERROR_DX12, .message = DVK_PREPEND( "Failed to reset the command list" ) };
-    }
+      dxResult = pSwapChain->pDeviceContext->pCommandList->Reset(pFrameResources->pCommandAllocator, nullptr);
+      if (FAILED(dxResult))
+      {
+          return dvk_result_t{ .code = DVK_ERROR_DX12, .message = DVK_PREPEND("Failed to reset the command list") };
+      }
 
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    barrier.Transition.pResource   = pFrameResources->sharedImage.pImage;
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
-    pSwapChain->pDeviceContext->pCommandList->ResourceBarrier( 1, &barrier );
+      D3D12_RESOURCE_BARRIER barrier = {};
+      barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+      barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+      barrier.Transition.pResource = pFrameResources->sharedImage.pImage;
+      barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+      barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+      pSwapChain->pDeviceContext->pCommandList->ResourceBarrier(1, &barrier);
 
-    D3D12_TEXTURE_COPY_LOCATION dst = {}, src = {};
-    dst.Type      = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    src.Type      = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    dst.pResource = pFrameResources->sharedImage.pImage;
-    src.pResource = pSwapChain->pBlitImage.pImage;
-    pSwapChain->pDeviceContext->pCommandList->CopyTextureRegion( &dst, 0, 0, 0, &src, nullptr );
+      D3D12_TEXTURE_COPY_LOCATION dst = {}, src = {};
+      dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+      src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+      dst.pResource = pFrameResources->sharedImage.pImage;
+      src.pResource = pFrameResources->blitImage.pImage;
+      pSwapChain->pDeviceContext->pCommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PRESENT;
-    pSwapChain->pDeviceContext->pCommandList->ResourceBarrier( 1, &barrier );
+      barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+      barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+      pSwapChain->pDeviceContext->pCommandList->ResourceBarrier(1, &barrier);
 
-    dxResult = pSwapChain->pDeviceContext->pCommandList->Close();
-    if ( FAILED( dxResult ) )
-    {
-      return dvk_result_t{
-        .code    = DVK_ERROR_DX12,
-        .message = DVK_PREPEND( "Failed to close the command list" ),
-      };
-    }
+      dxResult = pSwapChain->pDeviceContext->pCommandList->Close();
+      if (FAILED(dxResult))
+      {
+          return dvk_result_t{
+            .code = DVK_ERROR_DX12,
+            .message = DVK_PREPEND("Failed to close the command list"),
+          };
+      }
 
-    // When bliting the image to the backbuffer the synchronization is sequential, waiting on the single blit buffer
-    waitFenceValue   = pSwapChain->fenceValue;
-    submitFenceValue = ++pSwapChain->fenceValue;
-    blitFenceValue   = ++pSwapChain->fenceValue;
+      // Parallel synchronization: wait on the previous blit of this specific buffer
+      waitFenceValue = pFrameResources->lastBlitValue;
+      submitFenceValue = ++pSwapChain->fenceValue;
+      blitFenceValue = ++pSwapChain->fenceValue;
   }
   else
   {
@@ -910,43 +909,6 @@ static dvk_result_t __dvk_createSwapChainObjects( dvk_dxgiSwapChain_t * pSwapCha
     }
   }
 
-  // Create the blit image used for rendering and copy to the swapchain
-  if ( __dvk_hasSwapChainFlag( pSwapChain->flags, DVK_SWAPCHAIN_BACKBUFFER_BLIT_FLAG ) )
-  {
-    D3D12_RESOURCE_DESC blitImageDesc = {};
-    blitImageDesc.Width               = swapChainDesc.BufferDesc.Width;
-    blitImageDesc.Height              = swapChainDesc.BufferDesc.Height;
-    blitImageDesc.Format              = swapChainDesc.BufferDesc.Format;
-    blitImageDesc.Flags               = __dvk_toD3D12Usage( pSwapChain->usage );
-    blitImageDesc.SampleDesc.Count    = 1;
-    blitImageDesc.DepthOrArraySize    = 1;
-    blitImageDesc.MipLevels           = 1;
-    blitImageDesc.Layout              = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    blitImageDesc.Dimension           = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-
-    D3D12_HEAP_PROPERTIES heapProps = {};
-    heapProps.Type                  = D3D12_HEAP_TYPE_DEFAULT;
-
-    result = pSwapChain->pDeviceContext->pD3D12Device->CreateCommittedResource(
-      &heapProps, D3D12_HEAP_FLAG_SHARED, &blitImageDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &pSwapChain->pBlitImage.pImage ) );
-    if ( FAILED( result ) )
-    {
-      __dvk_destroySwapChainObjects( pSwapChain );
-      return dvk_result_t{
-        .code    = DVK_ERROR_DX12,
-        .message = DVK_PREPEND( "Failed to create the blit image" ),
-      };
-    }
-
-    pSwapChain->pBlitImage.pVkImage = &pSwapChain->vkBlitImage;
-    const dvk_result_t dvkResult    = __dvk_createSharedImage( pSwapChain, &pSwapChain->pBlitImage );
-    if ( dvk_isError( dvkResult ) )
-    {
-      __dvk_destroySwapChainObjects( pSwapChain );
-      return dvkResult;
-    }
-  }
-
   for ( size_t idx = 0; idx < swapChainImageCount; ++idx )
   {
     dvk_perFrameResources_t * pPerFrameResources = &pSwapChain->pPerFrameResources[idx];
@@ -972,23 +934,60 @@ static dvk_result_t __dvk_createSwapChainObjects( dvk_dxgiSwapChain_t * pSwapCha
       };
     }
 
-    if ( __dvk_hasSwapChainFlag( pSwapChain->flags, DVK_SWAPCHAIN_BACKBUFFER_BLIT_FLAG ) )
+    if (__dvk_hasSwapChainFlag(pSwapChain->flags, DVK_SWAPCHAIN_BACKBUFFER_BLIT_FLAG))
     {
-      if ( pSwapChain->pExternalSwapChainImages != nullptr )
-      {
-        pSwapChain->pExternalSwapChainImages[idx] = pSwapChain->vkBlitImage;
-      }
+        D3D12_RESOURCE_DESC blitImageDesc = {};
+        blitImageDesc.Width = swapChainDesc.BufferDesc.Width;
+        blitImageDesc.Height = swapChainDesc.BufferDesc.Height;
+        blitImageDesc.Format = swapChainDesc.BufferDesc.Format;
+        blitImageDesc.Flags = __dvk_toD3D12Usage(pSwapChain->usage);
+        blitImageDesc.SampleDesc.Count = 1;
+        blitImageDesc.DepthOrArraySize = 1;
+        blitImageDesc.MipLevels = 1;
+        blitImageDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        blitImageDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
-      result = pSwapChain->pDeviceContext->pD3D12Device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                                                                 IID_PPV_ARGS( &pPerFrameResources->pCommandAllocator ) );
-      if ( FAILED( result ) )
-      {
-        __dvk_destroySwapChainObjects( pSwapChain );
-        return dvk_result_t{
-          .code    = DVK_ERROR_DX12,
-          .message = DVK_PREPEND( "Failed to create the frame command allocator" ),
-        };
-      }
+        D3D12_HEAP_PROPERTIES heapProps = {};
+        heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+        result = pSwapChain->pDeviceContext->pD3D12Device->CreateCommittedResource(
+            &heapProps, D3D12_HEAP_FLAG_SHARED, &blitImageDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&pPerFrameResources->blitImage.pImage));
+        if (FAILED(result))
+        {
+            __dvk_destroySwapChainObjects(pSwapChain);
+            return dvk_result_t{
+              .code = DVK_ERROR_DX12,
+              .message = DVK_PREPEND("Failed to create the blit image"),
+            };
+        }
+
+        pPerFrameResources->blitImage.pVkImage = &pPerFrameResources->vkBlitImage;
+        const dvk_result_t dvkResult = __dvk_createSharedImage(pSwapChain, &pPerFrameResources->blitImage);
+        if (dvk_isError(dvkResult))
+        {
+            __dvk_destroySwapChainObjects(pSwapChain);
+            return dvkResult;
+        }
+
+        if (pSwapChain->pExternalSwapChainImages != nullptr)
+        {
+            pSwapChain->pExternalSwapChainImages[idx] = pPerFrameResources->vkBlitImage;
+        }
+        else
+        {
+            pSwapChain->pSwapChainImages[idx] = pPerFrameResources->vkBlitImage;
+        }
+
+        result = pSwapChain->pDeviceContext->pD3D12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+            IID_PPV_ARGS(&pPerFrameResources->pCommandAllocator));
+        if (FAILED(result))
+        {
+            __dvk_destroySwapChainObjects(pSwapChain);
+            return dvk_result_t{
+              .code = DVK_ERROR_DX12,
+              .message = DVK_PREPEND("Failed to create the frame command allocator"),
+            };
+        }
     }
     else
     {
@@ -1022,6 +1021,8 @@ static void __dvk_destroySwapChainObjects( dvk_dxgiSwapChain_t * pSwapChain ) no
       dvk_perFrameResources_t * pImportedSwapChainImage = &pSwapChain->pPerFrameResources[idx];
       __dvk_destroySharedImage( pSwapChain, &pImportedSwapChainImage->sharedImage );
 
+      __dvk_destroySharedImage(pSwapChain, &pImportedSwapChainImage->blitImage);
+
       if ( pImportedSwapChainImage->pCommandAllocator != nullptr )
       {
         pImportedSwapChainImage->pCommandAllocator->Release();
@@ -1029,8 +1030,6 @@ static void __dvk_destroySwapChainObjects( dvk_dxgiSwapChain_t * pSwapChain ) no
       }
     }
   }
-
-  __dvk_destroySharedImage( pSwapChain, &pSwapChain->pBlitImage );
 
   pSwapChain->pAllocator->free( pSwapChain->pPerFrameResources, pSwapChain->pAllocator->pContext );
   pSwapChain->pPerFrameResources = nullptr;

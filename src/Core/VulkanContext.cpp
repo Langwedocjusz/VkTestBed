@@ -213,7 +213,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, const std::string 
 
 // On Windows, initialize vk_dxgi library:
 // TODO: When running windows on a laptop, on an external display
-// that has different refresh-rat than the builtin, the synchronization is
+// that has different refresh-rate than the builtin, the synchronization is
 // wrong, resulting in tearing.
 #ifdef VULKAN_ON_DXGI
     // Set up the function table:
@@ -346,7 +346,7 @@ VulkanContext::~VulkanContext()
     vkDestroyDevice(Device, nullptr);
     vkDestroySurfaceKHR(Instance, Surface, nullptr);
 
-    // Using vkb function here to also destry
+    // Using vkb function here to also destroy
     // the library-supplied debug messenger:
     vkb::destroy_instance(mExtraData->Instance);
 }
@@ -373,7 +373,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
         swapChainParameters.imageCount     = FrameInfo::MaxInFlight;
         swapChainParameters.maximumLatency = FrameInfo::MaxInFlight;
         swapChainParameters.syncInterval   = 1;
-        // swapChainParameters.flags        = DVK_SWAPCHAIN_BACKBUFFER_BLIT_FLAG;
+        swapChainParameters.flags          = DVK_SWAPCHAIN_BACKBUFFER_BLIT_FLAG;
 
         swapChainParameters.usage =
             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -427,7 +427,6 @@ void VulkanContext::CreateSwapchain(bool firstRun)
     for (uint32_t index = 0; index < imageCount; index++)
     {
         auto image = mExtraData->Swapchain.pSwapChainImages[index];
-
         SwapchainImages[index] = image;
     }
 
@@ -443,13 +442,12 @@ void VulkanContext::CreateSwapchain(bool firstRun)
         imageViewInfo.subresourceRange.levelCount     = 1;
         imageViewInfo.subresourceRange.baseArrayLayer = 0;
         imageViewInfo.subresourceRange.layerCount     = 1;
-
+    
         auto ret = vkCreateImageView(Device, &imageViewInfo, nullptr,
                                      &SwapchainImageViews[index]);
-
+    
         vassert(ret == VK_SUCCESS);
-    }
-
+    }    
 #else
 
     if (!firstRun)
@@ -461,7 +459,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
     auto swapRet = vkb::SwapchainBuilder(mExtraData->Device)
                        .set_old_swapchain(mExtraData->Swapchain)
                        .set_desired_extent(RequestedWidth, RequestedHeight)
-                       .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+                       .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
                        // To enable blit from secondary render target:
                        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
                        .build();

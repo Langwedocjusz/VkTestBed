@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ios>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -62,7 +63,7 @@ class Path {
     // Returns extension as utf8-encoded string:
     [[nodiscard]] std::string Extension() const;
 
-    [[nodiscard]] std::ifstream Open() const;
+    [[nodiscard]] std::ifstream Open(std::ios::openmode mode = std::ios::in) const;
 
     // Wrappers around operator overloads for paths:
     friend Path operator/(const Path &lhs, const Path&rhs);

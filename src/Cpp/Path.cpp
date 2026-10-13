@@ -143,9 +143,9 @@ void Path::CreateDirectory() const
     std::filesystem::create_directory(mImpl->Path);
 }
 
-std::ifstream Path::Open() const
+std::ifstream Path::Open(std::ios::openmode mode) const
 {
-    std::ifstream ret{ mImpl->Path };
+    std::ifstream ret{ mImpl->Path, mode};
     return ret;
 }
 

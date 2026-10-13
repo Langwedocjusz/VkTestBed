@@ -1,4 +1,5 @@
 #include "GltfImporter.h"
+
 #include "Pch.h"
 
 #include "Path.h"
@@ -6,21 +7,15 @@
 #include "Vassert.h"
 #include "VertexLayout.h"
 
-#include <fastgltf/core.hpp>
-#include <fastgltf/glm_element_traits.hpp>
-#include <fastgltf/tools.hpp>
-#include <fastgltf/types.hpp>
+#define CGLTF_IMPLEMENTATION
+#include <cgltf.h>
 
 #include <glm/gtc/quaternion.hpp>
 
-// TODO: All usage of <filesystem> in this
-// file should be replaced with my wrapper.
-// Currently used fastgltf apis require std::filesystem::path,
-// but there are alternatives that take-in raw memory
-// (as span<byte>) that can be manually read by us.
-#include <filesystem>
+#include <algorithm>
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
-#include <ranges>
 
 struct VertexLoadFlags {
     bool LoadTexCoord;
@@ -50,32 +45,103 @@ static VertexLoadFlags GetLoadFlags(Vertex::Layout vLayout)
     };
 }
 
+
+// NOTE: Using custom callbacks, since default cgltf path would use fopen,
+// which by default fails on utf8 paths on windows:
+static cgltf_result Utf8FileRead(const cgltf_memory_options *memOpts,
+                                 const cgltf_file_options *, const char *path,
+                                 cgltf_size *size, void **data)
+{
+    Path pathObj{path};
+
+    std::ifstream file = pathObj.Open(std::ios::binary | std::ios::ate);
+
+    if (!file)
+        return cgltf_result_file_not_found;
+
+    const auto fileSize = static_cast<cgltf_size>(file.tellg());
+    file.seekg(0, std::ios::beg);
+
+    void *mem = memOpts->alloc_func ? memOpts->alloc_func(memOpts->user_data, fileSize)
+                                    : std::malloc(fileSize);
+
+    if (!mem)
+        return cgltf_result_out_of_memory;
+
+    if (!file.read(static_cast<char *>(mem), static_cast<std::streamsize>(fileSize)))
+    {
+        if (memOpts->free_func)
+            memOpts->free_func(memOpts->user_data, mem);
+        else
+            std::free(mem);
+
+        return cgltf_result_io_error;
+    }
+
+    *size = fileSize;
+    *data = mem;
+
+    return cgltf_result_success;
+}
+
+static void Utf8FileRelease(const cgltf_memory_options *memOpts,
+                            const cgltf_file_options *, void *data, cgltf_size)
+{
+    if (memOpts->free_func)
+        memOpts->free_func(memOpts->user_data, data);
+    else
+        std::free(data);
+}
+
 struct GltfAsset::Impl {
     Impl(const std::string &path, bool loadBuffers)
     {
-        fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_diffuse_transmission);
-        auto             data = fastgltf::GltfDataBuffer::FromPath(path);
+        cgltf_options options{};
+        options.file.read = &Utf8FileRead;
+        options.file.release = &Utf8FileRelease;
 
-        auto u8view = Utf8FromString(path);
-        std::filesystem::path pathObj{u8view};
+        auto parse = cgltf_parse_file(&options, path.c_str(), &Data);
 
-        vassert(data.error() == fastgltf::Error::None,
-                "Failed to load a gltf file: " + pathObj.string());
-
-        auto loadOptions = fastgltf::Options::None;
+        if (parse != cgltf_result_success)
+        {
+            Data = nullptr;
+            vassert(false, "Failed to parse a gltf file: " + path +
+                               " (cgltf_result: " + std::to_string(static_cast<int>(parse)) + ")");
+        }
 
         if (loadBuffers)
-            loadOptions = fastgltf::Options::LoadExternalBuffers;
+        {
+            auto load = cgltf_load_buffers(&options, Data, path.c_str());
 
-        auto load = parser.loadGltf(data.get(), pathObj.parent_path(), loadOptions);
+            if (load != cgltf_result_success)
+            {
+                cgltf_free(Data);
+                Data = nullptr;
+                vassert(false, "Failed to load buffers of a gltf file: " + path +
+                                   " (cgltf_result: " + std::to_string(static_cast<int>(load)) + ")");
+            }
+        }
 
-        vassert(load.error() == fastgltf::Error::None,
-                "Failed to load a gltf file: " + pathObj.string());
-
-        Asset = std::move(load.get());
+        // Optional, but cheap: catches out-of-range indices, bad accessors etc.,
+        // so that the unchecked indexing done later is safe.
+        if (cgltf_validate(Data) != cgltf_result_success)
+        {
+            cgltf_free(Data);
+            Data = nullptr;
+            vassert(false, "Gltf file failed validation: " + path);
+        }
     }
 
-    fastgltf::Asset Asset;
+    ~Impl()
+    {
+        if (Data)
+            cgltf_free(Data);
+    }
+
+    Impl(const Impl &) = delete;
+    Impl &operator=(const Impl &) = delete;
+
+    cgltf_data *Data = nullptr;
 };
 
 GltfAsset::GltfAsset(const std::string &filepath)
@@ -99,35 +165,48 @@ GltfAsset &GltfAsset::operator=(GltfAsset &&other) noexcept
     return *this;
 }
 
+// cgltf uses nullptr to denote lack of optional strings:
+static std::string SafeName(const char *name)
+{
+    return name ? std::string(name) : std::string();
+}
+
 // Utility function to obtain absolute paths to gltf-referenced images.
-// Templated, because it handles several types from fastgltf.
-template <typename T>
-static auto GetTexturePath(fastgltf::Asset &gltf, std::optional<T> &texInfo,
-                           const std::filesystem::path &workingDir)
+static auto GetTexturePath(const cgltf_texture_view &view,
+                           const Path &workingDir)
     -> std::optional<std::string>
 {
-    // 1. Check if info has value
-    if (!texInfo.has_value())
+    // 1. Check if the texture is present at all
+    if (view.texture == nullptr)
         return std::nullopt;
 
-    // 2. Retrieve image index if present
-    auto imgId = gltf.textures[texInfo->textureIndex].imageIndex;
+    // 2. Retrieve image if present
+    const cgltf_image *image = view.texture->image;
 
-    if (!imgId.has_value())
+    if (image == nullptr)
         return std::nullopt;
 
-    // 3. Get data source
-    auto &dataSource = gltf.images[imgId.value()].data;
-
-    // 4. Retrieve the URI if present;
-    if (!std::holds_alternative<fastgltf::sources::URI>(dataSource))
+    // 3. Retrieve image uri:
+    if (image->uri == nullptr)
         return std::nullopt;
 
-    // 5. Retrieve the filepath:
-    auto &uri = std::get<fastgltf::sources::URI>(dataSource);
-    auto u8path = (workingDir / uri.uri.fspath()).u8string();
+    // NOTE: Currently no support for embedded images:
+    if (std::string_view(image->uri).starts_with("data:"))
+    {
+        std::cout << "Embedded image found when importing from " << workingDir.String() << ". It will be skipped. \n";
+        return std::nullopt;
+    }
 
-    return std::string(CharFromUtf8String(u8path));
+    // NOTE: URIs are percent-encoded, cgltf decodes in place:
+    std::string decoded(image->uri);
+    decoded.resize(cgltf_decode_uri(decoded.data()));
+
+    // 4. Reconstruct the full image path:
+    Path relPath{decoded};
+
+    Path fullPath = workingDir / relPath;
+
+    return fullPath.String();
 }
 
 // Small utility to convert from normalized float
@@ -139,79 +218,92 @@ static uint8_t PixelChannelFromFloat(float x)
 
 void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &keyMap,
                                     std::vector<ImageTaskData> &tasks,
-                                    const ModelConfig          &config)
+                                    const ModelConfig &config)
 {
-    using namespace std::views;
-
     vassert(keyMap.empty(), "Key map should be empty!");
     vassert(tasks.empty(), "Tasks vector should be empty!");
 
-    std::filesystem::path pathObj{config.Filepath};
+    const cgltf_data *gltf = mPImpl->Data;
 
-    const std::filesystem::path workingDir = pathObj.parent_path();
-    const std::string           baseName   = pathObj.stem().string();
+    Path path{config.Filepath};
+    Path workingDir = path.Parent(); // Is this a dangerous assumption?
+    std::string baseName = path.Stem();
 
     // Loop over all materials in gltf:
-    for (auto [id, material] : enumerate(mPImpl->Asset.materials))
+    for (size_t id = 0; id < gltf->materials_count; id++)
     {
+        const cgltf_material &material = gltf->materials[id];
+
         // Create new scene material:
         auto [matKey, mat] = scene.EmplaceMaterial();
-        mat.Name           = baseName + std::to_string(id);
 
+        mat.Name = baseName + std::to_string(id);
         keyMap[id] = matKey;
 
         // Load alpha information:
-        switch (material.alphaMode)
+        switch (material.alpha_mode)
         {
-        case fastgltf::AlphaMode::Opaque: {
+        case cgltf_alpha_mode_opaque: {
             mat.AlphaMode = MaterialAlphaMode::Opaque;
             break;
         }
-        case fastgltf::AlphaMode::Mask: {
-            mat.AlphaMode   = MaterialAlphaMode::Mask;
-            mat.AlphaCutoff = material.alphaCutoff;
+        case cgltf_alpha_mode_mask: {
+            mat.AlphaMode = MaterialAlphaMode::Mask;
+            mat.AlphaCutoff = material.alpha_cutoff;
             break;
         }
-        case fastgltf::AlphaMode::Blend: {
+        case cgltf_alpha_mode_blend: {
             mat.AlphaMode = MaterialAlphaMode::Blend;
             break;
         }
+        default:
+            break;
         }
 
         // Load info about double-sidedness:
-        mat.DoubleSided = material.doubleSided;
+        mat.DoubleSided = material.double_sided;
 
         // Load information about translucency/diffuse transmission:
-        if (material.diffuseTransmission)
+        if (material.has_diffuse_transmission)
         {
-            auto color = material.diffuseTransmission->diffuseTransmissionColorFactor;
-
-            mat.TranslucentColor = glm::vec3(color.x(), color.y(), color.z());
+            const auto &color = material.diffuse_transmission.diffuse_transmission_color_factor;
+            mat.TranslucentColor = glm::vec3(color[0], color[1], color[2]);
         }
+
+        // Initialize to gltf spec defaults:
+        cgltf_pbr_metallic_roughness pbr{
+            .base_color_texture         = {},
+            .metallic_roughness_texture = {},
+            .base_color_factor          = {1.0f, 1.0f, 1.0f, 1.0f},
+            .metallic_factor            = 1.0f,
+            .roughness_factor           = 1.0f,
+        };
+
+        if (material.has_pbr_metallic_roughness)
+            pbr = material.pbr_metallic_roughness;
 
         // Handle albedo:
         {
             auto [imgKey, img] = scene.EmplaceImage();
-            mat.Albedo         = imgKey;
+            mat.Albedo = imgKey;
 
-            auto &albedoInfo = material.pbrData.baseColorTexture;
-            auto  albedoPath = GetTexturePath(mPImpl->Asset, albedoInfo, workingDir);
+            auto albedoPath = GetTexturePath(pbr.base_color_texture, workingDir);
 
-            auto &fac = material.pbrData.baseColorFactor;
+            const auto &fac = pbr.base_color_factor;
 
             auto baseColor = Pixel{
-                .R = PixelChannelFromFloat(fac.x()),
-                .G = PixelChannelFromFloat(fac.y()),
-                .B = PixelChannelFromFloat(fac.z()),
-                .A = PixelChannelFromFloat(fac.w()),
+                .R = PixelChannelFromFloat(fac[0]),
+                .G = PixelChannelFromFloat(fac[1]),
+                .B = PixelChannelFromFloat(fac[2]),
+                .A = PixelChannelFromFloat(fac[3]),
             };
 
             tasks.push_back(ImageTaskData{
-                .ImageKey  = imgKey,
-                .Path      = albedoPath,
+                .ImageKey = imgKey,
+                .Path = albedoPath,
                 .BaseColor = baseColor,
-                .Name      = mat.Name + " Albedo",
-                .Unorm     = false,
+                .Name = mat.Name + " Albedo",
+                .Unorm = false,
             });
         }
 
@@ -219,44 +311,42 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
         if (config.FetchRoughness)
         {
             auto [imgKey, img] = scene.EmplaceImage();
-            mat.Roughness      = imgKey;
+            mat.Roughness = imgKey;
 
-            auto &roughnessInfo = material.pbrData.metallicRoughnessTexture;
-            auto roughnessPath = GetTexturePath(mPImpl->Asset, roughnessInfo, workingDir);
+            auto roughnessPath = GetTexturePath(pbr.metallic_roughness_texture, workingDir);
 
             auto baseColor = Pixel{
                 .R = PixelChannelFromFloat(0.0f),
-                .G = PixelChannelFromFloat(material.pbrData.roughnessFactor),
-                .B = PixelChannelFromFloat(material.pbrData.metallicFactor),
+                .G = PixelChannelFromFloat(pbr.roughness_factor),
+                .B = PixelChannelFromFloat(pbr.metallic_factor),
                 .A = PixelChannelFromFloat(0.0f),
             };
 
             tasks.push_back(ImageTaskData{
-                .ImageKey  = imgKey,
-                .Path      = roughnessPath,
+                .ImageKey = imgKey,
+                .Path = roughnessPath,
                 .BaseColor = baseColor,
-                .Name      = mat.Name + " Roughness",
-                .Unorm     = true,
+                .Name = mat.Name + " Roughness",
+                .Unorm = true,
             });
         }
 
         // Do the same for normal map if requested:
         if (config.FetchNormal)
         {
-            auto &normalInfo = material.normalTexture;
-            auto  normalPath = GetTexturePath(mPImpl->Asset, normalInfo, workingDir);
+            auto normalPath = GetTexturePath(material.normal_texture, workingDir);
 
             if (normalPath.has_value())
             {
                 auto [imgKey, img] = scene.EmplaceImage();
-                mat.Normal         = imgKey;
+                mat.Normal = imgKey;
 
                 tasks.push_back(ImageTaskData{
-                    .ImageKey  = imgKey,
-                    .Path      = normalPath,
+                    .ImageKey = imgKey,
+                    .Path = normalPath,
                     .BaseColor = Pixel{},
-                    .Name      = mat.Name + " Normal",
-                    .Unorm     = true,
+                    .Name = mat.Name + " Normal",
+                    .Unorm = true,
                 });
             }
         }
@@ -264,100 +354,120 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
 }
 
 void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> &meshKeyMap,
-                                 std::vector<PrimitiveTaskData>   &tasks,
-                                 const ModelConfig                &config,
+                                 std::vector<PrimitiveTaskData> &tasks,
+                                 const ModelConfig &config,
                                  const std::map<size_t, SceneKey> &matKeyMap)
 {
-    using namespace std::views;
-
     vassert(meshKeyMap.empty(), "Key map should be empty!");
     vassert(tasks.empty(), "Tasks vector should be empty!");
+
+    const cgltf_data *gltf = mPImpl->Data;
 
     const std::string baseName = Path(config.Filepath).Stem();
 
     // Iterate all gltf meshes:
-    for (auto [gltfMeshId, gltfMesh] : enumerate(mPImpl->Asset.meshes))
+    for (size_t gltfMeshId = 0; gltfMeshId < gltf->meshes_count; gltfMeshId++)
     {
+        const cgltf_mesh &gltfMesh = gltf->meshes[gltfMeshId];
+
         // Create the new mesh:
         auto [meshKey, mesh] = scene.EmplaceMesh();
-        mesh.Name            = std::format("{} {}", baseName, gltfMesh.name);
+
+        mesh.Name = std::format("{} {}", baseName, SafeName(gltfMesh.name));
 
         // Update mesh key map:
         meshKeyMap[gltfMeshId] = meshKey;
 
         // Retrieve its primitives:
-        for (auto [gltfPrimId, gltfPrim] : enumerate(gltfMesh.primitives))
+        for (size_t gltfPrimId = 0; gltfPrimId < gltfMesh.primitives_count; gltfPrimId++)
         {
+            const cgltf_primitive &gltfPrim = gltfMesh.primitives[gltfPrimId];
+
             // Emplace new primitive:
             auto &newMeshPrim = mesh.Primitives.emplace_back();
 
             // Assign material keys to the mesh:
-            if (auto id = gltfPrim.materialIndex)
+            if (gltfPrim.material != nullptr)
             {
-                auto matId           = matKeyMap.at(*id);
-                newMeshPrim.Material = matId;
+                size_t id = cgltf_material_index(gltf, gltfPrim.material);
+                newMeshPrim.Material = matKeyMap.at(id);
             }
 
             tasks.push_back(PrimitiveTaskData{
                 .SceneMesh = meshKey,
                 .ScenePrim = mesh.Primitives.size() - 1,
-                .GltfMesh  = gltfMeshId,
-                .GltfPrim  = gltfPrimId,
+                .GltfMesh  = static_cast<int64_t>(gltfMeshId),
+                .GltfPrim  = static_cast<int64_t>(gltfPrimId),
             });
         }
     }
 }
 
-static auto UnpackTransform(fastgltf::Node &node)
+static auto UnpackTransform(const cgltf_node &node)
     -> std::tuple<glm::vec3, glm::vec3, glm::vec3>
 {
-    fastgltf::TRS trs;
+    glm::vec3 translation;
+    glm::quat quat;
+    glm::vec3 scale;
 
-    if (std::holds_alternative<fastgltf::TRS>(node.transform))
+    if (node.has_matrix)
     {
-        trs = std::get<fastgltf::TRS>(node.transform);
+        // NOTE: cgltf matrices are column-major, same as glm:
+        glm::mat4 mat;
+        std::copy_n(node.matrix, 16, &mat[0][0]);
+
+        translation = glm::vec3(mat[3]);
+
+        glm::vec3 c0(mat[0]), c1(mat[1]), c2(mat[2]);
+        scale = glm::vec3(glm::length(c0), glm::length(c1), glm::length(c2));
+
+        // Handle mirroring, so that the remaining basis is a pure rotation:
+        if (glm::dot(glm::cross(c0, c1), c2) < 0.0f)
+            scale.x = -scale.x;
+
+        glm::mat3 rot;
+        rot[0] = c0 / scale.x;
+        rot[1] = c1 / scale.y;
+        rot[2] = c2 / scale.z;
+
+        quat = glm::quat_cast(rot);
     }
     else
     {
-        auto &mat = std::get<fastgltf::math::fmat4x4>(node.transform);
-        fastgltf::math::decomposeTransformMatrix(mat, trs.scale, trs.rotation,
-                                                 trs.translation);
+        const auto &t = node.translation;
+        const auto &r = node.rotation; // x, y, z, w
+        const auto &s = node.scale;
+
+        translation = glm::vec3(t[0], t[1], t[2]);
+        quat = glm::quat(r[3], r[0], r[1], r[2]); // glm: w, x, y, z
+        scale = glm::vec3(s[0], s[1], s[2]);
     }
 
-    auto &t = trs.translation;
-    auto &r = trs.rotation;
-    auto &s = trs.scale;
-
-    auto translation = glm::vec3(t.x(), t.y(), t.z());
-
-    auto quat     = glm::quat(r.w(), r.x(), r.y(), r.z());
     auto rotation = glm::eulerAngles(quat);
-
-    auto scale = glm::vec3(s.x(), s.y(), s.z());
 
     return {translation, rotation, scale};
 }
 
-static void ProcessNode(fastgltf::Asset                  &gltf,
+static void ProcessNode(const cgltf_data *gltf,
                         const std::map<size_t, SceneKey> &meshKeyMap,
-                        fastgltf::Node &current, SceneGraphNode &graphNode)
+                        const cgltf_node &current, SceneGraphNode &graphNode)
 {
     auto [translation, rotation, scale] = UnpackTransform(current);
 
-    graphNode.Name        = current.name;
+    graphNode.Name = SafeName(current.name);
     graphNode.Translation = translation;
-    graphNode.Rotation    = rotation;
-    graphNode.Scale       = scale;
+    graphNode.Rotation = rotation;
+    graphNode.Scale = scale;
 
-    for (auto &child_id : current.children)
+    for (size_t i = 0; i < current.children_count; i++)
     {
-        auto &child = gltf.nodes[child_id];
+        const cgltf_node &child = *current.children[i];
 
-        if (auto meshIdx = child.meshIndex)
+        if (child.mesh != nullptr)
         {
-            auto  meshKey    = meshKeyMap.at(*meshIdx);
-            auto &graphChild = graphNode.EmplaceChild(meshKey);
+            auto meshKey = meshKeyMap.at(cgltf_mesh_index(gltf, child.mesh));
 
+            auto &graphChild = graphNode.EmplaceChild(meshKey);
             ProcessNode(gltf, meshKeyMap, child, graphChild);
         }
         else
@@ -368,149 +478,160 @@ static void ProcessNode(fastgltf::Asset                  &gltf,
     }
 }
 
-void GltfAsset::PreprocessHierarchy(SceneGraphNode                   &root,
+void GltfAsset::PreprocessHierarchy(SceneGraphNode &root,
                                     const std::map<size_t, SceneKey> &meshKeyMap)
 {
+    const cgltf_data *gltf = mPImpl->Data;
+
+    vassert(gltf->scenes_count > 0, "Gltf file contains no scenes!");
+
     // TODO: Currently we assume gltf holds one scene.
-    auto &scene = mPImpl->Asset.scenes[0];
+    // (cgltf resolves the file's default scene to data->scene,
+    // but fall back to the first one like the old implementation.)
+    const cgltf_scene &scene = gltf->scene ? *gltf->scene : gltf->scenes[0];
 
     // NOTE: This will break and result in duplicate
     // objects if the graph of nodes is not acyclic.
     // I have observed such non-cylicity
     // converting obj -> gltf in blender.
-
-    for (auto &sceneNodeIdx : scene.nodeIndices)
+    for (size_t i = 0; i < scene.nodes_count; i++)
     {
-        auto &node = mPImpl->Asset.nodes[sceneNodeIdx];
+        const cgltf_node &node = *scene.nodes[i];
 
-        if (auto meshIdx = node.meshIndex)
+        if (node.mesh != nullptr)
         {
-            if (!meshKeyMap.contains(*meshIdx))
+            size_t meshIdx = cgltf_mesh_index(gltf, node.mesh);
+
+            if (!meshKeyMap.contains(meshIdx))
             {
-                std::cerr << "INVALID MESH KEY: " << *meshIdx << "\n";
+                std::cerr << "INVALID MESH KEY: " << meshIdx << "\n";
                 continue;
             }
 
-            auto meshKey = meshKeyMap.at(*meshIdx);
+            auto meshKey = meshKeyMap.at(meshIdx);
 
             auto [translation, rotation, scale] = UnpackTransform(node);
 
-            auto &prefabNode       = root.EmplaceChild(meshKey);
+            auto &prefabNode = root.EmplaceChild(meshKey);
+
             prefabNode.Translation = translation;
-            prefabNode.Rotation    = rotation;
-            prefabNode.Scale       = scale;
-            prefabNode.Name        = node.name;
+            prefabNode.Rotation = rotation;
+            prefabNode.Scale = scale;
+            prefabNode.Name = SafeName(node.name);
         }
         else
         {
-            ProcessNode(mPImpl->Asset, meshKeyMap, node, root);
+            ProcessNode(gltf, meshKeyMap, node, root);
         }
     }
-}
-
-static fastgltf::Accessor &GetAttributeAccessor(fastgltf::Asset     &gltf,
-                                                fastgltf::Primitive &primitive,
-                                                std::string_view     name)
-{
-    return gltf.accessors[primitive.findAttribute(name)->accessorIndex];
-}
-
-static size_t GetVertexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitive)
-{
-    fastgltf::Accessor &posAccessor = GetAttributeAccessor(gltf, primitive, "POSITION");
-    return posAccessor.count;
-}
-
-static size_t GetIndexCount(fastgltf::Asset &gltf, fastgltf::Primitive &primitive)
-{
-    auto &indexAccessor = gltf.accessors[primitive.indicesAccessor.value()];
-    return indexAccessor.count;
 }
 
 PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig &config)
 {
     PrimitiveData res{};
 
-    auto &gltf      = mPImpl->Asset;
-    auto &mesh      = gltf.meshes[data.GltfMesh];
-    auto &primitive = mesh.primitives[data.GltfPrim];
+    const cgltf_data *gltf = mPImpl->Data;
+
+    const cgltf_mesh &mesh = gltf->meshes[data.GltfMesh];
+    const cgltf_primitive &primitive = mesh.primitives[data.GltfPrim];
 
     auto flags = GetLoadFlags(config.VertexLayout);
 
-    // Retrieve indices:
-    res.IndexCount = GetIndexCount(gltf, primitive);
+    auto GetPrimitiveInfo = [&]() -> std::string {
+        std::string ret = "Gltf file:" + config.Filepath;
+        ret += " mesh: " + std::to_string(data.GltfMesh);
+        ret += " prim: " + std::to_string(data.GltfPrim);
+        ret += " ";
+        
+        return ret;
+    };
 
+    // Retrieve the positions accessor first, since vertex count depends on it:
+    const cgltf_accessor *posAccessor =
+        cgltf_find_accessor(&primitive, cgltf_attribute_type_position, 0);
+
+    vassert(posAccessor != nullptr, GetPrimitiveInfo() + "Primitive has no POSITION attribute!");
+    vassert(posAccessor->type == cgltf_type_vec3, GetPrimitiveInfo() + "POSITION should be a vec3!");
+
+    res.VertexCount = posAccessor->count;
+
+    // Retrieve indices:
+    if (primitive.indices != nullptr)
     {
+        res.IndexCount = primitive.indices->count;
         res.Indices.resize(res.IndexCount);
 
-        auto &indexAccessor = gltf.accessors[primitive.indicesAccessor.value()];
+        cgltf_size unpacked = cgltf_accessor_unpack_indices(
+            primitive.indices, res.Indices.data(), sizeof(uint32_t), res.IndexCount);
 
-        size_t current = 0;
+        vassert(unpacked == res.IndexCount, GetPrimitiveInfo() + "Failed to unpack gltf indices!");
+    }
+    else
+    {
+        std::cout << GetPrimitiveInfo() << "No indices found. Attempting to use trivial indexing \n";
+        
+        res.IndexCount = res.VertexCount;
+        res.Indices.resize(res.IndexCount);
 
-        fastgltf::iterateAccessor<std::uint32_t>(gltf, indexAccessor,
-                                                 [&](std::uint32_t idx) {
-                                                     res.Indices[current] = idx;
-                                                     current++;
-                                                 });
+        for (size_t i = 0; i < res.IndexCount; i++)
+        {
+            res.Indices[i] = static_cast<uint32_t>(i);
+        }
     }
 
-    // Retrieve vertex attributes:
-    res.VertexCount = GetVertexCount(gltf, primitive);
-
-    // Retrieve the positions and calculate bounding box in one go:
+    // Retrieve the positions and calculate the bounding box:
     {
         res.Positions.resize(res.VertexCount);
+
+        cgltf_accessor_unpack_floats(posAccessor,
+                                     reinterpret_cast<float *>(res.Positions.data()),
+                                     3 * res.VertexCount);
 
         auto minCoords = glm::vec3(std::numeric_limits<float>::max());
         auto maxCoords = glm::vec3(std::numeric_limits<float>::lowest());
 
-        fastgltf::Accessor &posAccessor =
-            GetAttributeAccessor(gltf, primitive, "POSITION");
-
-        fastgltf::iterateAccessorWithIndex<glm::vec3>(
-            gltf, posAccessor, [&](glm::vec3 v, size_t index) {
-                res.Positions[index] = v;
-
-                minCoords = glm::min(minCoords, v);
-                maxCoords = glm::max(maxCoords, v);
-            });
+        for (const auto &v : res.Positions)
+        {
+            minCoords = glm::min(minCoords, v);
+            maxCoords = glm::max(maxCoords, v);
+        }
 
         res.BBox.Center = 0.5f * (maxCoords + minCoords);
         res.BBox.Extent = 0.5f * (maxCoords - minCoords);
     }
 
-    // Retrieve texture coords
+    // Retrieve texture coords and compute their bounds:
     if (flags.LoadTexCoord)
     {
-        auto texcoordIt = primitive.findAttribute("TEXCOORD_0");
+        const cgltf_accessor *texcoordAccessor =
+            cgltf_find_accessor(&primitive, cgltf_attribute_type_texcoord, 0);
 
-        if (texcoordIt != primitive.attributes.end())
+        if (texcoordAccessor != nullptr && texcoordAccessor->type == cgltf_type_vec2)
         {
             res.TexCoords.resize(res.VertexCount);
 
-            fastgltf::Accessor &texcoordAccessor =
-                gltf.accessors[texcoordIt->accessorIndex];
-
-            if (texcoordAccessor.count != res.VertexCount)
+            if (texcoordAccessor->count != res.VertexCount)
             {
-                std::cerr << "In gltf file "
-                          << config.Filepath.c_str()
-                          << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                std::cerr << GetPrimitiveInfo()
                           << "Attribute count discrepancy:"
                           << "num vertices: " << res.VertexCount << ", "
-                          << "num texcoords:" << texcoordAccessor.count << '\n';
+                          << "num texcoords:" << texcoordAccessor->count << '\n';
             }
+
+            const size_t count = std::min<size_t>(texcoordAccessor->count, res.VertexCount);
+
+            cgltf_accessor_unpack_floats(texcoordAccessor,
+                                     reinterpret_cast<float *>(res.TexCoords.data()),
+                             2 * count);
 
             auto minCoords = glm::vec2(std::numeric_limits<float>::max());
             auto maxCoords = glm::vec2(std::numeric_limits<float>::lowest());
 
-            fastgltf::iterateAccessorWithIndex<glm::vec2>(
-                gltf, texcoordAccessor, [&](glm::vec2 v, size_t index) {
-                    res.TexCoords[index] = v;
-
-                    minCoords = glm::min(minCoords, v);
-                    maxCoords = glm::max(maxCoords, v);
-                });
+            for (auto coord : res.TexCoords)
+            {
+                minCoords = glm::min(minCoords, coord);
+                maxCoords = glm::max(maxCoords, coord);
+            }
 
             glm::vec2 center = 0.5f * (maxCoords + minCoords);
             glm::vec2 extent = 0.5f * (maxCoords - minCoords);
@@ -522,139 +643,120 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
             }
             else
             {
-                std::cerr << "In gltf file "
-                          << config.Filepath.c_str()
-                          << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                std::cerr << GetPrimitiveInfo()
                           << "degenerate texcoord range: " << minCoords.x << ", "
-                          << minCoords.y << "to " << maxCoords.x << ", " << maxCoords.y
-                          << '\n';
+                          << minCoords.y << "to " << maxCoords.x << ", "
+                          << maxCoords.y << '\n';
             }
         }
-
         else
         {
-            std::cerr << "Gltf file: "
-                      << config.Filepath.c_str()
-                      << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
-                      << "The primitive doesn't contain texture coordinates.\n";
+            std::cerr << GetPrimitiveInfo() << "The primitive doesn't contain texture coordinates.\n";
         }
     }
 
     // Retrieve normals
     if (flags.LoadNormals)
     {
-        auto normalIt = primitive.findAttribute("NORMAL");
+        const cgltf_accessor *normalAccessor =
+            cgltf_find_accessor(&primitive, cgltf_attribute_type_normal, 0);
 
-        if (normalIt != primitive.attributes.end())
+        if (normalAccessor != nullptr && normalAccessor->type == cgltf_type_vec3)
         {
             const glm::vec3 defaultNormal{0, -1, 0};
             res.Normals.resize(res.VertexCount, defaultNormal);
 
-            auto normalHandler = [&](glm::vec3 v, size_t index) {
-                const float tolerance = 0.01f;
+            if (normalAccessor->count != res.VertexCount)
+            {
+                std::cerr << GetPrimitiveInfo()
+                          << "Attribute count discrepancy:"
+                          << "num vertices: " << res.VertexCount << ", "
+                          << "num normals:" << normalAccessor->count << '\n';
+            }
 
+            const size_t count = std::min<size_t>(normalAccessor->count, res.VertexCount);
+
+            cgltf_accessor_unpack_floats(normalAccessor,
+                                     reinterpret_cast<float *>(res.Normals.data()),
+                                    3 * count);
+
+            for (auto& v : res.Normals)
+            {
+                const float tolerance = 0.01f;
                 float len = glm::length(v);
 
                 if (len < tolerance)
                 {
-                    std::cerr << "Gltf file: "
-                              << config.Filepath.c_str()
-                              << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                    std::cerr << GetPrimitiveInfo()
                               << "Normal vector is degenerate (close to zero): " << v.x
                               << " " << v.y << " " << v.z << '\n';
-                    return;
+                    continue;
                 }
 
                 if (std::abs(len - 1.0f) > tolerance)
                 {
-                    std::cerr << "Gltf file: "
-                              << config.Filepath.c_str()
-                              << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
-                              << "Provided normal vector is not normalized:" << v.x << " "
-                              << v.y << " " << v.z << '\n';
+                    std::cerr << GetPrimitiveInfo()
+                              << "Provided normal vector is not normalized:" << v.x
+                              << " " << v.y << " " << v.z << '\n';
                 }
 
                 // Renormalize anyway just to be sure:
-                res.Normals[index] = glm::normalize(v);
-            };
-
-            fastgltf::Accessor &normalAccessor = gltf.accessors[normalIt->accessorIndex];
-
-            if (normalAccessor.count != res.VertexCount)
-            {
-                std::cerr << "In gltf file "
-                          << config.Filepath.c_str()
-                          << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
-                          << "Attribute count discrepancy:"
-                          << "num vertices: " << res.VertexCount << ", "
-                          << "num normals:" << normalAccessor.count << '\n';
+                v = glm::normalize(v);
             }
-
-            fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, normalAccessor,
-                                                          normalHandler);
         }
-
         else
         {
-            std::cerr << "Gltf file: "
-                      << config.Filepath.c_str()
-                      << "primitive doesn't contain normals.\n";
+            std::cout << GetPrimitiveInfo() << "primitive doesn't contain normals.\n";
         }
     }
 
     // Retrieve tangents if present, generate them with mikktspace otherwise
     if (flags.LoadTangents)
     {
-        auto tangentIt = primitive.findAttribute("TANGENT");
+        const cgltf_accessor *tangentAccessor =
+            cgltf_find_accessor(&primitive, cgltf_attribute_type_tangent, 0);
 
-        if (tangentIt != primitive.attributes.end())
+        if (tangentAccessor != nullptr && tangentAccessor->type == cgltf_type_vec4)
         {
             const glm::vec4 defaultTangent{1, 0, 0, 1};
-
             res.Tangents.resize(res.VertexCount, defaultTangent);
 
-            auto tangentHandler = [&](glm::vec4 v, size_t index) {
-                const float tolerance = 0.01f;
+            if (tangentAccessor->count != res.VertexCount)
+            {
+                std::cerr << GetPrimitiveInfo()
+                          << "Attribute count discrepancy:"
+                          << "num vertices: " << res.VertexCount << ", "
+                          << "num tangents:" << tangentAccessor->count << '\n';
+            }
 
+            const size_t count = std::min<size_t>(tangentAccessor->count, res.VertexCount);
+
+            cgltf_accessor_unpack_floats(tangentAccessor,
+                                          reinterpret_cast<float *>(res.Tangents.data()),
+                                          4 * count);
+
+            for (auto& v : res.Tangents)
+            {
+                const float tolerance = 0.01f;
                 float len = glm::length(glm::vec3(v));
 
                 if (len < tolerance)
                 {
-                    std::cerr << "Gltf file: "
-                              << config.Filepath.c_str()
-                              << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                    std::cerr << GetPrimitiveInfo()
                               << "Tangent vector is degenerate (close to zero): " << v.x
                               << " " << v.y << " " << v.z << '\n';
-                    return;
+                    continue;
                 }
 
                 if (std::abs(len - 1.0f) > tolerance)
                 {
-                    std::cerr << "Gltf file: "
-                              << config.Filepath.c_str()
-                              << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
+                    std::cerr << GetPrimitiveInfo()
                               << "Provided tangent vector is not normalized:" << v.x
                               << " " << v.y << " " << v.z << '\n';
                 }
 
-                res.Tangents[index] = {glm::normalize(glm::vec3(v)), v.w};
-            };
-
-            fastgltf::Accessor &tangentAccessor =
-                gltf.accessors[tangentIt->accessorIndex];
-
-            if (tangentAccessor.count != res.VertexCount)
-            {
-                std::cerr << "In gltf file "
-                          << config.Filepath.c_str()
-                          << " mesh: " << data.GltfMesh << " prim: " << data.GltfPrim
-                          << "Attribute count discrepancy:"
-                          << "num vertices: " << res.VertexCount << ", "
-                          << "num tangents:" << tangentAccessor.count << '\n';
+                v = {glm::normalize(glm::vec3(v)), v.w};
             }
-
-            fastgltf::iterateAccessorWithIndex<glm::vec4>(gltf, tangentAccessor,
-                                                          tangentHandler);
         }
         else
         {

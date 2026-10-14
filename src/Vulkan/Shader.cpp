@@ -1,31 +1,31 @@
 #include "Shader.h"
 #include "Pch.h"
 
+#include "FileHandle.h"
 #include "Vassert.h"
 
-#include <fstream>
 #include <iostream>
 
 static std::vector<uint32_t> ReadSpirvBinary(const std::string &filename)
 {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    auto file = *FileHandle::TryOpen(filename);
 
-    if (!file)
+    if (!file.Good())
     {
         vpanic("Failed to open file: " + filename);
     }
 
-    const auto file_size = file.tellg();
+    const auto fileSize = file.Size();
 
-    if (file_size % sizeof(uint32_t) != 0)
+    if (fileSize % sizeof(uint32_t) != 0)
     {
-        vpanic("File: " + filename + " has invalid spirv. Size is " + std::to_string(file_size) + "bytes. Should be divisible by 4.");
+        vpanic("File: " + filename + " has invalid spirv. Size is " +
+               std::to_string(fileSize) + "bytes. Should be divisible by 4.");
     }
 
-    std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
+    std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
 
-    file.seekg(0);
-    file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(file_size));
+    file.Read(reinterpret_cast<char *>(buffer.data()), fileSize);
 
     return buffer;
 }

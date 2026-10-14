@@ -23,9 +23,8 @@ ModelLoaderGui::ModelLoaderGui(SceneEditor &editor) : mEditor(editor)
 
     mBrowser.SetCallbackFn([&]() { mImportPopup = true; });
 
-    mBrowser.SetCheckFn([](const std::string &path) {
-        return Path(path).IsRegularFile();
-    });
+    mBrowser.SetCheckFn(
+        [](const std::string &path) { return Path(path).IsRegularFile(); });
 }
 
 void ModelLoaderGui::TriggerLoad()

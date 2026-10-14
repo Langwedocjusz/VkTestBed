@@ -233,8 +233,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
 
     DescriptorUpdater(mLightingDescriptorSet)
         .WriteUniformBuffer(0, mEnvUBO.Handle, sizeof(mEnvUBOData))
-        .WriteStorageBuffer(1, mFinalReductionBuffer.Handle,
-                            mFinalReductionBuffer.Size)
+        .WriteStorageBuffer(1, mFinalReductionBuffer.Handle, mFinalReductionBuffer.Size)
         .WriteCombinedSampler(2, mPrefiltered.View, mSamplerMipped)
         .WriteCombinedSampler(3, mIntegration.View, mSamplerClamped)
         .Update(mCtx);
@@ -249,10 +248,8 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         Descriptor::Allocate(mCtx, mStaticDescriptorPool, mIrradianceDescriptorSetLayout);
 
     DescriptorUpdater(mIrradianceDescriptorSet)
-        .WriteStorageBuffer(0, mFirstReducionBuffer.Handle,
-                            mFirstReducionBuffer.Size)
-        .WriteStorageBuffer(1, mFinalReductionBuffer.Handle,
-                            mFinalReductionBuffer.Size)
+        .WriteStorageBuffer(0, mFirstReducionBuffer.Handle, mFirstReducionBuffer.Size)
+        .WriteStorageBuffer(1, mFinalReductionBuffer.Handle, mFinalReductionBuffer.Size)
         .Update(mCtx);
 
     // Descriptor set for generation of prefiltered map:
@@ -633,7 +630,7 @@ void EnvironmentHandler::ResetToBlack()
         // Set all SH coefficients to 0:
         auto fillValue = std::bit_cast<uint32_t, float>(0.0f);
 
-        vkCmdFillBuffer(cmd, mFinalReductionBuffer.Handle, 0,
-                        mFinalReductionBuffer.Size, fillValue);
+        vkCmdFillBuffer(cmd, mFinalReductionBuffer.Handle, 0, mFinalReductionBuffer.Size,
+                        fillValue);
     });
 }

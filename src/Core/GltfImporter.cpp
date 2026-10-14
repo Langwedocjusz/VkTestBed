@@ -2,6 +2,7 @@
 
 #include "Pch.h"
 
+#include "FileHandle.h"
 #include "Path.h"
 #include "TangentsGenerator.h"
 #include "Vassert.h"
@@ -14,7 +15,6 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
 
 struct VertexLoadFlags {
@@ -45,22 +45,20 @@ static VertexLoadFlags GetLoadFlags(Vertex::Layout vLayout)
     };
 }
 
-
 // NOTE: Using custom callbacks, since default cgltf path would use fopen,
 // which by default fails on utf8 paths on windows:
 static cgltf_result Utf8FileRead(const cgltf_memory_options *memOpts,
                                  const cgltf_file_options *, const char *path,
                                  cgltf_size *size, void **data)
 {
-    Path pathObj{path};
+    auto fileOpt = FileHandle::TryOpen(path);
 
-    std::ifstream file = pathObj.Open(std::ios::binary | std::ios::ate);
-
-    if (!file)
+    if (!fileOpt)
         return cgltf_result_file_not_found;
 
-    const auto fileSize = static_cast<cgltf_size>(file.tellg());
-    file.seekg(0, std::ios::beg);
+    auto file = std::move(*fileOpt);
+
+    const auto fileSize = file.Size();
 
     void *mem = memOpts->alloc_func ? memOpts->alloc_func(memOpts->user_data, fileSize)
                                     : std::malloc(fileSize);
@@ -68,7 +66,7 @@ static cgltf_result Utf8FileRead(const cgltf_memory_options *memOpts,
     if (!mem)
         return cgltf_result_out_of_memory;
 
-    if (!file.read(static_cast<char *>(mem), static_cast<std::streamsize>(fileSize)))
+    if (!file.Read(static_cast<char *>(mem), fileSize))
     {
         if (memOpts->free_func)
             memOpts->free_func(memOpts->user_data, mem);
@@ -97,7 +95,7 @@ struct GltfAsset::Impl {
     Impl(const std::string &path, bool loadBuffers)
     {
         cgltf_options options{};
-        options.file.read = &Utf8FileRead;
+        options.file.read    = &Utf8FileRead;
         options.file.release = &Utf8FileRelease;
 
         auto parse = cgltf_parse_file(&options, path.c_str(), &Data);
@@ -105,8 +103,8 @@ struct GltfAsset::Impl {
         if (parse != cgltf_result_success)
         {
             Data = nullptr;
-            vassert(false, "Failed to parse a gltf file: " + path +
-                               " (cgltf_result: " + std::to_string(static_cast<int>(parse)) + ")");
+            vassert(false, "Failed to parse a gltf file: " + path + " (cgltf_result: " +
+                               std::to_string(static_cast<int>(parse)) + ")");
         }
 
         if (loadBuffers)
@@ -118,7 +116,8 @@ struct GltfAsset::Impl {
                 cgltf_free(Data);
                 Data = nullptr;
                 vassert(false, "Failed to load buffers of a gltf file: " + path +
-                                   " (cgltf_result: " + std::to_string(static_cast<int>(load)) + ")");
+                                   " (cgltf_result: " +
+                                   std::to_string(static_cast<int>(load)) + ")");
             }
         }
 
@@ -138,7 +137,7 @@ struct GltfAsset::Impl {
             cgltf_free(Data);
     }
 
-    Impl(const Impl &) = delete;
+    Impl(const Impl &)            = delete;
     Impl &operator=(const Impl &) = delete;
 
     cgltf_data *Data = nullptr;
@@ -149,21 +148,7 @@ GltfAsset::GltfAsset(const std::string &filepath)
     mPImpl = std::make_unique<GltfAsset::Impl>(filepath, true);
 }
 
-GltfAsset::~GltfAsset()
-{
-    mPImpl.reset(nullptr);
-}
-
-GltfAsset::GltfAsset(GltfAsset &&other) noexcept
-{
-    mPImpl = std::move(other.mPImpl);
-}
-
-GltfAsset &GltfAsset::operator=(GltfAsset &&other) noexcept
-{
-    mPImpl = std::move(other.mPImpl);
-    return *this;
-}
+GltfAsset::~GltfAsset() = default;
 
 // cgltf uses nullptr to denote lack of optional strings:
 static std::string SafeName(const char *name)
@@ -172,8 +157,7 @@ static std::string SafeName(const char *name)
 }
 
 // Utility function to obtain absolute paths to gltf-referenced images.
-static auto GetTexturePath(const cgltf_texture_view &view,
-                           const Path &workingDir)
+static auto GetTexturePath(const cgltf_texture_view &view, const Path &workingDir)
     -> std::optional<std::string>
 {
     // 1. Check if the texture is present at all
@@ -193,7 +177,8 @@ static auto GetTexturePath(const cgltf_texture_view &view,
     // NOTE: Currently no support for embedded images:
     if (std::string_view(image->uri).starts_with("data:"))
     {
-        std::cout << "Embedded image found when importing from " << workingDir.String() << ". It will be skipped. \n";
+        std::cout << "Embedded image found when importing from " << workingDir.String()
+                  << ". It will be skipped. \n";
         return std::nullopt;
     }
 
@@ -218,16 +203,16 @@ static uint8_t PixelChannelFromFloat(float x)
 
 void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &keyMap,
                                     std::vector<ImageTaskData> &tasks,
-                                    const ModelConfig &config)
+                                    const ModelConfig          &config)
 {
     vassert(keyMap.empty(), "Key map should be empty!");
     vassert(tasks.empty(), "Tasks vector should be empty!");
 
     const cgltf_data *gltf = mPImpl->Data;
 
-    Path path{config.Filepath};
-    Path workingDir = path.Parent(); // Is this a dangerous assumption?
-    std::string baseName = path.Stem();
+    Path        path{config.Filepath};
+    Path        workingDir = path.Parent(); // Is this a dangerous assumption?
+    std::string baseName   = path.Stem();
 
     // Loop over all materials in gltf:
     for (size_t id = 0; id < gltf->materials_count; id++)
@@ -237,7 +222,7 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
         // Create new scene material:
         auto [matKey, mat] = scene.EmplaceMaterial();
 
-        mat.Name = baseName + std::to_string(id);
+        mat.Name   = baseName + std::to_string(id);
         keyMap[id] = matKey;
 
         // Load alpha information:
@@ -248,7 +233,7 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
             break;
         }
         case cgltf_alpha_mode_mask: {
-            mat.AlphaMode = MaterialAlphaMode::Mask;
+            mat.AlphaMode   = MaterialAlphaMode::Mask;
             mat.AlphaCutoff = material.alpha_cutoff;
             break;
         }
@@ -266,7 +251,8 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
         // Load information about translucency/diffuse transmission:
         if (material.has_diffuse_transmission)
         {
-            const auto &color = material.diffuse_transmission.diffuse_transmission_color_factor;
+            const auto &color =
+                material.diffuse_transmission.diffuse_transmission_color_factor;
             mat.TranslucentColor = glm::vec3(color[0], color[1], color[2]);
         }
 
@@ -285,7 +271,7 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
         // Handle albedo:
         {
             auto [imgKey, img] = scene.EmplaceImage();
-            mat.Albedo = imgKey;
+            mat.Albedo         = imgKey;
 
             auto albedoPath = GetTexturePath(pbr.base_color_texture, workingDir);
 
@@ -299,11 +285,11 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
             };
 
             tasks.push_back(ImageTaskData{
-                .ImageKey = imgKey,
-                .Path = albedoPath,
+                .ImageKey  = imgKey,
+                .Path      = albedoPath,
                 .BaseColor = baseColor,
-                .Name = mat.Name + " Albedo",
-                .Unorm = false,
+                .Name      = mat.Name + " Albedo",
+                .Unorm     = false,
             });
         }
 
@@ -311,9 +297,10 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
         if (config.FetchRoughness)
         {
             auto [imgKey, img] = scene.EmplaceImage();
-            mat.Roughness = imgKey;
+            mat.Roughness      = imgKey;
 
-            auto roughnessPath = GetTexturePath(pbr.metallic_roughness_texture, workingDir);
+            auto roughnessPath =
+                GetTexturePath(pbr.metallic_roughness_texture, workingDir);
 
             auto baseColor = Pixel{
                 .R = PixelChannelFromFloat(0.0f),
@@ -323,11 +310,11 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
             };
 
             tasks.push_back(ImageTaskData{
-                .ImageKey = imgKey,
-                .Path = roughnessPath,
+                .ImageKey  = imgKey,
+                .Path      = roughnessPath,
                 .BaseColor = baseColor,
-                .Name = mat.Name + " Roughness",
-                .Unorm = true,
+                .Name      = mat.Name + " Roughness",
+                .Unorm     = true,
             });
         }
 
@@ -339,14 +326,14 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
             if (normalPath.has_value())
             {
                 auto [imgKey, img] = scene.EmplaceImage();
-                mat.Normal = imgKey;
+                mat.Normal         = imgKey;
 
                 tasks.push_back(ImageTaskData{
-                    .ImageKey = imgKey,
-                    .Path = normalPath,
+                    .ImageKey  = imgKey,
+                    .Path      = normalPath,
                     .BaseColor = Pixel{},
-                    .Name = mat.Name + " Normal",
-                    .Unorm = true,
+                    .Name      = mat.Name + " Normal",
+                    .Unorm     = true,
                 });
             }
         }
@@ -354,8 +341,8 @@ void GltfAsset::PreprocessMaterials(Scene &scene, std::map<size_t, SceneKey> &ke
 }
 
 void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> &meshKeyMap,
-                                 std::vector<PrimitiveTaskData> &tasks,
-                                 const ModelConfig &config,
+                                 std::vector<PrimitiveTaskData>   &tasks,
+                                 const ModelConfig                &config,
                                  const std::map<size_t, SceneKey> &matKeyMap)
 {
     vassert(meshKeyMap.empty(), "Key map should be empty!");
@@ -389,7 +376,7 @@ void GltfAsset::PreprocessMeshes(Scene &scene, std::map<size_t, SceneKey> &meshK
             // Assign material keys to the mesh:
             if (gltfPrim.material != nullptr)
             {
-                size_t id = cgltf_material_index(gltf, gltfPrim.material);
+                size_t id            = cgltf_material_index(gltf, gltfPrim.material);
                 newMeshPrim.Material = matKeyMap.at(id);
             }
 
@@ -435,12 +422,12 @@ static auto UnpackTransform(const cgltf_node &node)
     else
     {
         const auto &t = node.translation;
-        const auto &r = node.rotation; // x, y, z, w
+        const auto &r = node.rotation; // NOTE: gltf order x, y, z, w
         const auto &s = node.scale;
 
         translation = glm::vec3(t[0], t[1], t[2]);
-        quat = glm::quat(r[3], r[0], r[1], r[2]); // glm: w, x, y, z
-        scale = glm::vec3(s[0], s[1], s[2]);
+        quat        = glm::quat(r[3], r[0], r[1], r[2]); // NOTE: glm order: w, x, y, z
+        scale       = glm::vec3(s[0], s[1], s[2]);
     }
 
     auto rotation = glm::eulerAngles(quat);
@@ -448,16 +435,16 @@ static auto UnpackTransform(const cgltf_node &node)
     return {translation, rotation, scale};
 }
 
-static void ProcessNode(const cgltf_data *gltf,
+static void ProcessNode(const cgltf_data                 *gltf,
                         const std::map<size_t, SceneKey> &meshKeyMap,
                         const cgltf_node &current, SceneGraphNode &graphNode)
 {
     auto [translation, rotation, scale] = UnpackTransform(current);
 
-    graphNode.Name = SafeName(current.name);
+    graphNode.Name        = SafeName(current.name);
     graphNode.Translation = translation;
-    graphNode.Rotation = rotation;
-    graphNode.Scale = scale;
+    graphNode.Rotation    = rotation;
+    graphNode.Scale       = scale;
 
     for (size_t i = 0; i < current.children_count; i++)
     {
@@ -478,7 +465,7 @@ static void ProcessNode(const cgltf_data *gltf,
     }
 }
 
-void GltfAsset::PreprocessHierarchy(SceneGraphNode &root,
+void GltfAsset::PreprocessHierarchy(SceneGraphNode                   &root,
                                     const std::map<size_t, SceneKey> &meshKeyMap)
 {
     const cgltf_data *gltf = mPImpl->Data;
@@ -515,9 +502,9 @@ void GltfAsset::PreprocessHierarchy(SceneGraphNode &root,
             auto &prefabNode = root.EmplaceChild(meshKey);
 
             prefabNode.Translation = translation;
-            prefabNode.Rotation = rotation;
-            prefabNode.Scale = scale;
-            prefabNode.Name = SafeName(node.name);
+            prefabNode.Rotation    = rotation;
+            prefabNode.Scale       = scale;
+            prefabNode.Name        = SafeName(node.name);
         }
         else
         {
@@ -532,7 +519,7 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
     const cgltf_data *gltf = mPImpl->Data;
 
-    const cgltf_mesh &mesh = gltf->meshes[data.GltfMesh];
+    const cgltf_mesh      &mesh      = gltf->meshes[data.GltfMesh];
     const cgltf_primitive &primitive = mesh.primitives[data.GltfPrim];
 
     auto flags = GetLoadFlags(config.VertexLayout);
@@ -542,7 +529,7 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
         ret += " mesh: " + std::to_string(data.GltfMesh);
         ret += " prim: " + std::to_string(data.GltfPrim);
         ret += " ";
-        
+
         return ret;
     };
 
@@ -550,8 +537,10 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
     const cgltf_accessor *posAccessor =
         cgltf_find_accessor(&primitive, cgltf_attribute_type_position, 0);
 
-    vassert(posAccessor != nullptr, GetPrimitiveInfo() + "Primitive has no POSITION attribute!");
-    vassert(posAccessor->type == cgltf_type_vec3, GetPrimitiveInfo() + "POSITION should be a vec3!");
+    vassert(posAccessor != nullptr,
+            GetPrimitiveInfo() + "Primitive has no POSITION attribute!");
+    vassert(posAccessor->type == cgltf_type_vec3,
+            GetPrimitiveInfo() + "POSITION should be a vec3!");
 
     res.VertexCount = posAccessor->count;
 
@@ -564,12 +553,14 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
         cgltf_size unpacked = cgltf_accessor_unpack_indices(
             primitive.indices, res.Indices.data(), sizeof(uint32_t), res.IndexCount);
 
-        vassert(unpacked == res.IndexCount, GetPrimitiveInfo() + "Failed to unpack gltf indices!");
+        vassert(unpacked == res.IndexCount,
+                GetPrimitiveInfo() + "Failed to unpack gltf indices!");
     }
     else
     {
-        std::cout << GetPrimitiveInfo() << "No indices found. Attempting to use trivial indexing \n";
-        
+        std::cout << GetPrimitiveInfo()
+                  << "No indices found. Attempting to use trivial indexing \n";
+
         res.IndexCount = res.VertexCount;
         res.Indices.resize(res.IndexCount);
 
@@ -612,17 +603,17 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
             if (texcoordAccessor->count != res.VertexCount)
             {
-                std::cerr << GetPrimitiveInfo()
-                          << "Attribute count discrepancy:"
+                std::cerr << GetPrimitiveInfo() << "Attribute count discrepancy:"
                           << "num vertices: " << res.VertexCount << ", "
                           << "num texcoords:" << texcoordAccessor->count << '\n';
             }
 
-            const size_t count = std::min<size_t>(texcoordAccessor->count, res.VertexCount);
+            const size_t count =
+                std::min<size_t>(texcoordAccessor->count, res.VertexCount);
 
             cgltf_accessor_unpack_floats(texcoordAccessor,
-                                     reinterpret_cast<float *>(res.TexCoords.data()),
-                             2 * count);
+                                         reinterpret_cast<float *>(res.TexCoords.data()),
+                                         2 * count);
 
             auto minCoords = glm::vec2(std::numeric_limits<float>::max());
             auto maxCoords = glm::vec2(std::numeric_limits<float>::lowest());
@@ -645,13 +636,14 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
             {
                 std::cerr << GetPrimitiveInfo()
                           << "degenerate texcoord range: " << minCoords.x << ", "
-                          << minCoords.y << "to " << maxCoords.x << ", "
-                          << maxCoords.y << '\n';
+                          << minCoords.y << "to " << maxCoords.x << ", " << maxCoords.y
+                          << '\n';
             }
         }
         else
         {
-            std::cerr << GetPrimitiveInfo() << "The primitive doesn't contain texture coordinates.\n";
+            std::cerr << GetPrimitiveInfo()
+                      << "The primitive doesn't contain texture coordinates.\n";
         }
     }
 
@@ -668,22 +660,20 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
             if (normalAccessor->count != res.VertexCount)
             {
-                std::cerr << GetPrimitiveInfo()
-                          << "Attribute count discrepancy:"
+                std::cerr << GetPrimitiveInfo() << "Attribute count discrepancy:"
                           << "num vertices: " << res.VertexCount << ", "
                           << "num normals:" << normalAccessor->count << '\n';
             }
 
             const size_t count = std::min<size_t>(normalAccessor->count, res.VertexCount);
 
-            cgltf_accessor_unpack_floats(normalAccessor,
-                                     reinterpret_cast<float *>(res.Normals.data()),
-                                    3 * count);
+            cgltf_accessor_unpack_floats(
+                normalAccessor, reinterpret_cast<float *>(res.Normals.data()), 3 * count);
 
-            for (auto& v : res.Normals)
+            for (auto &v : res.Normals)
             {
                 const float tolerance = 0.01f;
-                float len = glm::length(v);
+                float       len       = glm::length(v);
 
                 if (len < tolerance)
                 {
@@ -696,8 +686,8 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
                 if (std::abs(len - 1.0f) > tolerance)
                 {
                     std::cerr << GetPrimitiveInfo()
-                              << "Provided normal vector is not normalized:" << v.x
-                              << " " << v.y << " " << v.z << '\n';
+                              << "Provided normal vector is not normalized:" << v.x << " "
+                              << v.y << " " << v.z << '\n';
                 }
 
                 // Renormalize anyway just to be sure:
@@ -723,22 +713,22 @@ PrimitiveData GltfAsset::LoadPrimitive(PrimitiveTaskData data, const ModelConfig
 
             if (tangentAccessor->count != res.VertexCount)
             {
-                std::cerr << GetPrimitiveInfo()
-                          << "Attribute count discrepancy:"
+                std::cerr << GetPrimitiveInfo() << "Attribute count discrepancy:"
                           << "num vertices: " << res.VertexCount << ", "
                           << "num tangents:" << tangentAccessor->count << '\n';
             }
 
-            const size_t count = std::min<size_t>(tangentAccessor->count, res.VertexCount);
+            const size_t count =
+                std::min<size_t>(tangentAccessor->count, res.VertexCount);
 
             cgltf_accessor_unpack_floats(tangentAccessor,
-                                          reinterpret_cast<float *>(res.Tangents.data()),
-                                          4 * count);
+                                         reinterpret_cast<float *>(res.Tangents.data()),
+                                         4 * count);
 
-            for (auto& v : res.Tangents)
+            for (auto &v : res.Tangents)
             {
                 const float tolerance = 0.01f;
-                float len = glm::length(glm::vec3(v));
+                float       len       = glm::length(glm::vec3(v));
 
                 if (len < tolerance)
                 {

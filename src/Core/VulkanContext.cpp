@@ -426,7 +426,7 @@ void VulkanContext::CreateSwapchain(bool firstRun)
 
     for (uint32_t index = 0; index < imageCount; index++)
     {
-        auto image = mExtraData->Swapchain.pSwapChainImages[index];
+        auto image             = mExtraData->Swapchain.pSwapChainImages[index];
         SwapchainImages[index] = image;
     }
 
@@ -442,12 +442,12 @@ void VulkanContext::CreateSwapchain(bool firstRun)
         imageViewInfo.subresourceRange.levelCount     = 1;
         imageViewInfo.subresourceRange.baseArrayLayer = 0;
         imageViewInfo.subresourceRange.layerCount     = 1;
-    
+
         auto ret = vkCreateImageView(Device, &imageViewInfo, nullptr,
                                      &SwapchainImageViews[index]);
-    
+
         vassert(ret == VK_SUCCESS);
-    }    
+    }
 #else
 
     if (!firstRun)

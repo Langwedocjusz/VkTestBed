@@ -5,6 +5,7 @@
 #include "Descriptor.h"
 #include "MakeImage.h"
 #include "Sampler.h"
+#include "VkUtils.h"
 
 #include "imgui.h"
 
@@ -286,14 +287,9 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         mFinalPipeline.BindDescriptorSet(cmd, mFinalDescriptorSet, 0);
 
         PCDataFinal pcData{
-            .BloomEnabled  = static_cast<int32_t>(mBloomEnabled),
-            .BloomStrength = mBloomStrength,
-// TODO: This is a bit cursed:
-#ifdef VULKAN_ON_DXGI
-            .AdditionalColorCorrect = 1,
-#else
-            .AdditionalColorCorrect = 0,
-#endif
+            .BloomEnabled           = static_cast<int32_t>(mBloomEnabled),
+            .BloomStrength          = mBloomStrength,
+            .AdditionalColorCorrect = !vkutils::IsFormatSRGB(mCtx.Swapchain->Format),
         };
         mFinalPipeline.PushConstants(cmd, pcData);
 

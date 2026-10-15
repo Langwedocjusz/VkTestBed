@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Frame.h"
+#include "Swapchain.h"
 #include "SystemWindow.h"
 
 #include "vk_mem_alloc.h"
@@ -15,27 +16,12 @@ enum class QueueType
     Present
 };
 
-struct PresentationInfo {
-    VkSemaphore WaitSemaphore   = VK_NULL_HANDLE;
-    uint64_t    WaitValue       = 0;
-    VkSemaphore SubmitSemaphore = VK_NULL_HANDLE;
-    uint64_t    SubmitValue     = 0;
-};
-
 class VulkanContext {
   public:
-    VulkanContext(uint32_t width, uint32_t height, const std::string &appName,
-                  SystemWindow &window);
+    VulkanContext(SystemWindow &window);
     ~VulkanContext();
 
-    void CreateSwapchain(bool firstRun = false);
     void ImmediateSubmitGraphics(std::function<void(VkCommandBuffer)> &&function);
-
-    PresentationInfo AcquireSwapchainImage([[maybe_unused]] FrameResources &frameData,
-                                           [[maybe_unused]] uint32_t       &imageIndex);
-
-    void Present([[maybe_unused]] SwapchainResources &swapResources,
-                 [[maybe_unused]] uint32_t           &imageIndex);
 
   public:
     VkInstance       Instance;
@@ -56,16 +42,7 @@ class VulkanContext {
     VmaAllocator Allocator;
 
     VkSurfaceKHR Surface;
-
-    VkFormat   SwapchainFormat;
-    VkExtent2D SwapchainExtent;
-
-    std::vector<VkImage>     SwapchainImages;
-    std::vector<VkImageView> SwapchainImageViews;
-
-    bool     SwapchainOk = true;
-    uint32_t RequestedWidth;
-    uint32_t RequestedHeight;
+    std::unique_ptr<Swapchain> Swapchain;
 
     struct {
         bool  Timestamps         = false;

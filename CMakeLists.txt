@@ -136,6 +136,8 @@ target_sources(${PROJECT_NAME}
         src/Core/VulkanContext.cpp
         src/Core/VulkanStatistics.h
         src/Core/VulkanStatistics.cpp
+	src/Core/Swapchain.h
+	src/Core/Swapchain.cpp
         src/Cpp/Vassert.h
         src/Cpp/Vassert.cpp
         src/Cpp/Bitflags.h

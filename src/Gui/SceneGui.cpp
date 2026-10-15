@@ -54,9 +54,8 @@ SceneGui::SceneGui(SceneEditor &editor, const Camera &camera)
 
     mHdriBrowser.SetCallbackFn([&]() { mEditor.SetHdri(mHdriBrowser.ChosenFile); });
 
-    mHdriBrowser.SetCheckFn([](const std::string &path) {
-        return Path(path).IsRegularFile();
-    });
+    mHdriBrowser.SetCheckFn(
+        [](const std::string &path) { return Path(path).IsRegularFile(); });
 }
 
 void SceneGui::OnImGui()
@@ -481,7 +480,8 @@ std::string SceneGui::GetMaterialName(std::optional<SceneKey> key,
 
     const auto &imgStr = mEditor.GetImage(*key).Name;
 
-    std::string name = "(" + std::to_string(*key) + ") " + imgStr + " ##" + std::string(postfix);
+    std::string name =
+        "(" + std::to_string(*key) + ") " + imgStr + " ##" + std::string(postfix);
     return name;
 }
 

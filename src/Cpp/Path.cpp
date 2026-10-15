@@ -4,11 +4,11 @@
 #include <chrono>
 #include <filesystem>
 
-// NOTE: This is technically UB, as casting char* to char8_t* 
+// NOTE: This is technically UB, as casting char* to char8_t*
 // violates strict aliasing rules:
-std::u8string_view Utf8FromString(const std::string& str)
+std::u8string_view Utf8FromString(const std::string &str)
 {
-    return {reinterpret_cast<const char8_t*>(str.data()), str.size()};
+    return {reinterpret_cast<const char8_t *>(str.data()), str.size()};
 }
 
 // NOTE: But this one is fine as char* can point to anything:
@@ -43,13 +43,12 @@ Path::~Path()
 {
 }
 
-Path::Path(const Path &other) 
-    : mImpl(std::make_unique<Impl>())
+Path::Path(const Path &other) : mImpl(std::make_unique<Impl>())
 {
     mImpl->Path = other.mImpl->Path;
 }
 
-Path &Path::operator=(const Path &other) 
+Path &Path::operator=(const Path &other)
 {
     if (this == &other)
         return *this;
@@ -66,7 +65,7 @@ Path &Path::operator=(const Path &other)
     return *this;
 }
 
-Path::Path(Path &&) noexcept = default;
+Path::Path(Path &&) noexcept            = default;
 Path &Path::operator=(Path &&) noexcept = default;
 
 std::u8string Path::U8String() const
@@ -77,7 +76,7 @@ std::u8string Path::U8String() const
 std::string Path::String() const
 {
     auto u8str = mImpl->Path.u8string();
-    return {reinterpret_cast<const char*>(u8str.c_str()), u8str.size()};
+    return {reinterpret_cast<const char *>(u8str.c_str()), u8str.size()};
 }
 
 std::string Path::Filename() const
@@ -106,7 +105,7 @@ Path Path::Parent() const
     return ret;
 }
 
-Path Path::Relative(const Path& base) const
+Path Path::Relative(const Path &base) const
 {
     Path ret{};
     ret.mImpl->Path = std::filesystem::relative(mImpl->Path, base.mImpl->Path);
@@ -133,7 +132,7 @@ int64_t Path::LastWriteTime() const
 {
     using namespace std::chrono;
 
-    auto tp = std::filesystem::last_write_time(mImpl->Path);
+    auto tp  = std::filesystem::last_write_time(mImpl->Path);
     auto sys = clock_cast<system_clock>(tp);
     return duration_cast<microseconds>(sys.time_since_epoch()).count();
 }
@@ -145,11 +144,11 @@ void Path::CreateDirectory() const
 
 std::ifstream Path::Open() const
 {
-    std::ifstream ret{ mImpl->Path };
+    std::ifstream ret{mImpl->Path};
     return ret;
 }
 
-Path operator/(const Path &lhs, const Path&rhs)
+Path operator/(const Path &lhs, const Path &rhs)
 {
     Path ret{};
     ret.mImpl->Path = lhs.mImpl->Path / rhs.mImpl->Path;
@@ -161,7 +160,6 @@ bool operator==(const Path &lhs, const Path &rhs)
 {
     return lhs.mImpl == rhs.mImpl;
 }
-
 
 // === Implementation of the Directory Iterator: =======================================
 // TODO: Implementations of recursive and non-recursive variants are blatant copies.
@@ -220,9 +218,8 @@ bool DirectoryIterator::operator!=(const DirectoryIterator &other) const
     return mImpl != other.mImpl;
 }
 
-
-
-// === Implementation of the Recursive Directory Iterator: =======================================
+// === Implementation of the Recursive Directory Iterator:
+// =======================================
 
 struct RecursiveDirectoryIterator::Impl {
     std::filesystem::recursive_directory_iterator Iter;
@@ -232,7 +229,8 @@ RecursiveDirectoryIterator::RecursiveDirectoryIterator() : mImpl(nullptr)
 {
 }
 
-RecursiveDirectoryIterator::RecursiveDirectoryIterator(const Path &path) : mImpl(std::make_unique<Impl>())
+RecursiveDirectoryIterator::RecursiveDirectoryIterator(const Path &path)
+    : mImpl(std::make_unique<Impl>())
 {
     mImpl->Iter = std::filesystem::recursive_directory_iterator(path.mImpl->Path);
 }
@@ -241,8 +239,10 @@ RecursiveDirectoryIterator::~RecursiveDirectoryIterator()
 {
 }
 
-RecursiveDirectoryIterator::RecursiveDirectoryIterator(RecursiveDirectoryIterator &&) noexcept            = default;
-RecursiveDirectoryIterator &RecursiveDirectoryIterator::operator=(RecursiveDirectoryIterator &&) noexcept = default;
+RecursiveDirectoryIterator::RecursiveDirectoryIterator(
+    RecursiveDirectoryIterator &&) noexcept = default;
+RecursiveDirectoryIterator &RecursiveDirectoryIterator::operator=(
+    RecursiveDirectoryIterator &&) noexcept = default;
 
 Path RecursiveDirectoryIterator::operator*() const
 {

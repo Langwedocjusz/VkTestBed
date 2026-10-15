@@ -19,7 +19,8 @@ class SystemWindow {
     using EventHandlerFn = void (*)(void *, Event::EventVariant);
 
   public:
-    SystemWindow(uint32_t width, uint32_t height, const std::string &title, void *usr_ptr);
+    SystemWindow(uint32_t width, uint32_t height, const std::string &title,
+                 void *usr_ptr);
     ~SystemWindow();
 
     void SetEventCallback(EventHandlerFn callback);
@@ -47,7 +48,7 @@ class SystemWindow {
 #ifdef VULKAN_ON_DXGI
     HWND GetNativeHandle();
 #endif
-public:
+  public:
     const std::string Title;
 
   private:

@@ -1,11 +1,11 @@
 #pragma once
 
+#include <fstream>
 #include <memory>
 #include <string>
 #include <string_view>
-#include <fstream>
 
-std::u8string_view Utf8FromString(const std::string& str);
+std::u8string_view Utf8FromString(const std::string &str);
 
 std::string_view CharFromUtf8String(const std::u8string &u8str);
 
@@ -39,7 +39,7 @@ class Path {
 
     [[nodiscard]] Path Parent() const;
     // Returns this path, reltive to base one:
-    [[nodiscard]] Path Relative(const Path& base) const;
+    [[nodiscard]] Path Relative(const Path &base) const;
 
     [[nodiscard]] bool Exists() const;
     [[nodiscard]] bool IsRegularFile() const;
@@ -65,7 +65,7 @@ class Path {
     [[nodiscard]] std::ifstream Open() const;
 
     // Wrappers around operator overloads for paths:
-    friend Path operator/(const Path &lhs, const Path&rhs);
+    friend Path operator/(const Path &lhs, const Path &rhs);
     friend bool operator==(const Path &lhs, const Path &rhs);
 
   private:
@@ -131,8 +131,8 @@ class RecursiveDirectoryIterator {
     RecursiveDirectoryIterator &operator=(RecursiveDirectoryIterator &&) noexcept;
 
     RecursiveDirectoryIterator &operator++();
-    Path               operator*() const;
-    bool               operator!=(const RecursiveDirectoryIterator &other) const;
+    Path                        operator*() const;
+    bool                        operator!=(const RecursiveDirectoryIterator &other) const;
 
   private:
     struct Impl;

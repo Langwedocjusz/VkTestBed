@@ -232,8 +232,7 @@ ImageData ImageData::ImportImage(const std::string &path, bool unorm)
                                                    &channels, STBI_rgb_alpha);
 
         vassert(pixels != nullptr,
-                std::format("Failed to load texture image. Filepath: {}",
-                            path.c_str()));
+                std::format("Failed to load texture image. Filepath: {}", path.c_str()));
 
         res.Width  = width;
         res.Height = height;

@@ -3,8 +3,8 @@
 
 #include "Vassert.h"
 
-#include "volk.h"
 #include "VkBootstrap.h"
+#include "volk.h"
 
 // === DXGI interop swapchain implementation: ========
 
@@ -15,12 +15,12 @@
 #define DX_SWAP_VK_IMPLEMENTATION
 #include "vk_dxgi.h"
 
-static void* dxgiAlloc(size_t size, size_t alignment, void*)
+static void *dxgiAlloc(size_t size, size_t alignment, void *)
 {
     return _aligned_malloc(size, alignment);
 }
 
-static void dxgiFree(void* address, void*)
+static void dxgiFree(void *address, void *)
 {
     _aligned_free(address);
 }
@@ -34,12 +34,12 @@ struct Swapchain::DxgiContext {
 };
 
 struct Swapchain::DxgiImpl {
-    dvk_dxgiSwapChain_t     Swapchain;
-    dvk_swapChainInfo_t     Info;
+    dvk_dxgiSwapChain_t Swapchain;
+    dvk_swapChainInfo_t Info;
     // Presentation info returned
     // by last frame's acquire image:
-    dvk_presentationInfo_t  LastPresentInfo;
-    bool                    UsesBlit;
+    dvk_presentationInfo_t LastPresentInfo;
+    bool                   UsesBlit;
 
     DxgiImpl(Swapchain::DxgiContext &ctx, VkExtent2D extent, bool useBlit)
         : UsesBlit(useBlit)
@@ -91,7 +91,7 @@ struct Swapchain::DxgiImpl {
     }
 };
 
-void Swapchain::InitDxgi(SystemWindow& window)
+void Swapchain::InitDxgi(SystemWindow &window)
 {
     vassert(mDxgiCtx == nullptr);
 
@@ -212,13 +212,13 @@ void Swapchain::RecreateDxgi(VkExtent2D extent)
 
     Format = mDxgiImpl->Info.format;
     Extent = extent;
-    
+
     Images.resize(imageCount);
     ImageViews.resize(imageCount);
 
     for (uint32_t index = 0; index < imageCount; index++)
     {
-        auto image = mDxgiImpl->Swapchain.pSwapChainImages[index];
+        auto image    = mDxgiImpl->Swapchain.pSwapChainImages[index];
         Images[index] = image;
     }
 
@@ -237,8 +237,8 @@ void Swapchain::RecreateDxgi(VkExtent2D extent)
             .layerCount     = 1,
         };
 
-        auto ret = vkCreateImageView(mCtx.Device, &imageViewInfo, nullptr,
-            &ImageViews[index]);
+        auto ret =
+            vkCreateImageView(mCtx.Device, &imageViewInfo, nullptr, &ImageViews[index]);
 
         vassert(ret == VK_SUCCESS);
     }
@@ -254,7 +254,7 @@ PresentationInfo Swapchain::AcquireDxgi(uint32_t &imageIndex)
         Ok = false;
     }
 
-    imageIndex = presentationInfo.imageIndex;
+    imageIndex                 = presentationInfo.imageIndex;
     mDxgiImpl->LastPresentInfo = presentationInfo;
 
     return PresentationInfo{
@@ -267,7 +267,7 @@ PresentationInfo Swapchain::AcquireDxgi(uint32_t &imageIndex)
 
 void Swapchain::PresentDxgi()
 {
-    auto& presentInfo = mDxgiImpl->LastPresentInfo;
+    auto &presentInfo = mDxgiImpl->LastPresentInfo;
 
     dvk_presentParameters_t params{};
 
@@ -293,26 +293,20 @@ void Swapchain::PresentDxgi()
 struct Swapchain::NativeImpl {
     vkb::Swapchain Swapchain;
 
-    NativeImpl(Swapchain::Context& ctx, VkExtent2D extent, VkPresentModeKHR presentMode)
+    NativeImpl(Swapchain::Context &ctx, VkExtent2D extent, VkPresentModeKHR presentMode)
     {
         // To manually specify format:
         //.set_desired_format(VkSurfaceFormatKHR)
 
-        auto builder = vkb::SwapchainBuilder(
-            ctx.PhysicalDevice,
-            ctx.Device,
-            ctx.Surface,
-            ctx.GraphicsQueueIdx,
-            ctx.PresentQueueIdx
-        );
+        auto builder = vkb::SwapchainBuilder(ctx.PhysicalDevice, ctx.Device, ctx.Surface,
+                                             ctx.GraphicsQueueIdx, ctx.PresentQueueIdx);
 
-        auto swapRet = builder
-            .set_old_swapchain(Swapchain)
-            .set_desired_extent(extent.width, extent.height)
-            .set_desired_present_mode(presentMode)
-            // To enable blit from secondary render target:
-            .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-            .build();
+        auto swapRet = builder.set_old_swapchain(Swapchain)
+                           .set_desired_extent(extent.width, extent.height)
+                           .set_desired_present_mode(presentMode)
+                           // To enable blit from secondary render target:
+                           .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+                           .build();
 
         if (!swapRet.has_value())
             vpanic(swapRet.error().message());
@@ -343,17 +337,15 @@ void Swapchain::RecreateNative(VkExtent2D extent)
     Format = mNativeImpl->Swapchain.image_format;
     Extent = extent;
 
-    Images = mNativeImpl->Swapchain.get_images().value();
+    Images     = mNativeImpl->Swapchain.get_images().value();
     ImageViews = mNativeImpl->Swapchain.get_image_views().value();
 }
 
-PresentationInfo Swapchain::AcquireNative(FrameResources& frameData, uint32_t& imageIndex)
+PresentationInfo Swapchain::AcquireNative(FrameResources &frameData, uint32_t &imageIndex)
 {
-    VkResult result = vkAcquireNextImageKHR(
-        mCtx.Device, mNativeImpl->Swapchain,
-        UINT64_MAX, frameData.ImageAcquiredSemaphore,
-        VK_NULL_HANDLE, &imageIndex
-    );
+    VkResult result = vkAcquireNextImageKHR(mCtx.Device, mNativeImpl->Swapchain,
+                                            UINT64_MAX, frameData.ImageAcquiredSemaphore,
+                                            VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
@@ -367,15 +359,15 @@ PresentationInfo Swapchain::AcquireNative(FrameResources& frameData, uint32_t& i
     return {};
 }
 
-void Swapchain::PresentNative(SwapchainResources& swapResources, uint32_t& imageIndex)
+void Swapchain::PresentNative(SwapchainResources &swapResources, uint32_t &imageIndex)
 {
-    VkPresentInfoKHR present_info = {};
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    VkPresentInfoKHR present_info   = {};
+    present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = &swapResources.RenderCompletedSemaphore;
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = &mNativeImpl->Swapchain.swapchain;
-    present_info.pImageIndices = &imageIndex;
+    present_info.pWaitSemaphores    = &swapResources.RenderCompletedSemaphore;
+    present_info.swapchainCount     = 1;
+    present_info.pSwapchains        = &mNativeImpl->Swapchain.swapchain;
+    present_info.pImageIndices      = &imageIndex;
 
     VkResult result = vkQueuePresentKHR(mCtx.PresentQueueHandle, &present_info);
 
@@ -400,23 +392,18 @@ void Swapchain::DestroyImageViews()
     ImageViews.clear();
 }
 
-
 // === Common wrapper around both: ===================
 
-Swapchain::Swapchain(SystemWindow& window,
-    VkPhysicalDevice physicalDevice,
-    VkDevice device,
-    VkSurfaceKHR surface,
-    uint32_t graphicsQueueIdx,
-    uint32_t presentQueueIdx,
-    VkQueue presentQueueHandle)
+Swapchain::Swapchain(SystemWindow &window, VkPhysicalDevice physicalDevice,
+                     VkDevice device, VkSurfaceKHR surface, uint32_t graphicsQueueIdx,
+                     uint32_t presentQueueIdx, VkQueue presentQueueHandle)
 {
     mCtx = {
-        .PhysicalDevice = physicalDevice,
-        .Device = device,
-        .Surface = surface,
-        .GraphicsQueueIdx = graphicsQueueIdx,
-        .PresentQueueIdx = presentQueueIdx,
+        .PhysicalDevice     = physicalDevice,
+        .Device             = device,
+        .Surface            = surface,
+        .GraphicsQueueIdx   = graphicsQueueIdx,
+        .PresentQueueIdx    = presentQueueIdx,
         .PresentQueueHandle = presentQueueHandle,
     };
 
@@ -424,25 +411,25 @@ Swapchain::Swapchain(SystemWindow& window,
         int32_t width, height;
         window.GetWindowSize(width, height);
 
-        Cfg.RequestedWidth = width;
+        Cfg.RequestedWidth  = width;
         Cfg.RequestedHeight = height;
     }
 
-    #ifdef VULKAN_ON_DXGI
+#ifdef VULKAN_ON_DXGI
     InitDxgi(window);
-    #endif
+#endif
 }
 
 Swapchain::~Swapchain()
 {
     mNativeImpl.reset();
 
-    #ifdef VULKAN_ON_DXGI
+#ifdef VULKAN_ON_DXGI
     {
         mDxgiImpl.reset();
         dvk_destroyDevice(mDxgiCtx->Context);
     }
-    #endif
+#endif
 
     DestroyImageViews();
 }
@@ -450,11 +437,11 @@ Swapchain::~Swapchain()
 void Swapchain::Recreate()
 {
     VkExtent2D extent{
-        .width = Cfg.RequestedWidth,
+        .width  = Cfg.RequestedWidth,
         .height = Cfg.RequestedHeight,
     };
 
-    #ifdef VULKAN_ON_DXGI
+#ifdef VULKAN_ON_DXGI
     if (Cfg.UseDxgi)
     {
         mNativeImpl.reset();
@@ -465,12 +452,12 @@ void Swapchain::Recreate()
         mDxgiImpl.reset();
         RecreateNative(extent);
     }
-    #else
+#else
     RecreateNative(extent);
-    #endif
+#endif
 }
 
-PresentationInfo Swapchain::Acquire(FrameResources& frameData, uint32_t& imageIndex)
+PresentationInfo Swapchain::Acquire(FrameResources &frameData, uint32_t &imageIndex)
 {
     if (Ok)
     {
@@ -478,12 +465,12 @@ PresentationInfo Swapchain::Acquire(FrameResources& frameData, uint32_t& imageIn
         {
             return AcquireNative(frameData, imageIndex);
         }
-        #ifdef VULKAN_ON_DXGI
+#ifdef VULKAN_ON_DXGI
         else if (mDxgiImpl)
         {
             return AcquireDxgi(imageIndex);
         }
-        #endif
+#endif
         else
         {
             vpanic("No swapchain implementation ready to acquire image!");
@@ -493,38 +480,38 @@ PresentationInfo Swapchain::Acquire(FrameResources& frameData, uint32_t& imageIn
     return {};
 }
 
-void Swapchain::Present(SwapchainResources& swapResources, uint32_t& imageIndex)
+void Swapchain::Present(SwapchainResources &swapResources, uint32_t &imageIndex)
 {
     if (mNativeImpl)
     {
         return PresentNative(swapResources, imageIndex);
     }
-    #ifdef VULKAN_ON_DXGI
+#ifdef VULKAN_ON_DXGI
     else if (mDxgiImpl)
     {
         return PresentDxgi();
     }
-    #endif
+#endif
     else
     {
         vpanic("No swapchain implementation ready to present!");
     }
 }
 
-std::vector<const char*> Swapchain::GetRequiredInstanceExtensions()
+std::vector<const char *> Swapchain::GetRequiredInstanceExtensions()
 {
-    #ifdef VULKAN_ON_DXGI
-    return { "VK_KHR_win32_surface" };
-    #else
+#ifdef VULKAN_ON_DXGI
+    return {"VK_KHR_win32_surface"};
+#else
     return {};
-    #endif
+#endif
 }
 
-std::span<const char*> Swapchain::GetRequiredDeviceExtensions()
+std::span<const char *> Swapchain::GetRequiredDeviceExtensions()
 {
-    #ifdef VULKAN_ON_DXGI
+#ifdef VULKAN_ON_DXGI
     return dvk_required_vulkan_extensions;
-    #else
+#else
     return {};
-    #endif
+#endif
 }

@@ -128,58 +128,60 @@ void RenderContext::OnUpdate(float deltaTime)
 
 void RenderContext::OnImGui()
 {
-    {
-        ImGui::Begin("Swapchain");
-
-        #ifdef VULKAN_ON_DXGI
-        static std::array<const char*, 2> optNames{
-            "DXGI", "NATIVE"
-        };
-
-        static int32_t choice = 0;
-
-        imutils::Combo("Swapchain Variant", choice, optNames);
-
-        if (choice == 0)
-        {
-            mCtx.Swapchain->Cfg.UseDxgi = true;
-            ImGui::Checkbox("Use Blit", &mCtx.Swapchain->Cfg.Dxgi.UseBlit);
-        }
-        else  
-        {
-            mCtx.Swapchain->Cfg.UseDxgi = false;
-
-            static std::array<const char*, 2> optNames{
-                "FIFO", "MAILBOX"
-            };
-
-            static std::array<VkPresentModeKHR, 2> opts{
-                VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR
-            };
-
-            static int32_t choice = 0;
-
-            imutils::Combo("Present Mode", choice, optNames);
-
-            mCtx.Swapchain->Cfg.Native.PresentMode = opts[choice];
-        }
-        #else   
-        // TODO: IMPLEMENT THIS !!!!!!!!!!!!!!!!!!!!!!!!
-        #endif
-
-        if (ImGui::Button("Recreate"))
-        {
-            ResizeSwapchain();
-        }
-
-        ImGui::End();
-    }
-    
+    GuiSwapchain();
 
     mRenderer->OnImGui();
 
     if (mShowStats)
         imutils::DisplayStats(mFrameInfo.Stats);
+}
+
+void RenderContext::GuiSwapchain()
+{
+    ImGui::Begin("Swapchain");
+
+#ifdef VULKAN_ON_DXGI
+    static int32_t choice = 0;
+
+    static std::array optNames{"DXGI", "NATIVE"};
+
+    imutils::Combo("Swapchain Variant", choice, optNames);
+
+    if (choice == 0)
+    {
+        mCtx.Swapchain->Cfg.UseDxgi = true;
+        ImGui::Checkbox("Use Blit", &mCtx.Swapchain->Cfg.Dxgi.UseBlit);
+    }
+    else
+    {
+        mCtx.Swapchain->Cfg.UseDxgi = false;
+
+        GuiSwapchainNative();
+    }
+#else
+    GuiSwapchainNative();
+#endif
+
+    if (ImGui::Button("Recreate"))
+    {
+        ResizeSwapchain();
+    }
+
+    ImGui::End();
+}
+
+void RenderContext::GuiSwapchainNative()
+{
+    static constexpr std::array opts{VK_PRESENT_MODE_FIFO_KHR,
+                                     VK_PRESENT_MODE_MAILBOX_KHR};
+
+    static std::array optNames{"FIFO", "MAILBOX"};
+
+    static int32_t choice = 0;
+
+    imutils::Combo("Present Mode", choice, optNames);
+
+    mCtx.Swapchain->Cfg.Native.PresentMode = opts[choice];
 }
 
 void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj)
@@ -216,19 +218,19 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     VkTimelineSemaphoreSubmitInfo timelineInfo = {};
 
     if (mCtx.Swapchain->IsDxgi())
-    {    
+    {
         timelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-        timelineInfo.waitSemaphoreValueCount = 1;
-        timelineInfo.pWaitSemaphoreValues = &presentInfo.WaitValue;
+        timelineInfo.waitSemaphoreValueCount   = 1;
+        timelineInfo.pWaitSemaphoreValues      = &presentInfo.WaitValue;
         timelineInfo.signalSemaphoreValueCount = 1;
-        timelineInfo.pSignalSemaphoreValues = &presentInfo.SubmitValue;
+        timelineInfo.pSignalSemaphoreValues    = &presentInfo.SubmitValue;
 
         submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = &presentInfo.WaitSemaphore;
-        submitInfo.pWaitDstStageMask = &waitStage;
+        submitInfo.pWaitSemaphores    = &presentInfo.WaitSemaphore;
+        submitInfo.pWaitDstStageMask  = &waitStage;
 
         submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &presentInfo.SubmitSemaphore;
+        submitInfo.pSignalSemaphores    = &presentInfo.SubmitSemaphore;
 
         submitInfo.pNext = &timelineInfo;
     }
@@ -238,11 +240,11 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
         (void)presentInfo;
 
         submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = &frameData.ImageAcquiredSemaphore;
-        submitInfo.pWaitDstStageMask = &waitStage;
+        submitInfo.pWaitSemaphores    = &frameData.ImageAcquiredSemaphore;
+        submitInfo.pWaitDstStageMask  = &waitStage;
 
         submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &swapchainData.RenderCompletedSemaphore;
+        submitInfo.pSignalSemaphores    = &swapchainData.RenderCompletedSemaphore;
     }
 
     auto submitRes = vkQueueSubmit(mCtx.Queues.Graphics.Handle, 1, &submitInfo,

@@ -2,10 +2,10 @@
 #include "Pch.h"
 
 #include "Frame.h"
+#include "Swapchain.h"
 #include "Vassert.h"
 #include "VkInit.h"
 #include "VkUtils.h"
-#include "Swapchain.h"
 
 #include "VkBootstrap.h"
 
@@ -36,7 +36,7 @@ VulkanContext::VulkanContext(SystemWindow &window)
                            .build()
                            .value();
 
-    mExtraData = std::make_unique<ExtraData>();
+    mExtraData           = std::make_unique<ExtraData>();
     mExtraData->Instance = vkbInstance;
 
     Instance = vkbInstance.instance;
@@ -174,15 +174,9 @@ VulkanContext::VulkanContext(SystemWindow &window)
     }
 
     // Swapchain creation:
-    Swapchain = std::make_unique<::Swapchain>(
-        window,
-        PhysicalDevice,
-        Device,
-        Surface,
-        Queues.Graphics.Index,
-        Queues.Present.Index,
-        Queues.Present.Handle
-    );
+    Swapchain = std::make_unique<::Swapchain>(window, PhysicalDevice, Device, Surface,
+                                              Queues.Graphics.Index, Queues.Present.Index,
+                                              Queues.Present.Handle);
     Swapchain->Recreate();
 
     // Retrieve info about optional features:

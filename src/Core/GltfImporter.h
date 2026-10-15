@@ -28,7 +28,7 @@ struct PrimitiveData {
 
 struct ImageTaskData {
     SceneKey                   ImageKey;
-    std::optional<std::string> Path;      // Utf8 encoded
+    std::optional<std::string> Path; // Utf8 encoded
     Pixel                      BaseColor;
     std::string                Name;
     bool                       Unorm;

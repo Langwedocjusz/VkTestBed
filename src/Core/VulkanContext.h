@@ -41,7 +41,7 @@ class VulkanContext {
 
     VmaAllocator Allocator;
 
-    VkSurfaceKHR Surface;
+    VkSurfaceKHR               Surface;
     std::unique_ptr<Swapchain> Swapchain;
 
     struct {

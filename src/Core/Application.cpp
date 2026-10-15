@@ -49,9 +49,9 @@ class Application::Impl {
 };
 
 Application::Impl::Impl()
-    : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
-      mCtx(mWindow), mRender(mCtx, mCamera), mSceneEditor(mScene),
-      mSceneGui(mSceneEditor, mCamera), mShaderManager("assets/shaders", "assets/spirv")
+    : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)), mCtx(mWindow),
+      mRender(mCtx, mCamera), mSceneEditor(mScene), mSceneGui(mSceneEditor, mCamera),
+      mShaderManager("assets/shaders", "assets/spirv")
 {
     mWindow.SetEventCallback([](void *usrPtr, Event::EventVariant event) {
         auto app = static_cast<Impl *>(usrPtr);
@@ -152,7 +152,7 @@ void Application::Impl::OnEvent(Event::EventVariant event)
     {
         auto resize = std::get<Event::FramebufferResize>(event);
 
-        auto& swapchain = *mCtx.Swapchain;
+        auto &swapchain = *mCtx.Swapchain;
 
         swapchain.Cfg.RequestedWidth  = resize.Width;
         swapchain.Cfg.RequestedHeight = resize.Height;

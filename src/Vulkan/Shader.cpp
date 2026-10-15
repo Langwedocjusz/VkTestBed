@@ -19,13 +19,15 @@ static std::vector<uint32_t> ReadSpirvBinary(const std::string &filename)
 
     if (file_size % sizeof(uint32_t) != 0)
     {
-        vpanic("File: " + filename + " has invalid spirv. Size is " + std::to_string(file_size) + "bytes. Should be divisible by 4.");
+        vpanic("File: " + filename + " has invalid spirv. Size is " +
+               std::to_string(file_size) + "bytes. Should be divisible by 4.");
     }
 
     std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
 
     file.seekg(0);
-    file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(file_size));
+    file.read(reinterpret_cast<char *>(buffer.data()),
+              static_cast<std::streamsize>(file_size));
 
     return buffer;
 }

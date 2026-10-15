@@ -15,7 +15,8 @@
 
 class UpdateListener : public efsw::FileWatchListener {
   public:
-    UpdateListener([[maybe_unused]] std::function<void()> callback) : mCallback(std::move(callback))
+    UpdateListener([[maybe_unused]] std::function<void()> callback)
+        : mCallback(std::move(callback))
     {
     }
 
@@ -28,7 +29,7 @@ class UpdateListener : public efsw::FileWatchListener {
         (void)filename;
         (void)action;
         (void)oldFilename;
-        
+
         switch (action)
         {
         case efsw::Actions::Modified:
@@ -51,7 +52,7 @@ ShaderManager::ShaderManager(const std::string &srcDir, const std::string &byteD
     // Create bytecode dir if it doesn't already exist:
     mBytecodeDir.CreateDirectory();
 
-    for (auto subdir: RecursiveDirectoryRange(mSourceDir)) 
+    for (auto subdir : RecursiveDirectoryRange(mSourceDir))
     {
         if (!subdir.IsDirectory())
             continue;
@@ -65,8 +66,9 @@ ShaderManager::ShaderManager(const std::string &srcDir, const std::string &byteD
     CompileToBytecode();
 
     // Setup directory watcher:
-    mFileWatcher    = std::make_unique<efsw::FileWatcher>();
-    mUpdateListener = std::make_unique<UpdateListener>([this]() { mCompilationScheduled = true; });
+    mFileWatcher = std::make_unique<efsw::FileWatcher>();
+    mUpdateListener =
+        std::make_unique<UpdateListener>([this]() { mCompilationScheduled = true; });
 
     mFileWatcher->addWatch(srcDir, mUpdateListener.get(), true);
     mFileWatcher->watch();
@@ -84,8 +86,8 @@ std::optional<Path> ShaderManager::GetDstPath(Path &src)
     auto parentPath    = src.Parent();
     auto relParentPath = parentPath.Relative(mSourceDir);
 
-    auto extension = src.Extension();
-    std::string filename = src.Stem();
+    auto        extension = src.Extension();
+    std::string filename  = src.Stem();
 
     if (extension == ".vert")
         filename += "Vert.spv";
@@ -107,14 +109,14 @@ static std::string GetFilename(const std::string &includeLine)
     return includeLine.substr(first + 1, last - first - 1);
 }
 
-static std::vector<size_t> GetIncludedFileIds(
-    Path &srcDir, const std::vector<Path> &fileList,
-    size_t id)
+static std::vector<size_t> GetIncludedFileIds(Path                    &srcDir,
+                                              const std::vector<Path> &fileList,
+                                              size_t                   id)
 {
     std::vector<size_t> res;
 
     const auto &path = fileList.at(id);
-    auto file        = path.Open();
+    auto        file = path.Open();
 
     const std::regex incRegex("[[:blank:]]*#[[:blank:]]*include[[:blank:]]+\".*\"");
 
@@ -163,7 +165,7 @@ void ShaderManager::CompileToBytecode()
     // Retrieve shader source file list:
     std::vector<Path> fileList;
 
-    for (auto&& dir : RecursiveDirectoryRange(mSourceDir))
+    for (auto &&dir : RecursiveDirectoryRange(mSourceDir))
     {
         if (dir.IsRegularFile())
         {

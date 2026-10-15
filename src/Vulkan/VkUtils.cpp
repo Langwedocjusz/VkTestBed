@@ -35,6 +35,56 @@ VkImageAspectFlags vkutils::GetDefaultAspect(VkFormat format)
     return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
+bool vkutils::IsFormatSRGB(VkFormat format)
+{
+    static constexpr std::array srgbFormats{
+        VK_FORMAT_R8_SRGB,
+        VK_FORMAT_R8G8_SRGB,
+        VK_FORMAT_R8G8B8_SRGB,
+        VK_FORMAT_B8G8R8_SRGB,
+        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_FORMAT_B8G8R8A8_SRGB,
+        VK_FORMAT_A8B8G8R8_SRGB_PACK32,
+        VK_FORMAT_BC1_RGB_SRGB_BLOCK,
+        VK_FORMAT_BC1_RGBA_UNORM_BLOCK,
+        VK_FORMAT_BC1_RGBA_SRGB_BLOCK,
+        VK_FORMAT_BC2_SRGB_BLOCK,
+        VK_FORMAT_BC3_SRGB_BLOCK,
+        VK_FORMAT_BC7_SRGB_BLOCK,
+        VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK,
+        VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK,
+        VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK,
+        VK_FORMAT_ASTC_4x4_SRGB_BLOCK,
+        VK_FORMAT_ASTC_5x4_SRGB_BLOCK,
+        VK_FORMAT_ASTC_5x5_SRGB_BLOCK,
+        VK_FORMAT_ASTC_6x5_SRGB_BLOCK,
+        VK_FORMAT_ASTC_6x6_SRGB_BLOCK,
+        VK_FORMAT_ASTC_8x5_SRGB_BLOCK,
+        VK_FORMAT_ASTC_8x6_SRGB_BLOCK,
+        VK_FORMAT_ASTC_8x8_SRGB_BLOCK,
+        VK_FORMAT_ASTC_10x5_SRGB_BLOCK,
+        VK_FORMAT_ASTC_10x6_SRGB_BLOCK,
+        VK_FORMAT_ASTC_10x8_SRGB_BLOCK,
+        VK_FORMAT_ASTC_10x10_SRGB_BLOCK,
+        VK_FORMAT_ASTC_12x10_SRGB_BLOCK,
+        VK_FORMAT_ASTC_12x12_SRGB_BLOCK,
+        VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG,
+        VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG,
+        VK_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG,
+        VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG,
+    };
+
+    for (auto fmt : srgbFormats)
+    {
+        if (fmt == format)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void vkutils::BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags)
 {
     VkCommandBufferBeginInfo beginInfo = {};

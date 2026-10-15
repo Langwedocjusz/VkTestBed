@@ -49,12 +49,12 @@ class Application::Impl {
 };
 
 Application::Impl::Impl()
-    : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)),
-      mCtx(800, 600, "VkTestBed", mWindow), mRender(mCtx, mCamera), mSceneEditor(mScene),
-      mSceneGui(mSceneEditor, mCamera), mShaderManager("assets/shaders", "assets/spirv")
+    : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)), mCtx(mWindow),
+      mRender(mCtx, mCamera), mSceneEditor(mScene), mSceneGui(mSceneEditor, mCamera),
+      mShaderManager("assets/shaders", "assets/spirv")
 {
     mWindow.SetEventCallback([](void *usrPtr, Event::EventVariant event) {
-        auto app = reinterpret_cast<Impl *>(usrPtr);
+        auto app = static_cast<Impl *>(usrPtr);
         app->OnEvent(event);
     });
 
@@ -80,7 +80,7 @@ void Application::Impl::Run()
         mWindow.PollEvents();
 
         // Recreate swapchain and related resources if necessary:
-        bool handleResize = !mStillResizing && (mResizeRequested || !mCtx.SwapchainOk);
+        bool handleResize = !mStillResizing && (mResizeRequested || !mCtx.Swapchain->Ok);
 
         // Bailing from doing the rendering while resizing as with current
         // setup it would be invalid anyway, and recreating all resources
@@ -119,9 +119,10 @@ void Application::Impl::Run()
             mSceneGui.SetSelection(pickedId);
         }
 
-        // Update Renderer and Scene Editor
-        mCamera.OnUpdate(mDeltaTimeSeconds, mCtx.SwapchainExtent.width,
-                         mCtx.SwapchainExtent.height);
+        // Update Renderer and Scene Editor:
+        const auto extent = mCtx.Swapchain->Extent;
+
+        mCamera.OnUpdate(mDeltaTimeSeconds, extent.width, extent.height);
         mRender.OnUpdate(mDeltaTimeSeconds);
         mSceneEditor.OnUpdate();
 
@@ -151,8 +152,10 @@ void Application::Impl::OnEvent(Event::EventVariant event)
     {
         auto resize = std::get<Event::FramebufferResize>(event);
 
-        mCtx.RequestedWidth  = resize.Width;
-        mCtx.RequestedHeight = resize.Height;
+        auto &swapchain = *mCtx.Swapchain;
+
+        swapchain.Cfg.RequestedWidth  = resize.Width;
+        swapchain.Cfg.RequestedHeight = resize.Height;
 
         mStillResizing   = true;
         mResizeRequested = true;

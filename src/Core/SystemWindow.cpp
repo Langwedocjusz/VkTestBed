@@ -85,8 +85,9 @@ static void CharCallback(GLFWwindow *window, unsigned int codepoint)
     sEventCallback(usrPtr, event);
 }
 
-SystemWindow::SystemWindow(uint32_t width, uint32_t height, const char *title,
+SystemWindow::SystemWindow(uint32_t width, uint32_t height, const std::string &title,
                            void *usrPtr)
+    : Title(title)
 {
     auto ErrorCallback = [](int error, const char *description) {
         (void)error;
@@ -99,7 +100,7 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, const char *title,
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
 
-    mWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
+    mWindow = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
 
     if (!mWindow)
     {
@@ -174,4 +175,9 @@ void SystemWindow::CaptureCursor()
 void SystemWindow::FreeCursor()
 {
     glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+}
+
+void SystemWindow::GetWindowSize(int32_t &width, int32_t &height)
+{
+    glfwGetWindowSize(mWindow, &width, &height);
 }

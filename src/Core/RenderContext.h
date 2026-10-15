@@ -29,6 +29,9 @@ class RenderContext {
     SceneKey PickObjectId(float x, float y);
 
   private:
+    void GuiSwapchain();
+    void GuiSwapchainNative();
+
     void DrawFrame(std::optional<SceneKey> highlightedObj);
     void DrawUI(VkCommandBuffer cmd, VkImageView swapchainView);
 

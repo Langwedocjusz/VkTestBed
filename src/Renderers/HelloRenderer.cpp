@@ -122,8 +122,8 @@ void HelloRenderer::RecreateSwapchainResources()
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
-    uint32_t width  = ScaleResolution(mCtx.SwapchainExtent.width);
-    uint32_t height = ScaleResolution(mCtx.SwapchainExtent.height);
+    uint32_t width  = ScaleResolution(mCtx.Swapchain->Extent.width);
+    uint32_t height = ScaleResolution(mCtx.Swapchain->Extent.height);
 
     VkExtent2D drawExtent{
         .width  = width,

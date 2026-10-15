@@ -28,6 +28,8 @@ inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handl
 void BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags = 0);
 void EndRecording(VkCommandBuffer buffer);
 
+bool IsFormatSRGB(VkFormat format);
+
 VkImageAspectFlags GetDefaultAspect(VkFormat format);
 
 struct BlitImageInfo {

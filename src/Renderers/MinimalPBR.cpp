@@ -371,8 +371,8 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     };
 
     VkExtent2D drawExtent{
-        .width  = ScaleResolution(mCtx.SwapchainExtent.width),
-        .height = ScaleResolution(mCtx.SwapchainExtent.height),
+        .width  = ScaleResolution(mCtx.Swapchain->Extent.width),
+        .height = ScaleResolution(mCtx.Swapchain->Extent.height),
     };
 
     // Create the (color) render target:

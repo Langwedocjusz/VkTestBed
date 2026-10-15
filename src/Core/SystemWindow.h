@@ -5,6 +5,7 @@
 #include "volk.h"
 
 #include <cstdint>
+#include <string>
 
 struct GLFWwindow;
 
@@ -18,7 +19,8 @@ class SystemWindow {
     using EventHandlerFn = void (*)(void *, Event::EventVariant);
 
   public:
-    SystemWindow(uint32_t width, uint32_t height, const char *title, void *usr_ptr);
+    SystemWindow(uint32_t width, uint32_t height, const std::string &title,
+                 void *usr_ptr);
     ~SystemWindow();
 
     void SetEventCallback(EventHandlerFn callback);
@@ -32,6 +34,8 @@ class SystemWindow {
     void CaptureCursor();
     void FreeCursor();
 
+    void GetWindowSize(int32_t &width, int32_t &height);
+
     // Only used to initialize imgui,
     // may think up a better way in the future
     GLFWwindow *Get()
@@ -44,6 +48,8 @@ class SystemWindow {
 #ifdef VULKAN_ON_DXGI
     HWND GetNativeHandle();
 #endif
+  public:
+    const std::string Title;
 
   private:
     GLFWwindow *mWindow = nullptr;

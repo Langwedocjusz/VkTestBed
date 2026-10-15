@@ -31,7 +31,7 @@ option(TRACY_ENABLE "" ON )
 
 add_subdirectory(vendor/cpptrace)
 add_subdirectory(vendor/efsw)
-add_subdirectory(vendor/fastgltf)
+add_subdirectory(vendor/cgltf)
 add_subdirectory(vendor/glm)
 add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/imgui)
@@ -48,9 +48,6 @@ add_subdirectory(vendor/VulkanMemoryAllocator)
 #Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(VulkanMemoryAllocator SYSTEM INTERFACE ${_inc})
-
-get_target_property(_inc fastgltf::fastgltf INTERFACE_INCLUDE_DIRECTORIES)
-target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 
 #Some additional linking between the dependencies:
 target_link_libraries(imgui PRIVATE glfw)
@@ -243,7 +240,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
 target_link_libraries(${PROJECT_NAME} PRIVATE ImGuizmo)
 target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
-target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
+target_link_libraries(${PROJECT_NAME} PRIVATE cgltf)
 target_link_libraries(${PROJECT_NAME} PRIVATE efsw)
 target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
 target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)

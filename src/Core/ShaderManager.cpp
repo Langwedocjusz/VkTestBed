@@ -1,6 +1,7 @@
 #include "ShaderManager.h"
 #include "Pch.h"
 
+#include "FileHandle.h"
 #include "Path.h"
 
 #include <efsw/efsw.hpp>
@@ -116,12 +117,13 @@ static std::vector<size_t> GetIncludedFileIds(Path                    &srcDir,
     std::vector<size_t> res;
 
     const auto &path = fileList.at(id);
-    auto        file = path.Open();
+
+    auto file = *FileHandle::TryOpen(path.String());
 
     const std::regex incRegex("[[:blank:]]*#[[:blank:]]*include[[:blank:]]+\".*\"");
 
     std::string currentLine;
-    while (std::getline(file, currentLine))
+    while (file.GetLine(currentLine))
     {
         if (std::regex_match(currentLine, incRegex))
         {

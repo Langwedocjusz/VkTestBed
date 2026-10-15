@@ -142,12 +142,6 @@ void Path::CreateDirectory() const
     std::filesystem::create_directory(mImpl->Path);
 }
 
-std::ifstream Path::Open() const
-{
-    std::ifstream ret{mImpl->Path};
-    return ret;
-}
-
 Path operator/(const Path &lhs, const Path &rhs)
 {
     Path ret{};

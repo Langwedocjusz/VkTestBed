@@ -62,8 +62,6 @@ class Path {
     // Returns extension as utf8-encoded string:
     [[nodiscard]] std::string Extension() const;
 
-    [[nodiscard]] std::ifstream Open() const;
-
     // Wrappers around operator overloads for paths:
     friend Path operator/(const Path &lhs, const Path &rhs);
     friend bool operator==(const Path &lhs, const Path &rhs);

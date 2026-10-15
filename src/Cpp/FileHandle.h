@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 
 // Pimpl based wrapper around fstream.
@@ -24,7 +25,8 @@ class FileHandle {
 
   public:
     // Input path is assumed to be utf8 encoded:
-    FileHandle(const std::string &path);
+    static std::optional<FileHandle> TryOpen(const std::string &path);
+
     // Explicitly defining destruct for pimpl idiom:
     // (otherwise due to inline linkage there is
     // incomplete type error in orhter translation units).
@@ -40,11 +42,14 @@ class FileHandle {
     int64_t Size();
     int64_t TellG();
     void    SeekG(int64_t offset, Dir dir);
-    void    Read(char *memory, int64_t size);
+    bool    Read(char *memory, int64_t size);
     int64_t GCount();
     void    Clear();
+    bool    GetLine(std::string &line);
 
   private:
+    FileHandle();
+
     struct Impl;
     std::unique_ptr<Impl> mImpl;
 };

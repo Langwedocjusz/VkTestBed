@@ -5,6 +5,7 @@
 
 #include "Vassert.h"
 
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <utility>
@@ -14,25 +15,38 @@ struct FileHandle::Impl {
     int64_t       Size;
 };
 
-FileHandle::FileHandle(const std::string &path) : mImpl(std::make_unique<Impl>())
+FileHandle::FileHandle() = default;
+
+std::optional<FileHandle> FileHandle::TryOpen(const std::string &path)
 {
     // We use std::ios::ate to automatically go to the end:
     constexpr auto flags = std::ios::binary | std::ios::ate;
 
     auto u8view = Utf8FromString(path);
-    mImpl->Stream.open(std::filesystem::path(u8view), flags);
 
-    if (!mImpl->Stream)
+    std::ifstream stream{};
+    stream.open(std::filesystem::path(u8view), flags);
+
+    if (!stream)
     {
-        auto msg = "Failed to open file: " + path;
-        vpanic(msg);
+        return std::nullopt;
     }
 
     // So we can recover file-size this way:
-    mImpl->Size = static_cast<int64_t>(mImpl->Stream.tellg());
+    auto size = static_cast<int64_t>(stream.tellg());
 
     // And now reset:
-    mImpl->Stream.seekg(0, mImpl->Stream.beg);
+    stream.seekg(0, stream.beg);
+
+    // And finally wrap in the FileHandle object:
+    FileHandle ret{};
+
+    ret.mImpl = std::make_unique<Impl>(Impl{
+        .Stream = std::move(stream),
+        .Size   = size,
+    });
+
+    return ret;
 }
 
 FileHandle::~FileHandle()
@@ -75,12 +89,12 @@ void FileHandle::SeekG(int64_t offset, Dir dir)
     mImpl->Stream.seekg(offset, rawDir);
 }
 
-void FileHandle::Read(char *memory, int64_t size)
+bool FileHandle::Read(char *memory, int64_t size)
 {
     vassert(size >= 0);
     vassert(size <= mImpl->Size);
 
-    mImpl->Stream.read(memory, size);
+    return static_cast<bool>(mImpl->Stream.read(memory, size));
 }
 
 int64_t FileHandle::GCount()
@@ -91,4 +105,9 @@ int64_t FileHandle::GCount()
 void FileHandle::Clear()
 {
     mImpl->Stream.clear();
+}
+
+bool FileHandle::GetLine(std::string &line)
+{
+    return static_cast<bool>(std::getline(mImpl->Stream, line));
 }

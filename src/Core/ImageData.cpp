@@ -66,7 +66,7 @@ ImageData ImageData::ImportImage(const std::string &path, bool unorm)
     res.Name = pathObj.Stem();
 
     // Open file handle:
-    FileHandle file(path);
+    FileHandle file = *FileHandle::TryOpen(path);
 
     if (pathObj.Extension() == ".ktx" || pathObj.Extension() == ".ktx2")
     {
@@ -253,7 +253,7 @@ ImageData ImageData::ImportHDRI(const std::string &path)
     // so we reinterpret cast here:
     std::vector<unsigned char> fileData{};
 
-    FileHandle file(path);
+    FileHandle file = *FileHandle::TryOpen(path);
     fileData.resize(file.Size());
     file.Read(reinterpret_cast<char *>(fileData.data()), file.Size());
 

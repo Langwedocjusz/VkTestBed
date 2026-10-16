@@ -37,7 +37,7 @@ class HelloRenderer final : public IRenderer {
 
     Texture mRenderTarget;
 
-    Pipeline mGraphicsPipeline;
+    GraphicsPipeline mGraphicsPipeline;
 
     GeometryLayout mGeometryLayout{
         .VertexLayout = Vertex::PushLayout{.HasColor = true},

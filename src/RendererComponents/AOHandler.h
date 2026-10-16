@@ -81,10 +81,10 @@ class AOHandler {
     float mResolutionScale   = 0.67f;
     bool  mRecreateRequested = false;
 
-    Pipeline mZGenPipeline;
-    Pipeline mZMipGenPipeline;
-    Pipeline mAOGenPipeline;
-    Pipeline mBilateralPipeline;
+    ComputePipeline mZGenPipeline;
+    ComputePipeline mZMipGenPipeline;
+    ComputePipeline mAOGenPipeline;
+    ComputePipeline mBilateralPipeline;
 
     Texture mZBuffer;
     Texture mAOTarget;

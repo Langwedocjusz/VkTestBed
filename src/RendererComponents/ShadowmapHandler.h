@@ -126,8 +126,8 @@ class ShadowmapHandler {
     float mShadowDist = 10.0f;
 
     // The shadowmap-rendering pipelines:
-    Pipeline mOpaquePipeline;
-    Pipeline mAlphaPipeline;
+    GraphicsPipeline mOpaquePipeline;
+    GraphicsPipeline mAlphaPipeline;
 
     // Main (multi layer) shadowmap texture and corresponding sampler:
     Texture   mShadowmap;
@@ -151,7 +151,7 @@ class ShadowmapHandler {
     VkSampler       mDebugSampler;
 
     // Additional pipeline and resources for debug visualization:
-    Pipeline mDebugPipeline;
+    GraphicsPipeline mDebugPipeline;
 
     struct PCDataDebug {
         glm::mat4 ViewProj;

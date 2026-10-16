@@ -10,33 +10,47 @@
 
 #include <variant>
 
-Pipeline Pipeline::MakePipeline(VkPipelineBindPoint bindPoint,
-                                VkShaderStageFlags  pcStageFlags)
-{
-    Pipeline ret;
-    ret.mBindPoint    = bindPoint;
-    ret.mPCStageFlags = pcStageFlags;
+// === Graphics Pipeline Implementation: =======================================
 
-    return ret;
+void GraphicsPipeline::Bind(VkCommandBuffer cmd)
+{
+    vkCmdBindPipeline(cmd, BindPoint, Handle);
 }
 
-void Pipeline::Bind(VkCommandBuffer cmd)
-{
-    vkCmdBindPipeline(cmd, mBindPoint, Handle);
-}
-
-void Pipeline::BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set,
+void GraphicsPipeline::BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set,
                                  uint32_t setIdx)
 {
-    vkCmdBindDescriptorSets(cmd, mBindPoint, Layout, setIdx, 1, &set, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, BindPoint, Layout, setIdx, 1, &set, 0, nullptr);
 }
 
-void Pipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
+void GraphicsPipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
                                   uint32_t startIdx)
 {
-    vkCmdBindDescriptorSets(cmd, mBindPoint, Layout, startIdx,
+    vkCmdBindDescriptorSets(cmd, BindPoint, Layout, startIdx,
                             static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
 }
+
+// === Compute Pipeline Implementation: =======================================
+
+void ComputePipeline::Bind(VkCommandBuffer cmd)
+{
+    vkCmdBindPipeline(cmd, BindPoint, Handle);
+}
+
+void ComputePipeline::BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set,
+                                 uint32_t setIdx)
+{
+    vkCmdBindDescriptorSets(cmd, BindPoint, Layout, setIdx, 1, &set, 0, nullptr);
+}
+
+void ComputePipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
+                                  uint32_t startIdx)
+{
+    vkCmdBindDescriptorSets(cmd, BindPoint, Layout, startIdx,
+                            static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
+}
+
+// === Graphics Pipeline Builder Implementation: ====================================
 
 PipelineBuilder::PipelineBuilder(std::string_view debugName)
     : mDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR}),
@@ -257,12 +271,12 @@ PipelineBuilder &PipelineBuilder::SetMultisampling(VkSampleCountFlagBits sampleC
     return *this;
 }
 
-Pipeline PipelineBuilder::Build(VulkanContext &ctx)
+GraphicsPipeline PipelineBuilder::Build(VulkanContext &ctx)
 {
     return BuildImpl(ctx);
 }
 
-Pipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
+GraphicsPipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 {
     const auto res = BuildImpl(ctx);
 
@@ -272,16 +286,26 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
     return res;
 }
 
-Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
+GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                           VK_SHADER_STAGE_ALL_GRAPHICS);
+    GraphicsPipeline pipeline{};
 
     // Build the shader stages:
-    auto shaderStages = ShaderBuilder()
-                            .SetVertexPath(mVertexPath)
-                            .SetFragmentPath(mFragmentPath)
-                            .Build(ctx);
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
+
+    if (mVertexPath)
+    {
+        shaderStages.push_back(
+            Shader::GetStageInfo(ctx, *mVertexPath, VK_SHADER_STAGE_VERTEX_BIT)
+        );
+    }
+
+    if (mFragmentPath)
+    {
+        shaderStages.push_back(
+            Shader::GetStageInfo(ctx, *mFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT)
+        );
+    }
 
     // Create pipeline layout:
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
@@ -402,6 +426,8 @@ Pipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     return pipeline;
 }
 
+// === Compute Pipeline Builder Implementation: ====================================
+
 ComputePipelineBuilder::ComputePipelineBuilder(std::string_view debugName)
     : mDebugName(debugName)
 {
@@ -432,12 +458,12 @@ ComputePipelineBuilder &ComputePipelineBuilder::SetPushConstantSize(uint32_t siz
     return *this;
 }
 
-Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx)
+ComputePipeline ComputePipelineBuilder::Build(VulkanContext &ctx)
 {
     return BuildImpl(ctx);
 }
 
-Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
+ComputePipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 {
     const auto res = BuildImpl(ctx);
 
@@ -447,12 +473,13 @@ Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
     return res;
 }
 
-Pipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
+ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    auto pipeline = Pipeline::MakePipeline(VK_PIPELINE_BIND_POINT_COMPUTE,
-                                           VK_SHADER_STAGE_COMPUTE_BIT);
+    ComputePipeline pipeline{};
 
-    auto shaderStages = ShaderBuilder().SetComputePath(*mShaderPath).Build(ctx);
+    std::array shaderStages{
+        Shader::GetStageInfo(ctx, *mShaderPath, VK_SHADER_STAGE_COMPUTE_BIT),
+    };
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

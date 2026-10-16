@@ -165,12 +165,12 @@ class MinimalPbrRenderer final : public IRenderer {
     VkSampleCountFlagBits mMultisample             = VK_SAMPLE_COUNT_1_BIT;
 
     // Graphics pipelines:
-    Pipeline mZPrepassOpaquePipeline;
-    Pipeline mZPrepassAlphaPipeline;
-    Pipeline mMainPipeline;
-    Pipeline mStencilPipeline;
-    Pipeline mOutlinePipeline;
-    Pipeline mObjectIdPipeline;
+    GraphicsPipeline mZPrepassOpaquePipeline;
+    GraphicsPipeline mZPrepassAlphaPipeline;
+    GraphicsPipeline mMainPipeline;
+    GraphicsPipeline mStencilPipeline;
+    GraphicsPipeline mOutlinePipeline;
+    GraphicsPipeline mObjectIdPipeline;
 
     // Push-constant struct definitions for all pipelines:
     struct PCDataPrepass {

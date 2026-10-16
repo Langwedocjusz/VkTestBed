@@ -12,11 +12,8 @@
 #include <string_view>
 #include <vector>
 
-class Pipeline {
-  public:
-    Pipeline() = default;
-    static Pipeline MakePipeline(VkPipelineBindPoint, VkShaderStageFlags pcStageFlags);
-
+class GraphicsPipeline{
+public:
     void Bind(VkCommandBuffer cmd);
 
     void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
@@ -26,17 +23,43 @@ class Pipeline {
     template <typename T>
     void PushConstants(VkCommandBuffer cmd, T &data)
     {
-        vkCmdPushConstants(cmd, Layout, mPCStageFlags, 0, sizeof(data), &data);
+        vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
     }
 
-  public:
+public:
+    static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    static constexpr VkShaderStageFlags PCStage    = VK_SHADER_STAGE_ALL_GRAPHICS;
+
     VkPipeline       Handle;
     VkPipelineLayout Layout;
-
-  private:
-    VkPipelineBindPoint mBindPoint;
-    VkShaderStageFlags  mPCStageFlags;
+private:
+    friend class PipelineBuilder;
 };
+
+class ComputePipeline{
+public:
+    void Bind(VkCommandBuffer cmd);
+
+    void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
+    void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
+                            uint32_t startIdx);
+
+    template <typename T>
+    void PushConstants(VkCommandBuffer cmd, T &data)
+    {
+        vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
+    }
+
+public:
+    static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
+    static constexpr VkShaderStageFlags PCStage    = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkPipeline       Handle;
+    VkPipelineLayout Layout;
+private:
+    friend class ComputePipelineBuilder;
+};
+
 
 class PipelineBuilder {
   public:
@@ -72,12 +95,12 @@ class PipelineBuilder {
 
     PipelineBuilder &SetMultisampling(VkSampleCountFlagBits sampleCount);
 
-    Pipeline Build(VulkanContext &ctx);
-    Pipeline Build(VulkanContext &ctx, DeletionQueue &queue);
+    GraphicsPipeline Build(VulkanContext &ctx);
+    GraphicsPipeline Build(VulkanContext &ctx, DeletionQueue &queue);
 
   private:
-    Pipeline BuildImpl(VulkanContext &ctx);
-    void     UpdateVertexInput();
+    GraphicsPipeline BuildImpl(VulkanContext &ctx);
+    void             UpdateVertexInput();
 
   private:
     std::optional<std::string> mVertexPath   = std::nullopt;
@@ -115,11 +138,11 @@ class ComputePipelineBuilder {
     ComputePipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
     ComputePipelineBuilder &SetPushConstantSize(uint32_t size);
 
-    Pipeline Build(VulkanContext &ctx);
-    Pipeline Build(VulkanContext &ctx, DeletionQueue &queue);
+    ComputePipeline Build(VulkanContext &ctx);
+    ComputePipeline Build(VulkanContext &ctx, DeletionQueue &queue);
 
   private:
-    Pipeline BuildImpl(VulkanContext &ctx);
+    ComputePipeline BuildImpl(VulkanContext &ctx);
 
   private:
     std::optional<std::string>         mShaderPath;

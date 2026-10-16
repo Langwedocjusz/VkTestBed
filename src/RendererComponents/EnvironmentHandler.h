@@ -114,14 +114,14 @@ class EnvironmentHandler {
     };
 
     // Compute pipelines for resource generation:
-    Pipeline mEquiRectToCubePipeline;
-    Pipeline mIrradianceSHPipeline;
-    Pipeline mIrradianceReducePipeline;
-    Pipeline mPrefilteredGenPipeline;
-    Pipeline mIntegrationGenPipeline;
+    ComputePipeline mEquiRectToCubePipeline;
+    ComputePipeline mIrradianceSHPipeline;
+    ComputePipeline mIrradianceReducePipeline;
+    ComputePipeline mPrefilteredGenPipeline;
+    ComputePipeline mIntegrationGenPipeline;
 
     // Pipeline for drawing the background:
-    Pipeline mBackgroundPipeline;
+    GraphicsPipeline mBackgroundPipeline;
 
     // SSBOs for reduction when computing SH irradiance coefficients:
     Buffer mFirstReducionBuffer;

@@ -42,8 +42,8 @@ class Minimal3DRenderer final : public IRenderer {
     Texture mRenderTarget;
     Texture mDepthBuffer;
 
-    Pipeline mColoredPipeline;
-    Pipeline mTexturedPipeline;
+    GraphicsPipeline mColoredPipeline;
+    GraphicsPipeline mTexturedPipeline;
 
     GeometryLayout mColoredLayout{
         .VertexLayout = Vertex::PushLayout{.HasNormal = true, .HasColor = true},

@@ -31,3 +31,6 @@
 [submodule "vendor/cgltf"]
 	path = vendor/cgltf
 	url = https://github.com/Langwedocjusz/cgltf
+[submodule "vendor/SPIRV-Reflect"]
+	path = vendor/SPIRV-Reflect
+	url = https://github.com/KhronosGroup/SPIRV-Reflect

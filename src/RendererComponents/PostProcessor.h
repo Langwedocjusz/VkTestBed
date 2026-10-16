@@ -37,9 +37,9 @@ class PostProcessor {
     // to make the effect consistent:
     const uint32_t mBloomNumMips = 5;
 
-    Pipeline mBloomDownscalePipeline;
-    Pipeline mBloomUpscalePipeline;
-    Pipeline mFinalPipeline;
+    ComputePipeline mBloomDownscalePipeline;
+    ComputePipeline mBloomUpscalePipeline;
+    ComputePipeline mFinalPipeline;
 
     struct PCDataBloom {
         uint32_t CurrentMip;

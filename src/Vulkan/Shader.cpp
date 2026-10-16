@@ -50,78 +50,19 @@ static VkShaderModule CreateShaderModule(VulkanContext               &ctx,
     return shaderModule;
 }
 
-std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::Build(VulkanContext &ctx)
+VkPipelineShaderStageCreateInfo Shader::GetStageInfo(VulkanContext &ctx, const std::string &path, VkShaderStageFlagBits stage)
 {
-    if (mComputePath.has_value())
-    {
-        vassert(!mVertexPath.has_value(),
-                "Vertex shader path provided in a compute shader.");
+    auto vertCode = ReadSpirvBinary(path);
 
-        vassert(!mFragmentPath.has_value(),
-                "Fragment shader path provided in a compute shader.");
+    VkShaderModule vertModule = CreateShaderModule(ctx, vertCode);
+    vassert(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
-        return BuildCompute(ctx);
-    }
+    VkPipelineShaderStageCreateInfo ret{};
+    ret.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    ret.stage  = stage;
+    ret.module = vertModule;
+    ret.pName  = "main";
 
-    else
-    {
-        return BuildGraphics(ctx);
-    }
+    return ret;
 }
 
-std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
-    VulkanContext &ctx)
-{
-    std::vector<VkPipelineShaderStageCreateInfo> res{};
-
-    if (mVertexPath.has_value())
-    {
-        auto vertCode = ReadSpirvBinary(mVertexPath.value());
-
-        VkShaderModule vertModule = CreateShaderModule(ctx, vertCode);
-        vassert(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
-
-        VkPipelineShaderStageCreateInfo vertStageInfo = {};
-        vertStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        vertStageInfo.stage  = VK_SHADER_STAGE_VERTEX_BIT;
-        vertStageInfo.module = vertModule;
-        vertStageInfo.pName  = "main";
-
-        res.push_back(vertStageInfo);
-    }
-
-    if (mFragmentPath.has_value())
-    {
-        auto fragCode = ReadSpirvBinary(mFragmentPath.value());
-
-        VkShaderModule fragModule = CreateShaderModule(ctx, fragCode);
-        vassert(fragModule != VK_NULL_HANDLE, "Failed to create a shader module!");
-
-        VkPipelineShaderStageCreateInfo fragStageInfo = {};
-        fragStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        fragStageInfo.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-        fragStageInfo.module = fragModule;
-        fragStageInfo.pName  = "main";
-
-        res.push_back(fragStageInfo);
-    }
-
-    return res;
-}
-
-std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildCompute(
-    VulkanContext &ctx)
-{
-    auto computeCode = ReadSpirvBinary(mComputePath.value());
-
-    VkShaderModule computeModule = CreateShaderModule(ctx, computeCode);
-    vassert(computeModule != VK_NULL_HANDLE, "Failed to create a shader module!");
-
-    VkPipelineShaderStageCreateInfo computeStageInfo = {};
-    computeStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    computeStageInfo.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
-    computeStageInfo.module = computeModule;
-    computeStageInfo.pName  = "main";
-
-    return std::vector<VkPipelineShaderStageCreateInfo>{computeStageInfo};
-}

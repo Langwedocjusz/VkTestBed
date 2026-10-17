@@ -526,7 +526,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
                 mPrefilteredGenPipeline.PushConstants(cmd, data);
 
-                mPrefilteredGenPipeline.Dispatch(cmd, resX, resY);
+                mPrefilteredGenPipeline.Dispatch(cmd, resX, resY, 6);
             });
 
             resX = std::max(1u, resX / 2);

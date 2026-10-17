@@ -233,16 +233,10 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
             PCDataBloom pcData{
                 .CurrentMip = static_cast<uint32_t>(mip),
             };
-
             mBloomDownscalePipeline.PushConstants(cmd, pcData);
 
-            auto     res        = resolutions[mip];
-            uint32_t localSizeX = 16, localSizeY = 16;
-
-            uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
-            uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
-
-            vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+            auto res = resolutions[mip];
+            mBloomDownscalePipeline.Dispatch(cmd, res.x, res.y);
         }
 
         // Upsample passes:
@@ -264,16 +258,10 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
             PCDataBloom pcData{
                 .CurrentMip = static_cast<uint32_t>(mip),
             };
-
             mBloomUpscalePipeline.PushConstants(cmd, pcData);
 
-            auto     res        = resolutions[mip];
-            uint32_t localSizeX = 16, localSizeY = 16;
-
-            uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
-            uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
-
-            vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+            auto res = resolutions[mip];
+            mBloomUpscalePipeline.Dispatch(cmd, res.x, res.y);
         }
 
         barrier::TextureCompToSample(cmd, mBloomTarget.Img);
@@ -293,13 +281,8 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         };
         mFinalPipeline.PushConstants(cmd, pcData);
 
-        auto     res        = resolutions[0];
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        auto res = resolutions[0];
+        mFinalPipeline.Dispatch(cmd, res.x, res.y);
     }
 
     barrier::GeneralToTransferSrc(cmd, mFinalTarget.Img.Handle);

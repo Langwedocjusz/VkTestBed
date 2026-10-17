@@ -4,6 +4,8 @@
 #include "FileHandle.h"
 #include "Vassert.h"
 
+#include "spirv_reflect.h"
+
 #include <iostream>
 
 static std::vector<uint32_t> ReadSpirvBinary(const std::string &filename)
@@ -33,35 +35,68 @@ static std::vector<uint32_t> ReadSpirvBinary(const std::string &filename)
 static VkShaderModule CreateShaderModule(VulkanContext               &ctx,
                                          const std::vector<uint32_t> &code)
 {
-    VkShaderModuleCreateInfo create_info = {};
-    create_info.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    create_info.codeSize                 = code.size() * sizeof(uint32_t); // In bytes
-    create_info.pCode                    = code.data();
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = code.size() * sizeof(uint32_t); // In bytes
+    createInfo.pCode    = code.data();
 
     VkShaderModule shaderModule;
-    auto ret = vkCreateShaderModule(ctx.Device, &create_info, nullptr, &shaderModule);
+    auto ret = vkCreateShaderModule(ctx.Device, &createInfo, nullptr, &shaderModule);
 
     if (ret != VK_SUCCESS)
     {
         std::cerr << "Failed to create a shader module!\n";
-        return VK_NULL_HANDLE; // failed to create shader module
+        return VK_NULL_HANDLE; 
     }
 
     return shaderModule;
 }
 
-VkPipelineShaderStageCreateInfo Shader::GetStageInfo(VulkanContext &ctx, const std::string &path, VkShaderStageFlagBits stage)
+static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
 {
-    auto vertCode = ReadSpirvBinary(path);
+    ReflectionInfo ret{};
 
-    VkShaderModule vertModule = CreateShaderModule(ctx, vertCode);
+    auto data = static_cast<void*>(code.data());
+    auto size = sizeof(uint32_t) * code.size();
+
+    SpvReflectShaderModule module;
+    SpvReflectResult result = spvReflectCreateShaderModule(size, data, &module);
+
+    vassert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+    auto entryPoint = spvReflectGetEntryPoint(&module, "main");
+
+    vassert(entryPoint != nullptr);
+
+    if (entryPoint->shader_stage & SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT)
+    {
+        ret.LocalSizeX = entryPoint->local_size.x;
+        ret.LocalSizeY = entryPoint->local_size.y;
+        ret.LocalSizeZ = entryPoint->local_size.z;
+    }
+
+    return ret;
+}
+
+ShaderStageInfo Shader::GetStageInfo(VulkanContext &ctx, const std::string &path, VkShaderStageFlagBits stage)
+{
+    auto code = ReadSpirvBinary(path);
+
+    VkShaderModule vertModule = CreateShaderModule(ctx, code);
     vassert(vertModule != VK_NULL_HANDLE, "Failed to create a shader module!");
 
-    VkPipelineShaderStageCreateInfo ret{};
-    ret.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    ret.stage  = stage;
-    ret.module = vertModule;
-    ret.pName  = "main";
+    VkPipelineShaderStageCreateInfo pipelineInfo{};
+    pipelineInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    pipelineInfo.stage  = stage;
+    pipelineInfo.module = vertModule;
+    pipelineInfo.pName  = "main";
+
+    auto reflectionInfo = GetReflectionInfo(code);
+
+    ShaderStageInfo ret{
+        .PipelineCreation = pipelineInfo,
+        .Reflection       = reflectionInfo,
+    };
 
     return ret;
 }

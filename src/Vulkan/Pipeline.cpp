@@ -50,6 +50,15 @@ void ComputePipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescri
                             static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
 }
 
+void ComputePipeline::Dispatch(VkCommandBuffer cmd, uint32_t sizeX, uint32_t sizeY, uint32_t sizeZ)
+{
+    uint32_t dispCountX = (sizeX + LocalSizeX - 1) / LocalSizeX;
+    uint32_t dispCountY = (sizeY + LocalSizeY - 1) / LocalSizeY;
+    uint32_t dispCountZ = (sizeZ + LocalSizeZ - 1) / LocalSizeZ;
+
+    vkCmdDispatch(cmd, dispCountX, dispCountY, dispCountZ);
+}
+
 // === Graphics Pipeline Builder Implementation: ====================================
 
 PipelineBuilder::PipelineBuilder(std::string_view debugName)
@@ -295,16 +304,16 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     if (mVertexPath)
     {
-        shaderStages.push_back(
-            Shader::GetStageInfo(ctx, *mVertexPath, VK_SHADER_STAGE_VERTEX_BIT)
-        );
+        auto info = Shader::GetStageInfo(ctx, *mVertexPath, VK_SHADER_STAGE_VERTEX_BIT);
+
+        shaderStages.push_back(info.PipelineCreation);
     }
 
     if (mFragmentPath)
     {
-        shaderStages.push_back(
-            Shader::GetStageInfo(ctx, *mFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT)
-        );
+        auto info = Shader::GetStageInfo(ctx, *mFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT);
+
+        shaderStages.push_back(info.PipelineCreation);
     }
 
     // Create pipeline layout:
@@ -477,9 +486,15 @@ ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
     ComputePipeline pipeline{};
 
-    std::array shaderStages{
-        Shader::GetStageInfo(ctx, *mShaderPath, VK_SHADER_STAGE_COMPUTE_BIT),
-    };
+    auto info = Shader::GetStageInfo(ctx, *mShaderPath, VK_SHADER_STAGE_COMPUTE_BIT);
+
+    {
+        pipeline.LocalSizeX = info.Reflection.LocalSizeX;
+        pipeline.LocalSizeY = info.Reflection.LocalSizeY;
+        pipeline.LocalSizeZ = info.Reflection.LocalSizeZ;
+    }
+
+    std::array shaderStages{info.PipelineCreation};
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

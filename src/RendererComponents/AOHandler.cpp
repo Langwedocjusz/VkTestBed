@@ -286,15 +286,7 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         mZGenPipeline.BindDescriptorSet(cmd, mZGenDescriptorSet, 0);
         mZGenPipeline.PushConstants(cmd, data);
 
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t targetSizeX = mZBuffer.Img.Info.extent.width;
-        uint32_t targetSizeY = mZBuffer.Img.Info.extent.height;
-
-        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        mZGenPipeline.Dispatch(cmd, mZBuffer.Img.Info.extent.width, mZBuffer.Img.Info.extent.height);
 
         // Create higher mip-levels of the Z-buffer:
         mZMipGenPipeline.Bind(cmd);
@@ -305,18 +297,12 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 
         for (uint32_t mip = 1; mip < mZBuffer.Img.Info.mipLevels; mip++)
         {
-            uint32_t localSizeX = 16, localSizeY = 16;
-
-            uint32_t dispCountX = (resX + localSizeX - 1) / localSizeX;
-            uint32_t dispCountY = (resY + localSizeY - 1) / localSizeY;
-
             PCDataZMip data{
                 .CurrentMip = mip,
             };
-
             mZMipGenPipeline.PushConstants(cmd, data);
 
-            vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+            mZMipGenPipeline.Dispatch(cmd, resX, resY);
 
             // Barrier to synchronize subsequent dispatches:
             auto currentRange         = Image::GetDefaultRange(mZBuffer.Img);
@@ -350,15 +336,7 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         mAOGenPipeline.BindDescriptorSet(cmd, mAOGenDescriptorSet, 0);
         mAOGenPipeline.PushConstants(cmd, data);
 
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t targetSizeX = mAOTarget.Img.Info.extent.width;
-        uint32_t targetSizeY = mAOTarget.Img.Info.extent.height;
-
-        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        mAOGenPipeline.Dispatch(cmd, mAOTarget.Img.Info.extent.width, mAOTarget.Img.Info.extent.height);
     }
 
     // Perform bilateral upsampling:
@@ -380,15 +358,7 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 
         mBilateralPipeline.PushConstants(cmd, data);
 
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t targetSizeX = mBilateralTarget.Img.Info.extent.width;
-        uint32_t targetSizeY = mBilateralTarget.Img.Info.extent.height;
-
-        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        mBilateralPipeline.Dispatch(cmd, mBilateralTarget.Img.Info.extent.width, mBilateralTarget.Img.Info.extent.height);
 
         barrier::TextureFragToSample(cmd, mBilateralTarget.Img);
     }

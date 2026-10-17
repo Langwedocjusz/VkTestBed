@@ -32,8 +32,6 @@ public:
 
     VkPipeline       Handle;
     VkPipelineLayout Layout;
-private:
-    friend class PipelineBuilder;
 };
 
 class ComputePipeline{
@@ -50,14 +48,18 @@ public:
         vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
     }
 
+    void Dispatch(VkCommandBuffer cmd, uint32_t sizeX = 1, uint32_t sizeY = 1, uint32_t sizeZ = 1);
+
 public:
     static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
     static constexpr VkShaderStageFlags PCStage    = VK_SHADER_STAGE_COMPUTE_BIT;
 
     VkPipeline       Handle;
     VkPipelineLayout Layout;
-private:
-    friend class ComputePipelineBuilder;
+
+    uint32_t LocalSizeX;
+    uint32_t LocalSizeY;
+    uint32_t LocalSizeZ;
 };
 
 

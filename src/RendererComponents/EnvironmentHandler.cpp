@@ -405,15 +405,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
         mEquiRectToCubePipeline.Bind(cmd);
         mEquiRectToCubePipeline.BindDescriptorSet(cmd, mTexToImgDescriptorSet, 0);
 
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t targetSizeX = mCubemap.Img.Info.extent.width;
-        uint32_t targetSizeY = mCubemap.Img.Info.extent.height;
-
-        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 6);
+        mEquiRectToCubePipeline.Dispatch(cmd, mCubemap.Img.Info.extent.width, mCubemap.Img.Info.extent.height, 6);
 
         // Transition cubemap back to be used as texture:
         barrierInfo.OldLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -445,13 +437,9 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
             .CubemapRes  = mCubemap.Img.Info.extent.width,
             .ReduceBlock = mReduceBlock,
         };
-
         mIrradianceSHPipeline.PushConstants(cmd, data);
 
-        uint32_t localSizeX = 256;
-        uint32_t dispCountX = (mFirstBufferLen + localSizeX - 1) / localSizeX;
-
-        vkCmdDispatch(cmd, dispCountX, 1, 1);
+        mIrradianceSHPipeline.Dispatch(cmd, mFirstBufferLen);
     });
 
     // Sum-reduce the resulting array:
@@ -464,8 +452,8 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
         };
 
         mIrradianceReducePipeline.PushConstants(cmd, data);
-
-        vkCmdDispatch(cmd, 1, 1, 1);
+        // Defaults to (1,1,1) threads:
+        mIrradianceReducePipeline.Dispatch(cmd); 
     });
 }
 
@@ -538,12 +526,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
                 mPrefilteredGenPipeline.PushConstants(cmd, data);
 
-                uint32_t localSizeX = 8, localSizeY = 8;
-
-                uint32_t dispCountX = (resX + localSizeX - 1) / localSizeX;
-                uint32_t dispCountY = (resY + localSizeY - 1) / localSizeY;
-
-                vkCmdDispatch(cmd, dispCountX, dispCountY, 6);
+                mPrefilteredGenPipeline.Dispatch(cmd, resX, resY);
             });
 
             resX = std::max(1u, resX / 2);
@@ -576,15 +559,10 @@ void EnvironmentHandler::GenerateIntegrationMap()
         mIntegrationGenPipeline.Bind(cmd);
         mIntegrationGenPipeline.BindDescriptorSet(cmd, mIntegrationDescriptorSet, 0);
 
-        uint32_t localSizeX = 16, localSizeY = 16;
-
         uint32_t targetSizeX = mIntegration.Img.Info.extent.width;
         uint32_t targetSizeY = mIntegration.Img.Info.extent.height;
 
-        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        mIntegrationGenPipeline.Dispatch(cmd, targetSizeX, targetSizeY);
 
         barrierInfo.OldLayout = VK_IMAGE_LAYOUT_GENERAL;
         barrierInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

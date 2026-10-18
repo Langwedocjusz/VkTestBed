@@ -52,9 +52,9 @@ void ComputePipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescri
 
 void ComputePipeline::Dispatch(VkCommandBuffer cmd, uint32_t sizeX, uint32_t sizeY, uint32_t sizeZ)
 {
-    uint32_t dispCountX = (sizeX + LocalSizeX - 1) / LocalSizeX;
-    uint32_t dispCountY = (sizeY + LocalSizeY - 1) / LocalSizeY;
-    uint32_t dispCountZ = (sizeZ + LocalSizeZ - 1) / LocalSizeZ;
+    uint32_t dispCountX = (sizeX + LocalSize[0] - 1) / LocalSize[0];
+    uint32_t dispCountY = (sizeY + LocalSize[1] - 1) / LocalSize[1];
+    uint32_t dispCountZ = (sizeZ + LocalSize[2] - 1) / LocalSize[2];
 
     vkCmdDispatch(cmd, dispCountX, dispCountY, dispCountZ);
 }
@@ -260,19 +260,6 @@ PipelineBuilder &PipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout d
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetPushConstantSize(uint32_t size)
-{
-    VkPushConstantRange pcRange{};
-    pcRange.offset = 0;
-    pcRange.size   = size;
-    // TODO: may expose more granular control over this:
-    pcRange.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
-
-    mPushConstantRange = pcRange;
-
-    return *this;
-}
-
 PipelineBuilder &PipelineBuilder::SetMultisampling(VkSampleCountFlagBits sampleCount)
 {
     mMultisample.rasterizationSamples = sampleCount;
@@ -301,19 +288,28 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     // Build the shader stages:
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
+    uint32_t pushConstantSize = 0;
 
     if (mVertexPath)
     {
         auto info = Shader::GetStageInfo(ctx, *mVertexPath, VK_SHADER_STAGE_VERTEX_BIT);
-
         shaderStages.push_back(info.PipelineCreation);
+
+        if (auto size = info.Reflection.PushConstantsSize)
+        {
+            pushConstantSize = std::max(pushConstantSize, *size);
+        }
     }
 
     if (mFragmentPath)
     {
         auto info = Shader::GetStageInfo(ctx, *mFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT);
-
         shaderStages.push_back(info.PipelineCreation);
+
+        if (auto size = info.Reflection.PushConstantsSize)
+        {
+            pushConstantSize = std::max(pushConstantSize, *size);
+        }
     }
 
     // Create pipeline layout:
@@ -327,10 +323,16 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         pipelineLayoutInfo.pSetLayouts = mDescriptorLayouts.data();
     }
 
-    if (mPushConstantRange)
-    {
-        auto &pcRange = *mPushConstantRange;
+    // Fill in Push constant information:
+    VkPushConstantRange pcRange{
+        // TODO: may expose more granular control over this:
+        .stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+        .offset     = 0,
+        .size       = pushConstantSize,
+    };
 
+    if (pushConstantSize > 0)
+    {
         pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
         pipelineLayoutInfo.pushConstantRangeCount = 1;
     }
@@ -456,17 +458,6 @@ ComputePipelineBuilder &ComputePipelineBuilder::AddDescriptorSetLayout(
     return *this;
 }
 
-ComputePipelineBuilder &ComputePipelineBuilder::SetPushConstantSize(uint32_t size)
-{
-    VkPushConstantRange pcRange{};
-    pcRange.offset     = 0;
-    pcRange.size       = size;
-    pcRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    mPushConstantRange = pcRange;
-    return *this;
-}
-
 ComputePipeline ComputePipelineBuilder::Build(VulkanContext &ctx)
 {
     return BuildImpl(ctx);
@@ -484,14 +475,15 @@ ComputePipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue 
 
 ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    ComputePipeline pipeline{};
-
     auto info = Shader::GetStageInfo(ctx, *mShaderPath, VK_SHADER_STAGE_COMPUTE_BIT);
 
+    ComputePipeline pipeline{};
+    pipeline.LocalSize = *info.Reflection.LocalSize;
+
+    uint32_t pcSize = 0;
+    if (auto size = info.Reflection.PushConstantsSize)
     {
-        pipeline.LocalSizeX = info.Reflection.LocalSizeX;
-        pipeline.LocalSizeY = info.Reflection.LocalSizeY;
-        pipeline.LocalSizeZ = info.Reflection.LocalSizeZ;
+        pcSize = *size;
     }
 
     std::array shaderStages{info.PipelineCreation};
@@ -506,10 +498,15 @@ ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
         pipelineLayoutInfo.pSetLayouts = mDescriptorLayouts.data();
     }
 
-    if (mPushConstantRange)
-    {
-        auto &pcRange = *mPushConstantRange;
+    // Fill in push constant info:
+    VkPushConstantRange pcRange{
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+        .offset     = 0,
+        .size       = pcSize,
+    };
 
+    if (pcSize > 0) 
+    {
         pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
         pipelineLayoutInfo.pushConstantRangeCount = 1;
     }

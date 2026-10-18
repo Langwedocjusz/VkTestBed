@@ -57,9 +57,7 @@ public:
     VkPipeline       Handle;
     VkPipelineLayout Layout;
 
-    uint32_t LocalSizeX;
-    uint32_t LocalSizeY;
-    uint32_t LocalSizeZ;
+    std::array<uint32_t, 3> LocalSize;
 };
 
 
@@ -93,8 +91,6 @@ class PipelineBuilder {
 
     PipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
 
-    PipelineBuilder &SetPushConstantSize(uint32_t size);
-
     PipelineBuilder &SetMultisampling(VkSampleCountFlagBits sampleCount);
 
     GraphicsPipeline Build(VulkanContext &ctx);
@@ -124,8 +120,6 @@ class PipelineBuilder {
 
     std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
 
-    std::optional<VkPushConstantRange> mPushConstantRange = std::nullopt;
-
     VkVertexInputBindingDescription                mBindingDescription;
     std::vector<VkVertexInputAttributeDescription> mAttributeDescriptions;
 
@@ -138,7 +132,6 @@ class ComputePipelineBuilder {
 
     ComputePipelineBuilder &SetShaderPath(std::string_view path);
     ComputePipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
-    ComputePipelineBuilder &SetPushConstantSize(uint32_t size);
 
     ComputePipeline Build(VulkanContext &ctx);
     ComputePipeline Build(VulkanContext &ctx, DeletionQueue &queue);
@@ -149,6 +142,5 @@ class ComputePipelineBuilder {
   private:
     std::optional<std::string>         mShaderPath;
     std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
-    std::optional<VkPushConstantRange> mPushConstantRange;
     std::string                        mDebugName;
 };

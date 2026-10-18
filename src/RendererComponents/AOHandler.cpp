@@ -95,25 +95,21 @@ void AOHandler::RebuildPipelines()
     mZGenPipeline = ComputePipelineBuilder("AOZBufferPipeline")
                         .SetShaderPath("assets/spirv/ao/ZGenComp.spv")
                         .AddDescriptorSetLayout(mAODescriptorSetLayout)
-                        .SetPushConstantSize(sizeof(PCDataZ))
                         .Build(mCtx, mPipelineDeletionQueue);
 
     mZMipGenPipeline = ComputePipelineBuilder("AOZBufferMipPipeline")
                            .SetShaderPath("assets/spirv/ao/ZMipGenComp.spv")
                            .AddDescriptorSetLayout(mZMipGenDescriptorSetLayout)
-                           .SetPushConstantSize(sizeof(PCDataZMip))
                            .Build(mCtx, mPipelineDeletionQueue);
 
     mAOGenPipeline = ComputePipelineBuilder("AOGenPipeline")
                          .SetShaderPath("assets/spirv/ao/AOGenComp.spv")
                          .AddDescriptorSetLayout(mAODescriptorSetLayout)
-                         .SetPushConstantSize(sizeof(PCDataAO))
                          .Build(mCtx, mPipelineDeletionQueue);
 
     mBilateralPipeline = ComputePipelineBuilder("AOBilateralPipeline")
                              .SetShaderPath("assets/spirv/ao/AOBilateralComp.spv")
                              .AddDescriptorSetLayout(mBilateralDescriptorSetLayout)
-                             .SetPushConstantSize(sizeof(PCDataBilateral))
                              .Build(mCtx, mPipelineDeletionQueue);
 }
 

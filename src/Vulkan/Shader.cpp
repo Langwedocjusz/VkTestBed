@@ -60,19 +60,47 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
     auto size = sizeof(uint32_t) * code.size();
 
     SpvReflectShaderModule module;
-    SpvReflectResult result = spvReflectCreateShaderModule(size, data, &module);
 
-    vassert(result == SPV_REFLECT_RESULT_SUCCESS);
+    {
+        auto result = spvReflectCreateShaderModule(size, data, &module);
+        vassert(result == SPV_REFLECT_RESULT_SUCCESS);
+    }
 
+    // Assume entry point is always called 'main':
     auto entryPoint = spvReflectGetEntryPoint(&module, "main");
-
     vassert(entryPoint != nullptr);
 
+    // Get local group sizes for compute shaders:
     if (entryPoint->shader_stage & SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT)
     {
-        ret.LocalSizeX = entryPoint->local_size.x;
-        ret.LocalSizeY = entryPoint->local_size.y;
-        ret.LocalSizeZ = entryPoint->local_size.z;
+        ret.LocalSize = {{
+            entryPoint->local_size.x,
+            entryPoint->local_size.y,
+            entryPoint->local_size.z,
+        }};
+    }
+
+    // Retrieve information about push constant blocks:
+    uint32_t pcBlockCount;
+    {
+        auto result = spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount, nullptr);
+        vassert(result == SPV_REFLECT_RESULT_SUCCESS);
+    }
+
+    std::vector<SpvReflectBlockVariable*> pcBlocks{};
+    pcBlocks.resize(pcBlockCount);
+    {
+        auto result = spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount, pcBlocks.data());
+        vassert(result == SPV_REFLECT_RESULT_SUCCESS);   
+    }
+
+    // Assuming there is at most 1 block.
+    // Afaik GLSL enforces this anyway.
+    vassert(pcBlocks.size() < 2);
+
+    if (pcBlocks.size() == 1)
+    {
+        ret.PushConstantsSize = pcBlocks[0]->size;
     }
 
     return ret;

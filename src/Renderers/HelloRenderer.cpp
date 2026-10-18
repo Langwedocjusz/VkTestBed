@@ -52,7 +52,6 @@ void HelloRenderer::RebuildPipelines()
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
-            .SetPushConstantSize(sizeof(glm::mat4))
             .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .Build(mCtx, mPipelineDeletionQueue);
 }

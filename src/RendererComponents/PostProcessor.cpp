@@ -79,20 +79,17 @@ void PostProcessor::RebuildPipelines()
         ComputePipelineBuilder("PostfxBloomDownsample")
             .SetShaderPath("assets/spirv/postfx/BloomDownsampleComp.spv")
             .AddDescriptorSetLayout(mBloomDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(PCDataBloom))
             .Build(mCtx, mPipelineDeletionQueue);
 
     mBloomUpscalePipeline =
         ComputePipelineBuilder("PostfxBloomUpsample")
             .SetShaderPath("assets/spirv/postfx/BloomUpsampleComp.spv")
             .AddDescriptorSetLayout(mBloomDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(PCDataBloom))
             .Build(mCtx, mPipelineDeletionQueue);
 
     mFinalPipeline = ComputePipelineBuilder("PostxFinal")
                          .SetShaderPath("assets/spirv/postfx/FinalComp.spv")
                          .AddDescriptorSetLayout(mFinalDescriptorSetLayout)
-                         .SetPushConstantSize(sizeof(PCDataFinal))
                          .Build(mCtx, mPipelineDeletionQueue);
 }
 

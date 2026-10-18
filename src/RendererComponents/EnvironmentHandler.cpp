@@ -282,21 +282,18 @@ void EnvironmentHandler::RebuildPipelines(VkFormat colorFormat, VkFormat depthFo
             .SetShaderPath("assets/spirv/environment/IrradianceCalcSHComp.spv")
             .AddDescriptorSetLayout(mBackgroundDescrptorSetLayout)
             .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(PCDataIrradianceSH))
             .Build(mCtx, mPipelineDeletionQueue);
 
     mIrradianceReducePipeline =
         ComputePipelineBuilder("EnvIrradianceReducePipeline")
             .SetShaderPath("assets/spirv/environment/IrradianceReduceComp.spv")
             .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(PCDataReduce))
             .Build(mCtx, mPipelineDeletionQueue);
 
     mPrefilteredGenPipeline =
         ComputePipelineBuilder("EnvPrefilteredGenPipeline")
             .SetShaderPath("assets/spirv/environment/PrefilteredGenComp.spv")
             .AddDescriptorSetLayout(mPrefilteredDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(PCDataPrefiltered))
             .Build(mCtx, mPipelineDeletionQueue);
 
     mIntegrationGenPipeline =
@@ -322,7 +319,6 @@ void EnvironmentHandler::RebuildPipelines(VkFormat colorFormat, VkFormat depthFo
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(colorFormat)
-            .SetPushConstantSize(sizeof(FrustumBack))
             .AddDescriptorSetLayout(mBackgroundDescrptorSetLayout)
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
             .SetDepthFormat(depthFormat)

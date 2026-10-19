@@ -172,36 +172,6 @@ class MinimalPbrRenderer final : public IRenderer {
     GraphicsPipeline mOutlinePipeline;
     GraphicsPipeline mObjectIdPipeline;
 
-    // Push-constant struct definitions for all pipelines:
-    struct PCDataPrepass {
-        glm::mat4       Model;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-    };
-
-    struct PCDataMain {
-        glm::mat4       Model;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-    };
-
-    struct PCDataOutline {
-        glm::mat4       Model;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-    };
-
-    struct PCDataObjectID {
-        glm::mat4       Model;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-        uint32_t        ObjectId;
-    };
-
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct CamUBOData {
         glm::mat4 CameraViewProjection;

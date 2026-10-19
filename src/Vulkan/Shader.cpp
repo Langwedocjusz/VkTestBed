@@ -66,18 +66,32 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
         vassert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
 
-    // Assume entry point is always called 'main':
-    auto entryPoint = spvReflectGetEntryPoint(&module, "main");
-    vassert(entryPoint != nullptr);
+    // Retrieve the shader stage:
+    ret.Stage = static_cast<VkShaderStageFlagBits>(module.shader_stage);
 
-    // Get local group sizes for compute shaders:
-    if (entryPoint->shader_stage & SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT)
+    // Retrieve information about descriptor set bindings:
+    uint32_t numBindings = 0;
     {
-        ret.LocalSize = {{
-            entryPoint->local_size.x,
-            entryPoint->local_size.y,
-            entryPoint->local_size.z,
-        }};
+        auto result = spvReflectEnumerateDescriptorBindings(&module, &numBindings, nullptr);
+        vassert(result == SPV_REFLECT_RESULT_SUCCESS);
+    }
+
+    std::vector<SpvReflectDescriptorBinding*> bindings{};
+    bindings.resize(numBindings);
+
+    {
+        auto result = spvReflectEnumerateDescriptorBindings(&module, &numBindings, bindings.data());
+        vassert(result == SPV_REFLECT_RESULT_SUCCESS);
+    }
+
+    for (auto binding : bindings)
+    {
+        ret.Bindings.push_back(BindingInfo{
+            .Set     = binding->set,
+            .Binding = binding->binding,
+            .Type    = static_cast<VkDescriptorType>(binding->descriptor_type),
+            .Count   = binding->count,
+        });
     }
 
     // Retrieve information about push constant blocks:
@@ -101,6 +115,21 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
     if (pcBlocks.size() == 1)
     {
         ret.PushConstantsSize = pcBlocks[0]->size;
+    }
+
+    // For compute shaders retrieve local group sizes for compute shaders:
+
+    // Assume entry point is always called 'main':
+    auto entryPoint = spvReflectGetEntryPoint(&module, "main");
+    vassert(entryPoint != nullptr);
+
+    if (entryPoint->shader_stage & SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT)
+    {
+        ret.LocalSize = {{
+            entryPoint->local_size.x,
+            entryPoint->local_size.y,
+            entryPoint->local_size.z,
+        }};
     }
 
     return ret;

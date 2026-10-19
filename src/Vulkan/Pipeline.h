@@ -21,7 +21,7 @@ public:
                             uint32_t startIdx);
 
     template <typename T>
-    void PushConstants(VkCommandBuffer cmd, T &data)
+    void PushConstants(VkCommandBuffer cmd, const T &data)
     {
         vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
     }
@@ -43,7 +43,7 @@ public:
                             uint32_t startIdx);
 
     template <typename T>
-    void PushConstants(VkCommandBuffer cmd, T &data)
+    void PushConstants(VkCommandBuffer cmd, const T &data)
     {
         vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
     }
@@ -68,6 +68,8 @@ class PipelineBuilder {
     PipelineBuilder &SetShaderPathVertex(std::string_view path);
     PipelineBuilder &SetShaderPathFragment(std::string_view path);
 
+    PipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
+
     /// If vertex input is not set, vertex data can't be accessed the usual way
     /// in vertex shaders. This is actually the desired behaviour when doing
     /// vertex pulling or generating vertices on-the-fly in the shader itself.
@@ -88,8 +90,6 @@ class PipelineBuilder {
     PipelineBuilder &EnableDepthTestNoWrite(VkCompareOp compareOp = VK_COMPARE_OP_LESS);
     PipelineBuilder &EnableStencilTest(VkStencilOpState front, VkStencilOpState back);
     PipelineBuilder &EnableBlending();
-
-    PipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
 
     PipelineBuilder &SetMultisampling(VkSampleCountFlagBits sampleCount);
 
@@ -131,6 +131,7 @@ class ComputePipelineBuilder {
     ComputePipelineBuilder(std::string_view debugName);
 
     ComputePipelineBuilder &SetShaderPath(std::string_view path);
+
     ComputePipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
 
     ComputePipeline Build(VulkanContext &ctx);

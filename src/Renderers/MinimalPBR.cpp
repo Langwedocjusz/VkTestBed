@@ -751,6 +751,14 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
 void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 {
+    // Push constants layout for prepass pipelines:
+    struct PCData {
+        glm::mat4       Model;
+        VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
+    };
+
     auto renderInfo = common::RenderingInfo{
         .Extent          = GetTargetSize(),
         .Depth           = mDepthStencilBuffer.View,
@@ -780,14 +788,12 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 
         auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
                                        Instance &instance) {
-            PCDataPrepass data{
+            mZPrepassOpaquePipeline.PushConstants(cmd, PCData{
                 .Model          = instance.TransformRaw,
                 .VertexBuffer   = drawable.VertexAddress,
                 .TexBoundCenter = drawable.TexBoundsCenter,
                 .TexBoundExtent = drawable.TexBoundsExtent,
-            };
-
-            mZPrepassOpaquePipeline.PushConstants(cmd, data);
+            });
         };
 
         DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -807,14 +813,12 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 
         auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
                                        Instance &instance) {
-            PCDataPrepass data{
+            mZPrepassAlphaPipeline.PushConstants(cmd, PCData{
                 .Model          = instance.TransformRaw,
                 .VertexBuffer   = drawable.VertexAddress,
                 .TexBoundCenter = drawable.TexBoundsCenter,
                 .TexBoundExtent = drawable.TexBoundsExtent,
-            };
-
-            mZPrepassAlphaPipeline.PushConstants(cmd, data);
+            });
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -868,14 +872,19 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
     auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
                                    Instance &instance) {
-        PCDataMain data{
+        struct PCData {
+            glm::mat4       Model;
+            VkDeviceAddress VertexBuffer;
+            glm::vec2       TexBoundCenter;
+            glm::vec2       TexBoundExtent;
+        };
+
+        mMainPipeline.PushConstants(cmd, PCData{
             .Model          = instance.TransformRaw,
             .VertexBuffer   = drawable.VertexAddress,
             .TexBoundCenter = drawable.TexBoundsCenter,
             .TexBoundExtent = drawable.TexBoundsExtent,
-        };
-
-        mMainPipeline.PushConstants(cmd, data);
+        });
     };
 
     {
@@ -932,6 +941,14 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
         mLastHighlightedObjKey = highlightedObj;
     }
 
+    // Push Constants layout for outline pass:
+    struct PCData {
+        glm::mat4       Model;
+        VkDeviceAddress VertexBuffer;
+        glm::vec2       TexBoundCenter;
+        glm::vec2       TexBoundExtent;
+    };
+
     // Draw to stencil:
     // TODO: this does no check to see if the current drawable is double sided
     // and wheter or not the vkCullState is set accordingly.
@@ -973,14 +990,12 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             // Push per-instance data:
             auto &model = drawable.Instances.at(instanceId).TransformRaw;
 
-            PCDataOutline data{
+            mStencilPipeline.PushConstants(cmd, PCData{
                 .Model          = model,
                 .VertexBuffer   = drawable.VertexAddress,
                 .TexBoundCenter = drawable.TexBoundsCenter,
                 .TexBoundExtent = drawable.TexBoundsExtent,
-            };
-
-            mStencilPipeline.PushConstants(cmd, data);
+            });
 
             // Draw:
             drawable.Draw(cmd);
@@ -1032,14 +1047,12 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             // Push per-instance data:
             auto &model = drawable.Instances.at(instanceId).TransformRaw;
 
-            PCDataOutline data{
+            mOutlinePipeline.PushConstants(cmd, PCData{
                 .Model          = model,
                 .VertexBuffer   = drawable.VertexAddress,
                 .TexBoundCenter = drawable.TexBoundsCenter,
                 .TexBoundExtent = drawable.TexBoundsExtent,
-            };
-
-            mOutlinePipeline.PushConstants(cmd, data);
+            });
 
             // Draw:
             drawable.Draw(cmd);
@@ -1075,15 +1088,22 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
 
     auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Drawable &drawable,
                                              Instance &instance) {
-        PCDataObjectID data{
+
+        struct PCData {
+            glm::mat4       Model;
+            VkDeviceAddress VertexBuffer;
+            glm::vec2       TexBoundCenter;
+            glm::vec2       TexBoundExtent;
+            uint32_t        ObjectId;
+        };
+    
+        mObjectIdPipeline.PushConstants(cmd, PCData{
             .Model          = viewProj * instance.TransformRaw,
             .VertexBuffer   = drawable.VertexAddress,
             .TexBoundCenter = drawable.TexBoundsCenter,
             .TexBoundExtent = drawable.TexBoundsExtent,
             .ObjectId       = instance.ObjectId,
-        };
-
-        mObjectIdPipeline.PushConstants(cmd, data);
+        });
     };
 
     DrawStats stats;

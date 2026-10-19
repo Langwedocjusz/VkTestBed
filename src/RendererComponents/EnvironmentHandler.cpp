@@ -429,11 +429,15 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
         mIrradianceSHPipeline.Bind(cmd);
         mIrradianceSHPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
 
-        PCDataIrradianceSH data{
+        struct PCData {
+            uint32_t CubemapRes;
+            uint32_t ReduceBlock;
+        };
+
+        mIrradianceSHPipeline.PushConstants(cmd, PCData{
             .CubemapRes  = mCubemap.Img.Info.extent.width,
             .ReduceBlock = mReduceBlock,
-        };
-        mIrradianceSHPipeline.PushConstants(cmd, data);
+        });
 
         mIrradianceSHPipeline.Dispatch(cmd, mFirstBufferLen);
     });
@@ -443,11 +447,14 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
         mIrradianceReducePipeline.Bind(cmd);
         mIrradianceReducePipeline.BindDescriptorSet(cmd, mIrradianceDescriptorSet, 0);
 
-        PCDataReduce data{
-            .BufferSize = mFirstBufferLen,
+        struct PCData {
+            uint32_t BufferSize;
         };
 
-        mIrradianceReducePipeline.PushConstants(cmd, data);
+        mIrradianceReducePipeline.PushConstants(cmd, PCData{
+            .BufferSize = mFirstBufferLen,
+        });
+
         // Defaults to (1,1,1) threads:
         mIrradianceReducePipeline.Dispatch(cmd); 
     });
@@ -503,12 +510,6 @@ void EnvironmentHandler::GeneratePrefilteredMap()
             const float roughness =
                 static_cast<float>(mip) / static_cast<float>(numMips - 1);
 
-            PCDataPrefiltered data{
-                .CubeResolution = mCubemap.Img.Info.extent.width,
-                .MipLevel       = mip,
-                .Roughness      = roughness,
-            };
-
             // Update prefiltered descriptor to access appropriate mip level
             DescriptorUpdater(mPrefilteredDescriptorSet)
                 .WriteCombinedSampler(0, mCubemap.View, mSamplerMipped)
@@ -520,7 +521,17 @@ void EnvironmentHandler::GeneratePrefilteredMap()
                 mPrefilteredGenPipeline.BindDescriptorSet(cmd, mPrefilteredDescriptorSet,
                                                           0);
 
-                mPrefilteredGenPipeline.PushConstants(cmd, data);
+                struct PCData {
+                    uint32_t CubeResolution;
+                    uint32_t MipLevel;
+                    float    Roughness;
+                };
+
+                mPrefilteredGenPipeline.PushConstants(cmd, PCData{
+                    .CubeResolution = mCubemap.Img.Info.extent.width,
+                    .MipLevel       = mip,
+                    .Roughness      = roughness,
+                });
 
                 mPrefilteredGenPipeline.Dispatch(cmd, resX, resY, 6);
             });

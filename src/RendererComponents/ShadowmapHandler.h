@@ -153,11 +153,6 @@ class ShadowmapHandler {
     // Additional pipeline and resources for debug visualization:
     GraphicsPipeline mDebugPipeline;
 
-    struct PCDataDebug {
-        glm::mat4 ViewProj;
-        glm::vec4 Color;
-    };
-
     // Debug frustum geometry data:
     static constexpr size_t NumVertsPerFrustum = 8;
     static constexpr size_t NumIdxPerFrustum   = 36;

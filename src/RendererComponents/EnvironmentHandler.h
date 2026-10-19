@@ -97,22 +97,6 @@ class EnvironmentHandler {
     VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
     VkDescriptorSet       mBackgroundDescriptorSet;
 
-    // Push constants data layouts for pipelines:
-    struct PCDataIrradianceSH {
-        uint32_t CubemapRes;
-        uint32_t ReduceBlock;
-    };
-
-    struct PCDataReduce {
-        uint32_t BufferSize;
-    };
-
-    struct PCDataPrefiltered {
-        uint32_t CubeResolution;
-        uint32_t MipLevel;
-        float    Roughness;
-    };
-
     // Compute pipelines for resource generation:
     ComputePipeline mEquiRectToCubePipeline;
     ComputePipeline mIrradianceSHPipeline;

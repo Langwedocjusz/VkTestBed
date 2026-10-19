@@ -41,16 +41,6 @@ class PostProcessor {
     ComputePipeline mBloomUpscalePipeline;
     ComputePipeline mFinalPipeline;
 
-    struct PCDataBloom {
-        uint32_t CurrentMip;
-    };
-
-    struct PCDataFinal {
-        int32_t BloomEnabled;
-        float   BloomStrength;
-        int32_t AdditionalColorCorrect;
-    };
-
     VkSampler                mBloomSampler;
     Texture                  mBloomTarget;
     std::vector<VkImageView> mBloomSingleMipViews;

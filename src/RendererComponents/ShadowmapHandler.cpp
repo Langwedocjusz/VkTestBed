@@ -448,21 +448,25 @@ void ShadowmapHandler::DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj,
     vkCmdBindIndexBuffer(cmd, mDebugFrustumIndexBuffer.Handle, 0,
                          mDebugGeometryLayout.IndexType);
 
-    // Collect push-constant data:
-    PCDataDebug data{
-        .ViewProj = viewProj,
-        .Color    = {},
+    // Push constants layout:
+    struct PCData {
+        glm::mat4 ViewProj;
+        glm::vec4 Color;
     };
 
     // Draw view frustum:
-    data.Color = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f);
-    mDebugPipeline.PushConstants(cmd, data);
+    mDebugPipeline.PushConstants(cmd, PCData{
+        .ViewProj = viewProj,
+        .Color    = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f),
+    });
 
     vkCmdDrawIndexed(cmd, NumIdxPerFrustum, 1, 0, 0, 0);
 
     // Draw shadow projection bounds:
-    data.Color = glm::vec4(0.9f, 0.9f, 0.2f, 0.2f);
-    mDebugPipeline.PushConstants(cmd, data);
+    mDebugPipeline.PushConstants(cmd, PCData{
+        .ViewProj = viewProj,
+        .Color    = glm::vec4(0.9f, 0.9f, 0.2f, 0.2f),
+    });
 
     vkCmdDrawIndexed(cmd, NumIdxPerFrustum, 1, 0, 8, 0);
 }

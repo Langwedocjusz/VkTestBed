@@ -274,13 +274,16 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         barrier::TextureCompToGeneral(cmd, mZBuffer.Img);
 
         // Generate the 0 level of the Z-buffer:
-        PCDataZ data{
-            .Proj = mCamera.GetProj(),
-        };
-
         mZGenPipeline.Bind(cmd);
         mZGenPipeline.BindDescriptorSet(cmd, mZGenDescriptorSet, 0);
-        mZGenPipeline.PushConstants(cmd, data);
+
+        struct PCData {
+            glm::mat4 Proj;
+        };
+
+        mZGenPipeline.PushConstants(cmd, PCData{
+            .Proj = mCamera.GetProj(),
+        });
 
         mZGenPipeline.Dispatch(cmd, mZBuffer.Img.Info.extent.width, mZBuffer.Img.Info.extent.height);
 
@@ -293,10 +296,13 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 
         for (uint32_t mip = 1; mip < mZBuffer.Img.Info.mipLevels; mip++)
         {
-            PCDataZMip data{
-                .CurrentMip = mip,
+            struct PCData {
+                uint32_t CurrentMip;
             };
-            mZMipGenPipeline.PushConstants(cmd, data);
+            
+            mZMipGenPipeline.PushConstants(cmd, PCData{
+                .CurrentMip = mip,
+            });
 
             mZMipGenPipeline.Dispatch(cmd, resX, resY);
 
@@ -321,16 +327,22 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         // Calculate ambient occlusion:
         auto frBack = mCamera.GetFrustumBackEye();
 
-        PCDataAO data{
+        mAOGenPipeline.Bind(cmd);
+        mAOGenPipeline.BindDescriptorSet(cmd, mAOGenDescriptorSet, 0);
+
+        struct PCData {
+            glm::vec4 TopLeft;
+            glm::vec4 TopRight;
+            glm::vec4 BottomLeft;
+            glm::vec4 BottomRight;
+        };
+
+        mAOGenPipeline.PushConstants(cmd, PCData{
             .TopLeft     = frBack.TopLeft,
             .TopRight    = frBack.TopRight,
             .BottomLeft  = frBack.BottomLeft,
             .BottomRight = frBack.BottomRight,
-        };
-
-        mAOGenPipeline.Bind(cmd);
-        mAOGenPipeline.BindDescriptorSet(cmd, mAOGenDescriptorSet, 0);
-        mAOGenPipeline.PushConstants(cmd, data);
+        });
 
         mAOGenPipeline.Dispatch(cmd, mAOTarget.Img.Info.extent.width, mAOTarget.Img.Info.extent.height);
     }
@@ -346,13 +358,17 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         glm::uvec2 aoSize{mAOTarget.Img.Info.extent.width,
                           mAOTarget.Img.Info.extent.height};
 
-        PCDataBilateral data{
+        struct PCData {
+            glm::uvec2 AOResolution;
+            float      SigmaSpatial;
+            float      SigmaVal;
+        };
+
+        mBilateralPipeline.PushConstants(cmd, PCData{
             .AOResolution = aoSize,
             .SigmaSpatial = 1.0f,
             .SigmaVal     = 0.01f,
-        };
-
-        mBilateralPipeline.PushConstants(cmd, data);
+        });
 
         mBilateralPipeline.Dispatch(cmd, mBilateralTarget.Img.Info.extent.width, mBilateralTarget.Img.Info.extent.height);
 

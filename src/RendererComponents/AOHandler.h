@@ -46,27 +46,7 @@ class AOHandler {
     }
 
   private:
-    struct PCDataZ {
-        glm::mat4 Proj;
-    };
-
-    struct PCDataZMip {
-        uint32_t CurrentMip;
-    };
-
-    struct PCDataAO {
-        glm::vec4 TopLeft;
-        glm::vec4 TopRight;
-        glm::vec4 BottomLeft;
-        glm::vec4 BottomRight;
-    };
-
-    struct PCDataBilateral {
-        glm::uvec2 AOResolution;
-        float      SigmaSpatial;
-        float      SigmaVal;
-    };
-
+  
     struct ResourceCache {
         Image      &DepthBuffer;
         VkImageView DepthOnlyView;

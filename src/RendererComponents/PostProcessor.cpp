@@ -227,10 +227,13 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
                 barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
             }
 
-            PCDataBloom pcData{
-                .CurrentMip = static_cast<uint32_t>(mip),
+            struct PCData {
+                uint32_t CurrentMip;
             };
-            mBloomDownscalePipeline.PushConstants(cmd, pcData);
+
+            mBloomDownscalePipeline.PushConstants(cmd, PCData{
+                .CurrentMip = static_cast<uint32_t>(mip),
+            });
 
             auto res = resolutions[mip];
             mBloomDownscalePipeline.Dispatch(cmd, res.x, res.y);
@@ -252,10 +255,13 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
             dstRange.baseMipLevel = mip;
             dstRange.levelCount   = 1;
 
-            PCDataBloom pcData{
-                .CurrentMip = static_cast<uint32_t>(mip),
+            struct PCData {
+                uint32_t CurrentMip;
             };
-            mBloomUpscalePipeline.PushConstants(cmd, pcData);
+
+            mBloomUpscalePipeline.PushConstants(cmd, PCData{
+                .CurrentMip = static_cast<uint32_t>(mip),
+            });
 
             auto res = resolutions[mip];
             mBloomUpscalePipeline.Dispatch(cmd, res.x, res.y);
@@ -271,12 +277,17 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         mFinalPipeline.Bind(cmd);
         mFinalPipeline.BindDescriptorSet(cmd, mFinalDescriptorSet, 0);
 
-        PCDataFinal pcData{
+        struct PCData {
+            int32_t BloomEnabled;
+            float   BloomStrength;
+            int32_t AdditionalColorCorrect;
+        };
+
+        mFinalPipeline.PushConstants(cmd, PCData{
             .BloomEnabled           = static_cast<int32_t>(mBloomEnabled),
             .BloomStrength          = mBloomStrength,
             .AdditionalColorCorrect = !vkutils::IsFormatSRGB(mCtx.Swapchain->Format),
-        };
-        mFinalPipeline.PushConstants(cmd, pcData);
+        });
 
         auto res = resolutions[0];
         mFinalPipeline.Dispatch(cmd, res.x, res.y);

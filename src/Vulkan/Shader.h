@@ -5,9 +5,18 @@
 #include <string>
 #include <optional>
 
+struct BindingInfo{
+    uint32_t         Set;
+    uint32_t         Binding;
+    VkDescriptorType Type;
+    uint32_t         Count;
+};
+
 struct ReflectionInfo{
-    std::optional<std::array<uint32_t, 3>> LocalSize;
+    VkShaderStageFlagBits                  Stage;
+    std::vector<BindingInfo>               Bindings;
     std::optional<uint32_t>                PushConstantsSize;
+    std::optional<std::array<uint32_t, 3>> LocalSize;
 };
 
 struct ShaderStageInfo{

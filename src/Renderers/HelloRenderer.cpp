@@ -137,13 +137,14 @@ void HelloRenderer::RecreateSwapchainResources()
     };
 
     Image2DInfo renderTargetInfo{
+        .DebugName = "RenderTarget",
         .Extent = drawExtent,
         .Format = mRenderTargetFormat,
         .Usage  = TransferSrc | ColorAttachment,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
 
-    mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
+    mRenderTarget = MakeTexture::Texture2D(mCtx, renderTargetInfo,
                                            mSwapchainDeletionQueue);
 }
 

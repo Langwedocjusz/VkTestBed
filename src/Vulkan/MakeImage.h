@@ -3,7 +3,6 @@
 #include "DeletionQueue.h"
 #include "Image.h"
 #include "ImageData.h"
-#include "Texture.h"
 
 #include "volk.h"
 
@@ -11,6 +10,7 @@
 #include <string>
 
 struct Image2DInfo {
+    std::string                  DebugName;
     VkExtent2D                   Extent;
     VkFormat                     Format;
     VkImageUsageFlags            Usage;
@@ -21,12 +21,12 @@ struct Image2DInfo {
 
 namespace MakeImage
 {
-Image Image2D(VulkanContext &ctx, const std::string &debugName, Image2DInfo info);
+Image Image2D(VulkanContext &ctx, const Image2DInfo &info);
 
-Image Image2DArray(VulkanContext &ctx, const std::string &debugName, Image2DInfo info,
+Image Image2DArray(VulkanContext &ctx, const Image2DInfo &info,
                    uint32_t numLayers);
 
-Image Cube(VulkanContext &ctx, const std::string &debugName, Image2DInfo info);
+Image Cube(VulkanContext &ctx, const Image2DInfo &info);
 
 Image FromData(VulkanContext &ctx, const std::string &debugName, const ImageData &data);
 } // namespace MakeImage
@@ -57,20 +57,20 @@ VkImageView ViewCube(VulkanContext &ctx, const std::string &debugName, View2DInf
 
 namespace MakeTexture
 {
-Texture Texture2D(VulkanContext &ctx, const std::string &debugName, Image2DInfo info);
-Texture Texture2DArray(VulkanContext &ctx, const std::string &debugName, Image2DInfo info,
+Texture Texture2D(VulkanContext &ctx, const Image2DInfo &info);
+Texture Texture2DArray(VulkanContext &ctx, const Image2DInfo &info,
                        uint32_t numLayers);
-Texture TextureCube(VulkanContext &ctx, const std::string &debugName, Image2DInfo info);
+Texture TextureCube(VulkanContext &ctx, const Image2DInfo &info);
 Texture FromData(VulkanContext &ctx, const std::string &debugName, const ImageData &data);
 
 // Overloads that automatically push created resources to a given
 // deletion queue:
 
-Texture Texture2D(VulkanContext &ctx, const std::string &debugName, Image2DInfo info,
+Texture Texture2D(VulkanContext &ctx, const Image2DInfo &info,
                   DeletionQueue &queue);
-Texture Texture2DArray(VulkanContext &ctx, const std::string &debugName, Image2DInfo info,
+Texture Texture2DArray(VulkanContext &ctx, const Image2DInfo &info,
                        uint32_t numLayers, DeletionQueue &queue);
-Texture TextureCube(VulkanContext &ctx, const std::string &debugName, Image2DInfo info,
+Texture TextureCube(VulkanContext &ctx, const Image2DInfo &info,
                     DeletionQueue &queue);
 Texture FromData(VulkanContext &ctx, const std::string &debugName, const ImageData &data,
                  DeletionQueue &queue);

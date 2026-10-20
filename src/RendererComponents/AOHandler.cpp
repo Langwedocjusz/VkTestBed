@@ -125,6 +125,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         };
 
         Image2DInfo zBufferInfo{
+            .DebugName = "AOZBuffer",
             .Extent    = targetExtent,
             .Format    = VK_FORMAT_R32_SFLOAT,
             .Usage     = Storage | Sampled,
@@ -132,7 +133,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mZBuffer = MakeTexture::Texture2D(mCtx, "AOZBuffer", zBufferInfo,
+        mZBuffer = MakeTexture::Texture2D(mCtx, zBufferInfo,
                                           mSwapchainDeletionQueue);
 
         // Create single-mip views into Z-buffer:
@@ -146,23 +147,25 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         }
 
         Image2DInfo aoTargetInfo{
-            .Extent = targetExtent,
-            .Format = VK_FORMAT_R8G8B8A8_UNORM,
-            .Usage  = Storage | Sampled,
-            .Layout = VK_IMAGE_LAYOUT_GENERAL,
+            .DebugName = "AOTarget",
+            .Extent    = targetExtent,
+            .Format    = VK_FORMAT_R8G8B8A8_UNORM,
+            .Usage     = Storage | Sampled,
+            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mAOTarget = MakeTexture::Texture2D(mCtx, "AOTarget", aoTargetInfo,
+        mAOTarget = MakeTexture::Texture2D(mCtx, aoTargetInfo,
                                            mSwapchainDeletionQueue);
 
         Image2DInfo bilateralInfo{
+            .DebugName = "AOBilateralTarget",
             .Extent = targetExtent,
             .Format = VK_FORMAT_R8G8B8A8_UNORM,
             .Usage  = Storage | Sampled,
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mBilateralTarget = MakeTexture::Texture2D(mCtx, "AOBilateralTarget",
+        mBilateralTarget = MakeTexture::Texture2D(mCtx,
                                                   bilateralInfo, mSwapchainDeletionQueue);
     }
 

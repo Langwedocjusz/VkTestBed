@@ -4,7 +4,6 @@
 
 #include "Buffer.h"
 #include "Image.h"
-#include "Texture.h"
 
 #include "volk.h"
 

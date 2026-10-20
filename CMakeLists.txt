@@ -212,7 +212,6 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Sampler.cpp
         src/Vulkan/Shader.h
         src/Vulkan/Shader.cpp
-        src/Vulkan/Texture.h
         src/Vulkan/VkEnums.h
         src/Vulkan/VkUtils.h
         src/Vulkan/VkUtils.cpp

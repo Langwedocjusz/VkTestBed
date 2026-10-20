@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Pipeline.h"
-#include "Texture.h"
+#include "Image.h"
 
 class PostProcessor {
   public:

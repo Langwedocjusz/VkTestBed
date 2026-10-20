@@ -36,3 +36,8 @@ struct Image {
 
     static VkImageSubresourceRange GetDefaultRange(const Image &img);
 };
+
+struct Texture {
+    Image       Img;
+    VkImageView View;
+};

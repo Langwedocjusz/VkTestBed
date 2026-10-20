@@ -51,6 +51,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
         // Create cubemap image and view:
         {
             auto cubemapInfo = Image2DInfo{
+                .DebugName = "EnvCubemap",
                 .Extent    = {CubemapSize, CubemapSize},
                 .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
                 .Usage     = TransferSrc | TransferDst | Storage | Sampled,
@@ -59,12 +60,13 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
             };
 
             mCubemap =
-                MakeTexture::TextureCube(mCtx, "EnvCubemap", cubemapInfo, mDeletionQueue);
+                MakeTexture::TextureCube(mCtx, cubemapInfo, mDeletionQueue);
         }
 
         // Create prefiltered map image and view:
         {
             auto prefilteredInfo = Image2DInfo{
+                .DebugName = "EnvPrefilteredMap",
                 .Extent    = {PrefilteredSize, PrefilteredSize},
                 .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
                 .Usage     = TransferDst | Storage | Sampled,
@@ -72,7 +74,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
                 .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
             };
 
-            mPrefiltered = MakeTexture::TextureCube(mCtx, "EnvPrefilteredMap",
+            mPrefiltered = MakeTexture::TextureCube(mCtx, 
                                                     prefilteredInfo, mDeletionQueue);
 
             // Create single mip views for usage in compute:
@@ -91,12 +93,13 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
         // Create BRDF integration map:
         {
             auto integrationInfo = Image2DInfo{
+                .DebugName = "EnvIntegrationMap",
                 .Extent = {IntegrationSize, IntegrationSize},
                 .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
                 .Usage  = Storage | Sampled,
             };
 
-            mIntegration = MakeTexture::Texture2D(mCtx, "EnvIntegrationMap", integrationInfo,
+            mIntegration = MakeTexture::Texture2D(mCtx, integrationInfo,
                                                   mDeletionQueue);
         }
     }

@@ -86,6 +86,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
     // Create bloom render target:
     {
         Image2DInfo info{
+            .DebugName = "BloomTarget",
             .Extent    = targetExtent,
             .Format    = renderTarget.Info.format,
             .Usage     = Storage | Sampled,
@@ -94,7 +95,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
         };
 
         mBloomTarget =
-            MakeTexture::Texture2D(mCtx, "BloomTarget", info, mSwapchainDeletionQueue);
+            MakeTexture::Texture2D(mCtx, info, mSwapchainDeletionQueue);
     }
 
     // Create single mip-level views for the bloom target:
@@ -116,6 +117,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
     // Create final (composed) target:
     {
         Image2DInfo info{
+            .DebugName = "FinalTarget",
             .Extent    = targetExtent,
             .Format    = FinalFormat,
             .Usage     = Storage | TransferSrc,
@@ -124,7 +126,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
         };
 
         mFinalTarget =
-            MakeTexture::Texture2D(mCtx, "FinalTarget", info, mSwapchainDeletionQueue);
+            MakeTexture::Texture2D(mCtx, info, mSwapchainDeletionQueue);
     }
 
     // Update the descriptor sets:

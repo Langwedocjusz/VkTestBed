@@ -11,7 +11,7 @@
 #include "Renderer.h"
 #include "Scene.h"
 #include "ShadowmapHandler.h"
-#include "Texture.h"
+#include "Image.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 

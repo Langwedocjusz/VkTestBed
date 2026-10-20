@@ -64,36 +64,36 @@ static void HandleLayoutTransition(VulkanContext &ctx, Image &img,
     }
 }
 
-Image MakeImage::Image2D(VulkanContext &ctx, const std::string &debugName,
-                         Image2DInfo info)
+Image MakeImage::Image2D(VulkanContext &ctx, 
+                         const Image2DInfo &info)
 {
     auto imageInfo = GetVkCreateImageInfo(info);
 
-    auto res = Image::Create(ctx, debugName, imageInfo);
+    auto res = Image::Create(ctx, info.DebugName, imageInfo);
     HandleLayoutTransition(ctx, res, info.Layout);
 
     return res;
 }
 
-Image MakeImage::Image2DArray(VulkanContext &ctx, const std::string &debugName,
-                              Image2DInfo info, uint32_t numLayers)
+Image MakeImage::Image2DArray(VulkanContext &ctx,
+                              const Image2DInfo &info, uint32_t numLayers)
 {
     auto imageInfo        = GetVkCreateImageInfo(info);
     imageInfo.arrayLayers = numLayers;
 
-    auto res = Image::Create(ctx, debugName, imageInfo);
+    auto res = Image::Create(ctx, info.DebugName, imageInfo);
     HandleLayoutTransition(ctx, res, info.Layout);
 
     return res;
 }
 
-Image MakeImage::Cube(VulkanContext &ctx, const std::string &debugName, Image2DInfo info)
+Image MakeImage::Cube(VulkanContext &ctx, const Image2DInfo &info)
 {
     auto imageInfo        = GetVkCreateImageInfo(info);
     imageInfo.arrayLayers = 6;
     imageInfo.flags       = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
-    auto res = Image::Create(ctx, debugName, imageInfo);
+    auto res = Image::Create(ctx, info.DebugName, imageInfo);
     HandleLayoutTransition(ctx, res, info.Layout);
 
     return res;
@@ -105,9 +105,11 @@ Image MakeImage::FromData(VulkanContext &ctx, const std::string &debugName,
     auto extent = GetExtent2D(data);
 
     Image2DInfo imgInfo{
-        .Extent = extent,
-        .Format = data.Format,
-        .Usage  = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        // NOTE: String copy:
+        .DebugName = debugName,
+        .Extent    = extent,
+        .Format    = data.Format,
+        .Usage     = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
     };
 
     if (data.Mips == MipStrategy::Load)
@@ -119,7 +121,7 @@ Image MakeImage::FromData(VulkanContext &ctx, const std::string &debugName,
         imgInfo.Usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
 
-    Image img = MakeImage::Image2D(ctx, debugName, imgInfo);
+    Image img = MakeImage::Image2D(ctx, imgInfo);
 
     Image::UploadInfo uploadInfo{
         .Data       = data.Data,
@@ -206,32 +208,32 @@ VkImageView MakeView::ViewCube(VulkanContext &ctx, const std::string &debugName,
 
 // Texture-wrapped functions:
 
-Texture MakeTexture::Texture2D(VulkanContext &ctx, const std::string &debugName,
-                               Image2DInfo info)
+Texture MakeTexture::Texture2D(VulkanContext &ctx,
+                               const Image2DInfo &info)
 {
     Texture res;
-    res.Img  = MakeImage::Image2D(ctx, debugName, info);
-    res.View = MakeView::View2D(ctx, debugName, {.Img = res.Img});
+    res.Img  = MakeImage::Image2D(ctx, info);
+    res.View = MakeView::View2D(ctx, info.DebugName, {.Img = res.Img});
 
     return res;
 }
 
-Texture MakeTexture::Texture2DArray(VulkanContext &ctx, const std::string &debugName,
-                                    Image2DInfo info, uint32_t numLayers)
+Texture MakeTexture::Texture2DArray(VulkanContext &ctx,
+                                    const Image2DInfo &info, uint32_t numLayers)
 {
     Texture res;
-    res.Img  = MakeImage::Image2DArray(ctx, debugName, info, numLayers);
-    res.View = MakeView::View2DArray(ctx, debugName, {.Img = res.Img});
+    res.Img  = MakeImage::Image2DArray(ctx, info, numLayers);
+    res.View = MakeView::View2DArray(ctx, info.DebugName, {.Img = res.Img});
 
     return res;
 }
 
-Texture MakeTexture::TextureCube(VulkanContext &ctx, const std::string &debugName,
-                                 Image2DInfo info)
+Texture MakeTexture::TextureCube(VulkanContext &ctx,
+                                 const Image2DInfo &info)
 {
     Texture res;
-    res.Img  = MakeImage::Cube(ctx, debugName, info);
-    res.View = MakeView::ViewCube(ctx, debugName, {.Img = res.Img});
+    res.Img  = MakeImage::Cube(ctx, info);
+    res.View = MakeView::ViewCube(ctx, info.DebugName, {.Img = res.Img});
 
     return res;
 }
@@ -248,27 +250,27 @@ Texture MakeTexture::FromData(VulkanContext &ctx, const std::string &debugName,
 
 // Deletion queue hooked overloads:
 
-Texture MakeTexture::Texture2D(VulkanContext &ctx, const std::string &debugName,
-                               Image2DInfo info, DeletionQueue &queue)
+Texture MakeTexture::Texture2D(VulkanContext &ctx,
+                               const Image2DInfo &info, DeletionQueue &queue)
 {
-    Texture res = Texture2D(ctx, debugName, info);
+    Texture res = Texture2D(ctx, info);
     queue.push_back(res);
     return res;
 }
 
-Texture MakeTexture::Texture2DArray(VulkanContext &ctx, const std::string &debugName,
-                                    Image2DInfo info, uint32_t numLayers,
+Texture MakeTexture::Texture2DArray(VulkanContext &ctx,
+                                    const Image2DInfo &info, uint32_t numLayers,
                                     DeletionQueue &queue)
 {
-    Texture res = Texture2DArray(ctx, debugName, info, numLayers);
+    Texture res = Texture2DArray(ctx, info, numLayers);
     queue.push_back(res);
     return res;
 }
 
-Texture MakeTexture::TextureCube(VulkanContext &ctx, const std::string &debugName,
-                                 Image2DInfo info, DeletionQueue &queue)
+Texture MakeTexture::TextureCube(VulkanContext &ctx, 
+                                 const Image2DInfo &info, DeletionQueue &queue)
 {
-    Texture res = TextureCube(ctx, debugName, info);
+    Texture res = TextureCube(ctx, info);
     queue.push_back(res);
     return res;
 }

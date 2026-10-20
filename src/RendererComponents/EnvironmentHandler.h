@@ -5,7 +5,7 @@
 #include "Descriptor.h"
 #include "Pipeline.h"
 #include "Scene.h"
-#include "Texture.h"
+#include "Image.h"
 #include "VulkanContext.h"
 
 #include "volk.h"

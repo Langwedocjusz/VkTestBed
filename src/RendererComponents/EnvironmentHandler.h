@@ -22,7 +22,7 @@ class EnvironmentHandler {
     };
 
   public:
-    EnvironmentHandler(VulkanContext &ctx);
+    EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool staticPool);
 
     void RebuildPipelines(VkFormat colorFormat, VkFormat depthFormat,
                           VkSampleCountFlagBits sampleCount);
@@ -128,8 +128,6 @@ class EnvironmentHandler {
     // Uniform buffer object with environment info for lighting:
     EnvUBOData mEnvUBOData;
     Buffer     mEnvUBO;
-
-    VkDescriptorPool mStaticDescriptorPool;
 
     DeletionQueue mDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;

@@ -41,7 +41,7 @@ class DynamicDescriptorSet {
     // Behind the scenes this will hold
     // (number of swapchain images) of the descriptors,
     // so it will actually allocate more.
-    void Initialize(VkDescriptorSetLayout layout, DescriptorBindingCounts poolCounts);
+    void Initialize(VkDescriptorSetLayout layout, Descriptor::PoolCounts counts);
 
     void BeginUpdate();
     void EndUpdate();

@@ -17,7 +17,7 @@
 #include <bit>
 #include <cmath>
 
-EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
+EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool staticPool)
     : mCtx(ctx), mDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
 {
     // Create the texture samplers:
@@ -146,90 +146,56 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         mDeletionQueue.push_back(mFinalReductionBuffer);
     }
 
-    // Initialize descriptor layouts, collect pool counts:
-    DescriptorBindingCounts totalCounts{};
+    // Initialize descriptor layouts:
 
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("EnvBackgroundDescriptorLayout")
-                .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT |
-                                           VK_SHADER_STAGE_COMPUTE_BIT)
-                .Build(ctx, mDeletionQueue);
+    mBackgroundDescrptorSetLayout =
+        DescriptorSetLayoutBuilder("EnvBackgroundDescriptorLayout")
+            .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT |
+                                       VK_SHADER_STAGE_COMPUTE_BIT)
+            .Build(ctx, mDeletionQueue);
 
-        mBackgroundDescrptorSetLayout = layout;
-        totalCounts += counts;
-    }
-    {
-        auto [layout, counts] = DescriptorSetLayoutBuilder("EnvLightingDescriptorLayout")
-                                    .AddUniformBuffer(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                    .AddStorageBuffer(1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                    .AddCombinedSampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                    .AddCombinedSampler(3, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                    .Build(ctx, mDeletionQueue);
+    mLightingDescriptorSetLayout = DescriptorSetLayoutBuilder("EnvLightingDescriptorLayout")
+                                .AddUniformBuffer(0, VK_SHADER_STAGE_FRAGMENT_BIT)
+                                .AddStorageBuffer(1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                                .AddCombinedSampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
+                                .AddCombinedSampler(3, VK_SHADER_STAGE_FRAGMENT_BIT)
+                                .Build(ctx, mDeletionQueue);
 
-        mLightingDescriptorSetLayout = layout;
-        totalCounts += counts;
-    }
-    {
-        auto [layout, counts] = DescriptorSetLayoutBuilder("EnvTexToImgDescriptorLayout")
-                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .Build(ctx, mDeletionQueue);
+    mTexToImgDescriptorSetLayout = DescriptorSetLayoutBuilder("EnvTexToImgDescriptorLayout")
+                                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                .Build(ctx, mDeletionQueue);
 
-        mTexToImgDescriptorSetLayout = layout;
-        totalCounts += counts;
-    }
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("EnvIrradianceDescriptorLayout")
-                .AddStorageBuffer(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                .AddStorageBuffer(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                .Build(ctx, mDeletionQueue);
+    mIrradianceDescriptorSetLayout =
+        DescriptorSetLayoutBuilder("EnvIrradianceDescriptorLayout")
+            .AddStorageBuffer(0, VK_SHADER_STAGE_COMPUTE_BIT)
+            .AddStorageBuffer(1, VK_SHADER_STAGE_COMPUTE_BIT)
+            .Build(ctx, mDeletionQueue);
 
-        mIrradianceDescriptorSetLayout = layout;
-        totalCounts += counts;
-    }
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("EnvPrefilteredDescriptorLayout")
-                .AddCombinedSampler(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                .AddStorageImage(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                .Build(ctx, mDeletionQueue);
-
-        mPrefilteredDescriptorSetLayout = layout;
-        totalCounts += counts;
-    }
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("EnvIntegrationDescriptorLayout")
-                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                .Build(mCtx, mDeletionQueue);
-
-        mIntegrationDescriptorSetLayout = layout;
-        totalCounts += counts;
-    }
-
-    // Initialize the descriptor pool:
-    constexpr uint32_t numSets   = 6;
-    auto               rawCounts = totalCounts.ToRaw();
-    mStaticDescriptorPool =
-        Descriptor::InitPool(mCtx, numSets, rawCounts, mDeletionQueue);
+    mPrefilteredDescriptorSetLayout =
+        DescriptorSetLayoutBuilder("EnvPrefilteredDescriptorLayout")
+            .AddCombinedSampler(0, VK_SHADER_STAGE_COMPUTE_BIT)
+            .AddStorageImage(1, VK_SHADER_STAGE_COMPUTE_BIT)
+            .Build(ctx, mDeletionQueue);
+    
+    mIntegrationDescriptorSetLayout =
+        DescriptorSetLayoutBuilder("EnvIntegrationDescriptorLayout")
+            .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+            .Build(mCtx, mDeletionQueue);
 
     // Allocate and update descriptor sets:
 
     // Descriptor set for sampling the background cubemap
-    {
-        mBackgroundDescriptorSet = Descriptor::Allocate(mCtx, mStaticDescriptorPool,
+    mBackgroundDescriptorSet = Descriptor::Allocate(mCtx, staticPool,
                                                         mBackgroundDescrptorSetLayout);
 
-        DescriptorUpdater(mBackgroundDescriptorSet)
-            .WriteCombinedSampler(0, mCubemap.View, mSampler)
-            .Update(mCtx);
-    }
+    DescriptorUpdater(mBackgroundDescriptorSet)
+        .WriteCombinedSampler(0, mCubemap.View, mSampler)
+        .Update(mCtx);
 
     // Descriptor set for using lighting information:
     mLightingDescriptorSet =
-        Descriptor::Allocate(mCtx, mStaticDescriptorPool, mLightingDescriptorSetLayout);
+        Descriptor::Allocate(mCtx, staticPool, mLightingDescriptorSetLayout);
 
     DescriptorUpdater(mLightingDescriptorSet)
         .WriteUniformBuffer(0, mEnvUBO.Handle, sizeof(mEnvUBOData))
@@ -240,12 +206,12 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
 
     // Descriptor set for sampling a texure and saving to image:
     mTexToImgDescriptorSet =
-        Descriptor::Allocate(mCtx, mStaticDescriptorPool, mTexToImgDescriptorSetLayout);
+        Descriptor::Allocate(mCtx, staticPool, mTexToImgDescriptorSetLayout);
     // Nothing to update yet - waiting for image.
 
     // Descriptor set for irradiance SH data buffer:
     mIrradianceDescriptorSet =
-        Descriptor::Allocate(mCtx, mStaticDescriptorPool, mIrradianceDescriptorSetLayout);
+        Descriptor::Allocate(mCtx, staticPool, mIrradianceDescriptorSetLayout);
 
     DescriptorUpdater(mIrradianceDescriptorSet)
         .WriteStorageBuffer(0, mFirstReducionBuffer.Handle, mFirstReducionBuffer.Size)
@@ -253,12 +219,12 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx)
         .Update(mCtx);
 
     // Descriptor set for generation of prefiltered map:
-    mPrefilteredDescriptorSet = Descriptor::Allocate(mCtx, mStaticDescriptorPool,
+    mPrefilteredDescriptorSet = Descriptor::Allocate(mCtx, staticPool,
                                                      mPrefilteredDescriptorSetLayout);
     // Nothing to update - yet - will be done while generating subsequent levels
 
     // Descriptor set for generating the integration map:
-    mIntegrationDescriptorSet = Descriptor::Allocate(mCtx, mStaticDescriptorPool,
+    mIntegrationDescriptorSet = Descriptor::Allocate(mCtx, staticPool,
                                                      mIntegrationDescriptorSetLayout);
 
     DescriptorUpdater(mIntegrationDescriptorSet)

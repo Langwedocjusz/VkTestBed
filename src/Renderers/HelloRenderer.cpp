@@ -1,4 +1,5 @@
 #include "HelloRenderer.h"
+#include "Descriptor.h"
 #include "Pch.h"
 
 #include "Barrier.h"
@@ -20,10 +21,14 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera
     {
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-        auto [layout, counts] =
+        auto layout =
             DescriptorSetLayoutBuilder("HelloDynamicDescriptorSetLayout")
                 .AddUniformBuffer(0, stageFlags)
                 .Build(mCtx, mMainDeletionQueue);
+
+        auto counts = Descriptor::PoolCounts{
+            .UniformBuffer = 1,
+        };
 
         mDynamicDS.Initialize(layout, counts);
 

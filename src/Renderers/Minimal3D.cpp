@@ -19,10 +19,14 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     {
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-        auto [layout, counts] =
+        auto layout =
             DescriptorSetLayoutBuilder("Minimal3DDynamicDescriptorSetLayout")
                 .AddUniformBuffer(0, stageFlags)
                 .Build(mCtx, mMainDeletionQueue);
+
+        auto counts = Descriptor::PoolCounts{
+            .UniformBuffer = 1,
+        };
 
         mDynamicDS.Initialize(layout, counts);
 
@@ -35,17 +39,13 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     }
 
     // Create descriptor set layout for sampling textures
-    auto [layout, _] = DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
+    mTextureDescriptorSetLayout = DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
                            .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
                            .Build(ctx, mMainDeletionQueue);
 
-    mTextureDescriptorSetLayout = layout;
-
     // Initialize descriptor allocator for materials
-    constexpr uint32_t imgPerMat = 1;
-
-    std::vector<VkDescriptorPoolSize> poolCounts{
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imgPerMat},
+    auto poolCounts = Descriptor::PoolCounts{
+        .CombinedImageSampler = 1,
     };
 
     mTextureDescriptorAllocator.OnInit(poolCounts);
@@ -175,12 +175,16 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
             for (auto &transform : drawable.Instances)
             {
-                PushConstantData data{
-                    .AlphaCutoff = glm::vec4(material.AlphaCutoff),
-                    .Transform   = transform,
+                struct PCData {
+                    // Vec4 because of std430 alignment rules:
+                    glm::vec4 AlphaCutoff;
+                    glm::mat4 Transform;
                 };
 
-                mTexturedPipeline.PushConstants(cmd, data);
+                mTexturedPipeline.PushConstants(cmd, PCData{
+                    .AlphaCutoff = glm::vec4(material.AlphaCutoff),
+                    .Transform   = transform,
+                });
 
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }

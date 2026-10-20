@@ -6,8 +6,10 @@ project(VkTestBed)
 
 include(CMakeDependentOption)
 
+option(VKTB_USE_ASAN "Enable address sanitizer" OFF)
+
 # Dependent option, since it doesn't make sense on non-windows platforms:
-cmake_dependent_option(VULKAN_ON_DXGI
+cmake_dependent_option(VKTB_VULKAN_ON_DXGI
     "Enable dxgi swapchain usage" ON
     "WIN32" OFF
 )
@@ -69,9 +71,9 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 #Compile definitions:
 target_compile_definitions(${PROJECT_NAME} PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
-if(VULKAN_ON_DXGI)
+if(VKTB_VULKAN_ON_DXGI)
     target_compile_definitions(${PROJECT_NAME} PRIVATE VULKAN_ON_DXGI)
-endif(VULKAN_ON_DXGI)
+endif(VKTB_VULKAN_ON_DXGI)
 
 #Enable max warnings and warnings as errors:
 if(MSVC)
@@ -81,6 +83,11 @@ if(MSVC)
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
+
+if(VKTB_USE_ASAN)
+    target_compile_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
+    target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
+endif(VKTB_USE_ASAN)
 
 #Output compilation timings with clang:
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -138,8 +145,8 @@ target_sources(${PROJECT_NAME}
         src/Core/VulkanContext.cpp
         src/Core/VulkanStatistics.h
         src/Core/VulkanStatistics.cpp
-	src/Core/Swapchain.h
-	src/Core/Swapchain.cpp
+	    src/Core/Swapchain.h
+	    src/Core/Swapchain.cpp
         src/Cpp/Vassert.h
         src/Cpp/Vassert.cpp
         src/Cpp/Bitflags.h
@@ -257,9 +264,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE volk)
 target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
 
 #Additional Windows-only dependencies to enable dxgi swapchain:
-if(VULKAN_ON_DXGI)
+if(VKTB_VULKAN_ON_DXGI)
     add_subdirectory(vendor/vk_dxgi)
     target_link_libraries(${PROJECT_NAME} PRIVATE vk_dxgi)
     target_link_libraries(${PROJECT_NAME} PRIVATE d3d12 dxgi)
-endif(VULKAN_ON_DXGI)
+endif(VKTB_VULKAN_ON_DXGI)
 

@@ -8,18 +8,6 @@
 #include <span>
 #include <string>
 
-struct DescriptorBindingCounts {
-    uint32_t StorageImage         = 0;
-    uint32_t CombinedImageSampler = 0;
-    uint32_t UniformBuffer        = 0;
-    uint32_t StorageBuffer        = 0;
-
-    std::vector<VkDescriptorPoolSize> ToRaw();
-    DescriptorBindingCounts          &operator+=(const DescriptorBindingCounts &other);
-};
-
-DescriptorBindingCounts operator*(uint32_t mult, const DescriptorBindingCounts &x);
-
 class DescriptorSetLayoutBuilder {
   public:
     DescriptorSetLayoutBuilder(std::string_view debugName);
@@ -33,10 +21,8 @@ class DescriptorSetLayoutBuilder {
     DescriptorSetLayoutBuilder &AddStorageImage(uint32_t binding, uint32_t stages,
                                                 uint32_t count = 1);
 
-    using Result = std::pair<VkDescriptorSetLayout, DescriptorBindingCounts>;
-
-    Result Build(VulkanContext &ctx);
-    Result Build(VulkanContext &ctx, DeletionQueue &queue);
+    VkDescriptorSetLayout Build(VulkanContext &ctx);
+    VkDescriptorSetLayout Build(VulkanContext &ctx, DeletionQueue &queue);
 
   private:
     DescriptorSetLayoutBuilder &AddBinding(uint32_t binding, VkDescriptorType type,
@@ -47,16 +33,21 @@ class DescriptorSetLayoutBuilder {
   private:
     std::vector<VkDescriptorSetLayoutBinding> mBindings;
     std::string                               mDebugName;
-    DescriptorBindingCounts                   mBindingCounts;
 };
 
 namespace Descriptor
 {
-VkDescriptorPool InitPool(VulkanContext &ctx, uint32_t maxSets,
-                          std::span<VkDescriptorPoolSize> poolSizes);
+struct PoolCounts {
+    uint32_t DescriptorSet        = 0;
+    uint32_t StorageImage         = 0;
+    uint32_t CombinedImageSampler = 0;
+    uint32_t UniformBuffer        = 0;
+    uint32_t StorageBuffer        = 0;
+};
 
-VkDescriptorPool InitPool(VulkanContext &ctx, uint32_t maxSets,
-                          std::span<VkDescriptorPoolSize> poolSizes,
+VkDescriptorPool InitPool(VulkanContext &ctx, PoolCounts counts);
+
+VkDescriptorPool InitPool(VulkanContext &ctx, PoolCounts counts,
                           DeletionQueue                  &deletionQueue);
 
 VkDescriptorSet Allocate(VulkanContext &ctx, VkDescriptorPool pool,
@@ -132,7 +123,8 @@ class GrowableDescriptorAllocator {
     GrowableDescriptorAllocator(VulkanContext &ctx);
     ~GrowableDescriptorAllocator();
 
-    void OnInit(std::span<VkDescriptorPoolSize> sizes);
+    // TODO: Why is there 2-phase initialziation here?...
+    void OnInit(Descriptor::PoolCounts counts);
 
     VkDescriptorSet              Allocate(VkDescriptorSetLayout &layout);
     std::vector<VkDescriptorSet> Allocate(std::span<VkDescriptorSetLayout> layouts);

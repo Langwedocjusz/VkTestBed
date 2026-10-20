@@ -28,7 +28,7 @@ class MinimalPbrRenderer final : public IRenderer {
     Image &GetTargetImage() override
     {
         // return mRenderTarget.Img;
-        return mPostProcessor.GetTargetImage();
+        return mPostProcessor->GetTargetImage();
     };
 
     void RecreateSwapchainResources() override;
@@ -241,17 +241,14 @@ class MinimalPbrRenderer final : public IRenderer {
     // Index cache for retrieving drawables and transform ids based on object id:
     std::map<SceneKey, std::vector<std::pair<DrawableKey, size_t>>> mObjectCache;
 
-    // Submodules for specific tasks:
+    // Cached scene bounding box:
+    AABB mSceneAABB;
 
-    // Cubemap generation and background drawing:
-    EnvironmentHandler mEnvHandler;
-    // Shadowmap generation:
-    ShadowmapHandler mShadowmapHandler;
-    AABB             mSceneAABB;
-    // SSAO generation:
-    AOHandler mAOHandler;
-    // Post fx and final image composition:
-    PostProcessor mPostProcessor;
+    // Submodules for specific tasks (optionals because deffered init):
+    std::optional<EnvironmentHandler> mEnvHandler;
+    std::optional<ShadowmapHandler>   mShadowmapHandler;
+    std::optional<AOHandler>          mAOHandler;
+    std::optional<PostProcessor>      mPostProcessor;
 
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;

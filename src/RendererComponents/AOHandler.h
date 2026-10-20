@@ -11,7 +11,7 @@
 
 class AOHandler {
   public:
-    AOHandler(VulkanContext &ctx, Camera &cam);
+    AOHandler(VulkanContext &ctx, Camera &cam, VkDescriptorPool staticPool);
 
     void OnImGui();
 
@@ -74,9 +74,7 @@ class AOHandler {
     static constexpr uint32_t            ZBufferMips = 4;
     std::array<VkImageView, ZBufferMips> mZSingleLevelViews;
 
-    // Descriptor set for AO generation:
-    VkDescriptorPool mAODescriptorPool;
-
+    // Descriptor sets for AO generation:
     VkDescriptorSetLayout mAODescriptorSetLayout;
     VkDescriptorSet       mAOGenDescriptorSet;
     VkDescriptorSet       mZGenDescriptorSet;

@@ -132,6 +132,9 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
         }};
     }
 
+    // Cleanup:
+    spvReflectDestroyShaderModule(&module);
+
     return ret;
 }
 

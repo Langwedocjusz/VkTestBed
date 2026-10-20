@@ -100,8 +100,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
     : IRenderer(ctx, info, camera), mCamDynamicUBO(ctx, info, sizeof(mCamDynamicUBO)),
       mDynamicUBO(ctx, info, sizeof(mUBOData)), mDynamicDS(ctx, info),
-      mMaterialDescriptorAllocator(ctx), mEnvHandler(ctx), mShadowmapHandler(ctx),
-      mAOHandler(ctx, camera), mPostProcessor(ctx), mSceneDeletionQueue(ctx),
+      mMaterialDescriptorAllocator(ctx), mSceneDeletionQueue(ctx),
       mMaterialDeletionQueue(ctx)
 {
     // Create the material texture sampler:
@@ -117,7 +116,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     // Create descriptor set layout for sampling material textures
     // and initialize the growable allocator:
     {
-        auto [layout, counts] =
+        mMaterialDescriptorSetLayout =
             DescriptorSetLayoutBuilder("MinimalPBRMaterialDescriptorLayout")
                 .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
                 .AddCombinedSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -125,10 +124,12 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                 .AddUniformBuffer(3, VK_SHADER_STAGE_FRAGMENT_BIT)
                 .Build(ctx, mMainDeletionQueue);
 
-        mMaterialDescriptorSetLayout = layout;
+        auto counts = Descriptor::PoolCounts{
+            .CombinedImageSampler = 3,
+            .UniformBuffer        = 1,
+        };
 
-        auto rawCounts = counts.ToRaw();
-        mMaterialDescriptorAllocator.OnInit(rawCounts);
+        mMaterialDescriptorAllocator.OnInit(counts);
     }
 
     // Create the default textures:
@@ -148,11 +149,15 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     {
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        auto [layout, counts] =
+        auto layout =
             DescriptorSetLayoutBuilder("MinimalPBRDynamicDescriptorSetLayout")
                 .AddUniformBuffer(0, stageFlags)
                 .AddUniformBuffer(1, stageFlags)
                 .Build(mCtx, mMainDeletionQueue);
+
+        auto counts = Descriptor::PoolCounts{
+            .UniformBuffer = 2,
+        };
 
         mDynamicDS.Initialize(layout, counts);
 
@@ -171,22 +176,32 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         mDynamicDS.EndUpdate();
     }
 
-    // Build the auxiliary descriptor set for ao/shadows:
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("MinimalPBRShadowmapDescriptorLayout")
-                .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .AddCombinedSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .Build(ctx, mMainDeletionQueue);
+    // Create static descriptor pool:
+    auto poolSizes = Descriptor::PoolCounts{
+        .DescriptorSet        = 20,
+        .StorageImage         = 20,
+        .CombinedImageSampler = 20,
+        .UniformBuffer        = 20,
+        .StorageBuffer        = 20,
+    };
 
-        mAuxDescriptorSetLayout = layout;
+    mStaticDescriptorPool =
+        Descriptor::InitPool(mCtx, poolSizes, mMainDeletionQueue);
 
-        auto rawCounts = counts.ToRaw();
-        mStaticDescriptorPool =
-            Descriptor::InitPool(mCtx, 1, rawCounts, mMainDeletionQueue);
+    // Build the static descriptor set for ao/shadows etc:
+    mAuxDescriptorSetLayout =
+        DescriptorSetLayoutBuilder("MinimalPBRShadowmapDescriptorLayout")
+            .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddCombinedSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .Build(ctx, mMainDeletionQueue);
 
-        mAuxDescriptorSet = Descriptor::Allocate(mCtx, mStaticDescriptorPool, layout);
-    }
+    mAuxDescriptorSet = Descriptor::Allocate(mCtx, mStaticDescriptorPool, mAuxDescriptorSetLayout);
+
+    // Initilize the subcomponents:
+    mEnvHandler.emplace(ctx, mStaticDescriptorPool);
+    mShadowmapHandler.emplace(ctx);
+    mAOHandler.emplace(ctx, camera, mStaticDescriptorPool);
+    mPostProcessor.emplace(ctx, mStaticDescriptorPool);
 
     // Build the graphics pipelines:
     RebuildPipelines();
@@ -213,6 +228,8 @@ void MinimalPbrRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
+    // TODO: When run with validation layers this pipeline gets inconsistent
+    // stage flags on its push constants - FIX IT
     mZPrepassOpaquePipeline =
         PipelineBuilder("MinimalPBROpaquePrepassPipeline")
             .SetShaderPathVertex("assets/spirv/ZPrepassOpaqueVert.spv")
@@ -256,7 +273,7 @@ void MinimalPbrRenderer::RebuildPipelines()
             .RequestDynamicState(VK_DYNAMIC_STATE_DEPTH_COMPARE_OP)
             .SetColorFormat(RenderTargetFormat)
             .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
-            .AddDescriptorSetLayout(mEnvHandler.GetLightingDSLayout())
+            .AddDescriptorSetLayout(mEnvHandler->GetLightingDSLayout())
             .AddDescriptorSetLayout(mAuxDescriptorSetLayout)
             .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
             .EnableDepthTest(GetMainCompareOp())
@@ -343,10 +360,10 @@ void MinimalPbrRenderer::RebuildPipelines()
         .CurrentMultisampling = mMultisample,
     };
 
-    mEnvHandler.RebuildPipelines(RenderTargetFormat, DepthStencilFormat, mMultisample);
-    mShadowmapHandler.RebuildPipelines(info);
-    mAOHandler.RebuildPipelines();
-    mPostProcessor.RebuildPipelines();
+    mEnvHandler->RebuildPipelines(RenderTargetFormat, DepthStencilFormat, mMultisample);
+    mShadowmapHandler->RebuildPipelines(info);
+    mAOHandler->RebuildPipelines();
+    mPostProcessor->RebuildPipelines();
 }
 
 void MinimalPbrRenderer::RecreateSwapchainResources()
@@ -430,16 +447,16 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     }
 
     // (Re)Create AO related resources:
-    mAOHandler.RecreateSwapchainResources(mDepthStencilBuffer.Img, mDepthOnlyView,
+    mAOHandler->RecreateSwapchainResources(mDepthStencilBuffer.Img, mDepthOnlyView,
                                           drawExtent);
 
     // (Re)Create postfx related resources:
-    mPostProcessor.RecreateSwapchainResources(mRenderTarget.Img, mRenderTarget.View);
+    mPostProcessor->RecreateSwapchainResources(mRenderTarget.Img, mRenderTarget.View);
 
     // Update auxiliary descriptor set:
     {
-        auto [shadowView, shadowSampler] = mShadowmapHandler.GetViewAndSampler();
-        auto [aoView, aoSampler]         = mAOHandler.GetViewAndSampler();
+        auto [shadowView, shadowSampler] = mShadowmapHandler->GetViewAndSampler();
+        auto [aoView, aoSampler]         = mAOHandler->GetViewAndSampler();
 
         DescriptorUpdater(mAuxDescriptorSet)
             .WriteCombinedSampler(0, shadowView, shadowSampler)
@@ -450,14 +467,14 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
-    mShadowmapHandler.OnUpdate(mCamera, mEnvHandler.GetLightDir(), mSceneAABB);
+    mShadowmapHandler->OnUpdate(mCamera, mEnvHandler->GetLightDir(), mSceneAABB);
 
-    if (mAOHandler.RecreateRequested())
+    if (mAOHandler->RecreateRequested())
     {
         vkDeviceWaitIdle(mCtx.Device);
-        mAOHandler.RecreateSwapchainResources();
+        mAOHandler->RecreateSwapchainResources();
 
-        auto [aoView, aoSampler] = mAOHandler.GetViewAndSampler();
+        auto [aoView, aoSampler] = mAOHandler->GetViewAndSampler();
 
         DescriptorUpdater(mAuxDescriptorSet)
             .WriteCombinedSampler(1, aoView, aoSampler)
@@ -474,9 +491,9 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     mCamUBOData.ViewPos              = mCamera.GetPos();
     mCamUBOData.ViewFront            = mCamera.GetFront();
 
-    mUBOData.ShadowMatrices   = mShadowmapHandler.GetMatrices();
-    mUBOData.ShadowBounds     = mShadowmapHandler.GetBounds();
-    mUBOData.ShadowTexelSizes = mShadowmapHandler.GetTexelSizes();
+    mUBOData.ShadowMatrices   = mShadowmapHandler->GetMatrices();
+    mUBOData.ShadowBounds     = mShadowmapHandler->GetBounds();
+    mUBOData.ShadowTexelSizes = mShadowmapHandler->GetTexelSizes();
     mUBOData.AOEnabled        = mEnableAO;
     mUBOData.DrawExtent       = drawExtent;
 }
@@ -520,7 +537,7 @@ void MinimalPbrRenderer::OnImGui()
 
     if (ImGui::CollapsingHeader("PostFX"))
     {
-        mPostProcessor.OnImGui();
+        mPostProcessor->OnImGui();
     }
 
     if (ImGui::CollapsingHeader("Render Target"))
@@ -552,10 +569,10 @@ void MinimalPbrRenderer::OnImGui()
     }
 
     if (ImGui::CollapsingHeader("Shadowmap"))
-        mShadowmapHandler.OnImGui();
+        mShadowmapHandler->OnImGui();
 
     if (ImGui::CollapsingHeader("Ambient Occlusion"))
-        mAOHandler.OnImGui();
+        mAOHandler->OnImGui();
 
     ImGui::End();
 }
@@ -582,7 +599,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
             bool msaa = (mMultisample != VK_SAMPLE_COUNT_1_BIT);
 
             barrier::Depth2ToSampledComp(cmd, mDepthStencilBuffer.Img, msaa);
-            mAOHandler.RunAOPass(cmd);
+            mAOHandler->RunAOPass(cmd);
             barrier::Depth2ToRenderAfterComp(cmd, mDepthStencilBuffer.Img, msaa);
         }
     }
@@ -596,7 +613,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
         OutlinePass(cmd, *highlightedObj);
 
     barrier::ColorToSampledComp(cmd, mRenderTarget.Img.Handle);
-    mPostProcessor.RunPostProcessPass(cmd);
+    mPostProcessor->RunPostProcessPass(cmd);
 
     mFrame.Stats.NumTriangles = stats.NumIdx / 3;
     mFrame.Stats.NumDraws     = stats.NumDraws;
@@ -717,7 +734,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
                 .TexBoundExtent = drawable.TexBoundsExtent,
             };
 
-            mShadowmapHandler.PushConstantOpaque(cmd, data);
+            mShadowmapHandler->PushConstantOpaque(cmd, data);
         };
 
         DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -726,7 +743,7 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
     auto drawAlpha = [&](VkCommandBuffer cmd, glm::mat4 viewProj) {
         auto materialCallback = [&](VkCommandBuffer cmd, Material &material) {
-            mShadowmapHandler.BindAlphaMaterialDS(cmd, material.DescriptorSet);
+            mShadowmapHandler->BindAlphaMaterialDS(cmd, material.DescriptorSet);
             stats.NumBinds += 1;
         };
 
@@ -739,14 +756,14 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
                 .TexBoundExtent = drawable.TexBoundsExtent,
             };
 
-            mShadowmapHandler.PushConstantAlpha(cmd, data);
+            mShadowmapHandler->PushConstantAlpha(cmd, data);
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
                                      stats);
     };
 
-    mShadowmapHandler.DrawShadowmaps(cmd, drawOpaque, drawAlpha);
+    mShadowmapHandler->DrawShadowmaps(cmd, drawOpaque, drawAlpha);
 }
 
 void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
@@ -856,7 +873,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 
     std::array descriptorSets{
         mDynamicDS.DescriptorSet(),
-        mEnvHandler.GetLightingDS(),
+        mEnvHandler->GetLightingDS(),
         mAuxDescriptorSet,
     };
 
@@ -912,12 +929,12 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     // At this point debug visuals from the shadow map can optionally be drawn:
     // TODO: This is kind of ugly, but debug needs to have acces to the main depth
     // buffer. Think about a cleaner way to inject debug visualization rendering.
-    mShadowmapHandler.DrawDebugShapes(cmd, mCamUBOData.CameraViewProjection,
+    mShadowmapHandler->DrawDebugShapes(cmd, mCamUBOData.CameraViewProjection,
                                       GetTargetSize());
 
     // Draw the background:
     auto frustumBack = mCamera.GetFrustumBack();
-    mEnvHandler.DrawBackground(cmd, frustumBack, GetTargetSize());
+    mEnvHandler->DrawBackground(cmd, frustumBack, GetTargetSize());
 
     vkCmdEndRendering(cmd);
 }
@@ -1148,7 +1165,7 @@ void MinimalPbrRenderer::LoadScene(const Scene &scene)
         LoadObjects(scene);
 
     if (scene.UpdateEnvironmentRequested())
-        mEnvHandler.LoadEnvironment(scene);
+        mEnvHandler->LoadEnvironment(scene);
 }
 
 void MinimalPbrRenderer::LoadMeshes(const Scene &scene)

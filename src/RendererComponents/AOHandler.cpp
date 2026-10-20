@@ -9,7 +9,7 @@
 
 #include "imgui.h"
 
-AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
+AOHandler::AOHandler(VulkanContext &ctx, Camera &camera, VkDescriptorPool staticPool)
     : mCtx(ctx), mCamera(camera), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx),
       mSwapchainDeletionQueue(ctx)
 {
@@ -24,58 +24,33 @@ AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
                    .Build(mCtx, mMainDeletionQueue);
 
     // Build descriptor sets for z buffer and AO generation:
-    DescriptorBindingCounts totalCounts{};
+    mAODescriptorSetLayout = DescriptorSetLayoutBuilder("AOGenDSLayout")
+                                 .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                                 .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                 .Build(mCtx, mMainDeletionQueue);
 
-    const uint32_t aoGenDSCount     = 2;
-    const uint32_t zMipDSCount      = 1;
-    const uint32_t bilateralDSCount = 1;
+    mZMipGenDescriptorSetLayout =
+        DescriptorSetLayoutBuilder("AOGenZMipDSLayout")
+            .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, ZBufferMips)
+            .Build(mCtx, mMainDeletionQueue);
 
-    {
-        auto [layout, counts]  = DescriptorSetLayoutBuilder("AOGenDSLayout")
-                                     .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                     .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                     .Build(mCtx, mMainDeletionQueue);
-        mAODescriptorSetLayout = layout;
-        totalCounts += aoGenDSCount * counts;
-    }
-
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("AOGenZMipDSLayout")
-                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, ZBufferMips)
-                .Build(mCtx, mMainDeletionQueue);
-
-        mZMipGenDescriptorSetLayout = layout;
-        totalCounts += zMipDSCount * counts;
-    }
-
-    {
-        auto [layout, counts] = DescriptorSetLayoutBuilder("AOGenDSLayout")
-                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .Build(mCtx, mMainDeletionQueue);
-
-        mBilateralDescriptorSetLayout = layout;
-        totalCounts += bilateralDSCount * counts;
-    }
-
-    auto bindingCounts   = totalCounts.ToRaw();
-    auto descriptorCount = aoGenDSCount + zMipDSCount + bilateralDSCount;
-
-    mAODescriptorPool =
-        Descriptor::InitPool(mCtx, descriptorCount, bindingCounts, mMainDeletionQueue);
+    mBilateralDescriptorSetLayout = DescriptorSetLayoutBuilder("AOGenDSLayout")
+                                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+                                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+                                .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
+                                .Build(mCtx, mMainDeletionQueue);
 
     mAOGenDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mAODescriptorSetLayout);
+        Descriptor::Allocate(mCtx, staticPool, mAODescriptorSetLayout);
+
     mZGenDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mAODescriptorSetLayout);
+        Descriptor::Allocate(mCtx, staticPool, mAODescriptorSetLayout);
 
     mZMipGenDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mZMipGenDescriptorSetLayout);
+        Descriptor::Allocate(mCtx, staticPool, mZMipGenDescriptorSetLayout);
 
     mBilateralDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mBilateralDescriptorSetLayout);
+        Descriptor::Allocate(mCtx, staticPool, mBilateralDescriptorSetLayout);
 }
 
 void AOHandler::OnImGui()

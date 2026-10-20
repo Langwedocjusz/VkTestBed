@@ -9,7 +9,7 @@
 
 #include "imgui.h"
 
-PostProcessor::PostProcessor(VulkanContext &ctx)
+PostProcessor::PostProcessor(VulkanContext &ctx, VkDescriptorPool staticPool)
     : mCtx(ctx), mPipelineDeletionQueue(ctx), mSwapchainDeletionQueue(ctx),
       mMainDeletionQueue(ctx)
 {
@@ -22,49 +22,26 @@ PostProcessor::PostProcessor(VulkanContext &ctx)
                         .SetMaxLod(12.0f)
                         .Build(mCtx, mMainDeletionQueue);
 
-    // Setup layout and allocate descriptor sets:
-    DescriptorBindingCounts totalCounts{};
+    // Setup layouts and allocate descriptor sets:
+    mBloomDescriptorSetLayout =
+        DescriptorSetLayoutBuilder("PostfxBloomDescriptorSetLayout")
+            .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
+            .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
+            .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
+            .Build(mCtx, mMainDeletionQueue);
 
-    // TODO: When this is dynamic the descriptor sets
-    // will have to be re-allocated per-swapchain:
-    const uint32_t dsCountBloom = 1;
-    const uint32_t dsCountFinal = 1;
-
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("PostfxBloomDescriptorSetLayout")
-                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
-                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
-                .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-                .Build(mCtx, mMainDeletionQueue);
-
-        mBloomDescriptorSetLayout = layout;
-        totalCounts += dsCountBloom * counts;
-    }
-
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("PostfxFinalCompositionDescriptorSetLayout")
-                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-                .Build(mCtx, mMainDeletionQueue);
-
-        mFinalDescriptorSetLayout = layout;
-        totalCounts += dsCountFinal * counts;
-    }
-
-    auto rawCounts          = totalCounts.ToRaw();
-    auto descriptorSetCount = dsCountBloom + dsCountFinal;
-
-    mDescriptorPool =
-        Descriptor::InitPool(mCtx, descriptorSetCount, rawCounts, mMainDeletionQueue);
+    mFinalDescriptorSetLayout =
+        DescriptorSetLayoutBuilder("PostfxFinalCompositionDescriptorSetLayout")
+            .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+            .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+            .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
+            .Build(mCtx, mMainDeletionQueue);
 
     mBloomDescriptorSet =
-        Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
+        Descriptor::Allocate(mCtx, staticPool, mBloomDescriptorSetLayout);
 
     mFinalDescriptorSet =
-        Descriptor::Allocate(mCtx, mDescriptorPool, mFinalDescriptorSetLayout);
+        Descriptor::Allocate(mCtx, staticPool, mFinalDescriptorSetLayout);
 }
 
 void PostProcessor::OnImGui()

@@ -5,7 +5,7 @@
 
 class PostProcessor {
   public:
-    PostProcessor(VulkanContext &ctx);
+    PostProcessor(VulkanContext &ctx, VkDescriptorPool staticPool);
 
     void OnImGui();
 
@@ -51,8 +51,6 @@ class PostProcessor {
     // For the final composition:
     VkDescriptorSetLayout mFinalDescriptorSetLayout;
     VkDescriptorSet       mFinalDescriptorSet;
-
-    VkDescriptorPool mDescriptorPool;
 
     DeletionQueue mPipelineDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;

@@ -9,44 +9,24 @@
 #include <cstdint>
 #include <ranges>
 
-// It is invalid usage to pass descriptor pool a count
-// with zero of something. Hence we must manually
-// sieve the values:
-std::vector<VkDescriptorPoolSize> DescriptorBindingCounts::ToRaw()
+static std::vector<VkDescriptorPoolSize> GetRawPoolSizes(Descriptor::PoolCounts &counts)
 {
     std::vector<VkDescriptorPoolSize> ret{};
 
-    if (StorageImage > 0)
-        ret.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, StorageImage});
-    if (CombinedImageSampler > 0)
-        ret.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, CombinedImageSampler});
-    if (UniformBuffer > 0)
-        ret.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, UniformBuffer});
-    if (StorageBuffer > 0)
-        ret.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, StorageBuffer});
+    // It is invalid usage to pass descriptor pool a count
+    // with zero of something. Hence we must manually
+    // sieve the values:
+
+    if (counts.StorageImage > 0)
+        ret.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, counts.StorageImage});
+    if (counts.CombinedImageSampler > 0)
+        ret.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, counts.CombinedImageSampler});
+    if (counts.UniformBuffer > 0)
+        ret.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, counts.UniformBuffer});
+    if (counts.StorageBuffer > 0)
+        ret.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, counts.StorageBuffer});
 
     return ret;
-}
-
-DescriptorBindingCounts &DescriptorBindingCounts::operator+=(
-    const DescriptorBindingCounts &other)
-{
-    StorageImage += other.StorageImage;
-    CombinedImageSampler += other.CombinedImageSampler;
-    UniformBuffer += other.UniformBuffer;
-    StorageBuffer += other.StorageBuffer;
-
-    return *this;
-}
-
-DescriptorBindingCounts operator*(uint32_t mult, const DescriptorBindingCounts &x)
-{
-    return DescriptorBindingCounts{
-        .StorageImage         = mult * x.StorageImage,
-        .CombinedImageSampler = mult * x.CombinedImageSampler,
-        .UniformBuffer        = mult * x.UniformBuffer,
-        .StorageBuffer        = mult * x.StorageBuffer,
-    };
 }
 
 DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(std::string_view debugName)
@@ -77,7 +57,6 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddUniformBuffer(uint32_
                                                                          uint32_t stages,
                                                                          uint32_t count)
 {
-    mBindingCounts.UniformBuffer += count;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stages, count);
 }
 
@@ -85,14 +64,12 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageBuffer(uint32_
                                                                          uint32_t stages,
                                                                          uint32_t count)
 {
-    mBindingCounts.StorageBuffer += count;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stages, count);
 }
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddCombinedSampler(
     uint32_t binding, uint32_t stages, uint32_t count)
 {
-    mBindingCounts.CombinedImageSampler += count;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, stages, count);
 }
 
@@ -100,22 +77,21 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageImage(uint32_t
                                                                         uint32_t stages,
                                                                         uint32_t count)
 {
-    mBindingCounts.StorageImage += count;
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stages, count);
 }
 
-DescriptorSetLayoutBuilder::Result DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
+VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
 {
-    return {BuildLayout(ctx), mBindingCounts};
+    return BuildLayout(ctx);
 }
 
-DescriptorSetLayoutBuilder::Result DescriptorSetLayoutBuilder::Build(VulkanContext &ctx,
+VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx,
                                                                      DeletionQueue &queue)
 {
     const auto layout = BuildLayout(ctx);
     queue.push_back(layout);
 
-    return {layout, mBindingCounts};
+    return layout;
 }
 
 VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildLayout(VulkanContext &ctx)
@@ -136,14 +112,15 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildLayout(VulkanContext &ctx
     return layout;
 }
 
-VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,
-                                      std::span<VkDescriptorPoolSize> poolSizes)
+VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, PoolCounts counts)
 {
-    VkDescriptorPool pool;
+    VkDescriptorPool pool{};
+
+    auto poolSizes = GetRawPoolSizes(counts);
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets       = maxSets;
+    poolInfo.maxSets       = counts.DescriptorSet;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes    = poolSizes.data();
 
@@ -154,11 +131,10 @@ VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,
     return pool;
 }
 
-VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,
-                                      std::span<VkDescriptorPoolSize> poolSizes,
+VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, PoolCounts counts,
                                       DeletionQueue                  &deletionQueue)
 {
-    VkDescriptorPool pool = InitPool(ctx, maxSets, poolSizes);
+    VkDescriptorPool pool = InitPool(ctx, counts);
     deletionQueue.push_back(pool);
     return pool;
 }
@@ -444,8 +420,10 @@ GrowableDescriptorAllocator::~GrowableDescriptorAllocator()
         DestroyPools();
 }
 
-void GrowableDescriptorAllocator::OnInit(std::span<VkDescriptorPoolSize> sizes)
+void GrowableDescriptorAllocator::OnInit(Descriptor::PoolCounts counts)
 {
+    auto sizes = GetRawPoolSizes(counts);
+
     mCountsPerSet.assign(sizes.begin(), sizes.end());
 
     mReadyPools.push_back(CreatePool());

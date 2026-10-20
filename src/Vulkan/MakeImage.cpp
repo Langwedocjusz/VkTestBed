@@ -115,7 +115,7 @@ Image MakeImage::FromData(VulkanContext &ctx, const std::string &debugName,
 
     if (data.Mips == MipStrategy::Generate)
     {
-        imgInfo.MipLevels = Image::CalcNumMips(data.Width, data.Height);
+        imgInfo.MipLevels = Image::MipCount(data.Width, data.Height);
         imgInfo.Usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
 

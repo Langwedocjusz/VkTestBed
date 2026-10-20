@@ -8,6 +8,7 @@
 #include "MakeImage.h"
 #include "Renderer.h"
 #include "Sampler.h"
+#include "VkEnums.h"
 
 #include <ranges>
 
@@ -200,27 +201,24 @@ void Minimal3DRenderer::TargetToTransfer(VkCommandBuffer cmd)
 
 void Minimal3DRenderer::RecreateSwapchainResources()
 {
+    using namespace vkenum::image_usage;
+
+    mSwapchainDeletionQueue.flush();
+
     // Create the render target:
     auto ScaleResolution = [this](uint32_t res) {
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
-    uint32_t width  = ScaleResolution(mCtx.Swapchain->Extent.width);
-    uint32_t height = ScaleResolution(mCtx.Swapchain->Extent.height);
-
-    VkExtent2D drawExtent{
-        .width  = width,
-        .height = height,
+    const VkExtent2D drawExtent{
+        .width  = ScaleResolution(mCtx.Swapchain->Extent.width),
+        .height = ScaleResolution(mCtx.Swapchain->Extent.height),
     };
-
-    VkImageUsageFlags drawUsage{};
-    drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     Image2DInfo renderTargetInfo{
         .Extent = drawExtent,
         .Format = mRenderTargetFormat,
-        .Usage  = drawUsage,
+        .Usage  = TransferSrc | ColorAttachment,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
     mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
@@ -230,7 +228,7 @@ void Minimal3DRenderer::RecreateSwapchainResources()
     Image2DInfo depthBufferInfo{
         .Extent = drawExtent,
         .Format = mDepthFormat,
-        .Usage  = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .Usage  = DepthStencilAttachment,
         .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
     mDepthBuffer = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,

@@ -6,6 +6,7 @@
 #include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
+#include "VkEnums.h"
 
 #include "imgui.h"
 #include <imgui_impl_vulkan.h>
@@ -22,30 +23,10 @@
 ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
     : mCtx(ctx), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
 {
-    // Create the shadowmap base texture:
-    Image2DInfo shadowmapInfo{
-        .Extent = {ShadowmapResolution, ShadowmapResolution},
-        .Format = ShadowmapFormat,
-        .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
-
-    mShadowmap = MakeTexture::Texture2DArray(mCtx, "Shadowmap", shadowmapInfo,
-                                             NumCascades, mMainDeletionQueue);
-
-    // Create per-layer views for rendering into cascades:
-    for (uint32_t i = 0; i < NumCascades; i++)
+    // Create texture samplers:
     {
-        std::string name = "ShadowmapView" + std::to_string(i);
-        auto        view =
-            MakeView::View2DArray(mCtx, name, {.Img = mShadowmap.Img, .SelectLayer = i});
-
-        mCascadeViews[i] = view;
-        mMainDeletionQueue.push_back(view);
-    }
-
-    // Create a sampler for the shadowmap:
-    mSampler = SamplerBuilder("MinimalPbrSamplerShadowmap")
+        // Actual one for the rendering with shadowmap:
+        mSampler = SamplerBuilder("MinimalPbrSamplerShadowmap")
                    .SetMagFilter(VK_FILTER_LINEAR)
                    .SetMinFilter(VK_FILTER_LINEAR)
                    .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER)
@@ -53,8 +34,7 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
                    .SetCompareOp(VK_COMPARE_OP_LESS)
                    .Build(mCtx, mMainDeletionQueue);
 
-    // Setup debug view of the shadowmaps in imgui:
-    {
+        // Debug one for imgui preview:
         mDebugSampler = SamplerBuilder("MinimalPbrSampler2D")
                             .SetMagFilter(VK_FILTER_LINEAR)
                             .SetMinFilter(VK_FILTER_LINEAR)
@@ -66,6 +46,32 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         // TODO: for now only has preview for first cascade:
         mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
             mDebugSampler, mCascadeViews[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
+    // Create the shadowmap base texture:
+    {
+        using namespace vkenum::image_usage;
+
+        Image2DInfo shadowmapInfo{
+            .Extent = {ShadowmapResolution, ShadowmapResolution},
+            .Format = ShadowmapFormat,
+            .Usage = DepthStencilAttachment | Sampled,
+            .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
+
+        mShadowmap = MakeTexture::Texture2DArray(mCtx, "Shadowmap", shadowmapInfo,
+                                                 NumCascades, mMainDeletionQueue);
+
+        // Create per-layer views for rendering into cascades:
+        for (uint32_t i = 0; i < NumCascades; i++)
+        {
+            std::string name = "ShadowmapView" + std::to_string(i);
+            auto        view =
+                MakeView::View2DArray(mCtx, name, {.Img = mShadowmap.Img, .SelectLayer = i});
+
+            mCascadeViews[i] = view;
+            mMainDeletionQueue.push_back(view);
+        }
     }
 
     // Create Vertex Buffer for debug vizualiztion:

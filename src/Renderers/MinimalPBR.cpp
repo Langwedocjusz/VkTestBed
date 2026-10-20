@@ -12,6 +12,7 @@
 #include "Renderer.h"
 #include "Sampler.h"
 #include "Scene.h"
+#include "VkEnums.h"
 #include "VulkanContext.h"
 
 #include <glm/ext/matrix_clip_space.hpp>
@@ -368,6 +369,8 @@ void MinimalPbrRenderer::RebuildPipelines()
 
 void MinimalPbrRenderer::RecreateSwapchainResources()
 {
+    using namespace vkenum::image_usage;
+
     mSwapchainDeletionQueue.flush();
 
     if (mMultisample == VK_SAMPLE_COUNT_1_BIT)
@@ -381,22 +384,17 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
-    VkExtent2D drawExtent{
+    const VkExtent2D drawExtent{
         .width  = ScaleResolution(mCtx.Swapchain->Extent.width),
         .height = ScaleResolution(mCtx.Swapchain->Extent.height),
     };
 
     // Create the (color) render target:
     {
-        VkImageUsageFlags drawUsage{};
-        drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        drawUsage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        // drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
         Image2DInfo renderTargetInfo{
             .Extent = drawExtent,
             .Format = RenderTargetFormat,
-            .Usage  = drawUsage,
+            .Usage  = ColorAttachment | Sampled,
             .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
@@ -416,14 +414,10 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
 
     // Create the depth (and stencil) buffer:
     {
-        VkImageUsageFlags depthUsage{};
-        depthUsage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        depthUsage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
         Image2DInfo depthBufferInfo{
             .Extent = drawExtent,
             .Format = DepthStencilFormat,
-            .Usage  = depthUsage,
+            .Usage  = DepthStencilAttachment | Sampled,
             .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         };
         mDepthStencilBuffer = MakeTexture::Texture2D(mCtx, "DepthBuffer", depthBufferInfo,

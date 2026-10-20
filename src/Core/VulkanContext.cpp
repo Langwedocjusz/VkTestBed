@@ -4,7 +4,6 @@
 #include "Frame.h"
 #include "Swapchain.h"
 #include "Vassert.h"
-#include "VkInit.h"
 #include "VkUtils.h"
 
 #include "VkBootstrap.h"
@@ -200,7 +199,7 @@ VulkanContext::VulkanContext(SystemWindow &window)
         vkbPhysicalDevice.features.pipelineStatisticsQuery;
 
     // Allocate command pools for immediate submit:
-    mImmGraphicsCommandPool = vkinit::CreateCommandPool(*this, QueueType::Graphics);
+    mImmGraphicsCommandPool = vkutils::CreateCommandPool(*this, QueueType::Graphics);
 }
 
 VulkanContext::~VulkanContext()
@@ -224,7 +223,7 @@ void VulkanContext::ImmediateSubmitGraphics(
     std::function<void(VkCommandBuffer)> &&function)
 {
     VkCommandBuffer buffer =
-        vkinit::AllocateCommandBuffer(*this, mImmGraphicsCommandPool);
+        vkutils::AllocateCommandBuffer(*this, mImmGraphicsCommandPool);
 
     vkutils::BeginRecording(buffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 

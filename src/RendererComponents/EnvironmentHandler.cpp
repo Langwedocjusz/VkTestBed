@@ -9,6 +9,7 @@
 #include "Pipeline.h"
 #include "Sampler.h"
 #include "Vassert.h"
+#include "VkEnums.h"
 #include "VkUtils.h"
 
 #include "volk.h"
@@ -21,133 +22,132 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
     : mCtx(ctx), mDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
 {
     // Create the texture samplers:
-    mSampler = SamplerBuilder("EnvSampler")
+    {
+        mSampler = SamplerBuilder("EnvSampler")
                    .SetMagFilter(VK_FILTER_LINEAR)
                    .SetMinFilter(VK_FILTER_LINEAR)
                    .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
                    .Build(mCtx, mDeletionQueue);
 
-    mSamplerClamped = SamplerBuilder("EnvSamplerClamped")
-                          .SetMagFilter(VK_FILTER_LINEAR)
-                          .SetMinFilter(VK_FILTER_LINEAR)
-                          .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
-                          .Build(mCtx, mDeletionQueue);
+        mSamplerClamped = SamplerBuilder("EnvSamplerClamped")
+                              .SetMagFilter(VK_FILTER_LINEAR)
+                              .SetMinFilter(VK_FILTER_LINEAR)
+                              .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+                              .Build(mCtx, mDeletionQueue);
 
-    mSamplerMipped = SamplerBuilder("EnvSamplerMipped")
-                         .SetMagFilter(VK_FILTER_LINEAR)
-                         .SetMinFilter(VK_FILTER_LINEAR)
-                         .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                         .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
-                         .SetMaxLod(12.0f)
-                         .Build(mCtx, mDeletionQueue);
-
-    // Create cubemap image and view:
-    {
-        VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                  VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                  VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
-        auto cubemapInfo = Image2DInfo{
-            .Extent    = {CubemapSize, CubemapSize},
-            .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .Usage     = usage,
-            .MipLevels = Image::CalcNumMips(CubemapSize),
-            .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        };
-
-        mCubemap =
-            MakeTexture::TextureCube(mCtx, "EnvCubemap", cubemapInfo, mDeletionQueue);
+        mSamplerMipped = SamplerBuilder("EnvSamplerMipped")
+                             .SetMagFilter(VK_FILTER_LINEAR)
+                             .SetMinFilter(VK_FILTER_LINEAR)
+                             .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                             .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
+                             .SetMaxLod(12.0f)
+                             .Build(mCtx, mDeletionQueue);
     }
-
-    // Create prefiltered map image and view:
+    
+    // Create images and views:
     {
-        const uint32_t prefilteredMips = Image::CalcNumMips(PrefilteredSize);
+        using namespace vkenum::image_usage;
 
-        VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                  VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
-        auto prefilteredInfo = Image2DInfo{
-            .Extent    = {PrefilteredSize, PrefilteredSize},
-            .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .Usage     = usage,
-            .MipLevels = prefilteredMips,
-            .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        };
-
-        mPrefiltered = MakeTexture::TextureCube(mCtx, "EnvPrefilteredMap",
-                                                prefilteredInfo, mDeletionQueue);
-
-        // Create single mip views for usage in compute:
-        for (uint32_t mip = 0; mip < prefilteredMips; mip++)
+        // Create cubemap image and view:
         {
-            const auto name = "EnvPrefilteredViewMip" + std::to_string(mip);
+            auto cubemapInfo = Image2DInfo{
+                .Extent    = {CubemapSize, CubemapSize},
+                .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .Usage     = TransferSrc | TransferDst | Storage | Sampled,
+                .MipLevels = Image::MipCount(CubemapSize),
+                .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            };
 
-            auto view = MakeView::ViewCube(mCtx, name,
-                                           {.Img = mPrefiltered.Img, .SelectLevel = mip});
+            mCubemap =
+                MakeTexture::TextureCube(mCtx, "EnvCubemap", cubemapInfo, mDeletionQueue);
+        }
 
-            mPrefilteredMipViews.push_back(view);
-            mDeletionQueue.push_back(view);
+        // Create prefiltered map image and view:
+        {
+            auto prefilteredInfo = Image2DInfo{
+                .Extent    = {PrefilteredSize, PrefilteredSize},
+                .Format    = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .Usage     = TransferDst | Storage | Sampled,
+                .MipLevels = Image::MipCount(PrefilteredSize),
+                .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            };
+
+            mPrefiltered = MakeTexture::TextureCube(mCtx, "EnvPrefilteredMap",
+                                                    prefilteredInfo, mDeletionQueue);
+
+            // Create single mip views for usage in compute:
+            for (uint32_t mip = 0; mip < prefilteredInfo.MipLevels; mip++)
+            {
+                const auto name = "EnvPrefilteredViewMip" + std::to_string(mip);
+
+                auto view = MakeView::ViewCube(mCtx, name,
+                                               {.Img = mPrefiltered.Img, .SelectLevel = mip});
+
+                mPrefilteredMipViews.push_back(view);
+                mDeletionQueue.push_back(view);
+            }
+        }
+
+        // Create BRDF integration map:
+        {
+            auto integrationInfo = Image2DInfo{
+                .Extent = {IntegrationSize, IntegrationSize},
+                .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .Usage  = Storage | Sampled,
+            };
+
+            mIntegration = MakeTexture::Texture2D(mCtx, "EnvIntegrationMap", integrationInfo,
+                                                  mDeletionQueue);
         }
     }
 
-    // Create BRDF integration map:
+
+    // Create buffers:
     {
-        auto integrationInfo = Image2DInfo{
-            .Extent = {IntegrationSize, IntegrationSize},
-            .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        };
+        using namespace vkenum::buffer_usage;
 
-        mIntegration = MakeTexture::Texture2D(mCtx, "EnvIntegrationMap", integrationInfo,
-                                              mDeletionQueue);
-    }
+        // Create uniform buffer for environment information (light direction etc.):
+        {
+            mEnvUBO =
+                MakeBuffer::MappedUniform(ctx, "EnvLightUniformBuffer", sizeof(mEnvUBOData));
+            mDeletionQueue.push_back(mEnvUBO);
 
-    // Create uniform buffer for environment information (light direction etc.):
-    {
-        mEnvUBO =
-            MakeBuffer::MappedUniform(ctx, "EnvLightUniformBuffer", sizeof(mEnvUBOData));
-        mDeletionQueue.push_back(mEnvUBO);
+            Buffer::UploadToMapped(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
+        }
 
-        Buffer::UploadToMapped(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
-    }
+        // Create shader storage buffers for computing irradiance SH decomposition:
+        {
+            const uint32_t groupsPerLine = (CubemapSize / mReduceBlock);
+            const uint32_t groupsPerSide = groupsPerLine * groupsPerLine;
 
-    // Create shader storage buffers for computing irradiance SH decomposition:
-    {
-        const uint32_t groupsPerLine = (CubemapSize / mReduceBlock);
-        const uint32_t groupsPerSide = groupsPerLine * groupsPerLine;
+            mFirstBufferLen = 6 * groupsPerSide;
 
-        mFirstBufferLen = 6 * groupsPerSide;
+            struct SHData {
+                glm::vec4 SH_L0;
+                glm::vec4 SH_L1_M_1;
+                glm::vec4 SH_L1_M0;
+                glm::vec4 SH_L1_M1;
+                glm::vec4 SH_L2_M_2;
+                glm::vec4 SH_L2_M_1;
+                glm::vec4 SH_L2_M0;
+                glm::vec4 SH_L2_M1;
+                glm::vec4 SH_L2_M2;
+            };
 
-        struct SHData {
-            glm::vec4 SH_L0;
-            glm::vec4 SH_L1_M_1;
-            glm::vec4 SH_L1_M0;
-            glm::vec4 SH_L1_M1;
-            glm::vec4 SH_L2_M_2;
-            glm::vec4 SH_L2_M_1;
-            glm::vec4 SH_L2_M0;
-            glm::vec4 SH_L2_M1;
-            glm::vec4 SH_L2_M2;
-        };
+            VkDeviceSize sizeFirst = mFirstBufferLen * sizeof(SHData);
+            VkDeviceSize sizeFinal = 1 * sizeof(SHData);
 
-        VkDeviceSize sizeFirst = mFirstBufferLen * sizeof(SHData);
-        VkDeviceSize sizeFinal = 1 * sizeof(SHData);
+            mFirstReducionBuffer =
+                Buffer::Create(mCtx, "EnvFirstReductionBuffer", sizeFirst, Storage);
+            mFinalReductionBuffer =
+                Buffer::Create(mCtx, "EnvFinalReductionBuffer", sizeFinal, Storage | TransferDst);
 
-        auto usageFirst = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        auto usageFinal =
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-        mFirstReducionBuffer =
-            Buffer::Create(mCtx, "EnvFirstReductionBuffer", sizeFirst, usageFirst);
-        mFinalReductionBuffer =
-            Buffer::Create(mCtx, "EnvFinalReductionBuffer", sizeFinal, usageFinal);
-
-        mDeletionQueue.push_back(mFirstReducionBuffer);
-        mDeletionQueue.push_back(mFinalReductionBuffer);
+            mDeletionQueue.push_back(mFirstReducionBuffer);
+            mDeletionQueue.push_back(mFinalReductionBuffer);
+        }
     }
 
     // Initialize descriptor layouts:
-
     mBackgroundDescrptorSetLayout =
         DescriptorSetLayoutBuilder("EnvBackgroundDescriptorLayout")
             .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT |

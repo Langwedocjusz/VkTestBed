@@ -7,6 +7,7 @@
 #include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Renderer.h"
+#include "VkEnums.h"
 
 #include "volk.h"
 
@@ -121,27 +122,24 @@ void HelloRenderer::TargetToTransfer(VkCommandBuffer cmd)
 
 void HelloRenderer::RecreateSwapchainResources()
 {
+    using namespace vkenum::image_usage;
+
+    mSwapchainDeletionQueue.flush();
+
     // Create the render target:
     auto ScaleResolution = [this](uint32_t res) {
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
-    uint32_t width  = ScaleResolution(mCtx.Swapchain->Extent.width);
-    uint32_t height = ScaleResolution(mCtx.Swapchain->Extent.height);
-
-    VkExtent2D drawExtent{
-        .width  = width,
-        .height = height,
+    const VkExtent2D drawExtent{
+        .width  = ScaleResolution(mCtx.Swapchain->Extent.width),
+        .height = ScaleResolution(mCtx.Swapchain->Extent.height),
     };
-
-    VkImageUsageFlags drawUsage{};
-    drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     Image2DInfo renderTargetInfo{
         .Extent = drawExtent,
         .Format = mRenderTargetFormat,
-        .Usage  = drawUsage,
+        .Usage  = TransferSrc | ColorAttachment,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
 

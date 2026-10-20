@@ -3,32 +3,34 @@
 
 #include "Vassert.h"
 
-#include <set>
+#include <algorithm>
 
 VkImageAspectFlags vkutils::GetDefaultAspect(VkFormat format)
 {
+    using std::ranges::contains;
+
     // Check if contains both depth and stencil:
-    const std::set<VkFormat> depthStencilFormats{
+    static constexpr std::array depthStencilFormats{
         VK_FORMAT_D32_SFLOAT_S8_UINT,
         VK_FORMAT_D24_UNORM_S8_UINT,
         VK_FORMAT_D16_UNORM_S8_UINT,
     };
-    if (depthStencilFormats.contains(format))
+    if (contains(depthStencilFormats,format))
         return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
     // Otherwise check if depth only:
-    const std::set<VkFormat> depthFormats{
+    static constexpr std::array depthFormats{
         VK_FORMAT_D32_SFLOAT,
         VK_FORMAT_D16_UNORM,
     };
-    if (depthFormats.contains(format))
+    if (contains(depthFormats, format))
         return VK_IMAGE_ASPECT_DEPTH_BIT;
 
     // Otherwise check if stencil only:
-    const std::set<VkFormat> stencilFormats{
+    static constexpr std::array stencilFormats{
         VK_FORMAT_S8_UINT,
     };
-    if (stencilFormats.contains(format))
+    if (contains(stencilFormats, format))
         return VK_IMAGE_ASPECT_STENCIL_BIT;
 
     // Otherwise assume color:
@@ -37,6 +39,8 @@ VkImageAspectFlags vkutils::GetDefaultAspect(VkFormat format)
 
 bool vkutils::IsFormatSRGB(VkFormat format)
 {
+    using std::ranges::contains;
+
     static constexpr std::array srgbFormats{
         VK_FORMAT_R8_SRGB,
         VK_FORMAT_R8G8_SRGB,
@@ -46,7 +50,6 @@ bool vkutils::IsFormatSRGB(VkFormat format)
         VK_FORMAT_B8G8R8A8_SRGB,
         VK_FORMAT_A8B8G8R8_SRGB_PACK32,
         VK_FORMAT_BC1_RGB_SRGB_BLOCK,
-        VK_FORMAT_BC1_RGBA_UNORM_BLOCK,
         VK_FORMAT_BC1_RGBA_SRGB_BLOCK,
         VK_FORMAT_BC2_SRGB_BLOCK,
         VK_FORMAT_BC3_SRGB_BLOCK,
@@ -74,15 +77,92 @@ bool vkutils::IsFormatSRGB(VkFormat format)
         VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG,
     };
 
-    for (auto fmt : srgbFormats)
+    return contains(srgbFormats, format);
+}
+
+void vkutils::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
+{
+    VkFenceCreateInfo fence_info = {};
+    fence_info.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_info.flags             = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    auto ret = vkCreateFence(ctx.Device, &fence_info, nullptr, &fence);
+
+    vassert(ret == VK_SUCCESS, "Failed to create a fence!");
+}
+
+void vkutils::CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore)
+{
+    VkSemaphoreCreateInfo semaphore_info = {};
+    semaphore_info.sType                 = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    auto ret = vkCreateSemaphore(ctx.Device, &semaphore_info, nullptr, &semaphore);
+
+    vassert(ret == VK_SUCCESS, "Failed to create a semaphore!");
+}
+
+
+VkCommandPool vkutils::CreateCommandPool(VulkanContext &ctx, QueueType qtype)
+{
+    VkCommandPool pool{};
+
+    uint32_t queueFamilyId = 0;
+
+    switch (qtype)
     {
-        if (fmt == format)
-        {
-            return true;
-        }
+    case QueueType::Graphics: {
+        queueFamilyId = ctx.Queues.Graphics.Index;
+        break;
+    }
+    case QueueType::Present: {
+        queueFamilyId = ctx.Queues.Present.Index;
+        break;
+    }
     }
 
-    return false;
+    VkCommandPoolCreateInfo poolInfo = {};
+    poolInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex        = queueFamilyId;
+    // To allow resetting individual buffers:
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    auto ret = vkCreateCommandPool(ctx.Device, &poolInfo, nullptr, &pool);
+
+    vassert(ret == VK_SUCCESS, "Failed to create a command pool!");
+
+    return pool;
+}
+
+VkCommandBuffer vkutils::AllocateCommandBuffer(VulkanContext &ctx, VkCommandPool pool)
+{
+    VkCommandBuffer buffer{};
+
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool        = pool;
+    allocInfo.commandBufferCount = 1;
+
+    auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, &buffer);
+
+    vassert(ret == VK_SUCCESS, "Failed to allocate command buffers!");
+
+    return buffer;
+}
+
+void vkutils::AllocateCommandBuffers(VulkanContext             &ctx,
+                                    std::span<VkCommandBuffer> buffers,
+                                    VkCommandPool              pool)
+{
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool        = pool;
+    allocInfo.commandBufferCount = static_cast<uint32_t>(buffers.size());
+
+    auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, buffers.data());
+
+    vassert(ret == VK_SUCCESS, "Failed to allocate command buffers!");
 }
 
 void vkutils::BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags)

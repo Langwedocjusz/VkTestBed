@@ -29,8 +29,8 @@ struct Image {
 
     static void UploadToImage(VulkanContext &ctx, Image &img, UploadInfo info);
 
-    static uint32_t CalcNumMips(uint32_t size);
-    static uint32_t CalcNumMips(uint32_t width, uint32_t height);
+    static uint32_t MipCount(uint32_t size);
+    static uint32_t MipCount(uint32_t width, uint32_t height);
 
     static void GenerateMips(VulkanContext &ctx, Image &img);
 

@@ -144,14 +144,14 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, Image::UploadInfo info
     Buffer::Destroy(ctx, stagingBuffer);
 }
 
-uint32_t Image::CalcNumMips(uint32_t size)
+uint32_t Image::MipCount(uint32_t size)
 {
     return static_cast<uint32_t>(std::floor(std::log2(size))) + 1;
 }
 
-uint32_t Image::CalcNumMips(uint32_t width, uint32_t height)
+uint32_t Image::MipCount(uint32_t width, uint32_t height)
 {
-    return CalcNumMips(std::max(width, height));
+    return MipCount(std::max(width, height));
 }
 
 void Image::GenerateMips(VulkanContext &ctx, Image &img)

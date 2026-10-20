@@ -12,7 +12,7 @@
 #include "Renderer.h"
 #include "Scene.h"
 #include "Vassert.h"
-#include "VkInit.h"
+#include "VkEnums.h"
 #include "VkUtils.h"
 #include "VulkanContext.h"
 
@@ -28,11 +28,11 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     // Create per frame command pools/buffers and sync-objects:
     for (auto &data : mFrameInfo.FrameData)
     {
-        data.CommandPool   = vkinit::CreateCommandPool(mCtx, QueueType::Graphics);
-        data.CommandBuffer = vkinit::AllocateCommandBuffer(mCtx, data.CommandPool);
+        data.CommandPool   = vkutils::CreateCommandPool(mCtx, QueueType::Graphics);
+        data.CommandBuffer = vkutils::AllocateCommandBuffer(mCtx, data.CommandPool);
 
-        vkinit::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
-        vkinit::CreateSignalledFence(mCtx, data.InFlightFence);
+        vkutils::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
+        vkutils::CreateSignalledFence(mCtx, data.InFlightFence);
     }
 
     // Create per swapchain image sync-objects:
@@ -40,7 +40,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
 
     for (auto &data : mFrameInfo.SwapchainData)
     {
-        vkinit::CreateSemaphore(mCtx, data.RenderCompletedSemaphore);
+        vkutils::CreateSemaphore(mCtx, data.RenderCompletedSemaphore);
     }
 
     // Update the deletion queue:
@@ -58,35 +58,38 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     }
 
     // Setup framebuffer for object picking:
-    VkImageUsageFlags drawUsage{};
-    drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    {
+        using namespace vkenum::image_usage;
 
-    Image2DInfo renderTargetInfo{
-        .Extent = VkExtent2D{1, 1},
-        .Format = IRenderer::PickingTargetFormat,
-        .Usage  = drawUsage,
-        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    };
-    mPicking.Target = MakeTexture::Texture2D(mCtx, "PickingTarget", renderTargetInfo,
-                                             mMainDeletionQueue);
+        Image2DInfo renderTargetInfo{
+            .Extent = VkExtent2D{1, 1},
+            .Format = IRenderer::PickingTargetFormat,
+            .Usage  = TransferSrc | ColorAttachment,
+            .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        };
+        mPicking.Target = MakeTexture::Texture2D(mCtx, "PickingTarget", renderTargetInfo,
+                                                 mMainDeletionQueue);
 
-    Image2DInfo depthBufferInfo{
-        .Extent = VkExtent2D{1, 1},
-        .Format = IRenderer::PickingDepthFormat,
-        .Usage  = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-    };
-    mPicking.Depth = MakeTexture::Texture2D(mCtx, "PickingDepthBuffer", depthBufferInfo,
-                                            mMainDeletionQueue);
+        Image2DInfo depthBufferInfo{
+            .Extent = VkExtent2D{1, 1},
+            .Format = IRenderer::PickingDepthFormat,
+            .Usage  = DepthStencilAttachment,
+            .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        };
+        mPicking.Depth = MakeTexture::Texture2D(mCtx, "PickingDepthBuffer", depthBufferInfo,
+                                                mMainDeletionQueue);
+    }
 
-    auto bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    auto bufferFlags =
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    // Setup readback buffer for object picking:
+    {
+        auto bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        auto bufferFlags =
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-    mPicking.ReadbackBuffer =
-        Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel), bufferUsage, bufferFlags);
-    mMainDeletionQueue.push_back(mPicking.ReadbackBuffer);
+        mPicking.ReadbackBuffer =
+            Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel), bufferUsage, bufferFlags);
+        mMainDeletionQueue.push_back(mPicking.ReadbackBuffer);
+    }
 }
 
 void RenderContext::OnInit()

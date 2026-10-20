@@ -6,6 +6,7 @@
 #include "MakeImage.h"
 #include "Sampler.h"
 #include "VkUtils.h"
+#include "VkEnums.h"
 
 #include "imgui.h"
 
@@ -73,19 +74,21 @@ void PostProcessor::RebuildPipelines()
 void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
                                                VkImageView renderTargetView)
 {
+    using namespace vkenum::image_usage;
+
     mSwapchainDeletionQueue.flush();
+
+    const VkExtent2D targetExtent{
+        .width  = renderTarget.Info.extent.width,
+        .height = renderTarget.Info.extent.height,
+    };
 
     // Create bloom render target:
     {
-        VkExtent2D extent{
-            .width  = renderTarget.Info.extent.width,
-            .height = renderTarget.Info.extent.height,
-        };
-
         Image2DInfo info{
-            .Extent    = extent,
+            .Extent    = targetExtent,
             .Format    = renderTarget.Info.format,
-            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Usage     = Storage | Sampled,
             .MipLevels = mBloomNumMips,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
@@ -112,15 +115,10 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
 
     // Create final (composed) target:
     {
-        VkExtent2D extent{
-            .width  = renderTarget.Info.extent.width,
-            .height = renderTarget.Info.extent.height,
-        };
-
         Image2DInfo info{
-            .Extent    = extent,
+            .Extent    = targetExtent,
             .Format    = FinalFormat,
-            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            .Usage     = Storage | TransferSrc,
             .MipLevels = 1,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };

@@ -6,6 +6,7 @@
 #include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
+#include "VkEnums.h"
 
 #include "imgui.h"
 
@@ -116,7 +117,9 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
 
     // Create the z-buffer, ao generation target, and bilateral upscale target:
     {
-        VkExtent2D targetExtent{
+        using namespace vkenum::image_usage;
+
+        const VkExtent2D targetExtent{
             .width  = ScaleResolution(drawExtent.width),
             .height = ScaleResolution(drawExtent.height),
         };
@@ -124,7 +127,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         Image2DInfo zBufferInfo{
             .Extent    = targetExtent,
             .Format    = VK_FORMAT_R32_SFLOAT,
-            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Usage     = Storage | Sampled,
             .MipLevels = ZBufferMips,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
@@ -145,7 +148,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         Image2DInfo aoTargetInfo{
             .Extent = targetExtent,
             .Format = VK_FORMAT_R8G8B8A8_UNORM,
-            .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Usage  = Storage | Sampled,
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
@@ -155,7 +158,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         Image2DInfo bilateralInfo{
             .Extent = targetExtent,
             .Format = VK_FORMAT_R8G8B8A8_UNORM,
-            .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Usage  = Storage | Sampled,
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 

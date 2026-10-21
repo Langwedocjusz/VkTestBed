@@ -2,7 +2,6 @@
 #include "Pch.h"
 
 #include "Common.h"
-#include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
@@ -84,7 +83,7 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         // on camera movement. Perfect solution would be to use 3 per-frame buffers.
         // But the artefacts are not that bad and this is for debug only.
 
-        BufferInfo info{
+        Buffer::Info info{
             .Name  = "ShadowmapDebugFrustumVertexBuffer",
             .Size  = mVertexBufferData.size() * sizeof(mVertexBufferData[0]),
             .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -118,7 +117,7 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         // clang-format on
 
         mDebugFrustumIndexBuffer.emplace(
-            MakeBuffer::Index(mCtx, "ShadowmapDebugFrustumVertexBuffer", indexData));
+            Buffer::MakeIndex(mCtx, "ShadowmapDebugFrustumVertexBuffer", indexData));
     }
 }
 

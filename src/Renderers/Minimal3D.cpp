@@ -4,7 +4,6 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Descriptor.h"
-#include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Renderer.h"
 #include "Sampler.h"
@@ -268,9 +267,9 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 
     auto MakeDrawable = [&](const GeometryData &geo, const std::string &debugName) {
         return Drawable{
-            .VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData),
+            .VertexBuffer = Buffer::MakeVertex(mCtx, debugName, geo.VertexData),
             .VertexCount  = static_cast<uint32_t>(geo.VertexCount),
-            .IndexBuffer  = MakeBuffer::Index(mCtx, debugName, geo.IndexData),
+            .IndexBuffer  = Buffer::MakeIndex(mCtx, debugName, geo.IndexData),
             .IndexCount   = static_cast<uint32_t>(geo.IndexCount),
             .Material     = 0,
             .Instances    = {},

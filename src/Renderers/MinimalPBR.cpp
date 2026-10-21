@@ -6,7 +6,6 @@
 #include "Descriptor.h"
 #include "GeometryData.h"
 #include "ImGuiUtils.h"
-#include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Pipeline.h"
 #include "Renderer.h"
@@ -32,9 +31,9 @@
 
 MinimalPbrRenderer::Drawable::Drawable(VulkanContext &ctx, const ScenePrimitive &prim,
                                        const std::string &debugName)
-    : VertexBuffer(MakeBuffer::VertexStorage(ctx, debugName, prim.Data.VertexData)),
+    : VertexBuffer(Buffer::MakeVertexStorage(ctx, debugName, prim.Data.VertexData)),
       VertexCount(static_cast<uint32_t>(prim.Data.VertexCount)),
-      IndexBuffer(MakeBuffer::Index(ctx, debugName, prim.Data.IndexData)),
+      IndexBuffer(Buffer::MakeIndex(ctx, debugName, prim.Data.IndexData)),
       IndexCount(static_cast<uint32_t>(prim.Data.IndexCount)), Bbox(prim.Data.BBox),
       TexBoundsCenter(prim.TexCoordCenter), TexBoundsExtent(prim.TexCoordExtent)
 {
@@ -1237,14 +1236,16 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         // Only allocate new descriptor set on first load:
         if (firstLoad)
         {
-            std::string bufName = "Material " + sceneMat.Name + "UBO";
+            Buffer::ThinInfo uboInfo{
+                .Name = "Material " + sceneMat.Name + "UBO",
+                .Size = sizeof(MaterialUboData),
+            };
 
             mMaterials.try_emplace(
                 key, Material{
                          .DescriptorSet = mMaterialDescriptorAllocator.Allocate(
                              mMaterialDescriptorSetLayout),
-                         .UBO     = MakeBuffer::MappedUniform(mCtx, bufName,
-                                                              sizeof(MaterialUboData)),
+                         .UBO     = Buffer::MakeMappedUniform(mCtx, uboInfo),
                          .UboData = {},
                      });
         }

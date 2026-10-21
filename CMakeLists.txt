@@ -190,14 +190,12 @@ target_sources(${PROJECT_NAME}
         src/Renderers/Renderer.h
         src/Renderers/RendererFactory.h
         src/Renderers/RendererFactory.cpp
-        src/Vulkan/Buffer.h
-        src/Vulkan/Buffer.cpp
-        src/Vulkan/MakeBuffer.h
-        src/Vulkan/MakeBuffer.cpp
-        src/Vulkan/Common.h
-        src/Vulkan/Common.cpp
         src/Vulkan/Barrier.h
         src/Vulkan/Barrier.cpp
+        src/Vulkan/Buffer.h
+        src/Vulkan/Buffer.cpp
+        src/Vulkan/Common.h
+        src/Vulkan/Common.cpp
         src/Vulkan/DeletionQueue.h
         src/Vulkan/DeletionQueue.cpp
         src/Vulkan/Descriptor.h

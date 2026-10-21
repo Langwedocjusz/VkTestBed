@@ -7,7 +7,7 @@
 
 #include <cstring>
 
-Buffer::Buffer(VulkanContext &ctx, const BufferInfo &info) : Size(info.Size), mCtx(ctx)
+Buffer::Buffer(VulkanContext &ctx, const Buffer::Info &info) : Size(info.Size), mCtx(ctx)
 {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -60,4 +60,94 @@ void Buffer::CopyContents(VkCommandBuffer cmd, const Buffer &src, Buffer &dst,
     copyRegion.size      = size;
 
     vkCmdCopyBuffer(cmd, src.Handle, dst.Handle, 1, &copyRegion);
+}
+
+Buffer Buffer::MakeStaging(VulkanContext &ctx, const Buffer::ThinInfo &info)
+{
+    Info fullInfo{
+        // NOTE: String copy
+        .Name  = info.Name,
+        .Size  = info.Size,
+        .Usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .Flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
+    };
+
+    return Buffer{ctx, fullInfo};
+}
+
+Buffer Buffer::MakeMappedUniform(VulkanContext &ctx, const Buffer::ThinInfo &info)
+{
+    Info fullInfo{
+        // NOTE: String copy
+        .Name  = info.Name,
+        .Size  = info.Size,
+        .Usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        .Flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
+    };
+
+    return Buffer{ctx, fullInfo};
+}
+
+Buffer Buffer::MakeTransferDST(VulkanContext &ctx, const Info &info, const void *data)
+{
+    // NOTE: Struct (including string) copy:
+    Info localInfo = info;
+    localInfo.Usage = localInfo.Usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    Buffer ret = Buffer{ctx, localInfo};
+
+    ThinInfo stagingInfo{
+        .Name = info.Name + "Staging",
+        .Size = info.Size,
+    };
+    Buffer     stagingBuffer = Buffer::MakeStaging(ctx, stagingInfo);
+
+    stagingBuffer.Upload(data, info.Size);
+
+    // TODO: this should probably be done on transfer queue
+    // if available:
+    ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+        Buffer::CopyContents(cmd, stagingBuffer, ret, info.Size);
+    });
+
+    return ret;
+}
+
+Buffer Buffer::MakeVertex(VulkanContext &ctx, const std::string &name,
+                          const OpaqueBuffer &buf)
+{
+    Info info{
+        .Name = name,
+        .Size = buf.Size,
+        .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+    };
+
+    return MakeTransferDST(ctx, info, buf.Data);
+}
+
+Buffer Buffer::MakeVertexStorage(VulkanContext &ctx, const std::string &name,
+                                 const OpaqueBuffer &buf)
+{
+    Info info{
+        .Name = name,
+        .Size = buf.Size,
+        .Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    };
+
+    return MakeTransferDST(ctx, info, buf.Data);
+}
+
+Buffer Buffer::MakeIndex(VulkanContext &ctx, const std::string &name,
+                         const OpaqueBuffer &buf)
+{
+    Info info{
+        .Name = name,
+        .Size = buf.Size,
+        .Usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+    };
+
+    return MakeTransferDST(ctx, info, buf.Data);
 }

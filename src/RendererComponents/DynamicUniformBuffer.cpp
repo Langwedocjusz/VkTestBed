@@ -2,7 +2,6 @@
 #include "Pch.h"
 
 #include "Descriptor.h"
-#include "MakeBuffer.h"
 #include "Vassert.h"
 
 #include <ranges>
@@ -18,8 +17,12 @@ DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame,
 
     for (size_t i = 0; i < numBuffers; i++)
     {
-        mUniformBuffers.emplace_back(
-            MakeBuffer::MappedUniform(mCtx, "CameraUniformBuffer", bufferSize));
+        Buffer::ThinInfo uboInfo{
+            .Name = "DynamicUniformBuffer",
+            .Size = bufferSize,
+        };
+        
+        mUniformBuffers.emplace_back(Buffer::MakeMappedUniform(mCtx, uboInfo));
     }
 }
 

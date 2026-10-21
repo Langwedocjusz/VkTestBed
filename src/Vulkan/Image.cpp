@@ -3,7 +3,6 @@
 
 #include "Barrier.h"
 #include "Buffer.h"
-#include "MakeBuffer.h"
 #include "Vassert.h"
 #include "VkUtils.h"
 
@@ -58,8 +57,11 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, Image::UploadInfo info
     vassert(img.Info.arrayLayers == 1);
 
     // Create buffer and upload image data
-    Buffer stagingBuffer =
-        MakeBuffer::Staging(ctx, "ImageUploadStagingBuffer", info.Size);
+    Buffer::ThinInfo stagingInfo{
+        .Name = "ImageUploadStagingBuffer",
+        .Size = info.Size,
+    };
+    Buffer stagingBuffer = Buffer::MakeStaging(ctx, stagingInfo);
 
     stagingBuffer.Upload(info.Data, info.Size);
 

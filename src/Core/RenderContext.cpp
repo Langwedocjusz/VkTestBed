@@ -84,7 +84,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
 
     // Setup readback buffer for object picking:
     {
-        BufferInfo info{
+        Buffer::Info info{
             .Name  = "ReadbackBuffer",
             .Size  = sizeof(Pixel),
             .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,

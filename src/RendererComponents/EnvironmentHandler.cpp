@@ -4,7 +4,6 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Descriptor.h"
-#include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
@@ -108,8 +107,11 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
 
         // Create uniform buffer for environment information (light direction etc.):
         {
-            mEnvUBO.emplace(MakeBuffer::MappedUniform(ctx, "EnvLightUniformBuffer",
-                                                      sizeof(mEnvUBOData)));
+            Buffer::ThinInfo uboInfo{
+                .Name = "EnvLightUniformBuffer",
+                .Size = sizeof(mEnvUBOData),
+            };
+            mEnvUBO.emplace(Buffer::MakeMappedUniform(ctx, uboInfo));
 
             mEnvUBO->UploadMapped(&mEnvUBOData, sizeof(mEnvUBOData));
         }
@@ -134,7 +136,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
             };
 
             {
-                BufferInfo info{
+                Buffer::Info info{
                     .Name  = "EnvFirstReductionBuffer",
                     .Size  = mFirstBufferLen * sizeof(SHData),
                     .Usage = Storage,
@@ -144,7 +146,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
             }
 
             {
-                BufferInfo info{
+                Buffer::Info info{
                     .Name  = "EnvFinalReductionBuffer",
                     .Size  = 1 * sizeof(SHData),
                     .Usage = Storage | TransferDst,

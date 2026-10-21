@@ -21,7 +21,7 @@ DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame,
             .Name = "DynamicUniformBuffer",
             .Size = bufferSize,
         };
-        
+
         mUniformBuffers.emplace_back(Buffer::MakeMappedUniform(mCtx, uboInfo));
     }
 }

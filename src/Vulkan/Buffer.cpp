@@ -1,6 +1,8 @@
 #include "Buffer.h"
 #include "Pch.h"
 
+#include "Vassert.h"
+#include "VkEnums.h"
 #include "VkUtils.h"
 
 #include "volk.h"
@@ -64,13 +66,15 @@ void Buffer::CopyContents(VkCommandBuffer cmd, const Buffer &src, Buffer &dst,
 
 Buffer Buffer::MakeStaging(VulkanContext &ctx, const Buffer::ThinInfo &info)
 {
+    using namespace vkenum::buffer_usage;
+    using namespace vkenum::alloc_create;
+
     Info fullInfo{
         // NOTE: String copy
         .Name  = info.Name,
         .Size  = info.Size,
-        .Usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .Flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .Usage = TransferSrc,
+        .Flags = HostAccessSequentialWrite | Mapped,
     };
 
     return Buffer{ctx, fullInfo};
@@ -78,13 +82,15 @@ Buffer Buffer::MakeStaging(VulkanContext &ctx, const Buffer::ThinInfo &info)
 
 Buffer Buffer::MakeMappedUniform(VulkanContext &ctx, const Buffer::ThinInfo &info)
 {
+    using namespace vkenum::buffer_usage;
+    using namespace vkenum::alloc_create;
+
     Info fullInfo{
         // NOTE: String copy
         .Name  = info.Name,
         .Size  = info.Size,
-        .Usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        .Flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .Usage = UniformBuffer,
+        .Flags = HostAccessSequentialWrite | Mapped,
     };
 
     return Buffer{ctx, fullInfo};
@@ -92,17 +98,15 @@ Buffer Buffer::MakeMappedUniform(VulkanContext &ctx, const Buffer::ThinInfo &inf
 
 Buffer Buffer::MakeTransferDST(VulkanContext &ctx, const Info &info, const void *data)
 {
-    // NOTE: Struct (including string) copy:
-    Info localInfo = info;
-    localInfo.Usage = localInfo.Usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    vassert(info.Usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
-    Buffer ret = Buffer{ctx, localInfo};
+    Buffer ret = Buffer{ctx, info};
 
     ThinInfo stagingInfo{
         .Name = info.Name + "Staging",
         .Size = info.Size,
     };
-    Buffer     stagingBuffer = Buffer::MakeStaging(ctx, stagingInfo);
+    Buffer stagingBuffer = Buffer::MakeStaging(ctx, stagingInfo);
 
     stagingBuffer.Upload(data, info.Size);
 
@@ -118,10 +122,12 @@ Buffer Buffer::MakeTransferDST(VulkanContext &ctx, const Info &info, const void 
 Buffer Buffer::MakeVertex(VulkanContext &ctx, const std::string &name,
                           const OpaqueBuffer &buf)
 {
+    using namespace vkenum::buffer_usage;
+
     Info info{
-        .Name = name,
-        .Size = buf.Size,
-        .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .Name  = name,
+        .Size  = buf.Size,
+        .Usage = VertexBuffer | TransferDst,
     };
 
     return MakeTransferDST(ctx, info, buf.Data);
@@ -130,11 +136,12 @@ Buffer Buffer::MakeVertex(VulkanContext &ctx, const std::string &name,
 Buffer Buffer::MakeVertexStorage(VulkanContext &ctx, const std::string &name,
                                  const OpaqueBuffer &buf)
 {
+    using namespace vkenum::buffer_usage;
+
     Info info{
-        .Name = name,
-        .Size = buf.Size,
-        .Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .Name  = name,
+        .Size  = buf.Size,
+        .Usage = StorageBuffer | ShaderDeviceAddress | TransferDst,
     };
 
     return MakeTransferDST(ctx, info, buf.Data);
@@ -143,10 +150,12 @@ Buffer Buffer::MakeVertexStorage(VulkanContext &ctx, const std::string &name,
 Buffer Buffer::MakeIndex(VulkanContext &ctx, const std::string &name,
                          const OpaqueBuffer &buf)
 {
+    using namespace vkenum::buffer_usage;
+
     Info info{
-        .Name = name,
-        .Size = buf.Size,
-        .Usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        .Name  = name,
+        .Size  = buf.Size,
+        .Usage = IndexBuffer | TransferDst,
     };
 
     return MakeTransferDST(ctx, info, buf.Data);

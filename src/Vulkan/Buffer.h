@@ -11,6 +11,7 @@ class Buffer {
   public:
     struct Info;
     struct ThinInfo;
+
   public:
     Buffer(VulkanContext &ctx, const Info &info);
     ~Buffer();
@@ -22,10 +23,14 @@ class Buffer {
     // Factory functions for common types:
     static Buffer MakeStaging(VulkanContext &ctx, const ThinInfo &info);
     static Buffer MakeMappedUniform(VulkanContext &ctx, const ThinInfo &info);
+    // NOTE: info.Usage must contain TransferDst flag:
     static Buffer MakeTransferDST(VulkanContext &ctx, const Info &info, const void *data);
-    static Buffer MakeVertex(VulkanContext &ctx, const std::string &name, const OpaqueBuffer &buf);
-    static Buffer MakeVertexStorage(VulkanContext &ctx, const std::string &name, const OpaqueBuffer &buf);
-    static Buffer MakeIndex(VulkanContext &ctx, const std::string &name, const OpaqueBuffer &buf);
+    static Buffer MakeVertex(VulkanContext &ctx, const std::string &name,
+                             const OpaqueBuffer &buf);
+    static Buffer MakeVertexStorage(VulkanContext &ctx, const std::string &name,
+                                    const OpaqueBuffer &buf);
+    static Buffer MakeIndex(VulkanContext &ctx, const std::string &name,
+                            const OpaqueBuffer &buf);
 
     // Buffer operations:
     void Upload(const void *data, VkDeviceSize size);
@@ -43,9 +48,9 @@ class Buffer {
         VmaAllocationCreateFlags Flags = 0;
     };
 
-    struct ThinInfo{
-        std::string              Name;
-        VkDeviceSize             Size  = 0;
+    struct ThinInfo {
+        std::string  Name;
+        VkDeviceSize Size = 0;
     };
 
   public:

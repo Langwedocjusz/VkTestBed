@@ -84,12 +84,14 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
 
     // Setup readback buffer for object picking:
     {
+        using namespace vkenum::buffer_usage;
+        using namespace vkenum::alloc_create;
+
         Buffer::Info info{
             .Name  = "ReadbackBuffer",
             .Size  = sizeof(Pixel),
-            .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            .Flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
-                     VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .Usage = TransferDst,
+            .Flags = HostAccessRandom | Mapped,
         };
 
         mPicking.ReadbackBuffer.emplace(ctx, info);

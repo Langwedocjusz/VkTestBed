@@ -139,7 +139,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
                 Buffer::Info info{
                     .Name  = "EnvFirstReductionBuffer",
                     .Size  = mFirstBufferLen * sizeof(SHData),
-                    .Usage = Storage,
+                    .Usage = StorageBuffer,
                 };
 
                 mFirstReducionBuffer.emplace(ctx, info);
@@ -149,7 +149,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
                 Buffer::Info info{
                     .Name  = "EnvFinalReductionBuffer",
                     .Size  = 1 * sizeof(SHData),
-                    .Usage = Storage | TransferDst,
+                    .Usage = StorageBuffer | TransferDst,
                 };
 
                 mFinalReductionBuffer.emplace(ctx, info);

@@ -82,13 +82,14 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         // This way of making vertex buffer dynamic results in some tearing artefacts
         // on camera movement. Perfect solution would be to use 3 per-frame buffers.
         // But the artefacts are not that bad and this is for debug only.
+        using namespace vkenum::buffer_usage;
+        using namespace vkenum::alloc_create;
 
         Buffer::Info info{
             .Name  = "ShadowmapDebugFrustumVertexBuffer",
             .Size  = mVertexBufferData.size() * sizeof(mVertexBufferData[0]),
-            .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            .Flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                     VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .Usage = VertexBuffer,
+            .Flags = HostAccessSequentialWrite | Mapped,
         };
 
         mDebugFrustumVertexBuffer.emplace(ctx, info);

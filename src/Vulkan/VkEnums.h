@@ -10,26 +10,48 @@
 // usage = TransferSrc | TransferDst | Storage | Sampled;
 
 // TODO: Add constants as needed...
-// TODO: Refactor with template to avoid duplication (will probably need CRTP to keep type
-// safety...)
+
+#include "vk_mem_alloc.h"
+
+#include <type_traits>
 
 namespace vkenum
 {
+// Template helper to provide less type-unsafe wrapper for flag bits:
+template <typename Bits>
+class Flags {
+  public:
+    using Underlying = std::underlying_type_t<Bits>;
+
+    constexpr Flags(Bits b) : mValue(static_cast<Underlying>(b))
+    {
+    }
+
+    constexpr operator Underlying() const
+    {
+        return mValue;
+    }
+
+    constexpr Flags operator|(Flags other) const
+    {
+        return Flags{mValue | other.mValue};
+    }
+
+  private:
+    constexpr explicit Flags(Underlying v) : mValue(v)
+    {
+    }
+    Underlying mValue;
+};
+
+// Needed to prevent union between different Flag types:
+template <typename A, typename B>
+    requires(!std::is_same_v<A, B>)
+void operator|(Flags<A>, Flags<B>) = delete;
+
 namespace image_usage
 {
-struct ImageUsage {
-    VkImageUsageFlags value;
-
-    constexpr operator VkImageUsageFlags() const
-    {
-        return value;
-    }
-
-    constexpr ImageUsage operator|(ImageUsage other) const
-    {
-        return {value | other.value};
-    }
-};
+using ImageUsage = Flags<VkImageUsageFlagBits>;
 
 constexpr ImageUsage TransferSrc{VK_IMAGE_USAGE_TRANSFER_SRC_BIT};
 constexpr ImageUsage TransferDst{VK_IMAGE_USAGE_TRANSFER_DST_BIT};
@@ -41,22 +63,25 @@ constexpr ImageUsage DepthStencilAttachment{VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHM
 
 namespace buffer_usage
 {
-struct BufferUsage {
-    VkBufferUsageFlags value;
+using BufferUsage = Flags<VkBufferUsageFlagBits>;
 
-    constexpr operator VkBufferUsageFlags() const
-    {
-        return value;
-    }
-
-    constexpr BufferUsage operator|(BufferUsage other) const
-    {
-        return {value | other.value};
-    }
-};
-
-constexpr BufferUsage Storage{VK_BUFFER_USAGE_STORAGE_BUFFER_BIT};
+constexpr BufferUsage UniformBuffer{VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT};
+constexpr BufferUsage StorageBuffer{VK_BUFFER_USAGE_STORAGE_BUFFER_BIT};
+constexpr BufferUsage VertexBuffer{VK_BUFFER_USAGE_VERTEX_BUFFER_BIT};
+constexpr BufferUsage IndexBuffer{VK_BUFFER_USAGE_INDEX_BUFFER_BIT};
+constexpr BufferUsage TransferSrc{VK_BUFFER_USAGE_TRANSFER_SRC_BIT};
 constexpr BufferUsage TransferDst{VK_BUFFER_USAGE_TRANSFER_DST_BIT};
+constexpr BufferUsage ShaderDeviceAddress{VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
 }; // namespace buffer_usage
+
+namespace alloc_create
+{
+using AllocCreateFlags = Flags<VmaAllocationCreateFlagBits>;
+
+constexpr AllocCreateFlags Mapped{VMA_ALLOCATION_CREATE_MAPPED_BIT};
+constexpr AllocCreateFlags HostAccessSequentialWrite{
+    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT};
+constexpr AllocCreateFlags HostAccessRandom{VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT};
+}; // namespace alloc_create
 
 }; // namespace vkenum

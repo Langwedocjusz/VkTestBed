@@ -27,12 +27,12 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
     {
         // Actual one for the rendering with shadowmap:
         mSampler = SamplerBuilder("MinimalPbrSamplerShadowmap")
-                   .SetMagFilter(VK_FILTER_LINEAR)
-                   .SetMinFilter(VK_FILTER_LINEAR)
-                   .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER)
-                   .SetBorderColor(VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE)
-                   .SetCompareOp(VK_COMPARE_OP_LESS)
-                   .Build(mCtx, mMainDeletionQueue);
+                       .SetMagFilter(VK_FILTER_LINEAR)
+                       .SetMinFilter(VK_FILTER_LINEAR)
+                       .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER)
+                       .SetBorderColor(VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE)
+                       .SetCompareOp(VK_COMPARE_OP_LESS)
+                       .Build(mCtx, mMainDeletionQueue);
 
         // Debug one for imgui preview:
         mDebugSampler = SamplerBuilder("MinimalPbrSampler2D")
@@ -42,10 +42,6 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
                             .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
                             .SetMaxLod(12.0f)
                             .Build(mCtx, mMainDeletionQueue);
-
-        // TODO: for now only has preview for first cascade:
-        mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
-            mDebugSampler, mCascadeViews[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
     // Create the shadowmap base texture:
@@ -53,26 +49,33 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         using namespace vkenum::image_usage;
 
         Image2DInfo shadowmapInfo{
-            .DebugName = "Shadowmap",
+            .Name   = "Shadowmap",
             .Extent = {ShadowmapResolution, ShadowmapResolution},
             .Format = ShadowmapFormat,
-            .Usage = DepthStencilAttachment | Sampled,
+            .Usage  = DepthStencilAttachment | Sampled,
             .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
-        mShadowmap = MakeTexture::Texture2DArray(mCtx, shadowmapInfo,
-                                                 NumCascades, mMainDeletionQueue);
+        mShadowmap = MakeTexture::Texture2DArray(mCtx, shadowmapInfo, NumCascades,
+                                                 mMainDeletionQueue);
 
         // Create per-layer views for rendering into cascades:
         for (uint32_t i = 0; i < NumCascades; i++)
         {
             std::string name = "ShadowmapView" + std::to_string(i);
-            auto        view =
-                MakeView::View2DArray(mCtx, name, {.Img = mShadowmap.Img, .SelectLayer = i});
+            auto view = MakeView::View2DArray(mCtx, name,
+                                              {.Img = mShadowmap.Img, .SelectLayer = i});
 
             mCascadeViews[i] = view;
             mMainDeletionQueue.push_back(view);
         }
+    }
+
+    // Update descriptor sets:
+    {
+        // TODO: for now only has preview for first cascade:
+        mDebugTextureDescriptorSet = ImGui_ImplVulkan_AddTexture(
+            mDebugSampler, mCascadeViews[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
     // Create Vertex Buffer for debug vizualiztion:
@@ -463,17 +466,17 @@ void ShadowmapHandler::DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj,
 
     // Draw view frustum:
     mDebugPipeline.PushConstants(cmd, PCData{
-        .ViewProj = viewProj,
-        .Color    = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f),
-    });
+                                          .ViewProj = viewProj,
+                                          .Color    = glm::vec4(0.2f, 0.2f, 0.6f, 0.5f),
+                                      });
 
     vkCmdDrawIndexed(cmd, NumIdxPerFrustum, 1, 0, 0, 0);
 
     // Draw shadow projection bounds:
     mDebugPipeline.PushConstants(cmd, PCData{
-        .ViewProj = viewProj,
-        .Color    = glm::vec4(0.9f, 0.9f, 0.2f, 0.2f),
-    });
+                                          .ViewProj = viewProj,
+                                          .Color    = glm::vec4(0.9f, 0.9f, 0.2f, 0.2f),
+                                      });
 
     vkCmdDrawIndexed(cmd, NumIdxPerFrustum, 1, 0, 8, 0);
 }

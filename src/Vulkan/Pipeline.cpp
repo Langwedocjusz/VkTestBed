@@ -8,6 +8,7 @@
 
 #include "volk.h"
 
+#include <iostream>
 #include <variant>
 
 // === Graphics Pipeline Implementation: =======================================
@@ -18,13 +19,14 @@ void GraphicsPipeline::Bind(VkCommandBuffer cmd)
 }
 
 void GraphicsPipeline::BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set,
-                                 uint32_t setIdx)
+                                         uint32_t setIdx)
 {
     vkCmdBindDescriptorSets(cmd, BindPoint, Layout, setIdx, 1, &set, 0, nullptr);
 }
 
-void GraphicsPipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
-                                  uint32_t startIdx)
+void GraphicsPipeline::BindDescriptorSets(VkCommandBuffer            cmd,
+                                          std::span<VkDescriptorSet> sets,
+                                          uint32_t                   startIdx)
 {
     vkCmdBindDescriptorSets(cmd, BindPoint, Layout, startIdx,
                             static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
@@ -38,19 +40,21 @@ void ComputePipeline::Bind(VkCommandBuffer cmd)
 }
 
 void ComputePipeline::BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set,
-                                 uint32_t setIdx)
+                                        uint32_t setIdx)
 {
     vkCmdBindDescriptorSets(cmd, BindPoint, Layout, setIdx, 1, &set, 0, nullptr);
 }
 
-void ComputePipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
-                                  uint32_t startIdx)
+void ComputePipeline::BindDescriptorSets(VkCommandBuffer            cmd,
+                                         std::span<VkDescriptorSet> sets,
+                                         uint32_t                   startIdx)
 {
     vkCmdBindDescriptorSets(cmd, BindPoint, Layout, startIdx,
                             static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
 }
 
-void ComputePipeline::Dispatch(VkCommandBuffer cmd, uint32_t sizeX, uint32_t sizeY, uint32_t sizeZ)
+void ComputePipeline::Dispatch(VkCommandBuffer cmd, uint32_t sizeX, uint32_t sizeY,
+                               uint32_t sizeZ)
 {
     uint32_t dispCountX = (sizeX + LocalSize[0] - 1) / LocalSize[0];
     uint32_t dispCountY = (sizeY + LocalSize[1] - 1) / LocalSize[1];
@@ -288,7 +292,9 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     // Build the shader stages:
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
-    uint32_t pushConstantSize = 0;
+    uint32_t                                     pushConstantSize = 0;
+
+    std::cout << "Pipeline: " << mDebugName << '\n';
 
     if (mVertexPath)
     {
@@ -298,17 +304,20 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         if (auto size = info.Reflection.PushConstantsSize)
         {
             pushConstantSize = std::max(pushConstantSize, *size);
+            std::cout << "Vertex size: " << *size << '\n';
         }
     }
 
     if (mFragmentPath)
     {
-        auto info = Shader::GetStageInfo(ctx, *mFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto info =
+            Shader::GetStageInfo(ctx, *mFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT);
         shaderStages.push_back(info.PipelineCreation);
 
         if (auto size = info.Reflection.PushConstantsSize)
         {
             pushConstantSize = std::max(pushConstantSize, *size);
+            std::cout << "Fragment size: " << *size << '\n';
         }
     }
 
@@ -330,6 +339,8 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         .offset     = 0,
         .size       = pushConstantSize,
     };
+
+    std::cout << "Final Push Constant size: " << pushConstantSize << '\n';
 
     if (pushConstantSize > 0)
     {
@@ -505,7 +516,7 @@ ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
         .size       = pcSize,
     };
 
-    if (pcSize > 0) 
+    if (pcSize > 0)
     {
         pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
         pipelineLayoutInfo.pushConstantRangeCount = 1;

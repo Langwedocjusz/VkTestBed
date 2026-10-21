@@ -15,7 +15,7 @@ VkImageAspectFlags vkutils::GetDefaultAspect(VkFormat format)
         VK_FORMAT_D24_UNORM_S8_UINT,
         VK_FORMAT_D16_UNORM_S8_UINT,
     };
-    if (contains(depthStencilFormats,format))
+    if (contains(depthStencilFormats, format))
         return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
     // Otherwise check if depth only:
@@ -101,7 +101,6 @@ void vkutils::CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore)
     vassert(ret == VK_SUCCESS, "Failed to create a semaphore!");
 }
 
-
 VkCommandPool vkutils::CreateCommandPool(VulkanContext &ctx, QueueType qtype)
 {
     VkCommandPool pool{};
@@ -151,8 +150,8 @@ VkCommandBuffer vkutils::AllocateCommandBuffer(VulkanContext &ctx, VkCommandPool
 }
 
 void vkutils::AllocateCommandBuffers(VulkanContext             &ctx,
-                                    std::span<VkCommandBuffer> buffers,
-                                    VkCommandPool              pool)
+                                     std::span<VkCommandBuffer> buffers,
+                                     VkCommandPool              pool)
 {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;

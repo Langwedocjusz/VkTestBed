@@ -48,7 +48,7 @@ struct PoolCounts {
 VkDescriptorPool InitPool(VulkanContext &ctx, PoolCounts counts);
 
 VkDescriptorPool InitPool(VulkanContext &ctx, PoolCounts counts,
-                          DeletionQueue                  &deletionQueue);
+                          DeletionQueue &deletionQueue);
 
 VkDescriptorSet Allocate(VulkanContext &ctx, VkDescriptorPool pool,
                          VkDescriptorSetLayout &layout);

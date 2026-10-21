@@ -6,14 +6,15 @@
 #include "DynamicUniformBuffer.h"
 #include "EnvironmentHandler.h"
 #include "GeometryData.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "PostProcessor.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "ShadowmapHandler.h"
-#include "Image.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
+#include <X11/X.h>
 
 class MinimalPbrRenderer final : public IRenderer {
   public:
@@ -66,34 +67,36 @@ class MinimalPbrRenderer final : public IRenderer {
         glm::mat4 TransformRaw;
     };
 
-    // TODO: This will be remade in RAII fashion when VulkanContext is reworked as a
-    // singleton. Currently each drawable would need to hold a reference to it, which
-    // aside from memory usage also makes it difficult to make drawables movable-non
-    // copyable, as they should be.
-    struct Drawable {
-        void Init(VulkanContext &ctx, const ScenePrimitive &prim,
-                  const std::string &debugName);
-        void Destroy(VulkanContext &ctx);
+    class Drawable {
+      public:
+        Drawable(VulkanContext &ctx, const ScenePrimitive &prim,
+                 const std::string &debugName);
+        ~Drawable();
+
+        Drawable(const Drawable &)            = delete;
+        Drawable &operator=(const Drawable &) = delete;
+        Drawable(Drawable &&) noexcept;
+        Drawable &operator=(Drawable &&) = delete;
 
         bool EarlyBail(glm::mat4 viewProj);
         bool IsVisible(glm::mat4 viewProj, size_t instanceIdx);
         void BindGeometryBuffers(VkCommandBuffer cmd);
         void Draw(VkCommandBuffer cmd);
 
-        Buffer   VertexBuffer;
-        uint32_t VertexCount;
-
-        Buffer   IndexBuffer;
-        uint32_t IndexCount;
-
-        VkDeviceAddress VertexAddress;
-
-        AABB      Bbox;
-        glm::vec2 TexBoundsCenter = glm::vec2(0.5f);
-        glm::vec2 TexBoundsExtent = glm::vec2(0.5f);
-
-        SceneKey              MaterialKey = 0;
+      public:
+        Buffer                VertexBuffer;
+        uint32_t              VertexCount;
+        Buffer                IndexBuffer;
+        uint32_t              IndexCount;
+        VkDeviceAddress       VertexAddress;
+        AABB                  Bbox;
+        glm::vec2             TexBoundsCenter = glm::vec2(0.5f);
+        glm::vec2             TexBoundsExtent = glm::vec2(0.5f);
+        SceneKey              MaterialKey     = 0;
         std::vector<Instance> Instances;
+
+      private:
+        VulkanContext &mCtx;
     };
 
     // Drawables correspond to mesh primitives

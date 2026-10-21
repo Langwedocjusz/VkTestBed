@@ -22,10 +22,9 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera
     {
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-        auto layout =
-            DescriptorSetLayoutBuilder("HelloDynamicDescriptorSetLayout")
-                .AddUniformBuffer(0, stageFlags)
-                .Build(mCtx, mMainDeletionQueue);
+        auto layout = DescriptorSetLayoutBuilder("HelloDynamicDescriptorSetLayout")
+                          .AddUniformBuffer(0, stageFlags)
+                          .Build(mCtx, mMainDeletionQueue);
 
         auto counts = Descriptor::PoolCounts{
             .UniformBuffer = 1,
@@ -137,15 +136,15 @@ void HelloRenderer::RecreateSwapchainResources()
     };
 
     Image2DInfo renderTargetInfo{
-        .DebugName = "RenderTarget",
+        .Name   = "RenderTarget",
         .Extent = drawExtent,
         .Format = mRenderTargetFormat,
         .Usage  = TransferSrc | ColorAttachment,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
 
-    mRenderTarget = MakeTexture::Texture2D(mCtx, renderTargetInfo,
-                                           mSwapchainDeletionQueue);
+    mRenderTarget =
+        MakeTexture::Texture2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
 }
 
 void HelloRenderer::LoadScene(const Scene &scene)

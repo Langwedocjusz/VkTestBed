@@ -20,7 +20,8 @@ static std::vector<VkDescriptorPoolSize> GetRawPoolSizes(Descriptor::PoolCounts 
     if (counts.StorageImage > 0)
         ret.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, counts.StorageImage});
     if (counts.CombinedImageSampler > 0)
-        ret.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, counts.CombinedImageSampler});
+        ret.push_back(
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, counts.CombinedImageSampler});
     if (counts.UniformBuffer > 0)
         ret.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, counts.UniformBuffer});
     if (counts.StorageBuffer > 0)
@@ -86,7 +87,7 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
 }
 
 VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx,
-                                                                     DeletionQueue &queue)
+                                                        DeletionQueue &queue)
 {
     const auto layout = BuildLayout(ctx);
     queue.push_back(layout);
@@ -132,7 +133,7 @@ VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, PoolCounts counts)
 }
 
 VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, PoolCounts counts,
-                                      DeletionQueue                  &deletionQueue)
+                                      DeletionQueue &deletionQueue)
 {
     VkDescriptorPool pool = InitPool(ctx, counts);
     deletionQueue.push_back(pool);

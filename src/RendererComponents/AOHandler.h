@@ -46,7 +46,6 @@ class AOHandler {
     }
 
   private:
-  
     struct ResourceCache {
         Image      &DepthBuffer;
         VkImageView DepthOnlyView;

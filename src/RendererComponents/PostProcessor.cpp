@@ -5,8 +5,8 @@
 #include "Descriptor.h"
 #include "MakeImage.h"
 #include "Sampler.h"
-#include "VkUtils.h"
 #include "VkEnums.h"
+#include "VkUtils.h"
 
 #include "imgui.h"
 
@@ -86,7 +86,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
     // Create bloom render target:
     {
         Image2DInfo info{
-            .DebugName = "BloomTarget",
+            .Name      = "BloomTarget",
             .Extent    = targetExtent,
             .Format    = renderTarget.Info.format,
             .Usage     = Storage | Sampled,
@@ -94,8 +94,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mBloomTarget =
-            MakeTexture::Texture2D(mCtx, info, mSwapchainDeletionQueue);
+        mBloomTarget = MakeTexture::Texture2D(mCtx, info, mSwapchainDeletionQueue);
     }
 
     // Create single mip-level views for the bloom target:
@@ -117,7 +116,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
     // Create final (composed) target:
     {
         Image2DInfo info{
-            .DebugName = "FinalTarget",
+            .Name      = "FinalTarget",
             .Extent    = targetExtent,
             .Format    = FinalFormat,
             .Usage     = Storage | TransferSrc,
@@ -125,8 +124,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mFinalTarget =
-            MakeTexture::Texture2D(mCtx, info, mSwapchainDeletionQueue);
+        mFinalTarget = MakeTexture::Texture2D(mCtx, info, mSwapchainDeletionQueue);
     }
 
     // Update the descriptor sets:
@@ -208,9 +206,10 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
                 uint32_t CurrentMip;
             };
 
-            mBloomDownscalePipeline.PushConstants(cmd, PCData{
-                .CurrentMip = static_cast<uint32_t>(mip),
-            });
+            mBloomDownscalePipeline.PushConstants(
+                cmd, PCData{
+                         .CurrentMip = static_cast<uint32_t>(mip),
+                     });
 
             auto res = resolutions[mip];
             mBloomDownscalePipeline.Dispatch(cmd, res.x, res.y);
@@ -236,9 +235,10 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
                 uint32_t CurrentMip;
             };
 
-            mBloomUpscalePipeline.PushConstants(cmd, PCData{
-                .CurrentMip = static_cast<uint32_t>(mip),
-            });
+            mBloomUpscalePipeline.PushConstants(
+                cmd, PCData{
+                         .CurrentMip = static_cast<uint32_t>(mip),
+                     });
 
             auto res = resolutions[mip];
             mBloomUpscalePipeline.Dispatch(cmd, res.x, res.y);
@@ -260,11 +260,13 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
             int32_t AdditionalColorCorrect;
         };
 
-        mFinalPipeline.PushConstants(cmd, PCData{
-            .BloomEnabled           = static_cast<int32_t>(mBloomEnabled),
-            .BloomStrength          = mBloomStrength,
-            .AdditionalColorCorrect = !vkutils::IsFormatSRGB(mCtx.Swapchain->Format),
-        });
+        mFinalPipeline.PushConstants(
+            cmd,
+            PCData{
+                .BloomEnabled           = static_cast<int32_t>(mBloomEnabled),
+                .BloomStrength          = mBloomStrength,
+                .AdditionalColorCorrect = !vkutils::IsFormatSRGB(mCtx.Swapchain->Format),
+            });
 
         auto res = resolutions[0];
         mFinalPipeline.Dispatch(cmd, res.x, res.y);

@@ -35,17 +35,16 @@ AOHandler::AOHandler(VulkanContext &ctx, Camera &camera, VkDescriptorPool static
             .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, ZBufferMips)
             .Build(mCtx, mMainDeletionQueue);
 
-    mBilateralDescriptorSetLayout = DescriptorSetLayoutBuilder("AOGenDSLayout")
-                                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-                                .Build(mCtx, mMainDeletionQueue);
+    mBilateralDescriptorSetLayout =
+        DescriptorSetLayoutBuilder("AOGenDSLayout")
+            .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
+            .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
+            .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
+            .Build(mCtx, mMainDeletionQueue);
 
-    mAOGenDescriptorSet =
-        Descriptor::Allocate(mCtx, staticPool, mAODescriptorSetLayout);
+    mAOGenDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mAODescriptorSetLayout);
 
-    mZGenDescriptorSet =
-        Descriptor::Allocate(mCtx, staticPool, mAODescriptorSetLayout);
+    mZGenDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mAODescriptorSetLayout);
 
     mZMipGenDescriptorSet =
         Descriptor::Allocate(mCtx, staticPool, mZMipGenDescriptorSetLayout);
@@ -125,7 +124,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         };
 
         Image2DInfo zBufferInfo{
-            .DebugName = "AOZBuffer",
+            .Name      = "AOZBuffer",
             .Extent    = targetExtent,
             .Format    = VK_FORMAT_R32_SFLOAT,
             .Usage     = Storage | Sampled,
@@ -133,8 +132,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mZBuffer = MakeTexture::Texture2D(mCtx, zBufferInfo,
-                                          mSwapchainDeletionQueue);
+        mZBuffer = MakeTexture::Texture2D(mCtx, zBufferInfo, mSwapchainDeletionQueue);
 
         // Create single-mip views into Z-buffer:
         for (uint32_t mip = 0; mip < ZBufferMips; mip++)
@@ -147,26 +145,25 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         }
 
         Image2DInfo aoTargetInfo{
-            .DebugName = "AOTarget",
-            .Extent    = targetExtent,
-            .Format    = VK_FORMAT_R8G8B8A8_UNORM,
-            .Usage     = Storage | Sampled,
-            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
-        };
-
-        mAOTarget = MakeTexture::Texture2D(mCtx, aoTargetInfo,
-                                           mSwapchainDeletionQueue);
-
-        Image2DInfo bilateralInfo{
-            .DebugName = "AOBilateralTarget",
+            .Name   = "AOTarget",
             .Extent = targetExtent,
             .Format = VK_FORMAT_R8G8B8A8_UNORM,
             .Usage  = Storage | Sampled,
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mBilateralTarget = MakeTexture::Texture2D(mCtx,
-                                                  bilateralInfo, mSwapchainDeletionQueue);
+        mAOTarget = MakeTexture::Texture2D(mCtx, aoTargetInfo, mSwapchainDeletionQueue);
+
+        Image2DInfo bilateralInfo{
+            .Name   = "AOBilateralTarget",
+            .Extent = targetExtent,
+            .Format = VK_FORMAT_R8G8B8A8_UNORM,
+            .Usage  = Storage | Sampled,
+            .Layout = VK_IMAGE_LAYOUT_GENERAL,
+        };
+
+        mBilateralTarget =
+            MakeTexture::Texture2D(mCtx, bilateralInfo, mSwapchainDeletionQueue);
     }
 
     // Update Z buffer descriptor set:
@@ -263,10 +260,11 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         };
 
         mZGenPipeline.PushConstants(cmd, PCData{
-            .Proj = mCamera.GetProj(),
-        });
+                                             .Proj = mCamera.GetProj(),
+                                         });
 
-        mZGenPipeline.Dispatch(cmd, mZBuffer.Img.Info.extent.width, mZBuffer.Img.Info.extent.height);
+        mZGenPipeline.Dispatch(cmd, mZBuffer.Img.Info.extent.width,
+                               mZBuffer.Img.Info.extent.height);
 
         // Create higher mip-levels of the Z-buffer:
         mZMipGenPipeline.Bind(cmd);
@@ -280,10 +278,10 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
             struct PCData {
                 uint32_t CurrentMip;
             };
-            
+
             mZMipGenPipeline.PushConstants(cmd, PCData{
-                .CurrentMip = mip,
-            });
+                                                    .CurrentMip = mip,
+                                                });
 
             mZMipGenPipeline.Dispatch(cmd, resX, resY);
 
@@ -319,13 +317,14 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         };
 
         mAOGenPipeline.PushConstants(cmd, PCData{
-            .TopLeft     = frBack.TopLeft,
-            .TopRight    = frBack.TopRight,
-            .BottomLeft  = frBack.BottomLeft,
-            .BottomRight = frBack.BottomRight,
-        });
+                                              .TopLeft     = frBack.TopLeft,
+                                              .TopRight    = frBack.TopRight,
+                                              .BottomLeft  = frBack.BottomLeft,
+                                              .BottomRight = frBack.BottomRight,
+                                          });
 
-        mAOGenPipeline.Dispatch(cmd, mAOTarget.Img.Info.extent.width, mAOTarget.Img.Info.extent.height);
+        mAOGenPipeline.Dispatch(cmd, mAOTarget.Img.Info.extent.width,
+                                mAOTarget.Img.Info.extent.height);
     }
 
     // Perform bilateral upsampling:
@@ -346,12 +345,13 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
         };
 
         mBilateralPipeline.PushConstants(cmd, PCData{
-            .AOResolution = aoSize,
-            .SigmaSpatial = 1.0f,
-            .SigmaVal     = 0.01f,
-        });
+                                                  .AOResolution = aoSize,
+                                                  .SigmaSpatial = 1.0f,
+                                                  .SigmaVal     = 0.01f,
+                                              });
 
-        mBilateralPipeline.Dispatch(cmd, mBilateralTarget.Img.Info.extent.width, mBilateralTarget.Img.Info.extent.height);
+        mBilateralPipeline.Dispatch(cmd, mBilateralTarget.Img.Info.extent.width,
+                                    mBilateralTarget.Img.Info.extent.height);
 
         barrier::TextureFragToSample(cmd, mBilateralTarget.Img);
     }

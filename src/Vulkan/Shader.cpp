@@ -46,7 +46,7 @@ static VkShaderModule CreateShaderModule(VulkanContext               &ctx,
     if (ret != VK_SUCCESS)
     {
         std::cerr << "Failed to create a shader module!\n";
-        return VK_NULL_HANDLE; 
+        return VK_NULL_HANDLE;
     }
 
     return shaderModule;
@@ -56,7 +56,7 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
 {
     ReflectionInfo ret{};
 
-    auto data = static_cast<void*>(code.data());
+    auto data = static_cast<void *>(code.data());
     auto size = sizeof(uint32_t) * code.size();
 
     SpvReflectShaderModule module;
@@ -72,15 +72,17 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
     // Retrieve information about descriptor set bindings:
     uint32_t numBindings = 0;
     {
-        auto result = spvReflectEnumerateDescriptorBindings(&module, &numBindings, nullptr);
+        auto result =
+            spvReflectEnumerateDescriptorBindings(&module, &numBindings, nullptr);
         vassert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
 
-    std::vector<SpvReflectDescriptorBinding*> bindings{};
+    std::vector<SpvReflectDescriptorBinding *> bindings{};
     bindings.resize(numBindings);
 
     {
-        auto result = spvReflectEnumerateDescriptorBindings(&module, &numBindings, bindings.data());
+        auto result =
+            spvReflectEnumerateDescriptorBindings(&module, &numBindings, bindings.data());
         vassert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
 
@@ -97,15 +99,17 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
     // Retrieve information about push constant blocks:
     uint32_t pcBlockCount;
     {
-        auto result = spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount, nullptr);
+        auto result =
+            spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount, nullptr);
         vassert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
 
-    std::vector<SpvReflectBlockVariable*> pcBlocks{};
+    std::vector<SpvReflectBlockVariable *> pcBlocks{};
     pcBlocks.resize(pcBlockCount);
     {
-        auto result = spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount, pcBlocks.data());
-        vassert(result == SPV_REFLECT_RESULT_SUCCESS);   
+        auto result = spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount,
+                                                            pcBlocks.data());
+        vassert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
 
     // Assuming there is at most 1 block.
@@ -125,11 +129,13 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
 
     if (entryPoint->shader_stage & SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT)
     {
-        ret.LocalSize = {{
-            entryPoint->local_size.x,
-            entryPoint->local_size.y,
-            entryPoint->local_size.z,
-        }};
+        ret.LocalSize = {
+            {
+             entryPoint->local_size.x,
+             entryPoint->local_size.y,
+             entryPoint->local_size.z,
+             }
+        };
     }
 
     // Cleanup:
@@ -138,7 +144,8 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
     return ret;
 }
 
-ShaderStageInfo Shader::GetStageInfo(VulkanContext &ctx, const std::string &path, VkShaderStageFlagBits stage)
+ShaderStageInfo Shader::GetStageInfo(VulkanContext &ctx, const std::string &path,
+                                     VkShaderStageFlagBits stage)
 {
     auto code = ReadSpirvBinary(path);
 
@@ -160,4 +167,3 @@ ShaderStageInfo Shader::GetStageInfo(VulkanContext &ctx, const std::string &path
 
     return ret;
 }
-

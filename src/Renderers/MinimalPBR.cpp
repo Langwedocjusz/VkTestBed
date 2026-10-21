@@ -28,8 +28,11 @@
 #include <ranges>
 #include <utility>
 
-void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive &prim,
-                                        const std::string &debugName)
+// === Drawable Implementation: ======================================================
+
+MinimalPbrRenderer::Drawable::Drawable(VulkanContext &ctx, const ScenePrimitive &prim,
+                                       const std::string &debugName)
+    : mCtx(ctx)
 {
     auto &geo = prim.Data;
 
@@ -54,10 +57,28 @@ void MinimalPbrRenderer::Drawable::Init(VulkanContext &ctx, const ScenePrimitive
     TexBoundsExtent = prim.TexCoordExtent;
 }
 
-void MinimalPbrRenderer::Drawable::Destroy(VulkanContext &ctx)
+MinimalPbrRenderer::Drawable::~Drawable()
 {
-    vmaDestroyBuffer(ctx.Allocator, VertexBuffer.Handle, VertexBuffer.Allocation);
-    vmaDestroyBuffer(ctx.Allocator, IndexBuffer.Handle, IndexBuffer.Allocation);
+    vmaDestroyBuffer(mCtx.Allocator, VertexBuffer.Handle, VertexBuffer.Allocation);
+    vmaDestroyBuffer(mCtx.Allocator, IndexBuffer.Handle, IndexBuffer.Allocation);
+}
+
+// TODO: This will be redundant once buffers have proper move semantics:
+MinimalPbrRenderer::Drawable::Drawable(Drawable &&other) noexcept : mCtx(other.mCtx)
+{
+    VertexBuffer    = other.VertexBuffer;
+    VertexCount     = other.VertexCount;
+    IndexBuffer     = other.IndexBuffer;
+    IndexCount      = other.IndexCount;
+    VertexAddress   = other.VertexAddress;
+    Bbox            = other.Bbox;
+    TexBoundsCenter = other.TexBoundsCenter;
+    TexBoundsExtent = other.TexBoundsExtent;
+    MaterialKey     = other.MaterialKey;
+    Instances       = std::move(other.Instances);
+
+    other.VertexBuffer = {};
+    other.IndexBuffer  = {};
 }
 
 bool MinimalPbrRenderer::Drawable::EarlyBail(glm::mat4 viewProj)
@@ -96,6 +117,8 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
     vkDestroyImageView(mCtx.Device, texture.View, nullptr);
     vmaDestroyImage(mCtx.Allocator, texture.Img.Handle, texture.Img.Allocation);
 }
+
+// === Renderer Implementation: ======================================================
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
                                        Camera &camera)
@@ -150,11 +173,10 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     {
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        auto layout =
-            DescriptorSetLayoutBuilder("MinimalPBRDynamicDescriptorSetLayout")
-                .AddUniformBuffer(0, stageFlags)
-                .AddUniformBuffer(1, stageFlags)
-                .Build(mCtx, mMainDeletionQueue);
+        auto layout = DescriptorSetLayoutBuilder("MinimalPBRDynamicDescriptorSetLayout")
+                          .AddUniformBuffer(0, stageFlags)
+                          .AddUniformBuffer(1, stageFlags)
+                          .Build(mCtx, mMainDeletionQueue);
 
         auto counts = Descriptor::PoolCounts{
             .UniformBuffer = 2,
@@ -186,8 +208,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
         .StorageBuffer        = 20,
     };
 
-    mStaticDescriptorPool =
-        Descriptor::InitPool(mCtx, poolSizes, mMainDeletionQueue);
+    mStaticDescriptorPool = Descriptor::InitPool(mCtx, poolSizes, mMainDeletionQueue);
 
     // Build the static descriptor set for ao/shadows etc:
     mAuxDescriptorSetLayout =
@@ -196,7 +217,8 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
             .AddCombinedSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx, mMainDeletionQueue);
 
-    mAuxDescriptorSet = Descriptor::Allocate(mCtx, mStaticDescriptorPool, mAuxDescriptorSetLayout);
+    mAuxDescriptorSet =
+        Descriptor::Allocate(mCtx, mStaticDescriptorPool, mAuxDescriptorSetLayout);
 
     // Initilize the subcomponents:
     mEnvHandler.emplace(ctx, mStaticDescriptorPool);
@@ -210,9 +232,6 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
 MinimalPbrRenderer::~MinimalPbrRenderer()
 {
-    for (auto &[_, drawable] : mDrawables)
-        drawable.Destroy(mCtx);
-
     for (auto &[_, tex] : mTextures)
         DestroyTexture(tex);
 }
@@ -392,39 +411,39 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
     // Create the (color) render target:
     {
         Image2DInfo renderTargetInfo{
-            .DebugName = "RenderTarget",
+            .Name   = "RenderTarget",
             .Extent = drawExtent,
             .Format = RenderTargetFormat,
             .Usage  = ColorAttachment | Sampled,
             .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
-        mRenderTarget = MakeTexture::Texture2D(mCtx, renderTargetInfo,
-                                               mSwapchainDeletionQueue);
+        mRenderTarget =
+            MakeTexture::Texture2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
 
         // If multisampling used, create intermediate buffer, before resolve:
         if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
         {
-            renderTargetInfo.DebugName     = "RenderTargetMSAA";
+            renderTargetInfo.Name          = "RenderTargetMSAA";
             renderTargetInfo.Multisampling = mMultisample;
             renderTargetInfo.Layout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-            mRenderTargetMsaa = MakeTexture::Texture2D(
-                mCtx, renderTargetInfo, mSwapchainDeletionQueue);
+            mRenderTargetMsaa =
+                MakeTexture::Texture2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
         }
     }
 
     // Create the depth (and stencil) buffer:
     {
         Image2DInfo depthBufferInfo{
-            .DebugName = "DepthBuffer",
-            .Extent    = drawExtent,
-            .Format    = DepthStencilFormat,
-            .Usage     = DepthStencilAttachment | Sampled,
-            .Layout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .Name   = "DepthBuffer",
+            .Extent = drawExtent,
+            .Format = DepthStencilFormat,
+            .Usage  = DepthStencilAttachment | Sampled,
+            .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         };
-        mDepthStencilBuffer = MakeTexture::Texture2D(mCtx, depthBufferInfo,
-                                                     mSwapchainDeletionQueue);
+        mDepthStencilBuffer =
+            MakeTexture::Texture2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
 
         // Create depth-only view (without stencil) for the depth buffer:
         mDepthOnlyView = MakeView::View2D(mCtx, "DepthOnlyView",
@@ -435,18 +454,18 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         // If multisampling used, create intermediate buffer, before resolve:
         if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
         {
-            depthBufferInfo.DebugName     = "DepthBufferMSAA";
+            depthBufferInfo.Name          = "DepthBufferMSAA";
             depthBufferInfo.Multisampling = mMultisample;
-            depthBufferInfo.Layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            depthBufferInfo.Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 
-            mDepthStencilMsaa = MakeTexture::Texture2D(
-                mCtx, depthBufferInfo, mSwapchainDeletionQueue);
+            mDepthStencilMsaa =
+                MakeTexture::Texture2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
         }
     }
 
     // (Re)Create AO related resources:
     mAOHandler->RecreateSwapchainResources(mDepthStencilBuffer.Img, mDepthOnlyView,
-                                          drawExtent);
+                                           drawExtent);
 
     // (Re)Create postfx related resources:
     mPostProcessor->RecreateSwapchainResources(mRenderTarget.Img, mRenderTarget.View);
@@ -674,7 +693,7 @@ void MinimalPbrRenderer::DrawSingleSidedFrustumCulled(VkCommandBuffer cmd,
 
     for (auto key : mSingleSidedDrawableKeys)
     {
-        auto &drawable = mDrawables[key];
+        auto &drawable = mDrawables.at(key);
 
         DrawAllInstancesCulled(cmd, drawable, viewProj, materialCallback,
                                instanceCallback, stats);
@@ -692,7 +711,7 @@ void MinimalPbrRenderer::DrawDoubleSidedFrustumCulled(VkCommandBuffer cmd,
 
     for (auto key : mDoubleSidedDrawableKeys)
     {
-        auto &drawable = mDrawables[key];
+        auto &drawable = mDrawables.at(key);
 
         DrawAllInstancesCulled(cmd, drawable, viewProj, materialCallback,
                                instanceCallback, stats);
@@ -709,7 +728,7 @@ void MinimalPbrRenderer::DrawBlendedFrustumCulled(VkCommandBuffer cmd, glm::mat4
 
     for (auto key : mBlendedDrawableKeys)
     {
-        auto &drawable = mDrawables[key];
+        auto &drawable = mDrawables.at(key);
         DrawAllInstancesCulled(cmd, drawable, viewProj, materialCallback,
                                instanceCallback, stats);
     }
@@ -766,14 +785,6 @@ void MinimalPbrRenderer::ShadowPass(VkCommandBuffer cmd, DrawStats &stats)
 
 void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 {
-    // Push constants layout for prepass pipelines:
-    struct PCData {
-        glm::mat4       Model;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-    };
-
     auto renderInfo = common::RenderingInfo{
         .Extent          = GetTargetSize(),
         .Depth           = mDepthStencilBuffer.View,
@@ -803,12 +814,16 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 
         auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
                                        Instance &instance) {
-            mZPrepassOpaquePipeline.PushConstants(cmd, PCData{
-                .Model          = instance.TransformRaw,
-                .VertexBuffer   = drawable.VertexAddress,
-                .TexBoundCenter = drawable.TexBoundsCenter,
-                .TexBoundExtent = drawable.TexBoundsExtent,
-            });
+            struct PCData {
+                glm::mat4       Model;
+                VkDeviceAddress VertexBuffer;
+            };
+
+            mZPrepassOpaquePipeline.PushConstants(
+                cmd, PCData{
+                         .Model        = instance.TransformRaw,
+                         .VertexBuffer = drawable.VertexAddress,
+                     });
         };
 
         DrawSingleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -828,12 +843,20 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 
         auto instanceCallback = [this](VkCommandBuffer cmd, Drawable &drawable,
                                        Instance &instance) {
-            mZPrepassAlphaPipeline.PushConstants(cmd, PCData{
-                .Model          = instance.TransformRaw,
-                .VertexBuffer   = drawable.VertexAddress,
-                .TexBoundCenter = drawable.TexBoundsCenter,
-                .TexBoundExtent = drawable.TexBoundsExtent,
-            });
+            struct PCData {
+                glm::mat4       Model;
+                VkDeviceAddress VertexBuffer;
+                glm::vec2       TexBoundCenter;
+                glm::vec2       TexBoundExtent;
+            };
+
+            mZPrepassAlphaPipeline.PushConstants(
+                cmd, PCData{
+                         .Model          = instance.TransformRaw,
+                         .VertexBuffer   = drawable.VertexAddress,
+                         .TexBoundCenter = drawable.TexBoundsCenter,
+                         .TexBoundExtent = drawable.TexBoundsExtent,
+                     });
         };
 
         DrawDoubleSidedFrustumCulled(cmd, viewProj, materialCallback, instanceCallback,
@@ -895,11 +918,11 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
         };
 
         mMainPipeline.PushConstants(cmd, PCData{
-            .Model          = instance.TransformRaw,
-            .VertexBuffer   = drawable.VertexAddress,
-            .TexBoundCenter = drawable.TexBoundsCenter,
-            .TexBoundExtent = drawable.TexBoundsExtent,
-        });
+                                             .Model          = instance.TransformRaw,
+                                             .VertexBuffer   = drawable.VertexAddress,
+                                             .TexBoundCenter = drawable.TexBoundsCenter,
+                                             .TexBoundExtent = drawable.TexBoundsExtent,
+                                         });
     };
 
     {
@@ -928,7 +951,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     // TODO: This is kind of ugly, but debug needs to have acces to the main depth
     // buffer. Think about a cleaner way to inject debug visualization rendering.
     mShadowmapHandler->DrawDebugShapes(cmd, mCamUBOData.CameraViewProjection,
-                                      GetTargetSize());
+                                       GetTargetSize());
 
     // Draw the background:
     auto frustumBack = mCamera.GetFrustumBack();
@@ -990,7 +1013,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
-            auto &drawable = mDrawables[drawableKey];
+            auto &drawable = mDrawables.at(drawableKey);
 
             // Do frustum culling:
             if (!drawable.IsVisible(mCamUBOData.CameraViewProjection, instanceId))
@@ -1005,12 +1028,13 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             // Push per-instance data:
             auto &model = drawable.Instances.at(instanceId).TransformRaw;
 
-            mStencilPipeline.PushConstants(cmd, PCData{
-                .Model          = model,
-                .VertexBuffer   = drawable.VertexAddress,
-                .TexBoundCenter = drawable.TexBoundsCenter,
-                .TexBoundExtent = drawable.TexBoundsExtent,
-            });
+            mStencilPipeline.PushConstants(cmd,
+                                           PCData{
+                                               .Model          = model,
+                                               .VertexBuffer   = drawable.VertexAddress,
+                                               .TexBoundCenter = drawable.TexBoundsCenter,
+                                               .TexBoundExtent = drawable.TexBoundsExtent,
+                                           });
 
             // Draw:
             drawable.Draw(cmd);
@@ -1047,7 +1071,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
-            auto &drawable = mDrawables[drawableKey];
+            auto &drawable = mDrawables.at(drawableKey);
 
             // Do frustum culling:
             if (!drawable.IsVisible(mCamUBOData.CameraViewProjection, instanceId))
@@ -1062,12 +1086,13 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
             // Push per-instance data:
             auto &model = drawable.Instances.at(instanceId).TransformRaw;
 
-            mOutlinePipeline.PushConstants(cmd, PCData{
-                .Model          = model,
-                .VertexBuffer   = drawable.VertexAddress,
-                .TexBoundCenter = drawable.TexBoundsCenter,
-                .TexBoundExtent = drawable.TexBoundsExtent,
-            });
+            mOutlinePipeline.PushConstants(cmd,
+                                           PCData{
+                                               .Model          = model,
+                                               .VertexBuffer   = drawable.VertexAddress,
+                                               .TexBoundCenter = drawable.TexBoundsCenter,
+                                               .TexBoundExtent = drawable.TexBoundsExtent,
+                                           });
 
             // Draw:
             drawable.Draw(cmd);
@@ -1103,7 +1128,6 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
 
     auto instanceCallback = [this, viewProj](VkCommandBuffer cmd, Drawable &drawable,
                                              Instance &instance) {
-
         struct PCData {
             glm::mat4       Model;
             VkDeviceAddress VertexBuffer;
@@ -1111,14 +1135,15 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
             glm::vec2       TexBoundExtent;
             uint32_t        ObjectId;
         };
-    
-        mObjectIdPipeline.PushConstants(cmd, PCData{
-            .Model          = viewProj * instance.TransformRaw,
-            .VertexBuffer   = drawable.VertexAddress,
-            .TexBoundCenter = drawable.TexBoundsCenter,
-            .TexBoundExtent = drawable.TexBoundsExtent,
-            .ObjectId       = instance.ObjectId,
-        });
+
+        mObjectIdPipeline.PushConstants(cmd,
+                                        PCData{
+                                            .Model = viewProj * instance.TransformRaw,
+                                            .VertexBuffer   = drawable.VertexAddress,
+                                            .TexBoundCenter = drawable.TexBoundsCenter,
+                                            .TexBoundExtent = drawable.TexBoundsExtent,
+                                            .ObjectId       = instance.ObjectId,
+                                        });
     };
 
     DrawStats stats;
@@ -1134,14 +1159,12 @@ void MinimalPbrRenderer::LoadScene(const Scene &scene)
 {
     if (scene.FullReloadRequested())
     {
-        for (auto &[_, drawable] : mDrawables)
-            drawable.Destroy(mCtx);
+        mDrawables.clear();
+        mMaterials.clear();
 
         for (auto &[_, texture] : mTextures)
             DestroyTexture(texture);
 
-        mDrawables.clear();
-        mMaterials.clear();
         mTextures.clear();
 
         mMaterialDescriptorAllocator.DestroyPools();
@@ -1177,28 +1200,28 @@ void MinimalPbrRenderer::LoadMeshes(const Scene &scene)
             auto drawableKey = DrawableKey{meshKey, primIdx};
 
             // Already imported:
-            if (mDrawables.count(drawableKey) != 0)
+            if (mDrawables.contains(drawableKey))
                 continue;
 
-            if (mGeometryLayout == prim.Data.Layout)
-            {
-                const auto debugName = mesh.Name + std::to_string(primIdx);
+            // Wrong layout - skip:
+            if (prim.Data.Layout != mGeometryLayout)
+                continue;
 
-                auto &drawable = mDrawables[drawableKey];
-                drawable.Init(mCtx, prim, debugName);
-            }
+            // Create new drawable:
+            const auto debugName = mesh.Name + std::to_string(primIdx);
+
+            Drawable drawable{mCtx, prim, debugName};
+
+            mDrawables.try_emplace(drawableKey, std::move(drawable));
         }
     }
 
     // Prune orphaned drawables:
     std::erase_if(mDrawables, [&](auto &item) {
-        auto &drawable = item.second;
+        auto &[key, _drawable] = item;
 
-        auto meshKey = item.first.first;
+        auto meshKey = key.first;
         bool erase   = scene.Meshes.count(meshKey) == 0;
-
-        if (erase)
-            drawable.Destroy(mCtx);
 
         return erase;
     });
@@ -1306,12 +1329,12 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
         {
             auto drawableKey = DrawableKey{meshKey, primIdx};
 
-            if (mDrawables.count(drawableKey) != 0)
+            if (mDrawables.contains(drawableKey))
             {
                 auto  matKey = *prim.Material;
                 auto &mat    = mMaterials[matKey];
 
-                auto &drawable = mDrawables[drawableKey];
+                auto &drawable = mDrawables.at(drawableKey);
 
                 if (prim.Material)
                     drawable.MaterialKey = matKey;
@@ -1354,12 +1377,12 @@ void MinimalPbrRenderer::LoadObjects(const Scene &scene)
         {
             auto drawableKey = DrawableKey{meshKey, primIdx};
 
-            if (mDrawables.count(drawableKey) == 0)
+            if (!mDrawables.contains(drawableKey))
             {
                 continue;
             }
 
-            auto &drawable = mDrawables[drawableKey];
+            auto &drawable = mDrawables.at(drawableKey);
 
             auto &list = mObjectCache[objKey];
             list.emplace_back(drawableKey, drawable.Instances.size());

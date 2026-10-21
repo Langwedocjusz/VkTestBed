@@ -12,8 +12,8 @@
 #include <string_view>
 #include <vector>
 
-class GraphicsPipeline{
-public:
+class GraphicsPipeline {
+  public:
     void Bind(VkCommandBuffer cmd);
 
     void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
@@ -26,16 +26,16 @@ public:
         vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
     }
 
-public:
+  public:
     static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    static constexpr VkShaderStageFlags PCStage    = VK_SHADER_STAGE_ALL_GRAPHICS;
+    static constexpr VkShaderStageFlags  PCStage   = VK_SHADER_STAGE_ALL_GRAPHICS;
 
     VkPipeline       Handle;
     VkPipelineLayout Layout;
 };
 
-class ComputePipeline{
-public:
+class ComputePipeline {
+  public:
     void Bind(VkCommandBuffer cmd);
 
     void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
@@ -48,18 +48,18 @@ public:
         vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
     }
 
-    void Dispatch(VkCommandBuffer cmd, uint32_t sizeX = 1, uint32_t sizeY = 1, uint32_t sizeZ = 1);
+    void Dispatch(VkCommandBuffer cmd, uint32_t sizeX = 1, uint32_t sizeY = 1,
+                  uint32_t sizeZ = 1);
 
-public:
+  public:
     static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
-    static constexpr VkShaderStageFlags PCStage    = VK_SHADER_STAGE_COMPUTE_BIT;
+    static constexpr VkShaderStageFlags  PCStage   = VK_SHADER_STAGE_COMPUTE_BIT;
 
     VkPipeline       Handle;
     VkPipelineLayout Layout;
 
     std::array<uint32_t, 3> LocalSize;
 };
-
 
 class PipelineBuilder {
   public:

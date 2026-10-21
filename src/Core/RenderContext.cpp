@@ -62,34 +62,34 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
         using namespace vkenum::image_usage;
 
         Image2DInfo renderTargetInfo{
-            .DebugName = "PickingTarget",
-            .Extent    = VkExtent2D{1, 1},
-            .Format    = IRenderer::PickingTargetFormat,
-            .Usage     = TransferSrc | ColorAttachment,
-            .Layout    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .Name   = "PickingTarget",
+            .Extent = VkExtent2D{1, 1},
+            .Format = IRenderer::PickingTargetFormat,
+            .Usage  = TransferSrc | ColorAttachment,
+            .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         };
-        mPicking.Target = MakeTexture::Texture2D(mCtx, renderTargetInfo,
-                                                 mMainDeletionQueue);
+        mPicking.Target =
+            MakeTexture::Texture2D(mCtx, renderTargetInfo, mMainDeletionQueue);
 
         Image2DInfo depthBufferInfo{
-            .DebugName = "PickingDepthBuffer",
-            .Extent    = VkExtent2D{1, 1},
-            .Format    = IRenderer::PickingDepthFormat,
-            .Usage     = DepthStencilAttachment,
-            .Layout    = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+            .Name   = "PickingDepthBuffer",
+            .Extent = VkExtent2D{1, 1},
+            .Format = IRenderer::PickingDepthFormat,
+            .Usage  = DepthStencilAttachment,
+            .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
         };
-        mPicking.Depth = MakeTexture::Texture2D(mCtx, depthBufferInfo,
-                                                mMainDeletionQueue);
+        mPicking.Depth =
+            MakeTexture::Texture2D(mCtx, depthBufferInfo, mMainDeletionQueue);
     }
 
     // Setup readback buffer for object picking:
     {
         auto bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        auto bufferFlags =
-            VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        auto bufferFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
+                           VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-        mPicking.ReadbackBuffer =
-            Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel), bufferUsage, bufferFlags);
+        mPicking.ReadbackBuffer = Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel),
+                                                 bufferUsage, bufferFlags);
         mMainDeletionQueue.push_back(mPicking.ReadbackBuffer);
     }
 }

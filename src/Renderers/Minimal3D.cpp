@@ -20,10 +20,9 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     {
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-        auto layout =
-            DescriptorSetLayoutBuilder("Minimal3DDynamicDescriptorSetLayout")
-                .AddUniformBuffer(0, stageFlags)
-                .Build(mCtx, mMainDeletionQueue);
+        auto layout = DescriptorSetLayoutBuilder("Minimal3DDynamicDescriptorSetLayout")
+                          .AddUniformBuffer(0, stageFlags)
+                          .Build(mCtx, mMainDeletionQueue);
 
         auto counts = Descriptor::PoolCounts{
             .UniformBuffer = 1,
@@ -40,9 +39,10 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     }
 
     // Create descriptor set layout for sampling textures
-    mTextureDescriptorSetLayout = DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
-                           .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-                           .Build(ctx, mMainDeletionQueue);
+    mTextureDescriptorSetLayout =
+        DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
+            .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .Build(ctx, mMainDeletionQueue);
 
     // Initialize descriptor allocator for materials
     auto poolCounts = Descriptor::PoolCounts{
@@ -182,10 +182,11 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
                     glm::mat4 Transform;
                 };
 
-                mTexturedPipeline.PushConstants(cmd, PCData{
-                    .AlphaCutoff = glm::vec4(material.AlphaCutoff),
-                    .Transform   = transform,
-                });
+                mTexturedPipeline.PushConstants(
+                    cmd, PCData{
+                             .AlphaCutoff = glm::vec4(material.AlphaCutoff),
+                             .Transform   = transform,
+                         });
 
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
@@ -216,25 +217,24 @@ void Minimal3DRenderer::RecreateSwapchainResources()
     };
 
     Image2DInfo renderTargetInfo{
-        .DebugName = "RenderTarget",
+        .Name   = "RenderTarget",
         .Extent = drawExtent,
         .Format = mRenderTargetFormat,
         .Usage  = TransferSrc | ColorAttachment,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
-    mRenderTarget = MakeTexture::Texture2D(mCtx, renderTargetInfo,
-                                           mSwapchainDeletionQueue);
+    mRenderTarget =
+        MakeTexture::Texture2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
 
     // Create depth buffer:
     Image2DInfo depthBufferInfo{
-        .DebugName = "DepthBuffer",
+        .Name   = "DepthBuffer",
         .Extent = drawExtent,
         .Format = mDepthFormat,
         .Usage  = DepthStencilAttachment,
         .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
-    mDepthBuffer = MakeTexture::Texture2D(mCtx, depthBufferInfo,
-                                          mSwapchainDeletionQueue);
+    mDepthBuffer = MakeTexture::Texture2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
 }
 
 void Minimal3DRenderer::LoadScene(const Scene &scene)

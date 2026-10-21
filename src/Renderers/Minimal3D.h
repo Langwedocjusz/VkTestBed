@@ -2,10 +2,10 @@
 
 #include "Descriptor.h"
 #include "DynamicUniformBuffer.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Scene.h"
-#include "Image.h"
 #include "VertexLayout.h"
 
 class Minimal3DRenderer final : public IRenderer {

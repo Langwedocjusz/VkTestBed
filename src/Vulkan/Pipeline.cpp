@@ -8,7 +8,6 @@
 
 #include "volk.h"
 
-#include <iostream>
 #include <variant>
 
 // === Graphics Pipeline Implementation: =======================================
@@ -294,8 +293,6 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
     uint32_t                                     pushConstantSize = 0;
 
-    std::cout << "Pipeline: " << mDebugName << '\n';
-
     if (mVertexPath)
     {
         auto info = Shader::GetStageInfo(ctx, *mVertexPath, VK_SHADER_STAGE_VERTEX_BIT);
@@ -304,7 +301,6 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         if (auto size = info.Reflection.PushConstantsSize)
         {
             pushConstantSize = std::max(pushConstantSize, *size);
-            std::cout << "Vertex size: " << *size << '\n';
         }
     }
 
@@ -317,7 +313,6 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         if (auto size = info.Reflection.PushConstantsSize)
         {
             pushConstantSize = std::max(pushConstantSize, *size);
-            std::cout << "Fragment size: " << *size << '\n';
         }
     }
 
@@ -339,8 +334,6 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         .offset     = 0,
         .size       = pushConstantSize,
     };
-
-    std::cout << "Final Push Constant size: " << pushConstantSize << '\n';
 
     if (pushConstantSize > 0)
     {

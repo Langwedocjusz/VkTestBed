@@ -60,7 +60,8 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, Image::UploadInfo info
     // Create buffer and upload image data
     Buffer stagingBuffer =
         MakeBuffer::Staging(ctx, "ImageUploadStagingBuffer", info.Size);
-    Buffer::Upload(ctx, stagingBuffer, info.Data, info.Size);
+
+    stagingBuffer.Upload(info.Data, info.Size);
 
     // Submit single-time command to queue
     ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
@@ -140,8 +141,6 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, Image::UploadInfo info
 
         barrier::ImageLayoutCoarse(cmd, barrierInfo);
     });
-
-    Buffer::Destroy(ctx, stagingBuffer);
 }
 
 uint32_t Image::MipCount(uint32_t size)

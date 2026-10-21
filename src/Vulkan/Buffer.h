@@ -6,28 +6,35 @@
 
 #include <string>
 
-struct Buffer {
+struct BufferInfo {
+    std::string              Name;
+    VkDeviceSize             Size  = 0;
+    VkBufferUsageFlags       Usage = 0;
+    VmaAllocationCreateFlags Flags = 0;
+};
+
+class Buffer {
+  public:
+    Buffer(VulkanContext &ctx, const BufferInfo &info);
+    ~Buffer();
+    Buffer(const Buffer &)            = delete;
+    Buffer &operator=(const Buffer &) = delete;
+    Buffer(Buffer &&) noexcept;
+    Buffer &operator=(Buffer &&) = delete;
+
+    void Upload(const void *data, VkDeviceSize size);
+    // Will only worked on mapped buffers:
+    void UploadMapped(const void *data, VkDeviceSize size);
+
+    static void CopyContents(VkCommandBuffer cmd, const Buffer &src, Buffer &dst,
+                             size_t size);
+
   public:
     VkBuffer          Handle;
     VkDeviceSize      Size;
     VmaAllocation     Allocation;
     VmaAllocationInfo AllocInfo;
 
-  public:
-    static Buffer Create(VulkanContext &ctx, const std::string &debugName,
-                         VkDeviceSize size, VkBufferUsageFlags usage,
-                         VmaAllocationCreateFlags flags = 0);
-    static void   Destroy(VulkanContext &ctx, Buffer &buf);
-
-    static void Upload(VulkanContext &ctx, Buffer buff, const void *data,
-                       VkDeviceSize size);
-    static void UploadToMapped(Buffer buff, const void *data, VkDeviceSize size);
-
-    struct CopyInfo {
-        VkBuffer     Src;
-        VkBuffer     Dst;
-        VkDeviceSize Size;
-    };
-
-    static void CopyBuffer(VkCommandBuffer cmd, CopyInfo info);
+  private:
+    VulkanContext &mCtx;
 };

@@ -84,13 +84,15 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
 
     // Setup readback buffer for object picking:
     {
-        auto bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        auto bufferFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
-                           VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        BufferInfo info{
+            .Name  = "ReadbackBuffer",
+            .Size  = sizeof(Pixel),
+            .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .Flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
+                     VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        };
 
-        mPicking.ReadbackBuffer = Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel),
-                                                 bufferUsage, bufferFlags);
-        mMainDeletionQueue.push_back(mPicking.ReadbackBuffer);
+        mPicking.ReadbackBuffer.emplace(ctx, info);
     }
 }
 
@@ -443,12 +445,12 @@ SceneKey RenderContext::PickObjectId(float x, float y)
 
         vkCmdCopyImageToBuffer(cmd, mPicking.Target.Img.Handle,
                                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                               mPicking.ReadbackBuffer.Handle, 1, &region);
+                               mPicking.ReadbackBuffer->Handle, 1, &region);
     });
 
     // Unpack copied data after submission:
     const auto pixel =
-        static_cast<const Pixel *>(mPicking.ReadbackBuffer.AllocInfo.pMappedData);
+        static_cast<const Pixel *>(mPicking.ReadbackBuffer->AllocInfo.pMappedData);
     uint32_t R = pixel->R, G = pixel->G, B = pixel->B, A = pixel->A;
 
     uint32_t res = 0;

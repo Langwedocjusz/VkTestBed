@@ -2,7 +2,6 @@
 
 #include "VulkanContext.h"
 
-#include "Buffer.h"
 #include "Image.h"
 
 #include "volk.h"
@@ -12,11 +11,6 @@
 
 struct VkAllocatedImage {
     VkImage       Handle;
-    VmaAllocation Allocation;
-};
-
-struct VkAllocatedBuffer {
-    VkBuffer      Handle;
     VmaAllocation Allocation;
 };
 
@@ -32,8 +26,7 @@ using DeletionObject = std::variant<
     VkDescriptorSetLayout,
     VkSampler,
     VkQueryPool,
-    VkAllocatedImage,
-    VkAllocatedBuffer
+    VkAllocatedImage
 >;
 // clang-format on
 
@@ -48,11 +41,6 @@ class DeletionQueue {
     void push_back(T &&obj)
     {
         mDeletionObjects.push_back(std::forward<T>(obj));
-    }
-
-    void push_back(Buffer &buf)
-    {
-        mDeletionObjects.emplace_back(VkAllocatedBuffer{buf.Handle, buf.Allocation});
     }
 
     void push_back(Image &img)

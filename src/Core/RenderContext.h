@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Buffer.h"
 #include "Camera.h"
 #include "DeletionQueue.h"
 #include "Event.h"
@@ -52,7 +53,7 @@ class RenderContext {
         Texture Target;
         Texture Depth;
 
-        Buffer ReadbackBuffer;
+        std::optional<Buffer> ReadbackBuffer;
     } mPicking;
 
     bool                      mShowStats = false;

@@ -84,18 +84,15 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         // on camera movement. Perfect solution would be to use 3 per-frame buffers.
         // But the artefacts are not that bad and this is for debug only.
 
-        VkDeviceSize vertexBufferSize =
-            mVertexBufferData.size() * sizeof(mVertexBufferData[0]);
+        BufferInfo info{
+            .Name  = "ShadowmapDebugFrustumVertexBuffer",
+            .Size  = mVertexBufferData.size() * sizeof(mVertexBufferData[0]),
+            .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            .Flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                     VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        };
 
-        auto bufUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-        auto bufFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                        VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-        mDebugFrustumVertexBuffer =
-            Buffer::Create(mCtx, "ShadowmapDebugFrustumVertexBuffer", vertexBufferSize,
-                           bufUsage, bufFlags);
-        mMainDeletionQueue.push_back(mDebugFrustumVertexBuffer);
+        mDebugFrustumVertexBuffer.emplace(ctx, info);
     }
 
     // Create Index Buffer for debug visualization:
@@ -120,9 +117,8 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         };
         // clang-format on
 
-        mDebugFrustumIndexBuffer =
-            MakeBuffer::Index(mCtx, "ShadowmapDebugFrustumVertexBuffer", indexData);
-        mMainDeletionQueue.push_back(mDebugFrustumIndexBuffer);
+        mDebugFrustumIndexBuffer.emplace(
+            MakeBuffer::Index(mCtx, "ShadowmapDebugFrustumVertexBuffer", indexData));
     }
 }
 
@@ -397,9 +393,9 @@ void ShadowmapHandler::OnUpdate(Camera &camera, glm::vec3 lightDir, AABB sceneAA
             mVertexBufferData[15] = invLightViewProj * glm::vec4(1, -1, 1, 1);
 
             // Update gpu-visible buffer:
-            Buffer::UploadToMapped(mDebugFrustumVertexBuffer, mVertexBufferData.data(),
-                                   mVertexBufferData.size() *
-                                       sizeof(mVertexBufferData[0]));
+            mDebugFrustumVertexBuffer->UploadMapped(mVertexBufferData.data(),
+                                                    mVertexBufferData.size() *
+                                                        sizeof(mVertexBufferData[0]));
         }
     }
 }
@@ -451,11 +447,11 @@ void ShadowmapHandler::DrawDebugShapes(VkCommandBuffer cmd, glm::mat4 viewProj,
     common::ViewportScissor(cmd, extent);
 
     // Bind geometry buffers:
-    VkBuffer     vertBuffer = mDebugFrustumVertexBuffer.Handle;
+    VkBuffer     vertBuffer = mDebugFrustumVertexBuffer->Handle;
     VkDeviceSize vertOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
-    vkCmdBindIndexBuffer(cmd, mDebugFrustumIndexBuffer.Handle, 0,
+    vkCmdBindIndexBuffer(cmd, mDebugFrustumIndexBuffer->Handle, 0,
                          mDebugGeometryLayout.IndexType);
 
     // Push constants layout:

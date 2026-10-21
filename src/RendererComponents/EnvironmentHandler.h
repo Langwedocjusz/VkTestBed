@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Buffer.h"
 #include "Camera.h"
 #include "DeletionQueue.h"
 #include "Descriptor.h"
@@ -108,8 +109,8 @@ class EnvironmentHandler {
     GraphicsPipeline mBackgroundPipeline;
 
     // SSBOs for reduction when computing SH irradiance coefficients:
-    Buffer mFirstReducionBuffer;
-    Buffer mFinalReductionBuffer;
+    std::optional<Buffer> mFirstReducionBuffer;
+    std::optional<Buffer> mFinalReductionBuffer;
 
     uint32_t mReduceBlock    = 32;
     uint32_t mFirstBufferLen = 0;
@@ -126,8 +127,8 @@ class EnvironmentHandler {
     VkSampler mSamplerMipped;
 
     // Uniform buffer object with environment info for lighting:
-    EnvUBOData mEnvUBOData;
-    Buffer     mEnvUBO;
+    EnvUBOData            mEnvUBOData;
+    std::optional<Buffer> mEnvUBO;
 
     DeletionQueue mDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;

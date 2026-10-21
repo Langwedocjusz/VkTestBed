@@ -7,6 +7,7 @@
 #include "MakeBuffer.h"
 #include "MakeImage.h"
 #include "Renderer.h"
+#include "Scene.h"
 #include "VkEnums.h"
 
 #include "volk.h"
@@ -167,19 +168,15 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
 
-    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo,
-                             const std::string &debugName) {
-        // Create Vertex buffer:
-        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData);
-        drawable.VertexCount  = static_cast<uint32_t>(geo.VertexCount);
-
-        // Create Index buffer:
-        drawable.IndexBuffer = MakeBuffer::Index(mCtx, debugName, geo.IndexData);
-        drawable.IndexCount  = static_cast<uint32_t>(geo.IndexCount);
-
-        // Update deletion queue:
-        mSceneDeletionQueue.push_back(drawable.VertexBuffer);
-        mSceneDeletionQueue.push_back(drawable.IndexBuffer);
+    auto MakeDrawable = [&](const GeometryData &geo, const std::string &debugName,
+                            SceneKey meshKey) {
+        return Drawable{
+            .VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData),
+            .VertexCount  = static_cast<uint32_t>(geo.VertexCount),
+            .IndexBuffer  = MakeBuffer::Index(mCtx, debugName, geo.IndexData),
+            .IndexCount   = static_cast<uint32_t>(geo.IndexCount),
+            .Instances    = meshKey,
+        };
     };
 
     for (const auto &[meshKey, mesh] : scene.Meshes)
@@ -189,17 +186,15 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
             auto drawableKey = DrawableKey{meshKey, primIdx};
 
             // Already imported:
-            if (mDrawables.count(drawableKey) != 0)
+            if (mDrawables.contains(drawableKey))
                 continue;
 
             if (mGeometryLayout == prim.Data.Layout)
             {
-                auto &drawable = mDrawables[drawableKey];
-
                 const auto primName = mesh.Name + std::to_string(primIdx);
 
-                CreateBuffers(drawable, prim.Data, primName);
-                drawable.Instances = meshKey;
+                mDrawables.try_emplace(drawableKey,
+                                       MakeDrawable(prim.Data, primName, meshKey));
             }
         }
     }

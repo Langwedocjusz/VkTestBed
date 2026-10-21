@@ -108,11 +108,10 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
 
         // Create uniform buffer for environment information (light direction etc.):
         {
-            mEnvUBO = MakeBuffer::MappedUniform(ctx, "EnvLightUniformBuffer",
-                                                sizeof(mEnvUBOData));
-            mDeletionQueue.push_back(mEnvUBO);
+            mEnvUBO.emplace(MakeBuffer::MappedUniform(ctx, "EnvLightUniformBuffer",
+                                                      sizeof(mEnvUBOData)));
 
-            Buffer::UploadToMapped(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
+            mEnvUBO->UploadMapped(&mEnvUBOData, sizeof(mEnvUBOData));
         }
 
         // Create shader storage buffers for computing irradiance SH decomposition:
@@ -134,16 +133,25 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
                 glm::vec4 SH_L2_M2;
             };
 
-            VkDeviceSize sizeFirst = mFirstBufferLen * sizeof(SHData);
-            VkDeviceSize sizeFinal = 1 * sizeof(SHData);
+            {
+                BufferInfo info{
+                    .Name  = "EnvFirstReductionBuffer",
+                    .Size  = mFirstBufferLen * sizeof(SHData),
+                    .Usage = Storage,
+                };
 
-            mFirstReducionBuffer =
-                Buffer::Create(mCtx, "EnvFirstReductionBuffer", sizeFirst, Storage);
-            mFinalReductionBuffer = Buffer::Create(mCtx, "EnvFinalReductionBuffer",
-                                                   sizeFinal, Storage | TransferDst);
+                mFirstReducionBuffer.emplace(ctx, info);
+            }
 
-            mDeletionQueue.push_back(mFirstReducionBuffer);
-            mDeletionQueue.push_back(mFinalReductionBuffer);
+            {
+                BufferInfo info{
+                    .Name  = "EnvFinalReductionBuffer",
+                    .Size  = 1 * sizeof(SHData),
+                    .Usage = Storage | TransferDst,
+                };
+
+                mFinalReductionBuffer.emplace(ctx, info);
+            }
         }
     }
 
@@ -200,8 +208,8 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
         Descriptor::Allocate(mCtx, staticPool, mLightingDescriptorSetLayout);
 
     DescriptorUpdater(mLightingDescriptorSet)
-        .WriteUniformBuffer(0, mEnvUBO.Handle, sizeof(mEnvUBOData))
-        .WriteStorageBuffer(1, mFinalReductionBuffer.Handle, mFinalReductionBuffer.Size)
+        .WriteUniformBuffer(0, mEnvUBO->Handle, sizeof(mEnvUBOData))
+        .WriteStorageBuffer(1, mFinalReductionBuffer->Handle, mFinalReductionBuffer->Size)
         .WriteCombinedSampler(2, mPrefiltered.View, mSamplerMipped)
         .WriteCombinedSampler(3, mIntegration.View, mSamplerClamped)
         .Update(mCtx);
@@ -216,8 +224,8 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
         Descriptor::Allocate(mCtx, staticPool, mIrradianceDescriptorSetLayout);
 
     DescriptorUpdater(mIrradianceDescriptorSet)
-        .WriteStorageBuffer(0, mFirstReducionBuffer.Handle, mFirstReducionBuffer.Size)
-        .WriteStorageBuffer(1, mFinalReductionBuffer.Handle, mFinalReductionBuffer.Size)
+        .WriteStorageBuffer(0, mFirstReducionBuffer->Handle, mFirstReducionBuffer->Size)
+        .WriteStorageBuffer(1, mFinalReductionBuffer->Handle, mFinalReductionBuffer->Size)
         .Update(mCtx);
 
     // Descriptor set for generation of prefiltered map:
@@ -308,7 +316,7 @@ void EnvironmentHandler::LoadEnvironment(const Scene &scene)
         .MaxReflectionLod = maxPrefilteredLod,
     };
 
-    Buffer::UploadToMapped(mEnvUBO, &mEnvUBOData, sizeof(mEnvUBOData));
+    mEnvUBO->UploadMapped(&mEnvUBOData, sizeof(mEnvUBOData));
 
     if (scene.Env.ReloadImage)
     {
@@ -586,7 +594,7 @@ void EnvironmentHandler::ResetToBlack()
         // Set all SH coefficients to 0:
         auto fillValue = std::bit_cast<uint32_t, float>(0.0f);
 
-        vkCmdFillBuffer(cmd, mFinalReductionBuffer.Handle, 0, mFinalReductionBuffer.Size,
-                        fillValue);
+        vkCmdFillBuffer(cmd, mFinalReductionBuffer->Handle, 0,
+                        mFinalReductionBuffer->Size, fillValue);
     });
 }

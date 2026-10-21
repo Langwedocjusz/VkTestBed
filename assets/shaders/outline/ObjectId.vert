@@ -16,6 +16,7 @@ layout(push_constant) uniform PushConstants {
     vec2         TexCenter;
     vec2         TexExtent;
     uint         ObjectId;
+    uint         _Pad; // glm::mat4 enforces striter alignment...
 } uPushConstants;
 
 void main() {

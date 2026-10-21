@@ -266,18 +266,15 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
 
-    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo,
-                             const std::string &debugName) {
-        // Create Vertex buffer:
-        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData);
-        drawable.VertexCount  = static_cast<uint32_t>(geo.VertexCount);
-
-        // Create Index buffer:
-        drawable.IndexBuffer = MakeBuffer::Index(mCtx, debugName, geo.IndexData);
-        drawable.IndexCount  = static_cast<uint32_t>(geo.IndexCount);
-
-        mSceneDeletionQueue.push_back(drawable.VertexBuffer);
-        mSceneDeletionQueue.push_back(drawable.IndexBuffer);
+    auto MakeDrawable = [&](const GeometryData &geo, const std::string &debugName) {
+        return Drawable{
+            .VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData),
+            .VertexCount  = static_cast<uint32_t>(geo.VertexCount),
+            .IndexBuffer  = MakeBuffer::Index(mCtx, debugName, geo.IndexData),
+            .IndexCount   = static_cast<uint32_t>(geo.IndexCount),
+            .Material     = 0,
+            .Instances    = {},
+        };
     };
 
     for (const auto &[meshKey, mesh] : scene.Meshes)
@@ -287,24 +284,23 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
             auto drawableKey = DrawableKey{meshKey, primIdx};
 
             // Already imported:
-            if (mTexturedDrawables.count(drawableKey) != 0 ||
-                mTexturedDrawables.count(drawableKey) != 0)
+            if (mColoredDrawables.contains(drawableKey) ||
+                mTexturedDrawables.contains(drawableKey))
                 continue;
 
+            // Create new drawable:
             const auto primName = mesh.Name + std::to_string(primIdx);
 
             if (mColoredLayout == prim.Data.Layout)
             {
-                auto &drawable = mColoredDrawables[drawableKey];
-
-                CreateBuffers(drawable, prim.Data, primName);
+                mColoredDrawables.try_emplace(drawableKey,
+                                              MakeDrawable(prim.Data, primName));
             }
 
             if (mTexturedLayout == prim.Data.Layout)
             {
-                auto &drawable = mTexturedDrawables[drawableKey];
-
-                CreateBuffers(drawable, prim.Data, primName);
+                mTexturedDrawables.try_emplace(drawableKey,
+                                               MakeDrawable(prim.Data, primName));
             }
         }
     }
@@ -370,7 +366,7 @@ void Minimal3DRenderer::LoadMeshMaterials(const Scene &scene)
 
             if (mTexturedDrawables.count(drawableKey) != 0)
             {
-                auto &drawable = mTexturedDrawables[drawableKey];
+                auto &drawable = mTexturedDrawables.at(drawableKey);
 
                 if (prim.Material)
                     drawable.Material = *prim.Material;
@@ -402,12 +398,12 @@ void Minimal3DRenderer::LoadObjects(const Scene &scene)
 
             if (mColoredDrawables.count(drawableKey) != 0)
             {
-                mColoredDrawables[drawableKey].Instances.push_back(obj.Transform);
+                mColoredDrawables.at(drawableKey).Instances.push_back(obj.Transform);
             }
 
             else if (mTexturedDrawables.count(drawableKey) != 0)
             {
-                mTexturedDrawables[drawableKey].Instances.push_back(obj.Transform);
+                mTexturedDrawables.at(drawableKey).Instances.push_back(obj.Transform);
             }
         }
     }

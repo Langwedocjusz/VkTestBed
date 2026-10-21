@@ -12,20 +12,21 @@ DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame,
     : mBufferSize(bufferSize), mCtx(ctx), mFrame(frame), mDeletionQueue(ctx)
 {
     // Create Uniform Buffers:
-    mUniformBuffers.resize(mCtx.Swapchain->Images.size());
+    const auto numBuffers = mCtx.Swapchain->Images.size();
 
-    for (auto &uniformBuffer : mUniformBuffers)
+    mUniformBuffers.reserve(numBuffers);
+
+    for (size_t i = 0; i < numBuffers; i++)
     {
-        uniformBuffer =
-            MakeBuffer::MappedUniform(mCtx, "CameraUniformBuffer", bufferSize);
-        mDeletionQueue.push_back(uniformBuffer);
+        mUniformBuffers.emplace_back(
+            MakeBuffer::MappedUniform(mCtx, "CameraUniformBuffer", bufferSize));
     }
 }
 
 void DynamicUniformBuffer::UpdateData(void *data, VkDeviceSize size)
 {
     auto &uniformBuffer = mUniformBuffers[mFrame.ImageIndex];
-    Buffer::UploadToMapped(uniformBuffer, data, size);
+    uniformBuffer.UploadMapped(data, size);
 }
 
 DynamicUniformBuffer::HandlesAndSizes DynamicUniformBuffer::GetBufferHandlesAndSizes()

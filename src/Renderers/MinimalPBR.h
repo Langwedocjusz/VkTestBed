@@ -44,17 +44,17 @@ class MinimalPbrRenderer final : public IRenderer {
         uint32_t NumBinds = 0;
     };
 
+    struct MaterialUboData {
+        int32_t           DoubleSided      = 0;
+        MaterialAlphaMode AlphaMode        = MaterialAlphaMode::Opaque;
+        float             AlphaCutoff      = 0.5f;
+        glm::vec3         TranslucentColor = glm::vec3(0.0f);
+    };
+
     struct Material {
         VkDescriptorSet DescriptorSet;
         Buffer          UBO;
-
-        struct {
-            int32_t           DoubleSided      = 0;
-            MaterialAlphaMode AlphaMode        = MaterialAlphaMode::Opaque;
-            float             AlphaCutoff      = 0.5f;
-            glm::vec3         TranslucentColor = glm::vec3(0.0f);
-
-        } UboData;
+        MaterialUboData UboData;
     };
 
     struct Instance {
@@ -71,12 +71,12 @@ class MinimalPbrRenderer final : public IRenderer {
       public:
         Drawable(VulkanContext &ctx, const ScenePrimitive &prim,
                  const std::string &debugName);
-        ~Drawable();
+        ~Drawable() = default;
 
         Drawable(const Drawable &)            = delete;
         Drawable &operator=(const Drawable &) = delete;
-        Drawable(Drawable &&) noexcept;
-        Drawable &operator=(Drawable &&) = delete;
+        Drawable(Drawable &&)                 = default;
+        Drawable &operator=(Drawable &&)      = delete;
 
         bool EarlyBail(glm::mat4 viewProj);
         bool IsVisible(glm::mat4 viewProj, size_t instanceIdx);
@@ -94,9 +94,6 @@ class MinimalPbrRenderer final : public IRenderer {
         glm::vec2             TexBoundsExtent = glm::vec2(0.5f);
         SceneKey              MaterialKey     = 0;
         std::vector<Instance> Instances;
-
-      private:
-        VulkanContext &mCtx;
     };
 
     // Drawables correspond to mesh primitives

@@ -32,13 +32,12 @@
 
 MinimalPbrRenderer::Drawable::Drawable(VulkanContext &ctx, const ScenePrimitive &prim,
                                        const std::string &debugName)
-    : mCtx(ctx)
+    : VertexBuffer(MakeBuffer::VertexStorage(ctx, debugName, prim.Data.VertexData)),
+      VertexCount(static_cast<uint32_t>(prim.Data.VertexCount)),
+      IndexBuffer(MakeBuffer::Index(ctx, debugName, prim.Data.IndexData)),
+      IndexCount(static_cast<uint32_t>(prim.Data.IndexCount)), Bbox(prim.Data.BBox),
+      TexBoundsCenter(prim.TexCoordCenter), TexBoundsExtent(prim.TexCoordExtent)
 {
-    auto &geo = prim.Data;
-
-    VertexBuffer = MakeBuffer::VertexStorage(ctx, debugName, geo.VertexData);
-    VertexCount  = static_cast<uint32_t>(geo.VertexCount);
-
     // Retrieve vertex buffer address:
     VkBufferDeviceAddressInfo deviceAdressInfo{
         .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
@@ -47,38 +46,6 @@ MinimalPbrRenderer::Drawable::Drawable(VulkanContext &ctx, const ScenePrimitive 
     };
 
     VertexAddress = vkGetBufferDeviceAddress(ctx.Device, &deviceAdressInfo);
-
-    // Create Index buffer:
-    IndexBuffer = MakeBuffer::Index(ctx, debugName, geo.IndexData);
-    IndexCount  = static_cast<uint32_t>(geo.IndexCount);
-
-    Bbox            = prim.Data.BBox;
-    TexBoundsCenter = prim.TexCoordCenter;
-    TexBoundsExtent = prim.TexCoordExtent;
-}
-
-MinimalPbrRenderer::Drawable::~Drawable()
-{
-    vmaDestroyBuffer(mCtx.Allocator, VertexBuffer.Handle, VertexBuffer.Allocation);
-    vmaDestroyBuffer(mCtx.Allocator, IndexBuffer.Handle, IndexBuffer.Allocation);
-}
-
-// TODO: This will be redundant once buffers have proper move semantics:
-MinimalPbrRenderer::Drawable::Drawable(Drawable &&other) noexcept : mCtx(other.mCtx)
-{
-    VertexBuffer    = other.VertexBuffer;
-    VertexCount     = other.VertexCount;
-    IndexBuffer     = other.IndexBuffer;
-    IndexCount      = other.IndexCount;
-    VertexAddress   = other.VertexAddress;
-    Bbox            = other.Bbox;
-    TexBoundsCenter = other.TexBoundsCenter;
-    TexBoundsExtent = other.TexBoundsExtent;
-    MaterialKey     = other.MaterialKey;
-    Instances       = std::move(other.Instances);
-
-    other.VertexBuffer = {};
-    other.IndexBuffer  = {};
 }
 
 bool MinimalPbrRenderer::Drawable::EarlyBail(glm::mat4 viewProj)
@@ -1265,20 +1232,24 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
 {
     for (auto &[key, sceneMat] : scene.Materials)
     {
-        const bool firstLoad = mMaterials.count(key) == 0;
-        auto      &mat       = mMaterials[key];
+        const bool firstLoad = !mMaterials.contains(key);
 
         // Only allocate new descriptor set on first load:
         if (firstLoad)
         {
-            mat.DescriptorSet =
-                mMaterialDescriptorAllocator.Allocate(mMaterialDescriptorSetLayout);
-
             std::string bufName = "Material " + sceneMat.Name + "UBO";
-            mat.UBO = MakeBuffer::MappedUniform(mCtx, bufName, sizeof(mat.UboData));
 
-            mSceneDeletionQueue.push_back(mat.UBO);
+            mMaterials.try_emplace(
+                key, Material{
+                         .DescriptorSet = mMaterialDescriptorAllocator.Allocate(
+                             mMaterialDescriptorSetLayout),
+                         .UBO     = MakeBuffer::MappedUniform(mCtx, bufName,
+                                                              sizeof(MaterialUboData)),
+                         .UboData = {},
+                     });
         }
+
+        auto &mat = mMaterials.at(key);
 
         // Update the non-image parameters:
         mat.UboData.DoubleSided = sceneMat.DoubleSided;
@@ -1288,7 +1259,7 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         if (sceneMat.TranslucentColor.has_value())
             mat.UboData.TranslucentColor = *sceneMat.TranslucentColor;
 
-        Buffer::UploadToMapped(mat.UBO, &mat.UboData, sizeof(mat.UboData));
+        mat.UBO.UploadMapped(&mat.UboData, sizeof(mat.UboData));
 
         // Retrieve the textures if available:
         auto GetTexture = [&](std::optional<SceneKey> opt, Texture &def) -> Texture & {
@@ -1332,7 +1303,7 @@ void MinimalPbrRenderer::LoadMeshMaterials(const Scene &scene)
             if (mDrawables.contains(drawableKey))
             {
                 auto  matKey = *prim.Material;
-                auto &mat    = mMaterials[matKey];
+                auto &mat    = mMaterials.at(matKey);
 
                 auto &drawable = mDrawables.at(drawableKey);
 

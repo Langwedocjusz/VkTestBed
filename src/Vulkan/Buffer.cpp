@@ -7,52 +7,57 @@
 
 #include <cstring>
 
-Buffer Buffer::Create(VulkanContext &ctx, const std::string &debugName, VkDeviceSize size,
-                      VkBufferUsageFlags usage, VmaAllocationCreateFlags flags)
+Buffer::Buffer(VulkanContext &ctx, const BufferInfo &info) : Size(info.Size), mCtx(ctx)
 {
-    Buffer buf{};
-    buf.Size = size;
-
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size  = size;
-    bufferInfo.usage = usage;
+    bufferInfo.size  = info.Size;
+    bufferInfo.usage = info.Usage;
     // Hardcoded for now:
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage                   = VMA_MEMORY_USAGE_AUTO;
-    allocCreateInfo.flags                   = flags;
+    allocCreateInfo.flags                   = info.Flags;
 
-    vmaCreateBuffer(ctx.Allocator, &bufferInfo, &allocCreateInfo, &buf.Handle,
-                    &buf.Allocation, &buf.AllocInfo);
+    vmaCreateBuffer(ctx.Allocator, &bufferInfo, &allocCreateInfo, &Handle, &Allocation,
+                    &AllocInfo);
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_BUFFER, buf.Handle, debugName);
-
-    return buf;
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_BUFFER, Handle, info.Name);
 }
 
-void Buffer::Destroy(VulkanContext &ctx, Buffer &buf)
+Buffer::~Buffer()
 {
-    vmaDestroyBuffer(ctx.Allocator, buf.Handle, buf.Allocation);
+    vmaDestroyBuffer(mCtx.Allocator, Handle, Allocation);
 }
 
-void Buffer::Upload(VulkanContext &ctx, Buffer buff, const void *data, VkDeviceSize size)
+Buffer::Buffer(Buffer &&other) noexcept
+    : Handle(other.Handle), Size(other.Size), Allocation(other.Allocation),
+      AllocInfo(other.AllocInfo), mCtx(other.mCtx)
 {
-    vmaCopyMemoryToAllocation(ctx.Allocator, data, buff.Allocation, 0, size);
+    other.Handle     = {};
+    other.Size       = {};
+    other.Allocation = {};
+    other.AllocInfo  = {};
 }
 
-void Buffer::UploadToMapped(Buffer buff, const void *data, VkDeviceSize size)
+void Buffer::Upload(const void *data, VkDeviceSize size)
 {
-    std::memcpy(buff.AllocInfo.pMappedData, data, size);
+    vmaCopyMemoryToAllocation(mCtx.Allocator, data, Allocation, 0, size);
 }
 
-void Buffer::CopyBuffer(VkCommandBuffer cmd, Buffer::CopyInfo info)
+void Buffer::UploadMapped(const void *data, VkDeviceSize size)
+{
+    std::memcpy(AllocInfo.pMappedData, data, size);
+}
+
+void Buffer::CopyContents(VkCommandBuffer cmd, const Buffer &src, Buffer &dst,
+                          size_t size)
 {
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0;
     copyRegion.dstOffset = 0;
-    copyRegion.size      = info.Size;
+    copyRegion.size      = size;
 
-    vkCmdCopyBuffer(cmd, info.Src, info.Dst, 1, &copyRegion);
+    vkCmdCopyBuffer(cmd, src.Handle, dst.Handle, 1, &copyRegion);
 }

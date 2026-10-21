@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Barrier.h"
+#include "Buffer.h"
 #include "Camera.h"
 #include "Common.h"
 #include "DeletionQueue.h"
@@ -164,8 +165,8 @@ class ShadowmapHandler {
         .IndexType    = VK_INDEX_TYPE_UINT16,
     };
 
-    Buffer mDebugFrustumVertexBuffer;
-    Buffer mDebugFrustumIndexBuffer;
+    std::optional<Buffer> mDebugFrustumVertexBuffer;
+    std::optional<Buffer> mDebugFrustumIndexBuffer;
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "DeletionQueue.h"
 #include "ImageData.h"
 #include "VulkanContext.h"
 
@@ -29,7 +28,7 @@ struct Image2DInfo {
 // depth-only view of a depth-stencil resource
 // you then need to override it.
 struct View2DInfo {
-    Image                            &Img;
+    std::string                       Name;
     std::optional<uint32_t>           SelectLevel    = std::nullopt;
     std::optional<uint32_t>           SelectLayer    = std::nullopt;
     std::optional<VkFormat>           FormatOverride = std::nullopt;
@@ -38,65 +37,65 @@ struct View2DInfo {
 
 class Image {
 public:
-    Image(VulkanContext &ctx, const Image2DInfo &info);
     ~Image();
     Image(const Image&) = delete;
     Image& operator=(const Image&) = delete;
     Image(Image &&) noexcept;
-    Image& operator=(Image&&) = delete;
+    Image& operator=(Image&&) noexcept;
 
-  public:
-    //static Image Create(VulkanContext &ctx, const std::string &debugName,
-    //                    VkImageCreateInfo &info);
-    //static void  Destroy(VulkanContext &ctx, Image &img);
-
+    // Factory functions:
     static Image Make2D(VulkanContext &ctx, const Image2DInfo &info);
     static Image Make2DArray(VulkanContext &ctx, const Image2DInfo &info,
                              uint32_t numLayers);
     static Image MakeCube(VulkanContext &ctx, const Image2DInfo &info);
     static Image FromData(VulkanContext &ctx, const std::string &debugName,
-                          const ImageData &data);
+                          const ImageData &data);    
 
-    static VkImageView CreateView(VulkanContext &ctx, const std::string &debugName,
-                                  VkImageViewCreateInfo &info);
-
-    static VkImageView MakeView2D(VulkanContext &ctx, const std::string &debugName,
-                                  View2DInfo info);
-    static VkImageView MakeView2DArray(VulkanContext &ctx, const std::string &debugName,
-                                       View2DInfo info);
-    static VkImageView MakeViewCube(VulkanContext &ctx, const std::string &debugName,
-                                    View2DInfo info);
+    // Member functions:
+    VkImageView MakeView(const View2DInfo &info);
 
     struct UploadInfo {
         const void             *Data;
         VkDeviceSize            Size;
         VkImageLayout           DstLayout;
-        bool                    AllMips = false;
         std::span<const size_t> MipOffsets;
     };
 
-    static void UploadToImage(VulkanContext &ctx, Image &img, UploadInfo info);
+    // Only works for Single2D Images atm:
+    void UploadData(const UploadInfo &info);
+    void GenerateMips();
+    [[nodiscard]] VkImageSubresourceRange GetDefaultRange() const;
 
+    // Static helpers:
     static uint32_t MipCount(uint32_t size);
     static uint32_t MipCount(uint32_t width, uint32_t height);
-
-    static void GenerateMips(VulkanContext &ctx, Image &img);
-
-    static VkImageSubresourceRange GetDefaultRange(const Image &img);
 
 public:
     VkImage           Handle;
     VkImageCreateInfo Info;
     VmaAllocation     Allocation;
+    std::string       DebugName;
 
 private:
+    enum class InternalType : uint8_t {
+        None, Single2D, Array2D, Cube
+    };
+
+    Image(VulkanContext &ctx, const Image2DInfo &info, uint32_t numLayers, VkImageCreateFlags flags, InternalType type);
+
     VulkanContext &mCtx;
+    InternalType   mType;
 };
 
-struct Texture {
-    Image       Img;
-    VkImageView View;
+class Texture {
+public:
+    ~Texture();
+    Texture(const Texture&) = delete;
+    Texture& operator=(const Texture&) = delete;
+    Texture(Texture &&) noexcept;
+    Texture& operator=(Texture&&) noexcept;
 
+    // Factory functions:
     static Texture Make2D(VulkanContext &ctx, const Image2DInfo &info);
     static Texture Make2DArray(VulkanContext &ctx, const Image2DInfo &info,
                                uint32_t numLayers);
@@ -104,15 +103,12 @@ struct Texture {
     static Texture FromData(VulkanContext &ctx, const std::string &debugName,
                             const ImageData &data);
 
-    // Overloads that automatically push created resources to a given
-    // deletion queue:
+private:
+    Texture(VulkanContext &ctx, Image &&img);
 
-    static Texture Make2D(VulkanContext &ctx, const Image2DInfo &info,
-                          DeletionQueue &queue);
-    static Texture Make2DArray(VulkanContext &ctx, const Image2DInfo &info,
-                               uint32_t numLayers, DeletionQueue &queue);
-    static Texture MakeCube(VulkanContext &ctx, const Image2DInfo &info,
-                            DeletionQueue &queue);
-    static Texture FromData(VulkanContext &ctx, const std::string &debugName,
-                            const ImageData &data, DeletionQueue &queue);
+public:
+    Image       Img;
+    VkImageView View;
+private:
+    VulkanContext &mCtx;
 };

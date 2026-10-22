@@ -116,9 +116,9 @@ class EnvironmentHandler {
     uint32_t mFirstBufferLen = 0;
 
     // Cubemap background texture:
-    Texture mCubemap;
-    Texture mPrefiltered;
-    Texture mIntegration;
+    std::optional<Texture> mCubemap;
+    std::optional<Texture> mPrefiltered;
+    std::optional<Texture> mIntegration;
 
     std::vector<VkImageView> mPrefilteredMipViews;
 

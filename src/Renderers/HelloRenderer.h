@@ -19,7 +19,7 @@ class HelloRenderer final : public IRenderer {
     void   TargetToTransfer(VkCommandBuffer cmd) override;
     Image &GetTargetImage() override
     {
-        return mRenderTarget.Img;
+        return mRenderTarget->Img;
     };
 
     void RecreateSwapchainResources() override;
@@ -35,7 +35,7 @@ class HelloRenderer final : public IRenderer {
     const float    mInternalResolutionScale = 1.0f;
     const VkFormat mRenderTargetFormat      = VK_FORMAT_R8G8B8A8_SRGB;
 
-    Texture mRenderTarget;
+    std::optional<Texture> mRenderTarget;
 
     GraphicsPipeline mGraphicsPipeline;
 

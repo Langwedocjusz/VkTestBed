@@ -93,7 +93,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mBloomTarget = Texture::Make2D(mCtx, info, mSwapchainDeletionQueue);
+        mBloomTarget = Texture::Make2D(mCtx, info);
     }
 
     // Create single mip-level views for the bloom target:
@@ -102,10 +102,10 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
 
         for (uint32_t mip = 0; mip < mBloomNumMips; mip++)
         {
-            auto viewName = std::string("BloomSingleMipView") + std::to_string(mip);
-
-            auto view = Image::MakeView2D(mCtx, viewName.c_str(),
-                                          {.Img = mBloomTarget.Img, .SelectLevel = mip});
+            auto view = mBloomTarget->Img.MakeView({
+                .Name        = "BloomSingleMipView" + std::to_string(mip),
+                .SelectLevel = mip,
+            });
 
             mBloomSingleMipViews[mip] = view;
             mSwapchainDeletionQueue.push_back(view);
@@ -123,7 +123,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mFinalTarget = Texture::Make2D(mCtx, info, mSwapchainDeletionQueue);
+        mFinalTarget = Texture::Make2D(mCtx, info);
     }
 
     // Update the descriptor sets:
@@ -139,7 +139,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
 
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto barrierFinal = barrier::LayoutTransitionInfo{
-            .Image     = mBloomTarget.Img,
+            .Image     = mBloomTarget->Img,
             .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
             .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
@@ -147,7 +147,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
     });
 
     DescriptorUpdater(mFinalDescriptorSet)
-        .WriteStorageImage(0, mFinalTarget.View)
+        .WriteStorageImage(0, mFinalTarget->View)
         .WriteCombinedSampler(1, renderTargetView, mBloomSampler)
         .WriteCombinedSampler(2, mBloomSingleMipViews[0], mBloomSampler)
         .Update(mCtx);
@@ -155,7 +155,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
     // Transition final target to correct layout:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         auto barrierFinal = barrier::LayoutTransitionInfo{
-            .Image     = mFinalTarget.Img,
+            .Image     = mFinalTarget->Img,
             .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
             .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         };
@@ -169,8 +169,8 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
     {
         resolutions.resize(mBloomNumMips);
 
-        uint32_t resX = mBloomTarget.Img.Info.extent.width;
-        uint32_t resY = mBloomTarget.Img.Info.extent.height;
+        uint32_t resX = mBloomTarget->Img.Info.extent.width;
+        uint32_t resY = mBloomTarget->Img.Info.extent.height;
 
         for (size_t mip = 0; mip < mBloomNumMips; mip++)
         {
@@ -184,7 +184,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
 
     if (mBloomEnabled)
     {
-        barrier::TextureCompToGeneral(cmd, mBloomTarget.Img);
+        barrier::TextureCompToGeneral(cmd, mBloomTarget->Img);
 
         // Downsampling passes:
         mBloomDownscalePipeline.Bind(cmd);
@@ -194,11 +194,11 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         {
             if (mip > 0)
             {
-                auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
+                auto srcRange         = mBloomTarget->Img.GetDefaultRange();
                 srcRange.baseMipLevel = mip - 1;
                 srcRange.levelCount   = 1;
 
-                barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
+                barrier::TextureGeneralToGeneral(cmd, mBloomTarget->Img, srcRange);
             }
 
             struct PCData {
@@ -220,13 +220,13 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
 
         for (uint32_t mip = mBloomNumMips - 2; mip != uint32_t(-1); mip--)
         {
-            auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
+            auto srcRange         = mBloomTarget->Img.GetDefaultRange();
             srcRange.baseMipLevel = mip + 1;
             srcRange.levelCount   = 1;
 
-            barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
+            barrier::TextureGeneralToGeneral(cmd, mBloomTarget->Img, srcRange);
 
-            auto dstRange         = Image::GetDefaultRange(mBloomTarget.Img);
+            auto dstRange         = mBloomTarget->Img.GetDefaultRange();
             dstRange.baseMipLevel = mip;
             dstRange.levelCount   = 1;
 
@@ -243,12 +243,12 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
             mBloomUpscalePipeline.Dispatch(cmd, res.x, res.y);
         }
 
-        barrier::TextureCompToSample(cmd, mBloomTarget.Img);
+        barrier::TextureCompToSample(cmd, mBloomTarget->Img);
     }
 
     // Final composition pass:
     {
-        barrier::TransferSrcToGeneral(cmd, mFinalTarget.Img.Handle);
+        barrier::TransferSrcToGeneral(cmd, mFinalTarget->Img.Handle);
 
         mFinalPipeline.Bind(cmd);
         mFinalPipeline.BindDescriptorSet(cmd, mFinalDescriptorSet, 0);
@@ -271,5 +271,5 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         mFinalPipeline.Dispatch(cmd, res.x, res.y);
     }
 
-    barrier::GeneralToTransferSrc(cmd, mFinalTarget.Img.Handle);
+    barrier::GeneralToTransferSrc(cmd, mFinalTarget->Img.Handle);
 }

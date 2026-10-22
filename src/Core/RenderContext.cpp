@@ -67,7 +67,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
             .Usage  = TransferSrc | ColorAttachment,
             .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         };
-        mPicking.Target = Texture::Make2D(mCtx, renderTargetInfo, mMainDeletionQueue);
+        mPicking.Target = Texture::Make2D(mCtx, renderTargetInfo);
 
         Image2DInfo depthBufferInfo{
             .Name   = "PickingDepthBuffer",
@@ -76,7 +76,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
             .Usage  = DepthStencilAttachment,
             .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
         };
-        mPicking.Depth = Texture::Make2D(mCtx, depthBufferInfo, mMainDeletionQueue);
+        mPicking.Depth = Texture::Make2D(mCtx, depthBufferInfo);
     }
 
     // Setup readback buffer for object picking:
@@ -407,7 +407,7 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     mCtx.ImmediateSubmitGraphics([&, x, y](VkCommandBuffer cmd) {
         // Transitions layout to render (can discard contents):
         auto info = barrier::LayoutTransitionInfo{
-            .Image     = mPicking.Target.Img,
+            .Image     = mPicking.Target->Img,
             .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         };
@@ -416,8 +416,8 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         // Draw objects:
         auto renderInfo = common::RenderingInfo{
             .Extent          = VkExtent2D{1, 1},
-            .Color           = mPicking.Target.View,
-            .Depth           = mPicking.Depth.View,
+            .Color           = mPicking.Target->View,
+            .Depth           = mPicking.Depth->View,
             .DepthHasStencil = false,
         };
         common::BeginRendering(cmd, renderInfo);
@@ -435,14 +435,14 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         region.bufferRowLength   = 0;
         region.bufferImageHeight = 0;
         region.imageOffset       = {0, 0, 0};
-        region.imageExtent       = mPicking.Target.Img.Info.extent;
+        region.imageExtent       = mPicking.Target->Img.Info.extent;
 
         region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.mipLevel       = 0;
         region.imageSubresource.baseArrayLayer = 0;
         region.imageSubresource.layerCount     = 1;
 
-        vkCmdCopyImageToBuffer(cmd, mPicking.Target.Img.Handle,
+        vkCmdCopyImageToBuffer(cmd, mPicking.Target->Img.Handle,
                                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                mPicking.ReadbackBuffer->Handle, 1, &region);
     });

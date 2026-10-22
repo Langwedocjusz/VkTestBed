@@ -19,7 +19,7 @@ class PostProcessor {
 
     Image &GetTargetImage()
     {
-        return mFinalTarget.Img;
+        return mFinalTarget->Img;
     }
 
   private:
@@ -28,7 +28,7 @@ class PostProcessor {
     // Using UNORM, since my driver didn't support image with
     // rgba8_srgb | transfer_src | storage image:
     static constexpr VkFormat FinalFormat = VK_FORMAT_R8G8B8A8_UNORM;
-    Texture                   mFinalTarget;
+    std::optional<Texture>    mFinalTarget;
 
     bool  mBloomEnabled  = true;
     float mBloomStrength = 0.1f;
@@ -42,7 +42,7 @@ class PostProcessor {
     ComputePipeline mFinalPipeline;
 
     VkSampler                mBloomSampler;
-    Texture                  mBloomTarget;
+    std::optional<Texture>   mBloomTarget;
     std::vector<VkImageView> mBloomSingleMipViews;
 
     VkDescriptorSetLayout mBloomDescriptorSetLayout;

@@ -82,7 +82,7 @@ class ShadowmapHandler {
     // Retrieve data needed to access the shadow maps:
     [[nodiscard]] std::pair<VkImageView, VkSampler> GetViewAndSampler() const
     {
-        return {mShadowmap.View, mSampler};
+        return {mShadowmap->View, mSampler};
     }
 
     // Retrieve other data nedeed when using the shadow maps:
@@ -132,8 +132,8 @@ class ShadowmapHandler {
     GraphicsPipeline mAlphaPipeline;
 
     // Main (multi layer) shadowmap texture and corresponding sampler:
-    Texture   mShadowmap;
-    VkSampler mSampler;
+    std::optional<Texture>   mShadowmap;
+    VkSampler                mSampler;
 
     // Single layer views for rendering subsequent cascades:
     std::array<VkImageView, NumCascades> mCascadeViews;
@@ -177,7 +177,7 @@ template <typename OpaqueFn, typename AlphaFn>
 void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque,
                                       AlphaFn drawAlpha)
 {
-    barrier::DepthToRender(cmd, mShadowmap.Img, NumCascades);
+    barrier::DepthToRender(cmd, mShadowmap->Img, NumCascades);
 
     // TODO: for now we are just issuing render commands 3 times - for each cascade.
     // This can be optimized to one render pass, for example with usage of the
@@ -206,5 +206,5 @@ void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque,
         vkCmdEndRendering(cmd);
     }
 
-    barrier::DepthToSampledFrag(cmd, mShadowmap.Img, NumCascades);
+    barrier::DepthToSampledFrag(cmd, mShadowmap->Img, NumCascades);
 }

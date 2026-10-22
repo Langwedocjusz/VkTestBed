@@ -333,7 +333,7 @@ void barrier::TextureFragToGeneral(VkCommandBuffer cmd, Image &image,
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
-        barrier.subresourceRange = Image::GetDefaultRange(image);
+        barrier.subresourceRange = image.GetDefaultRange();
 
     ImageBarrier(cmd, barrier);
 }
@@ -358,7 +358,7 @@ void barrier::TextureFragToGeneralRetained(VkCommandBuffer cmd, Image &image,
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
-        barrier.subresourceRange = Image::GetDefaultRange(image);
+        barrier.subresourceRange = image.GetDefaultRange();
 
     ImageBarrier(cmd, barrier);
 }
@@ -383,7 +383,7 @@ void barrier::TextureFragToSample(VkCommandBuffer cmd, Image &image,
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
-        barrier.subresourceRange = Image::GetDefaultRange(image);
+        barrier.subresourceRange = image.GetDefaultRange();
 
     ImageBarrier(cmd, barrier);
 }
@@ -408,7 +408,7 @@ void barrier::TextureCompToGeneral(VkCommandBuffer cmd, Image &image,
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
-        barrier.subresourceRange = Image::GetDefaultRange(image);
+        barrier.subresourceRange = image.GetDefaultRange();
 
     ImageBarrier(cmd, barrier);
 }
@@ -433,7 +433,7 @@ void barrier::TextureCompToGeneralRetained(VkCommandBuffer cmd, Image &image,
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
-        barrier.subresourceRange = Image::GetDefaultRange(image);
+        barrier.subresourceRange = image.GetDefaultRange();
 
     ImageBarrier(cmd, barrier);
 }
@@ -458,7 +458,7 @@ void barrier::TextureCompToSample(VkCommandBuffer cmd, Image &image,
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
-        barrier.subresourceRange = Image::GetDefaultRange(image);
+        barrier.subresourceRange = image.GetDefaultRange();
 
     ImageBarrier(cmd, barrier);
 }
@@ -483,7 +483,7 @@ void barrier::TextureGeneralToGeneral(VkCommandBuffer cmd, Image &image,
     if (range.has_value())
         barrier.subresourceRange = *range;
     else
-        barrier.subresourceRange = Image::GetDefaultRange(image);
+        barrier.subresourceRange = image.GetDefaultRange();
 
     ImageBarrier(cmd, barrier);
 }
@@ -548,7 +548,7 @@ void barrier::ImageLayoutCoarse(VkCommandBuffer cmd, LayoutTransitionInfo info)
     else
     {
         // By default assume all image layers/levels are to be transitioned:
-        barrier.subresourceRange = Image::GetDefaultRange(info.Image);
+        barrier.subresourceRange = info.Image.GetDefaultRange();
     }
 
     // Suboptimal barrier usage - block everything:

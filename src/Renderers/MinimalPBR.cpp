@@ -130,10 +130,6 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     mDefaultRoughness = Texture::FromData(mCtx, "DefaultRoughness", roughnessData);
     mDefaultNormal    = Texture::FromData(mCtx, "DefaultNormal", normalData);
 
-    mMainDeletionQueue.push_back(mDefaultAlbedo);
-    mMainDeletionQueue.push_back(mDefaultRoughness);
-    mMainDeletionQueue.push_back(mDefaultNormal);
-
     // Build the descriptor sets for the dynamic uniform buffer:
     {
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -197,8 +193,7 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
 MinimalPbrRenderer::~MinimalPbrRenderer()
 {
-    for (auto &[_, tex] : mTextures)
-        DestroyTexture(tex);
+
 }
 
 VkCompareOp MinimalPbrRenderer::GetMainCompareOp() const
@@ -383,7 +378,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
-        mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
+        mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo);
 
         // If multisampling used, create intermediate buffer, before resolve:
         if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
@@ -393,7 +388,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             renderTargetInfo.Layout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
             mRenderTargetMsaa =
-                Texture::Make2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
+                Texture::Make2D(mCtx, renderTargetInfo);
         }
     }
 
@@ -407,32 +402,32 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         };
         mDepthStencilBuffer =
-            Texture::Make2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
+            Texture::Make2D(mCtx, depthBufferInfo);
 
         // Create depth-only view (without stencil) for the depth buffer:
-        mDepthOnlyView = Image::MakeView2D(mCtx, "DepthOnlyView",
-                                           {.Img            = mDepthStencilBuffer.Img,
-                                            .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT});
-        mSwapchainDeletionQueue.push_back(mDepthOnlyView);
+        mDepthOnlyView = mDepthStencilBuffer->Img.MakeView({
+            .Name           = "DepthOnlyView", 
+            .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT,
+        });
 
         // If multisampling used, create intermediate buffer, before resolve:
         if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
         {
             depthBufferInfo.Name          = "DepthBufferMSAA";
             depthBufferInfo.Multisampling = mMultisample;
-            depthBufferInfo.Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            depthBufferInfo.Layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 
             mDepthStencilMsaa =
-                Texture::Make2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
+                Texture::Make2D(mCtx, depthBufferInfo);
         }
     }
 
     // (Re)Create AO related resources:
-    mAOHandler->RecreateSwapchainResources(mDepthStencilBuffer.Img, mDepthOnlyView,
+    mAOHandler->RecreateSwapchainResources(mDepthStencilBuffer->Img, mDepthOnlyView,
                                            drawExtent);
 
     // (Re)Create postfx related resources:
-    mPostProcessor->RecreateSwapchainResources(mRenderTarget.Img, mRenderTarget.View);
+    mPostProcessor->RecreateSwapchainResources(mRenderTarget->Img, mRenderTarget->View);
 
     // Update auxiliary descriptor set:
     {
@@ -463,8 +458,8 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
     }
 
     glm::vec2 drawExtent{
-        mRenderTarget.Img.Info.extent.width,
-        mRenderTarget.Img.Info.extent.height,
+        mRenderTarget->Img.Info.extent.width,
+        mRenderTarget->Img.Info.extent.height,
     };
 
     // Update light/camera uniform buffer data:
@@ -579,13 +574,13 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
         {
             bool msaa = (mMultisample != VK_SAMPLE_COUNT_1_BIT);
 
-            barrier::Depth2ToSampledComp(cmd, mDepthStencilBuffer.Img, msaa);
+            barrier::Depth2ToSampledComp(cmd, mDepthStencilBuffer->Img, msaa);
             mAOHandler->RunAOPass(cmd);
-            barrier::Depth2ToRenderAfterComp(cmd, mDepthStencilBuffer.Img, msaa);
+            barrier::Depth2ToRenderAfterComp(cmd, mDepthStencilBuffer->Img, msaa);
         }
     }
 
-    barrier::SampledToColor(cmd, mRenderTarget.Img.Handle);
+    barrier::SampledToColor(cmd, mRenderTarget->Img.Handle);
     MainPass(cmd, stats);
 
     // TODO: This should be moved after postfx
@@ -593,7 +588,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
     if (highlightedObj.has_value())
         OutlinePass(cmd, *highlightedObj);
 
-    barrier::ColorToSampledComp(cmd, mRenderTarget.Img.Handle);
+    barrier::ColorToSampledComp(cmd, mRenderTarget->Img.Handle);
     mPostProcessor->RunPostProcessPass(cmd);
 
     mFrame.Stats.NumTriangles = stats.NumIdx / 3;
@@ -751,14 +746,14 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
 {
     auto renderInfo = common::RenderingInfo{
         .Extent          = GetTargetSize(),
-        .Depth           = mDepthStencilBuffer.View,
+        .Depth           = mDepthStencilBuffer->View,
         .DepthHasStencil = true,
     };
 
     if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
     {
         renderInfo.Depth        = mDepthStencilMsaa->View;
-        renderInfo.DepthResolve = mDepthStencilBuffer.View;
+        renderInfo.DepthResolve = mDepthStencilBuffer->View;
     }
 
     common::BeginRendering(cmd, renderInfo);
@@ -834,8 +829,8 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
 {
     auto renderInfo = common::RenderingInfo{
         .Extent          = GetTargetSize(),
-        .Color           = mRenderTarget.View,
-        .Depth           = mDepthStencilBuffer.View,
+        .Color           = mRenderTarget->View,
+        .Depth           = mDepthStencilBuffer->View,
         .DepthHasStencil = true,
     };
 
@@ -846,8 +841,8 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     {
         renderInfo.Color        = mRenderTargetMsaa->View;
         renderInfo.Depth        = mDepthStencilMsaa->View;
-        renderInfo.ColorResolve = mRenderTarget.View;
-        renderInfo.DepthResolve = mDepthStencilBuffer.View;
+        renderInfo.ColorResolve = mRenderTarget->View;
+        renderInfo.DepthResolve = mDepthStencilBuffer->View;
     }
 
     common::BeginRendering(cmd, renderInfo);
@@ -957,7 +952,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
     {
         auto renderInfo = common::RenderingInfo{
             .Extent          = GetTargetSize(),
-            .Depth           = mDepthStencilBuffer.View,
+            .Depth           = mDepthStencilBuffer->View,
             .DepthHasStencil = true,
             .ClearDepth      = std::nullopt,
         };
@@ -965,7 +960,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
         if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
         {
             renderInfo.Depth        = mDepthStencilMsaa->View;
-            renderInfo.DepthResolve = mDepthStencilBuffer.View;
+            renderInfo.DepthResolve = mDepthStencilBuffer->View;
         }
 
         common::BeginRendering(cmd, renderInfo);
@@ -1011,8 +1006,8 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
     {
         auto renderInfo = common::RenderingInfo{
             .Extent          = GetTargetSize(),
-            .Color           = mRenderTarget.View,
-            .Depth           = mDepthStencilBuffer.View,
+            .Color           = mRenderTarget->View,
+            .Depth           = mDepthStencilBuffer->View,
             .DepthHasStencil = true,
             .ClearColor      = std::nullopt,
             .ClearDepth      = std::nullopt,
@@ -1022,8 +1017,8 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
         {
             renderInfo.Color        = mRenderTargetMsaa->View;
             renderInfo.Depth        = mDepthStencilMsaa->View;
-            renderInfo.ColorResolve = mRenderTarget.View;
-            renderInfo.DepthResolve = mDepthStencilBuffer.View;
+            renderInfo.ColorResolve = mRenderTarget->View;
+            renderInfo.DepthResolve = mDepthStencilBuffer->View;
         }
 
         common::BeginRendering(cmd, renderInfo);
@@ -1069,8 +1064,8 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
 void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
 {
     // Calculate camera matrix:
-    float pixel_dx = 1.0f / static_cast<float>(mRenderTarget.Img.Info.extent.width);
-    float pixel_dy = 1.0f / static_cast<float>(mRenderTarget.Img.Info.extent.height);
+    float pixel_dx = 1.0f / static_cast<float>(mRenderTarget->Img.Info.extent.width);
+    float pixel_dy = 1.0f / static_cast<float>(mRenderTarget->Img.Info.extent.height);
 
     float xmin = x * pixel_dx * mInternalResolutionScale;
     float ymin = y * pixel_dy * mInternalResolutionScale;
@@ -1195,19 +1190,12 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
 {
     for (auto &[key, imgData] : scene.Images)
     {
-        const bool alreadyLoaded = mTextures.count(key) != 0;
+        const bool alreadyLoaded = mTextures.contains(key);
 
         if (alreadyLoaded && imgData.IsUpToDate)
             continue;
 
-        auto &texture = mTextures[key];
-
-        if (alreadyLoaded)
-        {
-            DestroyTexture(texture);
-        }
-
-        texture            = Texture::FromData(mCtx, "MaterialTexture", imgData);
+        mTextures.insert_or_assign(key, Texture::FromData(mCtx, "MaterialTexture", imgData));
         imgData.IsUpToDate = true;
     }
 
@@ -1264,16 +1252,16 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         auto GetTexture = [&](std::optional<SceneKey> opt, Texture &def) -> Texture & {
             if (opt.has_value())
             {
-                if (mTextures.count(*opt) != 0)
-                    return mTextures[*opt];
+                if (mTextures.contains(*opt))
+                    return mTextures.at(*opt);
             }
 
             return def;
         };
 
-        auto &albedo    = GetTexture(sceneMat.Albedo, mDefaultAlbedo);
-        auto &roughness = GetTexture(sceneMat.Roughness, mDefaultRoughness);
-        auto &normal    = GetTexture(sceneMat.Normal, mDefaultNormal);
+        auto &albedo    = GetTexture(sceneMat.Albedo, *mDefaultAlbedo);
+        auto &roughness = GetTexture(sceneMat.Roughness, *mDefaultRoughness);
+        auto &normal    = GetTexture(sceneMat.Normal, *mDefaultNormal);
 
         // Update the descriptor set:
         DescriptorUpdater(mat.DescriptorSet)

@@ -14,7 +14,6 @@
 #include "ShadowmapHandler.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
-#include <X11/X.h>
 
 class MinimalPbrRenderer final : public IRenderer {
   public:
@@ -145,8 +144,9 @@ class MinimalPbrRenderer final : public IRenderer {
     std::optional<Texture> mRenderTargetMsaa;
     std::optional<Texture> mDepthStencilMsaa;
 
-    Texture     mRenderTarget;
-    Texture     mDepthStencilBuffer;
+    std::optional<Texture> mRenderTarget;
+    std::optional<Texture> mDepthStencilBuffer;
+    
     VkImageView mDepthOnlyView;
 
     // Supported geometry specification:
@@ -211,9 +211,9 @@ class MinimalPbrRenderer final : public IRenderer {
     VkSampler mMaterialSampler;
 
     // Default material textures:
-    Texture mDefaultAlbedo;
-    Texture mDefaultRoughness;
-    Texture mDefaultNormal;
+    std::optional<Texture> mDefaultAlbedo;
+    std::optional<Texture> mDefaultRoughness;
+    std::optional<Texture> mDefaultNormal;
 
     // Containers into which scene resources are loaded:
     std::map<SceneKey, Texture>     mTextures;

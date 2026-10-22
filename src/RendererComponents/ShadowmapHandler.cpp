@@ -55,14 +55,15 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         };
 
         mShadowmap =
-            Texture::Make2DArray(mCtx, shadowmapInfo, NumCascades, mMainDeletionQueue);
+            Texture::Make2DArray(mCtx, shadowmapInfo, NumCascades);
 
         // Create per-layer views for rendering into cascades:
         for (uint32_t i = 0; i < NumCascades; i++)
         {
-            std::string name = "ShadowmapView" + std::to_string(i);
-            auto view = Image::MakeView2DArray(mCtx, name,
-                                               {.Img = mShadowmap.Img, .SelectLayer = i});
+            auto view = mShadowmap->Img.MakeView({
+                .Name        = "ShadowmapView" + std::to_string(i),
+                .SelectLayer = i,
+            });
 
             mCascadeViews[i] = view;
             mMainDeletionQueue.push_back(view);
@@ -413,8 +414,8 @@ void ShadowmapHandler::OnImGui()
 
 VkExtent2D ShadowmapHandler::GetExtent() const
 {
-    auto width  = mShadowmap.Img.Info.extent.width;
-    auto height = mShadowmap.Img.Info.extent.height;
+    auto width  = mShadowmap->Img.Info.extent.width;
+    auto height = mShadowmap->Img.Info.extent.height;
 
     return VkExtent2D{width, height};
 }

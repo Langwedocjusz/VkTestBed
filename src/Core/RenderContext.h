@@ -50,10 +50,9 @@ class RenderContext {
 
     // Object picking related data:
     struct {
-        Texture Target;
-        Texture Depth;
-
-        std::optional<Buffer> ReadbackBuffer;
+        std::optional<Texture> Target;
+        std::optional<Texture> Depth;
+        std::optional<Buffer>  ReadbackBuffer;
     } mPicking;
 
     bool                      mShowStats = false;

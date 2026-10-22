@@ -131,16 +131,18 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mZBuffer = Texture::Make2D(mCtx, zBufferInfo, mSwapchainDeletionQueue);
+        mZBuffer = Texture::Make2D(mCtx, zBufferInfo);
 
         // Create single-mip views into Z-buffer:
         for (uint32_t mip = 0; mip < ZBufferMips; mip++)
         {
-            auto view = Image::MakeView2D(mCtx, "AOZBufferSingleMipView",
-                                          {.Img = mZBuffer.Img, .SelectLevel = mip});
-            mSwapchainDeletionQueue.push_back(view);
-
+            auto view = mZBuffer->Img.MakeView({
+                .Name        = "AOZBufferSingleMipView",
+                .SelectLevel = mip,
+            });
+        
             mZSingleLevelViews[mip] = view;
+            mSwapchainDeletionQueue.push_back(view);
         }
 
         Image2DInfo aoTargetInfo{
@@ -151,7 +153,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mAOTarget = Texture::Make2D(mCtx, aoTargetInfo, mSwapchainDeletionQueue);
+        mAOTarget = Texture::Make2D(mCtx, aoTargetInfo);
 
         Image2DInfo bilateralInfo{
             .Name   = "AOBilateralTarget",
@@ -161,7 +163,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mBilateralTarget = Texture::Make2D(mCtx, bilateralInfo, mSwapchainDeletionQueue);
+        mBilateralTarget = Texture::Make2D(mCtx, bilateralInfo);
     }
 
     // Update Z buffer descriptor set:
@@ -179,7 +181,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
 
         // Do the update:
         DescriptorUpdater(mZGenDescriptorSet)
-            .WriteStorageImage(0, mZBuffer.View)
+            .WriteStorageImage(0, mZBuffer->View)
             .WriteCombinedSampler(1, depthOnlyView, mSampler)
             .Update(mCtx);
 
@@ -190,7 +192,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         // Transition z-buffer and depth buffer to correct layouts:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             auto barrierInfoZ = barrier::LayoutTransitionInfo{
-                .Image     = mZBuffer.Img,
+                .Image     = mZBuffer->Img,
                 .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             };
@@ -208,14 +210,14 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
     // Update AO descriptor set:
     {
         DescriptorUpdater(mAOGenDescriptorSet)
-            .WriteStorageImage(0, mAOTarget.View)
-            .WriteCombinedSampler(1, mZBuffer.View, mSampler)
+            .WriteStorageImage(0, mAOTarget->View)
+            .WriteCombinedSampler(1, mZBuffer->View, mSampler)
             .Update(mCtx);
 
         // Transition ao target for sampling:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             auto barrierInfoAO = barrier::LayoutTransitionInfo{
-                .Image     = mAOTarget.Img,
+                .Image     = mAOTarget->Img,
                 .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             };
@@ -226,15 +228,15 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
     // Update Bilateral descriptor set:
     {
         DescriptorUpdater(mBilateralDescriptorSet)
-            .WriteStorageImage(0, mBilateralTarget.View)
-            .WriteCombinedSampler(1, mAOTarget.View, mSampler)
-            .WriteCombinedSampler(2, mZBuffer.View, mSampler)
+            .WriteStorageImage(0, mBilateralTarget->View)
+            .WriteCombinedSampler(1, mAOTarget->View, mSampler)
+            .WriteCombinedSampler(2, mZBuffer->View, mSampler)
             .Update(mCtx);
 
         // Transition target so host can update its descriptor sets:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             auto barrierInfoAO = barrier::LayoutTransitionInfo{
-                .Image     = mBilateralTarget.Img,
+                .Image     = mBilateralTarget->Img,
                 .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             };
@@ -247,7 +249,7 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 {
     // Generate the Z buffer:
     {
-        barrier::TextureCompToGeneral(cmd, mZBuffer.Img);
+        barrier::TextureCompToGeneral(cmd, mZBuffer->Img);
 
         // Generate the 0 level of the Z-buffer:
         mZGenPipeline.Bind(cmd);
@@ -261,17 +263,17 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
                                              .Proj = mCamera.GetProj(),
                                          });
 
-        mZGenPipeline.Dispatch(cmd, mZBuffer.Img.Info.extent.width,
-                               mZBuffer.Img.Info.extent.height);
+        mZGenPipeline.Dispatch(cmd, mZBuffer->Img.Info.extent.width,
+                               mZBuffer->Img.Info.extent.height);
 
         // Create higher mip-levels of the Z-buffer:
         mZMipGenPipeline.Bind(cmd);
         mZMipGenPipeline.BindDescriptorSet(cmd, mZMipGenDescriptorSet, 0);
 
-        uint32_t resX = mZBuffer.Img.Info.extent.width / 2;
-        uint32_t resY = mZBuffer.Img.Info.extent.height / 2;
+        uint32_t resX = mZBuffer->Img.Info.extent.width / 2;
+        uint32_t resY = mZBuffer->Img.Info.extent.height / 2;
 
-        for (uint32_t mip = 1; mip < mZBuffer.Img.Info.mipLevels; mip++)
+        for (uint32_t mip = 1; mip < mZBuffer->Img.Info.mipLevels; mip++)
         {
             struct PCData {
                 uint32_t CurrentMip;
@@ -284,11 +286,11 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
             mZMipGenPipeline.Dispatch(cmd, resX, resY);
 
             // Barrier to synchronize subsequent dispatches:
-            auto currentRange         = Image::GetDefaultRange(mZBuffer.Img);
+            auto currentRange         = mZBuffer->Img.GetDefaultRange();
             currentRange.baseMipLevel = mip;
             currentRange.levelCount   = 1;
 
-            barrier::TextureGeneralToGeneral(cmd, mZBuffer.Img, currentRange);
+            barrier::TextureGeneralToGeneral(cmd, mZBuffer->Img, currentRange);
 
             // Update next mip resolution:
             resX = std::max(1u, resX / 2);
@@ -298,8 +300,8 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 
     // Generate the AO:
     {
-        barrier::TextureCompToSample(cmd, mZBuffer.Img);
-        barrier::TextureCompToGeneral(cmd, mAOTarget.Img);
+        barrier::TextureCompToSample(cmd, mZBuffer->Img);
+        barrier::TextureCompToGeneral(cmd, mAOTarget->Img);
 
         // Calculate ambient occlusion:
         auto frBack = mCamera.GetFrustumBackEye();
@@ -321,20 +323,20 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
                                               .BottomRight = frBack.BottomRight,
                                           });
 
-        mAOGenPipeline.Dispatch(cmd, mAOTarget.Img.Info.extent.width,
-                                mAOTarget.Img.Info.extent.height);
+        mAOGenPipeline.Dispatch(cmd, mAOTarget->Img.Info.extent.width,
+                                mAOTarget->Img.Info.extent.height);
     }
 
     // Perform bilateral upsampling:
     {
-        barrier::TextureCompToSample(cmd, mAOTarget.Img);
-        barrier::TextureFragToGeneral(cmd, mBilateralTarget.Img);
+        barrier::TextureCompToSample(cmd, mAOTarget->Img);
+        barrier::TextureFragToGeneral(cmd, mBilateralTarget->Img);
 
         mBilateralPipeline.Bind(cmd);
         mBilateralPipeline.BindDescriptorSet(cmd, mBilateralDescriptorSet, 0);
 
-        glm::uvec2 aoSize{mAOTarget.Img.Info.extent.width,
-                          mAOTarget.Img.Info.extent.height};
+        glm::uvec2 aoSize{mAOTarget->Img.Info.extent.width,
+                          mAOTarget->Img.Info.extent.height};
 
         struct PCData {
             glm::uvec2 AOResolution;
@@ -348,9 +350,9 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
                                                   .SigmaVal     = 0.01f,
                                               });
 
-        mBilateralPipeline.Dispatch(cmd, mBilateralTarget.Img.Info.extent.width,
-                                    mBilateralTarget.Img.Info.extent.height);
+        mBilateralPipeline.Dispatch(cmd, mBilateralTarget->Img.Info.extent.width,
+                                    mBilateralTarget->Img.Info.extent.height);
 
-        barrier::TextureFragToSample(cmd, mBilateralTarget.Img);
+        barrier::TextureFragToSample(cmd, mBilateralTarget->Img);
     }
 }

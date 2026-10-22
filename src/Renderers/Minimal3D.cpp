@@ -53,7 +53,6 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255}, false);
 
     mDefaultImage = Texture::FromData(mCtx, "DefaultTexture", imgData);
-    mMainDeletionQueue.push_back(mDefaultImage);
 
     // Create the texture sampler:
     mSampler = SamplerBuilder("Minimal3DSampler")
@@ -116,7 +115,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 {
     auto &cmd = mFrame.CurrentCmd();
 
-    barrier::TransferSrcToColor(cmd, mRenderTarget.Img.Handle);
+    barrier::TransferSrcToColor(cmd, mRenderTarget->Img.Handle);
 
     // This is not OnUpdate since, uniform buffers are per-image index
     // and as such need to be acquired after new image index is set.
@@ -124,8 +123,8 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
     auto renderInfo = common::RenderingInfo{
         .Extent          = GetTargetSize(),
-        .Color           = mRenderTarget.View,
-        .Depth           = mDepthBuffer.View,
+        .Color           = mRenderTarget->View,
+        .Depth           = mDepthBuffer->View,
         .DepthHasStencil = false,
     };
 
@@ -195,7 +194,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
 
 void Minimal3DRenderer::TargetToTransfer(VkCommandBuffer cmd)
 {
-    barrier::ColorToTransferSrc(cmd, mRenderTarget.Img.Handle);
+    barrier::ColorToTransferSrc(cmd, mRenderTarget->Img.Handle);
 }
 
 void Minimal3DRenderer::RecreateSwapchainResources()
@@ -221,7 +220,7 @@ void Minimal3DRenderer::RecreateSwapchainResources()
         .Usage  = TransferSrc | ColorAttachment,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
-    mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
+    mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo);
 
     // Create depth buffer:
     Image2DInfo depthBufferInfo{
@@ -231,7 +230,7 @@ void Minimal3DRenderer::RecreateSwapchainResources()
         .Usage  = DepthStencilAttachment,
         .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
-    mDepthBuffer = Texture::Make2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
+    mDepthBuffer = Texture::Make2D(mCtx, depthBufferInfo);
 }
 
 void Minimal3DRenderer::LoadScene(const Scene &scene)
@@ -307,14 +306,10 @@ void Minimal3DRenderer::LoadImages(const Scene &scene)
 {
     for (auto &[key, imgData] : scene.Images)
     {
-        if (mImages.count(key) != 0)
+        if (!mTextures.contains(key))
             continue;
 
-        auto &texture = mImages[key];
-
-        texture = Texture::FromData(mCtx, "MaterialTexture", imgData);
-
-        mSceneDeletionQueue.push_back(texture);
+        mTextures.try_emplace(key, Texture::FromData(mCtx, "MaterialTexture", imgData));
     }
 }
 
@@ -335,14 +330,17 @@ void Minimal3DRenderer::LoadMaterials(const Scene &scene)
         // Update the alpha cutoff:
         mat.AlphaCutoff = sceneMat.AlphaCutoff;
 
-        // Retrieve albedo texture if possible
-        auto &texture = mDefaultImage;
+        // Retrieve albedo texture if possible:
+        auto &texture = [&]() -> Texture& {
+            auto albedo = sceneMat.Albedo;
 
-        if (auto albedo = sceneMat.Albedo)
-        {
-            if (mImages.count(*albedo) != 0)
-                texture = mImages[*albedo];
-        }
+            if (albedo && mTextures.contains(*albedo))
+            {
+                return mTextures.at(*albedo);
+            }
+
+            return *mDefaultImage;
+        }();
 
         // Update the descriptor set:
         DescriptorUpdater(mat.DescriptorSet)

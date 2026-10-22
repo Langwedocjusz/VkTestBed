@@ -73,7 +73,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 {
     auto &cmd = mFrame.CurrentCmd();
 
-    barrier::TransferSrcToColor(cmd, mRenderTarget.Img.Handle);
+    barrier::TransferSrcToColor(cmd, mRenderTarget->Img.Handle);
 
     // This is not OnUpdate since, uniform buffers are per-image index
     // and as such need to be acquired after new image index is set.
@@ -81,7 +81,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 
     auto renderInfo = common::RenderingInfo{
         .Extent = GetTargetSize(),
-        .Color  = mRenderTarget.View,
+        .Color  = mRenderTarget->View,
     };
 
     common::BeginRendering(cmd, renderInfo);
@@ -115,7 +115,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 
 void HelloRenderer::TargetToTransfer(VkCommandBuffer cmd)
 {
-    barrier::ColorToTransferSrc(cmd, mRenderTarget.Img.Handle);
+    barrier::ColorToTransferSrc(cmd, mRenderTarget->Img.Handle);
 }
 
 void HelloRenderer::RecreateSwapchainResources()
@@ -141,8 +141,7 @@ void HelloRenderer::RecreateSwapchainResources()
         .Usage  = TransferSrc | ColorAttachment,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
-
-    mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
+    mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo);
 }
 
 void HelloRenderer::LoadScene(const Scene &scene)

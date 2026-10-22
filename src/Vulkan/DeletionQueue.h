@@ -2,18 +2,10 @@
 
 #include "VulkanContext.h"
 
-class Image;
-struct Texture;
-
 #include "volk.h"
 
 #include <deque>
 #include <variant>
-
-struct VkAllocatedImage {
-    VkImage       Handle;
-    VmaAllocation Allocation;
-};
 
 // clang-format off
 using DeletionObject = std::variant<
@@ -26,8 +18,7 @@ using DeletionObject = std::variant<
     VkDescriptorPool,
     VkDescriptorSetLayout,
     VkSampler,
-    VkQueryPool,
-    VkAllocatedImage
+    VkQueryPool
 >;
 // clang-format on
 
@@ -43,9 +34,6 @@ class DeletionQueue {
     {
         mDeletionObjects.push_back(std::forward<T>(obj));
     }
-
-    void push_back(Image &img);
-    void push_back(Texture &tex);
 
   private:
     VulkanContext             &mCtx;

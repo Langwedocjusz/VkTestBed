@@ -19,7 +19,7 @@ class Minimal3DRenderer final : public IRenderer {
     void   TargetToTransfer(VkCommandBuffer cmd) override;
     Image &GetTargetImage() override
     {
-        return mRenderTarget.Img;
+        return mRenderTarget->Img;
     };
 
     void RecreateSwapchainResources() override;
@@ -39,8 +39,8 @@ class Minimal3DRenderer final : public IRenderer {
     const VkFormat mRenderTargetFormat      = VK_FORMAT_R8G8B8A8_SRGB;
     const VkFormat mDepthFormat             = VK_FORMAT_D32_SFLOAT;
 
-    Texture mRenderTarget;
-    Texture mDepthBuffer;
+    std::optional<Texture> mRenderTarget;
+    std::optional<Texture> mDepthBuffer;
 
     GraphicsPipeline mColoredPipeline;
     GraphicsPipeline mTexturedPipeline;
@@ -72,8 +72,8 @@ class Minimal3DRenderer final : public IRenderer {
     std::map<DrawableKey, Drawable> mColoredDrawables;
     std::map<DrawableKey, Drawable> mTexturedDrawables;
 
-    Texture                     mDefaultImage;
-    std::map<SceneKey, Texture> mImages;
+    std::optional<Texture>      mDefaultImage;
+    std::map<SceneKey, Texture> mTextures;
 
     VkDescriptorSetLayout       mTextureDescriptorSetLayout;
     GrowableDescriptorAllocator mTextureDescriptorAllocator;

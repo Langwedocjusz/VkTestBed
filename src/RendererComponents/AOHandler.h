@@ -36,7 +36,7 @@ class AOHandler {
     // RecreateSwapchainResources must have been called beforehand.
     [[nodiscard]] std::pair<VkImageView, VkSampler> GetViewAndSampler() const
     {
-        return {mBilateralTarget.View, mSampler};
+        return {mBilateralTarget->View, mSampler};
     }
 
     // Whether or not the AOHandler internally requested
@@ -66,9 +66,9 @@ class AOHandler {
     ComputePipeline mAOGenPipeline;
     ComputePipeline mBilateralPipeline;
 
-    Texture mZBuffer;
-    Texture mAOTarget;
-    Texture mBilateralTarget;
+    std::optional<Texture> mZBuffer;
+    std::optional<Texture> mAOTarget;
+    std::optional<Texture> mBilateralTarget;
 
     // TODO: Test different counts impact on perf:
     static constexpr uint32_t            ZBufferMips = 4;

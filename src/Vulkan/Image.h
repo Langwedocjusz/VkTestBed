@@ -8,7 +8,7 @@
 #include <span>
 #include <string>
 
-struct Image;
+class Image;
 
 struct Image2DInfo {
     std::string                  Name;
@@ -36,16 +36,19 @@ struct View2DInfo {
     std::optional<VkImageAspectFlags> AspectOverride = std::nullopt;
 };
 
-struct Image {
-  public:
-    VkImage           Handle;
-    VkImageCreateInfo Info;
-    VmaAllocation     Allocation;
+class Image {
+public:
+    Image(VulkanContext &ctx, const Image2DInfo &info);
+    ~Image();
+    Image(const Image&) = delete;
+    Image& operator=(const Image&) = delete;
+    Image(Image &&) noexcept;
+    Image& operator=(Image&&) = delete;
 
   public:
-    static Image Create(VulkanContext &ctx, const std::string &debugName,
-                        VkImageCreateInfo &info);
-    static void  Destroy(VulkanContext &ctx, Image &img);
+    //static Image Create(VulkanContext &ctx, const std::string &debugName,
+    //                    VkImageCreateInfo &info);
+    //static void  Destroy(VulkanContext &ctx, Image &img);
 
     static Image Make2D(VulkanContext &ctx, const Image2DInfo &info);
     static Image Make2DArray(VulkanContext &ctx, const Image2DInfo &info,
@@ -80,6 +83,14 @@ struct Image {
     static void GenerateMips(VulkanContext &ctx, Image &img);
 
     static VkImageSubresourceRange GetDefaultRange(const Image &img);
+
+public:
+    VkImage           Handle;
+    VkImageCreateInfo Info;
+    VmaAllocation     Allocation;
+
+private:
+    VulkanContext &mCtx;
 };
 
 struct Texture {

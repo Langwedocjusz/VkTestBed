@@ -10,30 +10,63 @@
 
 #include <cmath>
 
-Image Image::Create(VulkanContext &ctx, const std::string &debugName,
-                    VkImageCreateInfo &info)
+static VkExtent3D Extent2DTo3D(VkExtent2D extent)
 {
-    Image img;
-    img.Info = info;
+    return VkExtent3D{
+        .width  = extent.width,
+        .height = extent.height,
+        .depth  = 1,
+    };
+}
+
+Image::Image(VulkanContext &ctx, const Image2DInfo &info)
+    : mCtx(ctx)
+{
+    Info = {};
+    Info.sType       = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    Info.imageType   = VK_IMAGE_TYPE_2D;
+    Info.extent      = Extent2DTo3D(info.Extent);
+    Info.format      = info.Format;
+    Info.usage       = info.Usage;
+    Info.mipLevels   = info.MipLevels;
+    Info.samples     = info.Multisampling;
+    Info.arrayLayers = 1;
+
+    // Hardcoded for now, may have to change when
+    // async-compute/transfer queues are supported:
+    Info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    // This is actual order of pixels in memory, not sampler tiling:
+    Info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    // Only other option is PREINITIALIZED:
+    Info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage                   = VMA_MEMORY_USAGE_AUTO;
     allocCreateInfo.flags                   = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     allocCreateInfo.priority                = 1.0f;
 
-    auto ret = vmaCreateImage(ctx.Allocator, &info, &allocCreateInfo, &img.Handle,
-                              &img.Allocation, nullptr);
+    auto ret = vmaCreateImage(ctx.Allocator, &Info, &allocCreateInfo, &Handle,
+                              &Allocation, nullptr);
 
     vassert(ret == VK_SUCCESS, "Failed to create an image!");
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_IMAGE, img.Handle, debugName);
-
-    return img;
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_IMAGE, Handle, info.Name);
 }
 
-void Image::Destroy(VulkanContext &ctx, Image &img)
+Image::~Image()
 {
-    vmaDestroyImage(ctx.Allocator, img.Handle, img.Allocation);
+    vmaDestroyImage(mCtx.Allocator, Handle, Allocation);
+}
+
+Image::Image(Image &&other) noexcept
+    : Handle(other.Handle)
+    , Info(other.Info)
+    , Allocation(other.Allocation)
+    , mCtx(other.mCtx)
+{
+    other.Handle = {};
+    other.Info = {};
+    other.Allocation = {};
 }
 
 VkImageView Image::CreateView(VulkanContext &ctx, const std::string &debugName,
@@ -249,14 +282,7 @@ VkImageSubresourceRange Image::GetDefaultRange(const Image &img)
     return range;
 }
 
-static VkExtent3D Extent2DTo3D(VkExtent2D extent)
-{
-    return VkExtent3D{
-        .width  = extent.width,
-        .height = extent.height,
-        .depth  = 1,
-    };
-}
+
 
 static VkExtent2D GetExtent2D(const ImageData &data)
 {
@@ -264,29 +290,6 @@ static VkExtent2D GetExtent2D(const ImageData &data)
         .width  = static_cast<uint32_t>(data.Width),
         .height = static_cast<uint32_t>(data.Height),
     };
-}
-
-static VkImageCreateInfo GetVkCreateImageInfo(const Image2DInfo &info)
-{
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType       = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType   = VK_IMAGE_TYPE_2D;
-    imageInfo.extent      = Extent2DTo3D(info.Extent);
-    imageInfo.format      = info.Format;
-    imageInfo.usage       = info.Usage;
-    imageInfo.mipLevels   = info.MipLevels;
-    imageInfo.samples     = info.Multisampling;
-    imageInfo.arrayLayers = 1;
-
-    // Hardcoded for now, may have to change when
-    // async-compute/transfer queues are supported:
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    // This is actual order of pixels in memory, not sampler tiling:
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    // Only other option is PREINITIALIZED:
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    return imageInfo;
 }
 
 static void HandleLayoutTransition(VulkanContext &ctx, Image &img,

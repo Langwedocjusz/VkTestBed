@@ -2,7 +2,7 @@
 
 #include "VulkanContext.h"
 
-struct Image;
+class Image;
 struct Texture;
 
 #include "volk.h"

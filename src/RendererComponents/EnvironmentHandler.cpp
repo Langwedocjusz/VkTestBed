@@ -4,7 +4,6 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Descriptor.h"
-#include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
 #include "Vassert.h"
@@ -58,7 +57,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
                 .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
             };
 
-            mCubemap = MakeTexture::TextureCube(mCtx, cubemapInfo, mDeletionQueue);
+            mCubemap = Texture::MakeCube(mCtx, cubemapInfo, mDeletionQueue);
         }
 
         // Create prefiltered map image and view:
@@ -72,15 +71,14 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
                 .Layout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
             };
 
-            mPrefiltered =
-                MakeTexture::TextureCube(mCtx, prefilteredInfo, mDeletionQueue);
+            mPrefiltered = Texture::MakeCube(mCtx, prefilteredInfo, mDeletionQueue);
 
             // Create single mip views for usage in compute:
             for (uint32_t mip = 0; mip < prefilteredInfo.MipLevels; mip++)
             {
                 const auto name = "EnvPrefilteredViewMip" + std::to_string(mip);
 
-                auto view = MakeView::ViewCube(
+                auto view = Image::MakeViewCube(
                     mCtx, name, {.Img = mPrefiltered.Img, .SelectLevel = mip});
 
                 mPrefilteredMipViews.push_back(view);
@@ -97,7 +95,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
                 .Usage  = Storage | Sampled,
             };
 
-            mIntegration = MakeTexture::Texture2D(mCtx, integrationInfo, mDeletionQueue);
+            mIntegration = Texture::Make2D(mCtx, integrationInfo, mDeletionQueue);
         }
     }
 
@@ -358,7 +356,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
     vassert(data.Format == VK_FORMAT_R32G32B32A32_SFLOAT);
 
     // Load equirectangular environment map:
-    auto envMap = MakeTexture::FromData(mCtx, "EnvEnvironmentMap", data);
+    auto envMap = Texture::FromData(mCtx, "EnvEnvironmentMap", data);
 
     DescriptorUpdater(mTexToImgDescriptorSet)
         .WriteStorageImage(0, mCubemap.View)

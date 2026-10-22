@@ -3,7 +3,6 @@
 
 #include "Barrier.h"
 #include "Descriptor.h"
-#include "MakeImage.h"
 #include "Sampler.h"
 #include "VkEnums.h"
 #include "VkUtils.h"
@@ -94,7 +93,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mBloomTarget = MakeTexture::Texture2D(mCtx, info, mSwapchainDeletionQueue);
+        mBloomTarget = Texture::Make2D(mCtx, info, mSwapchainDeletionQueue);
     }
 
     // Create single mip-level views for the bloom target:
@@ -105,8 +104,8 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
         {
             auto viewName = std::string("BloomSingleMipView") + std::to_string(mip);
 
-            auto view = MakeView::View2D(mCtx, viewName.c_str(),
-                                         {.Img = mBloomTarget.Img, .SelectLevel = mip});
+            auto view = Image::MakeView2D(mCtx, viewName.c_str(),
+                                          {.Img = mBloomTarget.Img, .SelectLevel = mip});
 
             mBloomSingleMipViews[mip] = view;
             mSwapchainDeletionQueue.push_back(view);
@@ -124,7 +123,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mFinalTarget = MakeTexture::Texture2D(mCtx, info, mSwapchainDeletionQueue);
+        mFinalTarget = Texture::Make2D(mCtx, info, mSwapchainDeletionQueue);
     }
 
     // Update the descriptor sets:

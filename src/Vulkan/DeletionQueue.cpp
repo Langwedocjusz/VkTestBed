@@ -2,6 +2,7 @@
 #include "Pch.h"
 
 #include "CppUtils.h"
+#include "Image.h"
 
 #include "volk.h"
 
@@ -14,6 +15,17 @@ DeletionQueue::DeletionQueue(VulkanContext &ctx) : mCtx(ctx)
 DeletionQueue::~DeletionQueue()
 {
     flush();
+}
+
+void DeletionQueue::push_back(Image &img)
+{
+    mDeletionObjects.emplace_back(VkAllocatedImage{img.Handle, img.Allocation});
+}
+
+void DeletionQueue::push_back(Texture &tex)
+{
+    mDeletionObjects.emplace_back(VkAllocatedImage{tex.Img.Handle, tex.Img.Allocation});
+    mDeletionObjects.emplace_back(tex.View);
 }
 
 void DeletionQueue::flush()

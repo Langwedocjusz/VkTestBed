@@ -2,7 +2,6 @@
 #include "Pch.h"
 
 #include "Common.h"
-#include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
 #include "VkEnums.h"
@@ -55,15 +54,15 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
             .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
-        mShadowmap = MakeTexture::Texture2DArray(mCtx, shadowmapInfo, NumCascades,
-                                                 mMainDeletionQueue);
+        mShadowmap =
+            Texture::Make2DArray(mCtx, shadowmapInfo, NumCascades, mMainDeletionQueue);
 
         // Create per-layer views for rendering into cascades:
         for (uint32_t i = 0; i < NumCascades; i++)
         {
             std::string name = "ShadowmapView" + std::to_string(i);
-            auto view = MakeView::View2DArray(mCtx, name,
-                                              {.Img = mShadowmap.Img, .SelectLayer = i});
+            auto view = Image::MakeView2DArray(mCtx, name,
+                                               {.Img = mShadowmap.Img, .SelectLayer = i});
 
             mCascadeViews[i] = view;
             mMainDeletionQueue.push_back(view);

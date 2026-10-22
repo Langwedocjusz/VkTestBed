@@ -8,7 +8,6 @@
 #include "ImGuiUtils.h"
 #include "ImageData.h"
 #include "Keycodes.h"
-#include "MakeImage.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "Vassert.h"
@@ -68,8 +67,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
             .Usage  = TransferSrc | ColorAttachment,
             .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         };
-        mPicking.Target =
-            MakeTexture::Texture2D(mCtx, renderTargetInfo, mMainDeletionQueue);
+        mPicking.Target = Texture::Make2D(mCtx, renderTargetInfo, mMainDeletionQueue);
 
         Image2DInfo depthBufferInfo{
             .Name   = "PickingDepthBuffer",
@@ -78,8 +76,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
             .Usage  = DepthStencilAttachment,
             .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
         };
-        mPicking.Depth =
-            MakeTexture::Texture2D(mCtx, depthBufferInfo, mMainDeletionQueue);
+        mPicking.Depth = Texture::Make2D(mCtx, depthBufferInfo, mMainDeletionQueue);
     }
 
     // Setup readback buffer for object picking:

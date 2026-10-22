@@ -4,7 +4,6 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Descriptor.h"
-#include "MakeImage.h"
 #include "Renderer.h"
 #include "Sampler.h"
 #include "VkEnums.h"
@@ -53,7 +52,7 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
     // Create the default texture:
     auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255}, false);
 
-    mDefaultImage = MakeTexture::FromData(mCtx, "DefaultTexture", imgData);
+    mDefaultImage = Texture::FromData(mCtx, "DefaultTexture", imgData);
     mMainDeletionQueue.push_back(mDefaultImage);
 
     // Create the texture sampler:
@@ -222,8 +221,7 @@ void Minimal3DRenderer::RecreateSwapchainResources()
         .Usage  = TransferSrc | ColorAttachment,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
-    mRenderTarget =
-        MakeTexture::Texture2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
+    mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
 
     // Create depth buffer:
     Image2DInfo depthBufferInfo{
@@ -233,7 +231,7 @@ void Minimal3DRenderer::RecreateSwapchainResources()
         .Usage  = DepthStencilAttachment,
         .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     };
-    mDepthBuffer = MakeTexture::Texture2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
+    mDepthBuffer = Texture::Make2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
 }
 
 void Minimal3DRenderer::LoadScene(const Scene &scene)
@@ -314,7 +312,7 @@ void Minimal3DRenderer::LoadImages(const Scene &scene)
 
         auto &texture = mImages[key];
 
-        texture = MakeTexture::FromData(mCtx, "MaterialTexture", imgData);
+        texture = Texture::FromData(mCtx, "MaterialTexture", imgData);
 
         mSceneDeletionQueue.push_back(texture);
     }

@@ -6,6 +6,7 @@
 #include "Common.h"
 #include "DeletionQueue.h"
 #include "GeometryData.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"

@@ -4,7 +4,6 @@
 
 #include "Barrier.h"
 #include "Common.h"
-#include "MakeImage.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "VkEnums.h"
@@ -143,8 +142,7 @@ void HelloRenderer::RecreateSwapchainResources()
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     };
 
-    mRenderTarget =
-        MakeTexture::Texture2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
+    mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
 }
 
 void HelloRenderer::LoadScene(const Scene &scene)

@@ -6,7 +6,6 @@
 #include "Descriptor.h"
 #include "GeometryData.h"
 #include "ImGuiUtils.h"
-#include "MakeImage.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Sampler.h"
@@ -127,9 +126,9 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
     auto roughnessData = ImageData::SinglePixel(Pixel{0, 255, 255, 0}, true);
     auto normalData    = ImageData::SinglePixel(Pixel{128, 128, 255, 0}, true);
 
-    mDefaultAlbedo    = MakeTexture::FromData(mCtx, "DefaultAlbedo", albedoData);
-    mDefaultRoughness = MakeTexture::FromData(mCtx, "DefaultRoughness", roughnessData);
-    mDefaultNormal    = MakeTexture::FromData(mCtx, "DefaultNormal", normalData);
+    mDefaultAlbedo    = Texture::FromData(mCtx, "DefaultAlbedo", albedoData);
+    mDefaultRoughness = Texture::FromData(mCtx, "DefaultRoughness", roughnessData);
+    mDefaultNormal    = Texture::FromData(mCtx, "DefaultNormal", normalData);
 
     mMainDeletionQueue.push_back(mDefaultAlbedo);
     mMainDeletionQueue.push_back(mDefaultRoughness);
@@ -384,8 +383,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
-        mRenderTarget =
-            MakeTexture::Texture2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
+        mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
 
         // If multisampling used, create intermediate buffer, before resolve:
         if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
@@ -395,7 +393,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             renderTargetInfo.Layout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
             mRenderTargetMsaa =
-                MakeTexture::Texture2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
+                Texture::Make2D(mCtx, renderTargetInfo, mSwapchainDeletionQueue);
         }
     }
 
@@ -409,12 +407,12 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         };
         mDepthStencilBuffer =
-            MakeTexture::Texture2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
+            Texture::Make2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
 
         // Create depth-only view (without stencil) for the depth buffer:
-        mDepthOnlyView = MakeView::View2D(mCtx, "DepthOnlyView",
-                                          {.Img            = mDepthStencilBuffer.Img,
-                                           .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT});
+        mDepthOnlyView = Image::MakeView2D(mCtx, "DepthOnlyView",
+                                           {.Img            = mDepthStencilBuffer.Img,
+                                            .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT});
         mSwapchainDeletionQueue.push_back(mDepthOnlyView);
 
         // If multisampling used, create intermediate buffer, before resolve:
@@ -425,7 +423,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             depthBufferInfo.Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 
             mDepthStencilMsaa =
-                MakeTexture::Texture2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
+                Texture::Make2D(mCtx, depthBufferInfo, mSwapchainDeletionQueue);
         }
     }
 
@@ -1209,7 +1207,7 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
             DestroyTexture(texture);
         }
 
-        texture            = MakeTexture::FromData(mCtx, "MaterialTexture", imgData);
+        texture            = Texture::FromData(mCtx, "MaterialTexture", imgData);
         imgData.IsUpToDate = true;
     }
 

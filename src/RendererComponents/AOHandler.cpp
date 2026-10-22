@@ -3,7 +3,6 @@
 
 #include "Barrier.h"
 #include "Descriptor.h"
-#include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
 #include "VkEnums.h"
@@ -132,13 +131,13 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mZBuffer = MakeTexture::Texture2D(mCtx, zBufferInfo, mSwapchainDeletionQueue);
+        mZBuffer = Texture::Make2D(mCtx, zBufferInfo, mSwapchainDeletionQueue);
 
         // Create single-mip views into Z-buffer:
         for (uint32_t mip = 0; mip < ZBufferMips; mip++)
         {
-            auto view = MakeView::View2D(mCtx, "AOZBufferSingleMipView",
-                                         {.Img = mZBuffer.Img, .SelectLevel = mip});
+            auto view = Image::MakeView2D(mCtx, "AOZBufferSingleMipView",
+                                          {.Img = mZBuffer.Img, .SelectLevel = mip});
             mSwapchainDeletionQueue.push_back(view);
 
             mZSingleLevelViews[mip] = view;
@@ -152,7 +151,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mAOTarget = MakeTexture::Texture2D(mCtx, aoTargetInfo, mSwapchainDeletionQueue);
+        mAOTarget = Texture::Make2D(mCtx, aoTargetInfo, mSwapchainDeletionQueue);
 
         Image2DInfo bilateralInfo{
             .Name   = "AOBilateralTarget",
@@ -162,8 +161,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
-        mBilateralTarget =
-            MakeTexture::Texture2D(mCtx, bilateralInfo, mSwapchainDeletionQueue);
+        mBilateralTarget = Texture::Make2D(mCtx, bilateralInfo, mSwapchainDeletionQueue);
     }
 
     // Update Z buffer descriptor set:

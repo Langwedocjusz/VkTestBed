@@ -2,7 +2,8 @@
 
 #include "VulkanContext.h"
 
-#include "Image.h"
+struct Image;
+struct Texture;
 
 #include "volk.h"
 
@@ -43,17 +44,8 @@ class DeletionQueue {
         mDeletionObjects.push_back(std::forward<T>(obj));
     }
 
-    void push_back(Image &img)
-    {
-        mDeletionObjects.emplace_back(VkAllocatedImage{img.Handle, img.Allocation});
-    }
-
-    void push_back(Texture &tex)
-    {
-        mDeletionObjects.emplace_back(
-            VkAllocatedImage{tex.Img.Handle, tex.Img.Allocation});
-        mDeletionObjects.emplace_back(tex.View);
-    }
+    void push_back(Image &img);
+    void push_back(Texture &tex);
 
   private:
     VulkanContext             &mCtx;

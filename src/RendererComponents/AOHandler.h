@@ -2,6 +2,7 @@
 
 #include "Camera.h"
 #include "DeletionQueue.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "VulkanContext.h"
 

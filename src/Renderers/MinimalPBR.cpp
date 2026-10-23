@@ -409,6 +409,7 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
             .Name           = "DepthOnlyView", 
             .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT,
         });
+        mSwapchainDeletionQueue.push_back(mDepthOnlyView);
 
         // If multisampling used, create intermediate buffer, before resolve:
         if (mMultisample != VK_SAMPLE_COUNT_1_BIT)

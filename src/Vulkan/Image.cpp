@@ -79,6 +79,7 @@ Image::Image(Image &&other) noexcept
     , Info(other.Info)
     , Allocation(other.Allocation)
     , mCtx(other.mCtx)
+    , mType(other.mType)
 {
     other.Handle = {};
     other.Info = {};
@@ -108,7 +109,7 @@ Image Image::Make2D(VulkanContext &ctx, const Image2DInfo &info)
 
 Image Image::Make2DArray(VulkanContext &ctx, const Image2DInfo &info, uint32_t numLayers)
 {
-    return Image{ctx, info, numLayers, 0, InternalType::Single2D};
+    return Image{ctx, info, numLayers, 0, InternalType::Array2D};
 }
 
 Image Image::MakeCube(VulkanContext &ctx, const Image2DInfo &info)

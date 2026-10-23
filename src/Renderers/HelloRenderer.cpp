@@ -134,14 +134,14 @@ void HelloRenderer::RecreateSwapchainResources()
         .height = ScaleResolution(mCtx.Swapchain->Extent.height),
     };
 
-    Image2DInfo renderTargetInfo{
-        .Name   = "RenderTarget",
-        .Extent = drawExtent,
-        .Format = mRenderTargetFormat,
-        .Usage  = TransferSrc | ColorAttachment,
-        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    };
-    mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo);
+    mRenderTarget =
+        Texture::Make2D(mCtx, {
+                                  .Name   = "RenderTarget",
+                                  .Extent = drawExtent,
+                                  .Format = mRenderTargetFormat,
+                                  .Usage  = TransferSrc | ColorAttachment,
+                                  .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                              });
 }
 
 void HelloRenderer::LoadScene(const Scene &scene)

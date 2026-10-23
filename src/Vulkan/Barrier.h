@@ -108,10 +108,10 @@ void GeneralToTransferSrc(VkCommandBuffer cmd, VkImage image);
 // but easiest to use when testing things:
 
 struct LayoutTransitionInfo {
-    Image                                 &Image;
-    VkImageLayout                          OldLayout;
-    VkImageLayout                          NewLayout;
-    std::optional<VkImageSubresourceRange> SubresourceRange = std::nullopt;
+    Image                                 &Img;
+    VkImageLayout                          Old;
+    VkImageLayout                          New;
+    std::optional<VkImageSubresourceRange> Range = std::nullopt;
 };
 
 void ImageLayoutCoarse(VkCommandBuffer cmd, LayoutTransitionInfo info);

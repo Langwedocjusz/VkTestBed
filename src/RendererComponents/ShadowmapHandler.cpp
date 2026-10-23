@@ -46,16 +46,15 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
     {
         using namespace vkenum::image_usage;
 
-        Image2DInfo shadowmapInfo{
-            .Name   = "Shadowmap",
-            .Extent = {ShadowmapResolution, ShadowmapResolution},
-            .Format = ShadowmapFormat,
-            .Usage  = DepthStencilAttachment | Sampled,
-            .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
         mShadowmap =
-            Texture::Make2DArray(mCtx, shadowmapInfo, NumCascades);
+            Texture::Make2DArray(mCtx, NumCascades,
+                                 {
+                                     .Name   = "Shadowmap",
+                                     .Extent = {ShadowmapResolution, ShadowmapResolution},
+                                     .Format = ShadowmapFormat,
+                                     .Usage  = DepthStencilAttachment | Sampled,
+                                     .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        });
 
         // Create per-layer views for rendering into cascades:
         for (uint32_t i = 0; i < NumCascades; i++)

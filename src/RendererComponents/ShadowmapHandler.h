@@ -132,8 +132,8 @@ class ShadowmapHandler {
     GraphicsPipeline mAlphaPipeline;
 
     // Main (multi layer) shadowmap texture and corresponding sampler:
-    std::optional<Texture>   mShadowmap;
-    VkSampler                mSampler;
+    std::optional<Texture> mShadowmap;
+    VkSampler              mSampler;
 
     // Single layer views for rendering subsequent cascades:
     std::array<VkImageView, NumCascades> mCascadeViews;

@@ -84,4 +84,18 @@ constexpr AllocCreateFlags HostAccessSequentialWrite{
 constexpr AllocCreateFlags HostAccessRandom{VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT};
 }; // namespace alloc_create
 
+// Those are just plain enums, not bit flags, so type concerns from above don't apply:
+
+namespace image_layout
+{
+constexpr VkImageLayout ColorAttachment = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+constexpr VkImageLayout DepthStencilAttachment =
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+constexpr VkImageLayout General        = VK_IMAGE_LAYOUT_GENERAL;
+constexpr VkImageLayout ShaderReadOnly = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+constexpr VkImageLayout TransferDst    = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+constexpr VkImageLayout TransferSrc    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+constexpr VkImageLayout Undefined      = VK_IMAGE_LAYOUT_UNDEFINED;
+}; // namespace image_layout
+
 }; // namespace vkenum

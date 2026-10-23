@@ -122,61 +122,53 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             .height = ScaleResolution(drawExtent.height),
         };
 
-        Image2DInfo zBufferInfo{
-            .Name      = "AOZBuffer",
-            .Extent    = targetExtent,
-            .Format    = VK_FORMAT_R32_SFLOAT,
-            .Usage     = Storage | Sampled,
-            .MipLevels = ZBufferMips,
-            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
-        };
+        mZBuffer = Texture::Make2D(mCtx, {
+                                             .Name      = "AOZBuffer",
+                                             .Extent    = targetExtent,
+                                             .Format    = VK_FORMAT_R32_SFLOAT,
+                                             .Usage     = Storage | Sampled,
+                                             .MipLevels = ZBufferMips,
+                                             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
+                                         });
 
-        mZBuffer = Texture::Make2D(mCtx, zBufferInfo);
+        mAOTarget = Texture::Make2D(mCtx, {
+                                              .Name   = "AOTarget",
+                                              .Extent = targetExtent,
+                                              .Format = VK_FORMAT_R8G8B8A8_UNORM,
+                                              .Usage  = Storage | Sampled,
+                                              .Layout = VK_IMAGE_LAYOUT_GENERAL,
+                                          });
 
-        // Create single-mip views into Z-buffer:
-        for (uint32_t mip = 0; mip < ZBufferMips; mip++)
-        {
-            auto view = mZBuffer->Img.MakeView({
-                .Name        = "AOZBufferSingleMipView",
-                .SelectLevel = mip,
-            });
-        
-            mZSingleLevelViews[mip] = view;
-            mSwapchainDeletionQueue.push_back(view);
-        }
+        mBilateralTarget = Texture::Make2D(mCtx, {
+                                                     .Name   = "AOBilateralTarget",
+                                                     .Extent = targetExtent,
+                                                     .Format = VK_FORMAT_R8G8B8A8_UNORM,
+                                                     .Usage  = Storage | Sampled,
+                                                     .Layout = VK_IMAGE_LAYOUT_GENERAL,
+                                                 });
+    }
 
-        Image2DInfo aoTargetInfo{
-            .Name   = "AOTarget",
-            .Extent = targetExtent,
-            .Format = VK_FORMAT_R8G8B8A8_UNORM,
-            .Usage  = Storage | Sampled,
-            .Layout = VK_IMAGE_LAYOUT_GENERAL,
-        };
+    // Create single-mip views into Z-buffer:
+    for (uint32_t mip = 0; mip < ZBufferMips; mip++)
+    {
+        auto view = mZBuffer->Img.MakeView({
+            .Name        = "AOZBufferSingleMipView",
+            .SelectLevel = mip,
+        });
 
-        mAOTarget = Texture::Make2D(mCtx, aoTargetInfo);
-
-        Image2DInfo bilateralInfo{
-            .Name   = "AOBilateralTarget",
-            .Extent = targetExtent,
-            .Format = VK_FORMAT_R8G8B8A8_UNORM,
-            .Usage  = Storage | Sampled,
-            .Layout = VK_IMAGE_LAYOUT_GENERAL,
-        };
-
-        mBilateralTarget = Texture::Make2D(mCtx, bilateralInfo);
+        mZSingleLevelViews[mip] = view;
+        mSwapchainDeletionQueue.push_back(view);
     }
 
     // Update Z buffer descriptor set:
     {
         // Transition depth buffer to correct layout for the update:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image     = depthBuffer,
-                .OldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            };
+            using namespace vkenum::image_layout;
 
-            barrier::ImageLayoutCoarse(cmd, barrierInfo);
+            barrier::ImageLayoutCoarse(cmd, {.Img = depthBuffer,
+                                             .Old = DepthStencilAttachment,
+                                             .New = ShaderReadOnly});
         });
 
         // Do the update:
@@ -191,19 +183,13 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
 
         // Transition z-buffer and depth buffer to correct layouts:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfoZ = barrier::LayoutTransitionInfo{
-                .Image     = mZBuffer->Img,
-                .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            };
-            barrier::ImageLayoutCoarse(cmd, barrierInfoZ);
+            using namespace vkenum::image_layout;
 
-            auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image     = depthBuffer,
-                .OldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                .NewLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            };
-            barrier::ImageLayoutCoarse(cmd, barrierInfo);
+            barrier::ImageLayoutCoarse(
+                cmd, {.Img = *mZBuffer, .Old = General, .New = ShaderReadOnly});
+            barrier::ImageLayoutCoarse(cmd, {.Img = depthBuffer,
+                                             .Old = ShaderReadOnly,
+                                             .New = DepthStencilAttachment});
         });
     }
 
@@ -216,12 +202,10 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
 
         // Transition ao target for sampling:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfoAO = barrier::LayoutTransitionInfo{
-                .Image     = mAOTarget->Img,
-                .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            };
-            barrier::ImageLayoutCoarse(cmd, barrierInfoAO);
+            using namespace vkenum::image_layout;
+
+            barrier::ImageLayoutCoarse(
+                cmd, {.Img = *mAOTarget, .Old = General, .New = ShaderReadOnly});
         });
     }
 
@@ -235,12 +219,10 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
 
         // Transition target so host can update its descriptor sets:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfoAO = barrier::LayoutTransitionInfo{
-                .Image     = mBilateralTarget->Img,
-                .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            };
-            barrier::ImageLayoutCoarse(cmd, barrierInfoAO);
+            using namespace vkenum::image_layout;
+
+            barrier::ImageLayoutCoarse(
+                cmd, {.Img = *mBilateralTarget, .Old = General, .New = ShaderReadOnly});
         });
     }
 }

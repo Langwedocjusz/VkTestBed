@@ -146,7 +146,7 @@ class MinimalPbrRenderer final : public IRenderer {
 
     std::optional<Texture> mRenderTarget;
     std::optional<Texture> mDepthStencilBuffer;
-    
+
     VkImageView mDepthOnlyView;
 
     // Supported geometry specification:

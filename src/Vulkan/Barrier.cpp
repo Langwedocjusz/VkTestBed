@@ -537,18 +537,18 @@ void barrier::ImageLayoutCoarse(VkCommandBuffer cmd, LayoutTransitionInfo info)
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    barrier.oldLayout = info.OldLayout;
-    barrier.newLayout = info.NewLayout;
-    barrier.image     = info.Image.Handle;
+    barrier.oldLayout = info.Old;
+    barrier.newLayout = info.New;
+    barrier.image     = info.Img.Handle;
 
-    if (info.SubresourceRange)
+    if (info.Range)
     {
-        barrier.subresourceRange = *info.SubresourceRange;
+        barrier.subresourceRange = *info.Range;
     }
     else
     {
         // By default assume all image layers/levels are to be transitioned:
-        barrier.subresourceRange = info.Image.GetDefaultRange();
+        barrier.subresourceRange = info.Img.GetDefaultRange();
     }
 
     // Suboptimal barrier usage - block everything:

@@ -193,7 +193,6 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info,
 
 MinimalPbrRenderer::~MinimalPbrRenderer()
 {
-
 }
 
 VkCompareOp MinimalPbrRenderer::GetMainCompareOp() const
@@ -368,60 +367,55 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         .height = ScaleResolution(mCtx.Swapchain->Extent.height),
     };
 
-    // Create the (color) render target:
+    // Create the base render targets:
+    mRenderTarget =
+        Texture::Make2D(mCtx, {
+                                  .Name   = "RenderTarget",
+                                  .Extent = drawExtent,
+                                  .Format = RenderTargetFormat,
+                                  .Usage  = ColorAttachment | Sampled,
+                                  .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              });
+
+    mDepthStencilBuffer = Texture::Make2D(
+        mCtx, {
+                  .Name   = "DepthBuffer",
+                  .Extent = drawExtent,
+                  .Format = DepthStencilFormat,
+                  .Usage  = DepthStencilAttachment | Sampled,
+                  .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+              });
+
+    // If multisampling used, create intermediate buffer, before resolve:
+    if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
     {
-        Image2DInfo renderTargetInfo{
-            .Name   = "RenderTarget",
-            .Extent = drawExtent,
-            .Format = RenderTargetFormat,
-            .Usage  = ColorAttachment | Sampled,
-            .Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
+        mRenderTargetMsaa =
+            Texture::Make2D(mCtx, {
+                                      .Name   = "RenderTargetMSAA",
+                                      .Extent = drawExtent,
+                                      .Format = RenderTargetFormat,
+                                      .Usage  = ColorAttachment | Sampled,
+                                      .Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                      .Multisampling = mMultisample,
+                                  });
 
-        mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo);
-
-        // If multisampling used, create intermediate buffer, before resolve:
-        if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
-        {
-            renderTargetInfo.Name          = "RenderTargetMSAA";
-            renderTargetInfo.Multisampling = mMultisample;
-            renderTargetInfo.Layout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-            mRenderTargetMsaa =
-                Texture::Make2D(mCtx, renderTargetInfo);
-        }
+        mDepthStencilMsaa = Texture::Make2D(
+            mCtx, {
+                      .Name          = "DepthBufferMSAA",
+                      .Extent        = drawExtent,
+                      .Format        = DepthStencilFormat,
+                      .Usage         = DepthStencilAttachment | Sampled,
+                      .Layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                      .Multisampling = mMultisample,
+                  });
     }
 
-    // Create the depth (and stencil) buffer:
-    {
-        Image2DInfo depthBufferInfo{
-            .Name   = "DepthBuffer",
-            .Extent = drawExtent,
-            .Format = DepthStencilFormat,
-            .Usage  = DepthStencilAttachment | Sampled,
-            .Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        };
-        mDepthStencilBuffer =
-            Texture::Make2D(mCtx, depthBufferInfo);
-
-        // Create depth-only view (without stencil) for the depth buffer:
-        mDepthOnlyView = mDepthStencilBuffer->Img.MakeView({
-            .Name           = "DepthOnlyView", 
-            .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT,
-        });
-        mSwapchainDeletionQueue.push_back(mDepthOnlyView);
-
-        // If multisampling used, create intermediate buffer, before resolve:
-        if (mMultisample != VK_SAMPLE_COUNT_1_BIT)
-        {
-            depthBufferInfo.Name          = "DepthBufferMSAA";
-            depthBufferInfo.Multisampling = mMultisample;
-            depthBufferInfo.Layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-
-            mDepthStencilMsaa =
-                Texture::Make2D(mCtx, depthBufferInfo);
-        }
-    }
+    // Create depth-only view (without stencil) for the depth buffer:
+    mDepthOnlyView = mDepthStencilBuffer->Img.MakeView({
+        .Name           = "DepthOnlyView",
+        .AspectOverride = VK_IMAGE_ASPECT_DEPTH_BIT,
+    });
+    mSwapchainDeletionQueue.push_back(mDepthOnlyView);
 
     // (Re)Create AO related resources:
     mAOHandler->RecreateSwapchainResources(mDepthStencilBuffer->Img, mDepthOnlyView,
@@ -1196,7 +1190,8 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
         if (alreadyLoaded && imgData.IsUpToDate)
             continue;
 
-        mTextures.insert_or_assign(key, Texture::FromData(mCtx, "MaterialTexture", imgData));
+        mTextures.insert_or_assign(key,
+                                   Texture::FromData(mCtx, "MaterialTexture", imgData));
         imgData.IsUpToDate = true;
     }
 

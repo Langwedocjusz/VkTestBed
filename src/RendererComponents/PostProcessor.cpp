@@ -73,27 +73,34 @@ void PostProcessor::RebuildPipelines()
 void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
                                                VkImageView renderTargetView)
 {
-    using namespace vkenum::image_usage;
-
     mSwapchainDeletionQueue.flush();
 
-    const VkExtent2D targetExtent{
-        .width  = renderTarget.Info.extent.width,
-        .height = renderTarget.Info.extent.height,
-    };
-
-    // Create bloom render target:
+    // Create bloom and final render targets:
     {
-        Image2DInfo info{
-            .Name      = "BloomTarget",
-            .Extent    = targetExtent,
-            .Format    = renderTarget.Info.format,
-            .Usage     = Storage | Sampled,
-            .MipLevels = mBloomNumMips,
-            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
+        using namespace vkenum::image_usage;
+
+        const VkExtent2D targetExtent{
+            .width  = renderTarget.Info.extent.width,
+            .height = renderTarget.Info.extent.height,
         };
 
-        mBloomTarget = Texture::Make2D(mCtx, info);
+        mBloomTarget = Texture::Make2D(mCtx, {
+                                                 .Name      = "BloomTarget",
+                                                 .Extent    = targetExtent,
+                                                 .Format    = renderTarget.Info.format,
+                                                 .Usage     = Storage | Sampled,
+                                                 .MipLevels = mBloomNumMips,
+                                                 .Layout    = VK_IMAGE_LAYOUT_GENERAL,
+                                             });
+
+        mFinalTarget = Texture::Make2D(mCtx, {
+                                                 .Name      = "FinalTarget",
+                                                 .Extent    = targetExtent,
+                                                 .Format    = FinalFormat,
+                                                 .Usage     = Storage | TransferSrc,
+                                                 .MipLevels = 1,
+                                                 .Layout    = VK_IMAGE_LAYOUT_GENERAL,
+                                             });
     }
 
     // Create single mip-level views for the bloom target:
@@ -112,22 +119,7 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
         }
     }
 
-    // Create final (composed) target:
-    {
-        Image2DInfo info{
-            .Name      = "FinalTarget",
-            .Extent    = targetExtent,
-            .Format    = FinalFormat,
-            .Usage     = Storage | TransferSrc,
-            .MipLevels = 1,
-            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
-        };
-
-        mFinalTarget = Texture::Make2D(mCtx, info);
-    }
-
     // Update the descriptor sets:
-
     std::vector<VkSampler> mipSamplers(mBloomNumMips, mBloomSampler);
 
     DescriptorUpdater(mBloomDescriptorSet)
@@ -138,12 +130,10 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
         .Update(mCtx);
 
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        auto barrierFinal = barrier::LayoutTransitionInfo{
-            .Image     = mBloomTarget->Img,
-            .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, barrierFinal);
+        using namespace vkenum::image_layout;
+
+        barrier::ImageLayoutCoarse(
+            cmd, {.Img = *mBloomTarget, .Old = General, .New = ShaderReadOnly});
     });
 
     DescriptorUpdater(mFinalDescriptorSet)
@@ -154,12 +144,10 @@ void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
 
     // Transition final target to correct layout:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        auto barrierFinal = barrier::LayoutTransitionInfo{
-            .Image     = mFinalTarget->Img,
-            .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, barrierFinal);
+        using namespace vkenum::image_layout;
+
+        barrier::ImageLayoutCoarse(
+            cmd, {.Img = *mFinalTarget, .Old = General, .New = TransferSrc});
     });
 }
 

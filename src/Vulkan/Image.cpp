@@ -4,6 +4,7 @@
 #include "Barrier.h"
 #include "Buffer.h"
 #include "Vassert.h"
+#include "VkEnums.h"
 #include "VkUtils.h"
 
 #include "volk.h"
@@ -19,10 +20,11 @@ static VkExtent3D Extent2DTo3D(VkExtent2D extent)
     };
 }
 
-Image::Image(VulkanContext &ctx, const Image2DInfo &info, uint32_t numLayers, VkImageCreateFlags flags, InternalType type)
+Image::Image(VulkanContext &ctx, const Image2DInfo &info, uint32_t numLayers,
+             VkImageCreateFlags flags, InternalType type)
     : mCtx(ctx), mType(type)
 {
-    Info = {};
+    Info             = {};
     Info.sType       = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     Info.imageType   = VK_IMAGE_TYPE_2D;
     Info.extent      = Extent2DTo3D(info.Extent);
@@ -58,13 +60,10 @@ Image::Image(VulkanContext &ctx, const Image2DInfo &info, uint32_t numLayers, Vk
     if (info.Layout.has_value())
     {
         ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image     = *this,
-                .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout = *info.Layout,
-            };
+            using namespace vkenum::image_layout;
 
-            barrier::ImageLayoutCoarse(cmd, barrierInfo);
+            barrier::ImageLayoutCoarse(
+                cmd, {.Img = *this, .Old = Undefined, .New = *info.Layout});
         });
     }
 }
@@ -75,18 +74,15 @@ Image::~Image()
 }
 
 Image::Image(Image &&other) noexcept
-    : Handle(other.Handle)
-    , Info(other.Info)
-    , Allocation(other.Allocation)
-    , mCtx(other.mCtx)
-    , mType(other.mType)
+    : Handle(other.Handle), Info(other.Info), Allocation(other.Allocation),
+      mCtx(other.mCtx), mType(other.mType)
 {
-    other.Handle = {};
-    other.Info = {};
+    other.Handle     = {};
+    other.Info       = {};
     other.Allocation = {};
 }
 
-Image& Image::operator=(Image&& other) noexcept
+Image &Image::operator=(Image &&other) noexcept
 {
     if (this != &other)
     {
@@ -107,7 +103,7 @@ Image Image::Make2D(VulkanContext &ctx, const Image2DInfo &info)
     return Image{ctx, info, 1, 0, InternalType::Single2D};
 }
 
-Image Image::Make2DArray(VulkanContext &ctx, const Image2DInfo &info, uint32_t numLayers)
+Image Image::Make2DArray(VulkanContext &ctx, uint32_t numLayers, const Image2DInfo &info)
 {
     return Image{ctx, info, numLayers, 0, InternalType::Array2D};
 }
@@ -144,7 +140,7 @@ Image Image::FromData(VulkanContext &ctx, const std::string &debugName,
 
     Image img = Make2D(ctx, imgInfo);
 
-    Image::UploadInfo uploadInfo{
+    ImageUploadInfo uploadInfo{
         .Data       = data.Data,
         .Size       = data.Size,
         .DstLayout  = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -209,21 +205,21 @@ VkImageView Image::MakeView(const View2DInfo &info)
 
     switch (mType)
     {
-        case Single2D: {
-            viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            break;
-        }
-        case Array2D: {
-            viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-            break;
-        }
-        case Cube: {
-            viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-            break;
-        }
-        case None: {
-            vpanic("Trying to create view from unsupported image type!");
-        }
+    case Single2D: {
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        break;
+    }
+    case Array2D: {
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        break;
+    }
+    case Cube: {
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+        break;
+    }
+    case None: {
+        vpanic("Trying to create view from unsupported image type!");
+    }
     }
 
     VkImageView ret{};
@@ -239,7 +235,7 @@ VkImageView Image::MakeView(const View2DInfo &info)
 
 // === Other member functions: =============================================
 
-void Image::UploadData(const Image::UploadInfo &info)
+void Image::UploadData(const ImageUploadInfo &info)
 {
     // Sanity checks - we only support singular 2D images atm:
     vassert(Info.extent.depth == 1);
@@ -256,15 +252,12 @@ void Image::UploadData(const Image::UploadInfo &info)
 
     // Submit single-time command to queue
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+        using namespace vkenum::image_layout;
+
         // Change image layout to transfer destination:
         // Transitions all mip levels to dst layout
-        auto barrierInfo = barrier::LayoutTransitionInfo{
-            .Image     = *this,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        };
-
-        barrier::ImageLayoutCoarse(cmd, barrierInfo);
+        barrier::ImageLayoutCoarse(cmd,
+                                   {.Img = *this, .Old = Undefined, .New = TransferDst});
 
         if (info.MipOffsets.empty())
         {
@@ -279,7 +272,7 @@ void Image::UploadData(const Image::UploadInfo &info)
             region.bufferImageHeight = 0;
             region.imageOffset       = {0, 0, 0};
             // Assumes that image is color (not depth/stencil):
-            region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
             region.imageSubresource.baseArrayLayer = 0;
             region.imageSubresource.layerCount     = 1;
 
@@ -325,18 +318,21 @@ void Image::UploadData(const Image::UploadInfo &info)
         }
 
         // Transition layout to whatever is needed
-        barrierInfo.OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrierInfo.NewLayout = info.DstLayout;
-
-        barrier::ImageLayoutCoarse(cmd, barrierInfo);
+        barrier::ImageLayoutCoarse(
+            cmd, {.Img = *this, .Old = TransferDst, .New = info.DstLayout});
     });
 }
 
-
-
 void Image::GenerateMips()
 {
+    // TODO: Logic here is probably wrong. Transition from undefined is allowed to discard
+    // contents if I remember well.
+    // TODO: Using linear interpolation each time. This overblurs mips. Need to use better
+    // resampling.
+
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+        using namespace vkenum::image_layout;
+
         VkExtent3D srcSize = Info.extent;
         VkExtent3D dstSize = Info.extent;
 
@@ -347,25 +343,17 @@ void Image::GenerateMips()
 
         for (uint32_t mip = 1; mip < Info.mipLevels; mip++)
         {
-            auto srcInfo = barrier::LayoutTransitionInfo{
-                .Image            = *this,
-                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                .SubresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT,
-                                                            mip - 1, 1, 0, numArrays},
-            };
+            auto srcRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 1,
+                                                    0, numArrays};
+            auto dstRange =
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, 0, numArrays};
 
-            barrier::ImageLayoutCoarse(cmd, srcInfo);
-
-            auto dstInfo = barrier::LayoutTransitionInfo{
-                .Image            = *this,
-                .OldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
-                .NewLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                .SubresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT,
-                                                            mip, 1, 0, numArrays},
-            };
-
-            barrier::ImageLayoutCoarse(cmd, dstInfo);
+            barrier::ImageLayoutCoarse(
+                cmd,
+                {.Img = *this, .Old = Undefined, .New = TransferSrc, .Range = srcRange});
+            barrier::ImageLayoutCoarse(
+                cmd,
+                {.Img = *this, .Old = Undefined, .New = TransferDst, .Range = dstRange});
 
             VkImageBlit2 blitRegion{};
             blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
@@ -406,13 +394,8 @@ void Image::GenerateMips()
             dstSize.height /= 2;
         }
 
-        auto finalInfo = barrier::LayoutTransitionInfo{
-            .Image     = *this,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
-        barrier::ImageLayoutCoarse(cmd, finalInfo);
+        barrier::ImageLayoutCoarse(
+            cmd, {.Img = *this, .Old = Undefined, .New = ShaderReadOnly});
     });
 }
 
@@ -441,11 +424,9 @@ uint32_t Image::MipCount(uint32_t width, uint32_t height)
     return MipCount(std::max(width, height));
 }
 
-
 // === Texture implementation: ================================================
 
-Texture::Texture(VulkanContext &ctx, Image &&img)
-    : Img(std::move(img)), mCtx(ctx)
+Texture::Texture(VulkanContext &ctx, Image &&img) : Img(std::move(img)), mCtx(ctx)
 {
     View2DInfo info{
         .Name = img.DebugName + "View",
@@ -460,14 +441,12 @@ Texture::~Texture()
 }
 
 Texture::Texture(Texture &&other) noexcept
-    : Img(std::move(other.Img))
-    , View(other.View)
-    , mCtx(other.mCtx)
+    : Img(std::move(other.Img)), View(other.View), mCtx(other.mCtx)
 {
     other.View = {};
 }
 
-Texture& Texture::operator=(Texture&& other) noexcept
+Texture &Texture::operator=(Texture &&other) noexcept
 {
     if (this != &other)
     {
@@ -483,10 +462,10 @@ Texture Texture::Make2D(VulkanContext &ctx, const Image2DInfo &info)
     return Texture{ctx, Image::Make2D(ctx, info)};
 }
 
-Texture Texture::Make2DArray(VulkanContext &ctx, const Image2DInfo &info,
-                             uint32_t numLayers)
+Texture Texture::Make2DArray(VulkanContext &ctx, uint32_t numLayers,
+                             const Image2DInfo &info)
 {
-    return Texture{ctx, Image::Make2DArray(ctx, info, numLayers)};
+    return Texture{ctx, Image::Make2DArray(ctx, numLayers, info)};
 }
 
 Texture Texture::MakeCube(VulkanContext &ctx, const Image2DInfo &info)

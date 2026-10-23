@@ -213,24 +213,23 @@ void Minimal3DRenderer::RecreateSwapchainResources()
         .height = ScaleResolution(mCtx.Swapchain->Extent.height),
     };
 
-    Image2DInfo renderTargetInfo{
-        .Name   = "RenderTarget",
-        .Extent = drawExtent,
-        .Format = mRenderTargetFormat,
-        .Usage  = TransferSrc | ColorAttachment,
-        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    };
-    mRenderTarget = Texture::Make2D(mCtx, renderTargetInfo);
+    mRenderTarget =
+        Texture::Make2D(mCtx, {
+                                  .Name   = "RenderTarget",
+                                  .Extent = drawExtent,
+                                  .Format = mRenderTargetFormat,
+                                  .Usage  = TransferSrc | ColorAttachment,
+                                  .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                              });
 
-    // Create depth buffer:
-    Image2DInfo depthBufferInfo{
-        .Name   = "DepthBuffer",
-        .Extent = drawExtent,
-        .Format = mDepthFormat,
-        .Usage  = DepthStencilAttachment,
-        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-    };
-    mDepthBuffer = Texture::Make2D(mCtx, depthBufferInfo);
+    mDepthBuffer =
+        Texture::Make2D(mCtx, {
+                                  .Name   = "DepthBuffer",
+                                  .Extent = drawExtent,
+                                  .Format = mDepthFormat,
+                                  .Usage  = DepthStencilAttachment,
+                                  .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                              });
 }
 
 void Minimal3DRenderer::LoadScene(const Scene &scene)
@@ -331,7 +330,7 @@ void Minimal3DRenderer::LoadMaterials(const Scene &scene)
         mat.AlphaCutoff = sceneMat.AlphaCutoff;
 
         // Retrieve albedo texture if possible:
-        auto &texture = [&]() -> Texture& {
+        auto &texture = [&]() -> Texture & {
             auto albedo = sceneMat.Albedo;
 
             if (albedo && mTextures.contains(*albedo))

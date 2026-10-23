@@ -60,23 +60,23 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     {
         using namespace vkenum::image_usage;
 
-        Image2DInfo renderTargetInfo{
-            .Name   = "PickingTarget",
-            .Extent = VkExtent2D{1, 1},
-            .Format = IRenderer::PickingTargetFormat,
-            .Usage  = TransferSrc | ColorAttachment,
-            .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        };
-        mPicking.Target = Texture::Make2D(mCtx, renderTargetInfo);
+        mPicking.Target =
+            Texture::Make2D(mCtx, {
+                                      .Name   = "PickingTarget",
+                                      .Extent = VkExtent2D{1, 1},
+                                      .Format = IRenderer::PickingTargetFormat,
+                                      .Usage  = TransferSrc | ColorAttachment,
+                                      .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        });
 
-        Image2DInfo depthBufferInfo{
-            .Name   = "PickingDepthBuffer",
-            .Extent = VkExtent2D{1, 1},
-            .Format = IRenderer::PickingDepthFormat,
-            .Usage  = DepthStencilAttachment,
-            .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-        };
-        mPicking.Depth = Texture::Make2D(mCtx, depthBufferInfo);
+        mPicking.Depth =
+            Texture::Make2D(mCtx, {
+                                      .Name   = "PickingDepthBuffer",
+                                      .Extent = VkExtent2D{1, 1},
+                                      .Format = IRenderer::PickingDepthFormat,
+                                      .Usage  = DepthStencilAttachment,
+                                      .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        });
     }
 
     // Setup readback buffer for object picking:
@@ -405,13 +405,11 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     vkDeviceWaitIdle(mCtx.Device);
 
     mCtx.ImmediateSubmitGraphics([&, x, y](VkCommandBuffer cmd) {
+        using namespace vkenum::image_layout;
+
         // Transitions layout to render (can discard contents):
-        auto info = barrier::LayoutTransitionInfo{
-            .Image     = mPicking.Target->Img,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, info);
+        barrier::ImageLayoutCoarse(
+            cmd, {.Img = *mPicking.Target, .Old = Undefined, .New = ColorAttachment});
 
         // Draw objects:
         auto renderInfo = common::RenderingInfo{
@@ -426,9 +424,8 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         vkCmdEndRendering(cmd);
 
         // Copy from target image to cpu visible buffer:
-        info.OldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        info.NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier::ImageLayoutCoarse(cmd, info);
+        barrier::ImageLayoutCoarse(
+            cmd, {.Img = *mPicking.Target, .Old = ColorAttachment, .New = TransferSrc});
 
         VkBufferImageCopy region{};
         region.bufferOffset      = 0;

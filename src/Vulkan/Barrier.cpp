@@ -41,9 +41,8 @@ void barrier::SwapchainToBlitDST(VkCommandBuffer cmd, VkImage image)
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    barrier.image            = image;
+    barrier.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
@@ -56,16 +55,14 @@ void barrier::SwapchainToRender(VkCommandBuffer cmd, VkImage image)
     barrier.srcStageMask  = VK_PIPELINE_STAGE_2_BLIT_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    barrier.dstAccessMask =
-        VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    barrier.image            = image;
+    barrier.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
@@ -84,9 +81,8 @@ void barrier::SwapchainToPresent(VkCommandBuffer cmd, VkImage image)
     barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    barrier.image            = image;
+    barrier.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
@@ -107,9 +103,8 @@ void barrier::TransferSrcToColor(VkCommandBuffer cmd, VkImage image)
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    barrier.image            = image;
+    barrier.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
@@ -128,9 +123,8 @@ void barrier::ColorToTransferSrc(VkCommandBuffer cmd, VkImage image)
     barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    barrier.image            = image;
+    barrier.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
@@ -151,9 +145,8 @@ void barrier::SampledToColor(VkCommandBuffer cmd, VkImage image)
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    barrier.image            = image;
+    barrier.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
@@ -172,9 +165,8 @@ void barrier::ColorToSampledComp(VkCommandBuffer cmd, VkImage image)
     barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    barrier.image            = image;
+    barrier.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
@@ -198,15 +190,14 @@ void barrier::DepthToRender(VkCommandBuffer cmd, Image &depthImage, uint32_t num
     // (VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ?
     barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    barrier.image            = depthImage.Handle;
-    barrier.subresourceRange = VkImageSubresourceRange{
-        vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, numLayers};
+    barrier.image = depthImage.Handle;
+    barrier.subresourceRange =
+        VkImageSubresourceRange{vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, numLayers};
 
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::DepthToSampledFrag(VkCommandBuffer cmd, Image &depthImage,
-                                 uint32_t numLayers)
+void barrier::DepthToSampledFrag(VkCommandBuffer cmd, Image &depthImage, uint32_t numLayers)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -220,15 +211,14 @@ void barrier::DepthToSampledFrag(VkCommandBuffer cmd, Image &depthImage,
     barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    barrier.image            = depthImage.Handle;
-    barrier.subresourceRange = VkImageSubresourceRange{
-        vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, numLayers};
+    barrier.image = depthImage.Handle;
+    barrier.subresourceRange =
+        VkImageSubresourceRange{vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, numLayers};
 
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::DepthToSampledComp(VkCommandBuffer cmd, Image &depthImage,
-                                 uint32_t numLayers)
+void barrier::DepthToSampledComp(VkCommandBuffer cmd, Image &depthImage, uint32_t numLayers)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -242,9 +232,9 @@ void barrier::DepthToSampledComp(VkCommandBuffer cmd, Image &depthImage,
     barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    barrier.image            = depthImage.Handle;
-    barrier.subresourceRange = VkImageSubresourceRange{
-        vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, numLayers};
+    barrier.image = depthImage.Handle;
+    barrier.subresourceRange =
+        VkImageSubresourceRange{vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, numLayers};
 
     ImageBarrier(cmd, barrier);
 }
@@ -274,8 +264,7 @@ void barrier::Depth2ToSampledComp(VkCommandBuffer cmd, Image &depthImage, bool m
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     barrier.image            = depthImage.Handle;
-    barrier.subresourceRange = VkImageSubresourceRange{
-        vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, 1};
+    barrier.subresourceRange = VkImageSubresourceRange{vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
@@ -299,22 +288,20 @@ void barrier::Depth2ToRenderAfterComp(VkCommandBuffer cmd, Image &depthImage, bo
     {
         barrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
         // We must use both read and write for future depth comparison:
-        barrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                                VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask =
+            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     }
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     barrier.image            = depthImage.Handle;
-    barrier.subresourceRange = VkImageSubresourceRange{
-        vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, 1};
+    barrier.subresourceRange = VkImageSubresourceRange{vkutils::GetDefaultAspect(depthImage.Info.format), 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureFragToGeneral(VkCommandBuffer cmd, Image &image,
-                                   std::optional<VkImageSubresourceRange> range)
+void barrier::TextureFragToGeneral(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -338,8 +325,9 @@ void barrier::TextureFragToGeneral(VkCommandBuffer cmd, Image &image,
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureFragToGeneralRetained(VkCommandBuffer cmd, Image &image,
-                                           std::optional<VkImageSubresourceRange> range)
+void barrier::TextureFragToGeneralRetained(
+    VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range
+)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -363,8 +351,7 @@ void barrier::TextureFragToGeneralRetained(VkCommandBuffer cmd, Image &image,
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureFragToSample(VkCommandBuffer cmd, Image &image,
-                                  std::optional<VkImageSubresourceRange> range)
+void barrier::TextureFragToSample(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -388,8 +375,7 @@ void barrier::TextureFragToSample(VkCommandBuffer cmd, Image &image,
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureCompToGeneral(VkCommandBuffer cmd, Image &image,
-                                   std::optional<VkImageSubresourceRange> range)
+void barrier::TextureCompToGeneral(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -413,8 +399,9 @@ void barrier::TextureCompToGeneral(VkCommandBuffer cmd, Image &image,
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureCompToGeneralRetained(VkCommandBuffer cmd, Image &image,
-                                           std::optional<VkImageSubresourceRange> range)
+void barrier::TextureCompToGeneralRetained(
+    VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range
+)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -438,8 +425,7 @@ void barrier::TextureCompToGeneralRetained(VkCommandBuffer cmd, Image &image,
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureCompToSample(VkCommandBuffer cmd, Image &image,
-                                  std::optional<VkImageSubresourceRange> range)
+void barrier::TextureCompToSample(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -463,8 +449,7 @@ void barrier::TextureCompToSample(VkCommandBuffer cmd, Image &image,
     ImageBarrier(cmd, barrier);
 }
 
-void barrier::TextureGeneralToGeneral(VkCommandBuffer cmd, Image &image,
-                                      std::optional<VkImageSubresourceRange> range)
+void barrier::TextureGeneralToGeneral(VkCommandBuffer cmd, Image &image, std::optional<VkImageSubresourceRange> range)
 {
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -504,9 +489,8 @@ void barrier::TransferSrcToGeneral(VkCommandBuffer cmd, VkImage image)
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    barrier.image            = image;
+    barrier.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }
@@ -525,9 +509,8 @@ void barrier::GeneralToTransferSrc(VkCommandBuffer cmd, VkImage image)
     barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-    barrier.image = image;
-    barrier.subresourceRange =
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    barrier.image            = image;
+    barrier.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     ImageBarrier(cmd, barrier);
 }

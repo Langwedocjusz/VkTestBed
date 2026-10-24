@@ -137,10 +137,10 @@ VkCommandBuffer vkutils::AllocateCommandBuffer(VulkanContext &ctx, VkCommandPool
     VkCommandBuffer buffer{};
 
     VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool        = pool;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool                 = pool;
+    allocInfo.commandBufferCount          = 1;
 
     auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, &buffer);
 
@@ -149,15 +149,13 @@ VkCommandBuffer vkutils::AllocateCommandBuffer(VulkanContext &ctx, VkCommandPool
     return buffer;
 }
 
-void vkutils::AllocateCommandBuffers(VulkanContext             &ctx,
-                                     std::span<VkCommandBuffer> buffers,
-                                     VkCommandPool              pool)
+void vkutils::AllocateCommandBuffers(VulkanContext &ctx, std::span<VkCommandBuffer> buffers, VkCommandPool pool)
 {
     VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool        = pool;
-    allocInfo.commandBufferCount = static_cast<uint32_t>(buffers.size());
+    allocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool                 = pool;
+    allocInfo.commandBufferCount          = static_cast<uint32_t>(buffers.size());
 
     auto ret = vkAllocateCommandBuffers(ctx.Device, &allocInfo, buffers.data());
 

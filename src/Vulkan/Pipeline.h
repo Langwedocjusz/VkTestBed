@@ -17,8 +17,7 @@ class GraphicsPipeline {
     void Bind(VkCommandBuffer cmd);
 
     void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
-    void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
-                            uint32_t startIdx);
+    void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets, uint32_t startIdx);
 
     template <typename T>
     void PushConstants(VkCommandBuffer cmd, const T &data)
@@ -39,8 +38,7 @@ class ComputePipeline {
     void Bind(VkCommandBuffer cmd);
 
     void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
-    void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
-                            uint32_t startIdx);
+    void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets, uint32_t startIdx);
 
     template <typename T>
     void PushConstants(VkCommandBuffer cmd, const T &data)
@@ -48,8 +46,7 @@ class ComputePipeline {
         vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
     }
 
-    void Dispatch(VkCommandBuffer cmd, uint32_t sizeX = 1, uint32_t sizeY = 1,
-                  uint32_t sizeZ = 1);
+    void Dispatch(VkCommandBuffer cmd, uint32_t sizeX = 1, uint32_t sizeY = 1, uint32_t sizeZ = 1);
 
   public:
     static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
@@ -73,8 +70,7 @@ class PipelineBuilder {
     /// If vertex input is not set, vertex data can't be accessed the usual way
     /// in vertex shaders. This is actually the desired behaviour when doing
     /// vertex pulling or generating vertices on-the-fly in the shader itself.
-    PipelineBuilder &SetVertexInput(const Vertex::Layout &layout, uint32_t binding,
-                                    VkVertexInputRate inputRate);
+    PipelineBuilder &SetVertexInput(const Vertex::Layout &layout, uint32_t binding, VkVertexInputRate inputRate);
 
     PipelineBuilder &SetTopology(VkPrimitiveTopology topo);
     PipelineBuilder &SetPolygonMode(VkPolygonMode mode);

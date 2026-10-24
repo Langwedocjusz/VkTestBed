@@ -9,7 +9,9 @@
 
 #include <cstring>
 
-Buffer::Buffer(VulkanContext &ctx, const Buffer::Info &info) : Size(info.Size), mCtx(ctx)
+Buffer::Buffer(VulkanContext &ctx, const Buffer::Info &info)
+    : Size(info.Size)
+    , mCtx(ctx)
 {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -22,8 +24,7 @@ Buffer::Buffer(VulkanContext &ctx, const Buffer::Info &info) : Size(info.Size), 
     allocCreateInfo.usage                   = VMA_MEMORY_USAGE_AUTO;
     allocCreateInfo.flags                   = info.Flags;
 
-    vmaCreateBuffer(ctx.Allocator, &bufferInfo, &allocCreateInfo, &Handle, &Allocation,
-                    &AllocInfo);
+    vmaCreateBuffer(ctx.Allocator, &bufferInfo, &allocCreateInfo, &Handle, &Allocation, &AllocInfo);
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_BUFFER, Handle, info.Name);
 }
@@ -34,8 +35,11 @@ Buffer::~Buffer()
 }
 
 Buffer::Buffer(Buffer &&other) noexcept
-    : Handle(other.Handle), Size(other.Size), Allocation(other.Allocation),
-      AllocInfo(other.AllocInfo), mCtx(other.mCtx)
+    : Handle(other.Handle)
+    , Size(other.Size)
+    , Allocation(other.Allocation)
+    , AllocInfo(other.AllocInfo)
+    , mCtx(other.mCtx)
 {
     other.Handle     = {};
     other.Size       = {};
@@ -53,8 +57,7 @@ void Buffer::UploadMapped(const void *data, VkDeviceSize size)
     std::memcpy(AllocInfo.pMappedData, data, size);
 }
 
-void Buffer::CopyContents(VkCommandBuffer cmd, const Buffer &src, Buffer &dst,
-                          size_t size)
+void Buffer::CopyContents(VkCommandBuffer cmd, const Buffer &src, Buffer &dst, size_t size)
 {
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0;
@@ -112,15 +115,12 @@ Buffer Buffer::MakeTransferDST(VulkanContext &ctx, const Info &info, const void 
 
     // TODO: this should probably be done on transfer queue
     // if available:
-    ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        Buffer::CopyContents(cmd, stagingBuffer, ret, info.Size);
-    });
+    ctx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) { Buffer::CopyContents(cmd, stagingBuffer, ret, info.Size); });
 
     return ret;
 }
 
-Buffer Buffer::MakeVertex(VulkanContext &ctx, const std::string &name,
-                          const OpaqueBuffer &buf)
+Buffer Buffer::MakeVertex(VulkanContext &ctx, const std::string &name, const OpaqueBuffer &buf)
 {
     using namespace vkenum::buffer_usage;
 
@@ -133,8 +133,7 @@ Buffer Buffer::MakeVertex(VulkanContext &ctx, const std::string &name,
     return MakeTransferDST(ctx, info, buf.Data);
 }
 
-Buffer Buffer::MakeVertexStorage(VulkanContext &ctx, const std::string &name,
-                                 const OpaqueBuffer &buf)
+Buffer Buffer::MakeVertexStorage(VulkanContext &ctx, const std::string &name, const OpaqueBuffer &buf)
 {
     using namespace vkenum::buffer_usage;
 
@@ -147,8 +146,7 @@ Buffer Buffer::MakeVertexStorage(VulkanContext &ctx, const std::string &name,
     return MakeTransferDST(ctx, info, buf.Data);
 }
 
-Buffer Buffer::MakeIndex(VulkanContext &ctx, const std::string &name,
-                         const OpaqueBuffer &buf)
+Buffer Buffer::MakeIndex(VulkanContext &ctx, const std::string &name, const OpaqueBuffer &buf)
 {
     using namespace vkenum::buffer_usage;
 

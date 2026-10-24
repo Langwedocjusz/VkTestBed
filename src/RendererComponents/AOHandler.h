@@ -21,8 +21,7 @@ class AOHandler {
     // (Re)Creates all render targets / textures used by this module.
     // This is linked to the swapchain since their resolution
     // is scaled along with the resolution of the swapchain.
-    void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
-                                    VkExtent2D drawExtent);
+    void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView, VkExtent2D drawExtent);
 
     // This overload re-uses cached versions of the arguments:
     void RecreateSwapchainResources();
@@ -71,8 +70,8 @@ class AOHandler {
     std::optional<Texture> mBilateralTarget;
 
     // TODO: Test different counts impact on perf:
-    static constexpr uint32_t            ZBufferMips = 4;
-    std::array<VkImageView, ZBufferMips> mZSingleLevelViews;
+    static constexpr uint32_t ZBufferMips = 4;
+    std::vector<VkImageView>  mZSingleLevelViews;
 
     // Descriptor sets for AO generation:
     VkDescriptorSetLayout mAODescriptorSetLayout;

@@ -63,7 +63,6 @@ GeometryData primitive::TexturedCubeWithTangent()
         16,18,17, 18,16,19,
         20,21,22, 22,23,20
     };
-
     // clang-format on
 
     tangen::GenerateTangents(primData);

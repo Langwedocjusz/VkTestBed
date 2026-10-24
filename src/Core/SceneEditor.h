@@ -50,9 +50,8 @@ class SceneEditor {
 
     void UpdateTransforms(SceneGraphNode *rootNode);
 
-    std::pair<SceneKey, Prefab &> EmplacePrefab(
-        std::optional<SceneKey> meshKey = std::nullopt);
-    void InstancePrefab(SceneKey prefabId);
+    std::pair<SceneKey, Prefab &> EmplacePrefab(std::optional<SceneKey> meshKey = std::nullopt);
+    void                          InstancePrefab(SceneKey prefabId);
 
     // Iterators to underlying data:
 

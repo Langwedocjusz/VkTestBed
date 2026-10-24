@@ -49,9 +49,12 @@ class Application::Impl {
 };
 
 Application::Impl::Impl()
-    : mWindow(800, 600, "Vulkanik", static_cast<void *>(this)), mCtx(mWindow),
-      mRender(mCtx, mCamera), mSceneEditor(mScene), mSceneGui(mSceneEditor, mCamera),
-      mShaderManager("assets/shaders", "assets/spirv")
+    : mWindow(800, 600, "Vulkanik", static_cast<void *>(this))
+    , mCtx(mWindow)
+    , mRender(mCtx, mCamera)
+    , mSceneEditor(mScene)
+    , mSceneGui(mSceneEditor, mCamera)
+    , mShaderManager("assets/shaders", "assets/spirv")
 {
     mWindow.SetEventCallback([](void *usrPtr, Event::EventVariant event) {
         auto app = static_cast<Impl *>(usrPtr);
@@ -203,7 +206,8 @@ void Application::Impl::OnEvent(Event::EventVariant event)
     }
 }
 
-Application::Application() : mPImpl(std::make_unique<Impl>())
+Application::Application()
+    : mPImpl(std::make_unique<Impl>())
 {
 }
 

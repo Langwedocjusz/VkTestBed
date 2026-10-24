@@ -23,7 +23,8 @@ class Flags {
   public:
     using Underlying = std::underlying_type_t<Bits>;
 
-    constexpr Flags(Bits b) : mValue(static_cast<Underlying>(b))
+    constexpr Flags(Bits b)
+        : mValue(static_cast<Underlying>(b))
     {
     }
 
@@ -38,7 +39,8 @@ class Flags {
     }
 
   private:
-    constexpr explicit Flags(Underlying v) : mValue(v)
+    constexpr explicit Flags(Underlying v)
+        : mValue(v)
     {
     }
     Underlying mValue;
@@ -58,7 +60,7 @@ constexpr ImageUsage TransferDst{VK_IMAGE_USAGE_TRANSFER_DST_BIT};
 constexpr ImageUsage Storage{VK_IMAGE_USAGE_STORAGE_BIT};
 constexpr ImageUsage Sampled{VK_IMAGE_USAGE_SAMPLED_BIT};
 constexpr ImageUsage ColorAttachment{VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT};
-constexpr ImageUsage DepthStencilAttachment{VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT};
+constexpr ImageUsage DepthStencil{VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT};
 }; // namespace image_usage
 
 namespace buffer_usage
@@ -79,8 +81,7 @@ namespace alloc_create
 using AllocCreateFlags = Flags<VmaAllocationCreateFlagBits>;
 
 constexpr AllocCreateFlags Mapped{VMA_ALLOCATION_CREATE_MAPPED_BIT};
-constexpr AllocCreateFlags HostAccessSequentialWrite{
-    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT};
+constexpr AllocCreateFlags HostAccessSequentialWrite{VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT};
 constexpr AllocCreateFlags HostAccessRandom{VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT};
 }; // namespace alloc_create
 
@@ -89,13 +90,12 @@ constexpr AllocCreateFlags HostAccessRandom{VMA_ALLOCATION_CREATE_HOST_ACCESS_RA
 namespace image_layout
 {
 constexpr VkImageLayout ColorAttachment = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-constexpr VkImageLayout DepthStencilAttachment =
-    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-constexpr VkImageLayout General        = VK_IMAGE_LAYOUT_GENERAL;
-constexpr VkImageLayout ShaderReadOnly = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-constexpr VkImageLayout TransferDst    = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-constexpr VkImageLayout TransferSrc    = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-constexpr VkImageLayout Undefined      = VK_IMAGE_LAYOUT_UNDEFINED;
+constexpr VkImageLayout DepthStencil    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+constexpr VkImageLayout General         = VK_IMAGE_LAYOUT_GENERAL;
+constexpr VkImageLayout ShaderRead      = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+constexpr VkImageLayout TransferDst     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+constexpr VkImageLayout TransferSrc     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+constexpr VkImageLayout Undefined       = VK_IMAGE_LAYOUT_UNDEFINED;
 }; // namespace image_layout
 
 }; // namespace vkenum

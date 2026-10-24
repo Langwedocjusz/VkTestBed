@@ -11,16 +11,27 @@
 #include <ranges>
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
-    : IRenderer(ctx, info, camera), mTextureDescriptorAllocator(ctx),
-      mDynamicUBO(ctx, info, sizeof(mUBOData)), mDynamicDS(ctx, info),
-      mSceneDeletionQueue(ctx)
+    : IRenderer(ctx, info, camera)
+    , mTextureDescriptorAllocator(ctx)
+    , mDynamicUBO(ctx, info, sizeof(mUBOData))
+    , mDynamicDS(ctx, info)
+    , mSceneDeletionQueue(ctx)
 {
-    {
-        auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    // Create the texture sampler:
+    mSampler = SamplerBuilder("Minimal3DSampler")
+                   .SetMagFilter(VK_FILTER_LINEAR)
+                   .SetMinFilter(VK_FILTER_LINEAR)
+                   .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                   .Build(mCtx, mMainDeletionQueue);
 
-        auto layout = DescriptorSetLayoutBuilder("Minimal3DDynamicDescriptorSetLayout")
-                          .AddUniformBuffer(0, stageFlags)
-                          .Build(mCtx, mMainDeletionQueue);
+    // Initialize ubo dynamic descriptor set:
+    {
+        // clang-format off
+        auto layout = 
+            DescriptorSetLayoutBuilder("Minimal3DDynamicDescriptorSetLayout")
+                .AddUniformBuffer(0, VK_SHADER_STAGE_VERTEX_BIT)
+                .Build(mCtx, mMainDeletionQueue);
+        // clang-format on
 
         auto counts = Descriptor::PoolCounts{
             .UniformBuffer = 1,
@@ -31,35 +42,28 @@ Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera
         mDynamicDS.BeginUpdate();
 
         auto [buffers, sizes] = mDynamicUBO.GetBufferHandlesAndSizes();
-
         mDynamicDS.WriteUniformBuffer(0, buffers, sizes);
+
         mDynamicDS.EndUpdate();
     }
 
     // Create descriptor set layout for sampling textures
-    mTextureDescriptorSetLayout =
+    // clang-format off
+    mTextureDescriptorSetLayout = 
         DescriptorSetLayoutBuilder("Minimal3DTextureDescriptorLayout")
             .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx, mMainDeletionQueue);
+    // clang-format on
 
-    // Initialize descriptor allocator for materials
-    auto poolCounts = Descriptor::PoolCounts{
+    // Initialize descriptor allocator for materials:
+    mTextureDescriptorAllocator.OnInit({
         .CombinedImageSampler = 1,
-    };
-
-    mTextureDescriptorAllocator.OnInit(poolCounts);
+    });
 
     // Create the default texture:
     auto imgData = ImageData::SinglePixel(Pixel{255, 255, 255, 255}, false);
 
     mDefaultImage = Texture::FromData(mCtx, "DefaultTexture", imgData);
-
-    // Create the texture sampler:
-    mSampler = SamplerBuilder("Minimal3DSampler")
-                   .SetMagFilter(VK_FILTER_LINEAR)
-                   .SetMinFilter(VK_FILTER_LINEAR)
-                   .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
-                   .Build(mCtx, mMainDeletionQueue);
 
     // Build the graphics pipelines:
     RebuildPipelines();
@@ -72,7 +76,8 @@ void Minimal3DRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    mColoredPipeline =
+    // clang-format off
+    mColoredPipeline = 
         PipelineBuilder("Minimal3DColoredPipeline")
             .SetShaderPathVertex("assets/spirv/Minimal3DColoredVert.spv")
             .SetShaderPathFragment("assets/spirv/Minimal3DColoredFrag.spv")
@@ -86,7 +91,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx, mPipelineDeletionQueue);
 
-    mTexturedPipeline =
+    mTexturedPipeline = 
         PipelineBuilder("Minimal3DTexturedPipeline")
             .SetShaderPathVertex("assets/spirv/Minimal3DTexturedVert.spv")
             .SetShaderPathFragment("assets/spirv/Minimal3DTexturedFrag.spv")
@@ -100,6 +105,7 @@ void Minimal3DRenderer::RebuildPipelines()
             .EnableDepthTest()
             .SetDepthFormat(mDepthFormat)
             .Build(mCtx, mPipelineDeletionQueue);
+    // clang-format on
 }
 
 void Minimal3DRenderer::OnUpdate([[maybe_unused]] float deltaTime)
@@ -142,8 +148,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
             VkDeviceSize vertOffset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 mColoredLayout.IndexType);
+            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0, mColoredLayout.IndexType);
 
             for (auto &transform : drawable.Instances)
             {
@@ -165,8 +170,7 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
             VkDeviceSize vertOffset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 mTexturedLayout.IndexType);
+            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0, mTexturedLayout.IndexType);
 
             auto &material = mMaterials.at(drawable.Material);
             mTexturedPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
@@ -179,11 +183,12 @@ void Minimal3DRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highli
                     glm::mat4 Transform;
                 };
 
-                mTexturedPipeline.PushConstants(
-                    cmd, PCData{
-                             .AlphaCutoff = glm::vec4(material.AlphaCutoff),
-                             .Transform   = transform,
-                         });
+                // clang-format off
+                mTexturedPipeline.PushConstants(cmd, PCData{
+                    .AlphaCutoff = glm::vec4(material.AlphaCutoff),
+                    .Transform   = transform,
+                });
+                // clang-format on
 
                 vkCmdDrawIndexed(cmd, drawable.IndexCount, 1, 0, 0, 0);
             }
@@ -213,23 +218,23 @@ void Minimal3DRenderer::RecreateSwapchainResources()
         .height = ScaleResolution(mCtx.Swapchain->Extent.height),
     };
 
-    mRenderTarget =
-        Texture::Make2D(mCtx, {
-                                  .Name   = "RenderTarget",
-                                  .Extent = drawExtent,
-                                  .Format = mRenderTargetFormat,
-                                  .Usage  = TransferSrc | ColorAttachment,
-                                  .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                              });
+    // clang-format off
+    mRenderTarget = Texture::Make2D(mCtx, {
+        .Name   = "RenderTarget",
+        .Extent = drawExtent,
+        .Format = mRenderTargetFormat,
+        .Usage  = TransferSrc | ColorAttachment,
+        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    });
 
-    mDepthBuffer =
-        Texture::Make2D(mCtx, {
-                                  .Name   = "DepthBuffer",
-                                  .Extent = drawExtent,
-                                  .Format = mDepthFormat,
-                                  .Usage  = DepthStencilAttachment,
-                                  .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                              });
+    mDepthBuffer = Texture::Make2D(mCtx, {
+        .Name   = "DepthBuffer",
+        .Extent = drawExtent,
+        .Format = mDepthFormat,
+        .Usage  = DepthStencil,
+        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+    });
+    // clang-format on
 }
 
 void Minimal3DRenderer::LoadScene(const Scene &scene)
@@ -279,8 +284,7 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
             auto drawableKey = DrawableKey{meshKey, primIdx};
 
             // Already imported:
-            if (mColoredDrawables.contains(drawableKey) ||
-                mTexturedDrawables.contains(drawableKey))
+            if (mColoredDrawables.contains(drawableKey) || mTexturedDrawables.contains(drawableKey))
                 continue;
 
             // Create new drawable:
@@ -288,14 +292,12 @@ void Minimal3DRenderer::LoadMeshes(const Scene &scene)
 
             if (mColoredLayout == prim.Data.Layout)
             {
-                mColoredDrawables.try_emplace(drawableKey,
-                                              MakeDrawable(prim.Data, primName));
+                mColoredDrawables.try_emplace(drawableKey, MakeDrawable(prim.Data, primName));
             }
 
             if (mTexturedLayout == prim.Data.Layout)
             {
-                mTexturedDrawables.try_emplace(drawableKey,
-                                               MakeDrawable(prim.Data, primName));
+                mTexturedDrawables.try_emplace(drawableKey, MakeDrawable(prim.Data, primName));
             }
         }
     }
@@ -322,8 +324,7 @@ void Minimal3DRenderer::LoadMaterials(const Scene &scene)
         // Allocate descripor set only on first load:
         if (firstLoad)
         {
-            mat.DescriptorSet =
-                mTextureDescriptorAllocator.Allocate(mTextureDescriptorSetLayout);
+            mat.DescriptorSet = mTextureDescriptorAllocator.Allocate(mTextureDescriptorSetLayout);
         }
 
         // Update the alpha cutoff:
@@ -342,9 +343,11 @@ void Minimal3DRenderer::LoadMaterials(const Scene &scene)
         }();
 
         // Update the descriptor set:
+        // clang-format off
         DescriptorUpdater(mat.DescriptorSet)
             .WriteCombinedSampler(0, texture.View, mSampler)
             .Update(mCtx);
+        // clang-format on
     }
 }
 

@@ -9,7 +9,8 @@
 
 #include <vector>
 
-FilesystemBrowser::FilesystemBrowser() : CurrentPath(Path::Current().String())
+FilesystemBrowser::FilesystemBrowser()
+    : CurrentPath(Path::Current().String())
 {
 }
 
@@ -47,8 +48,7 @@ void FilesystemBrowser::OnImGuiRaw(float lowerMargin)
     const float text_width = ImGui::GetContentRegionAvail().x;
     ImGui::PushItemWidth(text_width);
 
-    ImGui::InputText("##current_directory", CurrentPath.data(), CurrentPath.size(),
-                     ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputText("##current_directory", CurrentPath.data(), CurrentPath.size(), ImGuiInputTextFlags_ReadOnly);
 
     ImGui::PopItemWidth();
 
@@ -105,10 +105,10 @@ void FilesystemBrowser::ImGuiLoadPopup(const std::string &name, bool &open)
 
         ImGuiStyle &style = ImGui::GetStyle();
 
-        const float buttonWidth  = ImGui::CalcTextSize(buttonText.c_str()).x +
-                                   2.0f * style.FramePadding.x + style.ItemSpacing.x;
-        const float buttonHeight = ImGui::CalcTextSize(buttonText.c_str()).y +
-                                   2.0f * style.FramePadding.y + style.ItemSpacing.y;
+        const float buttonWidth =
+            ImGui::CalcTextSize(buttonText.c_str()).x + 2.0f * style.FramePadding.x + style.ItemSpacing.x;
+        const float buttonHeight =
+            ImGui::CalcTextSize(buttonText.c_str()).y + 2.0f * style.FramePadding.y + style.ItemSpacing.y;
 
         // const ImVec2 buttonSize = ImGui::CalcTextSize(buttonText.c_str()) + 2.0f *
         // style.FramePadding + style.ItemInnerSpacing;
@@ -119,8 +119,7 @@ void FilesystemBrowser::ImGuiLoadPopup(const std::string &name, bool &open)
 
         ImGui::PushItemWidth(textWidth);
 
-        ImGui::InputText("##load_filename", ChosenFile.data(), maxNameLength,
-                         ImGuiInputTextFlags_ReadOnly);
+        ImGui::InputText("##load_filename", ChosenFile.data(), maxNameLength, ImGuiInputTextFlags_ReadOnly);
         ImGui::PopItemWidth();
 
         ImGui::SameLine();

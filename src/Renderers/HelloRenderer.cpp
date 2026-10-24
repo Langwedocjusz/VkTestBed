@@ -15,8 +15,10 @@
 #include <string>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
-    : IRenderer(ctx, info, camera), mDynamicUBO(ctx, info, sizeof(mUBOData)),
-      mDynamicDS(ctx, info), mSceneDeletionQueue(ctx)
+    : IRenderer(ctx, info, camera)
+    , mDynamicUBO(ctx, info, sizeof(mUBOData))
+    , mDynamicDS(ctx, info)
+    , mSceneDeletionQueue(ctx)
 {
     {
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -47,7 +49,8 @@ void HelloRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    mGraphicsPipeline =
+    // clang-format off
+    mGraphicsPipeline = 
         PipelineBuilder("HelloRendererPipeline")
             .SetShaderPathVertex("assets/spirv/HelloTriangleVert.spv")
             .SetShaderPathFragment("assets/spirv/HelloTriangleFrag.spv")
@@ -58,6 +61,7 @@ void HelloRenderer::RebuildPipelines()
             .SetColorFormat(mRenderTargetFormat)
             .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
             .Build(mCtx, mPipelineDeletionQueue);
+    // clang-format on
 }
 
 void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)
@@ -97,8 +101,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
             VkDeviceSize vertOffset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 mGeometryLayout.IndexType);
+            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0, mGeometryLayout.IndexType);
 
             auto &instances = mInstanceData[drawable.Instances];
 
@@ -134,14 +137,15 @@ void HelloRenderer::RecreateSwapchainResources()
         .height = ScaleResolution(mCtx.Swapchain->Extent.height),
     };
 
-    mRenderTarget =
-        Texture::Make2D(mCtx, {
-                                  .Name   = "RenderTarget",
-                                  .Extent = drawExtent,
-                                  .Format = mRenderTargetFormat,
-                                  .Usage  = TransferSrc | ColorAttachment,
-                                  .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                              });
+    // clang-format off
+    mRenderTarget = Texture::Make2D(mCtx, {
+        .Name   = "RenderTarget",
+        .Extent = drawExtent,
+        .Format = mRenderTargetFormat,
+        .Usage  = TransferSrc | ColorAttachment,
+        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    });
+    // clang-format on
 }
 
 void HelloRenderer::LoadScene(const Scene &scene)
@@ -164,8 +168,7 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
 
-    auto MakeDrawable = [&](const GeometryData &geo, const std::string &debugName,
-                            SceneKey meshKey) {
+    auto MakeDrawable = [&](const GeometryData &geo, const std::string &debugName, SceneKey meshKey) {
         return Drawable{
             .VertexBuffer = Buffer::MakeVertex(mCtx, debugName, geo.VertexData),
             .VertexCount  = static_cast<uint32_t>(geo.VertexCount),
@@ -189,8 +192,7 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
             {
                 const auto primName = mesh.Name + std::to_string(primIdx);
 
-                mDrawables.try_emplace(drawableKey,
-                                       MakeDrawable(prim.Data, primName, meshKey));
+                mDrawables.try_emplace(drawableKey, MakeDrawable(prim.Data, primName, meshKey));
             }
         }
     }

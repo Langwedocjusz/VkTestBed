@@ -25,20 +25,16 @@ class Buffer {
     static Buffer MakeMappedUniform(VulkanContext &ctx, const ThinInfo &info);
     // NOTE: info.Usage must contain TransferDst flag:
     static Buffer MakeTransferDST(VulkanContext &ctx, const Info &info, const void *data);
-    static Buffer MakeVertex(VulkanContext &ctx, const std::string &name,
-                             const OpaqueBuffer &buf);
-    static Buffer MakeVertexStorage(VulkanContext &ctx, const std::string &name,
-                                    const OpaqueBuffer &buf);
-    static Buffer MakeIndex(VulkanContext &ctx, const std::string &name,
-                            const OpaqueBuffer &buf);
+    static Buffer MakeVertex(VulkanContext &ctx, const std::string &name, const OpaqueBuffer &buf);
+    static Buffer MakeVertexStorage(VulkanContext &ctx, const std::string &name, const OpaqueBuffer &buf);
+    static Buffer MakeIndex(VulkanContext &ctx, const std::string &name, const OpaqueBuffer &buf);
 
     // Buffer operations:
     void Upload(const void *data, VkDeviceSize size);
     // Will only worked on mapped buffers:
     void UploadMapped(const void *data, VkDeviceSize size);
 
-    static void CopyContents(VkCommandBuffer cmd, const Buffer &src, Buffer &dst,
-                             size_t size);
+    static void CopyContents(VkCommandBuffer cmd, const Buffer &src, Buffer &dst, size_t size);
 
   public:
     struct Info {

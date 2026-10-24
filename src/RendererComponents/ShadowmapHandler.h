@@ -105,13 +105,10 @@ class ShadowmapHandler {
   private:
     [[nodiscard]] VkExtent2D GetExtent() const;
 
-    [[nodiscard]] Frustum ScaleCameraFrustum(Frustum camFrustum, float distNear,
-                                             float distFar) const;
-    [[nodiscard]] std::pair<ShadowVolume, float> GetBoundingVolume(
-        Frustum shadowFrustum, glm::mat4 lightView) const;
+    [[nodiscard]] Frustum ScaleCameraFrustum(Frustum camFrustum, float distNear, float distFar) const;
+    [[nodiscard]] std::pair<ShadowVolume, float> GetBoundingVolume(Frustum shadowFrustum, glm::mat4 lightView) const;
     /// Scene AABB is take to be in world coords
-    [[nodiscard]] ShadowVolume FitVolumeToScene(ShadowVolume volume, AABB sceneAABB,
-                                                glm::mat4 lightView) const;
+    [[nodiscard]] ShadowVolume FitVolumeToScene(ShadowVolume volume, AABB sceneAABB, glm::mat4 lightView) const;
 
   private:
     static constexpr uint32_t ShadowmapResolution = 2048;
@@ -136,7 +133,7 @@ class ShadowmapHandler {
     VkSampler              mSampler;
 
     // Single layer views for rendering subsequent cascades:
-    std::array<VkImageView, NumCascades> mCascadeViews;
+    std::vector<VkImageView> mCascadeViews;
 
     // Data that needs to be uploaded via uniform buffer
     // to use shadowmaps in actual rendering:
@@ -174,8 +171,7 @@ class ShadowmapHandler {
 };
 
 template <typename OpaqueFn, typename AlphaFn>
-void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque,
-                                      AlphaFn drawAlpha)
+void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque, AlphaFn drawAlpha)
 {
     barrier::DepthToRender(cmd, mShadowmap->Img, NumCascades);
 

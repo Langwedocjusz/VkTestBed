@@ -14,7 +14,10 @@
 
 struct AssetManager::Model {
     Model(const ModelConfig &config, bool &isReady)
-        : Config(config), IsReady(isReady), TasksLeft(0), StartTime(Timer::Now())
+        : Config(config)
+        , IsReady(isReady)
+        , TasksLeft(0)
+        , StartTime(Timer::Now())
     {
     }
 
@@ -28,7 +31,8 @@ struct AssetManager::Model {
     Timer::TimePoint               StartTime;
 };
 
-AssetManager::AssetManager(Scene &scene) : mScene(scene)
+AssetManager::AssetManager(Scene &scene)
+    : mScene(scene)
 {
     mThreadPool = std::make_unique<ThreadPool>();
 }
@@ -37,8 +41,7 @@ AssetManager::~AssetManager()
 {
 }
 
-void AssetManager::LoadModel(const ModelConfig &config, SceneGraphNode &root,
-                             bool &isReady)
+void AssetManager::LoadModel(const ModelConfig &config, SceneGraphNode &root, bool &isReady)
 {
     // 0. If already loading do nothing
     if (mModelStage != ModelStage::Idle)
@@ -89,8 +92,7 @@ void AssetManager::OnUpdate()
 
                 auto primDataRaw = mModel->Gltf->LoadPrimitive(data, mModel->Config);
 
-                prim.Data =
-                    VertexPacking::Encode(primDataRaw, mModel->Config.VertexLayout);
+                prim.Data = VertexPacking::Encode(primDataRaw, mModel->Config.VertexLayout);
 
                 // For compressed layout store additional normalization data:
                 if (mModel->Config.VertexLayout == Vertex::PullLayout::Compressed)
@@ -141,13 +143,11 @@ void AssetManager::PreprocessGltf(SceneGraphNode &root)
 
     // Retrieve materials, fill table of their keys
     std::map<size_t, SceneKey> matKeyMap;
-    mModel->Gltf->PreprocessMaterials(mScene, matKeyMap, mModel->ImgTasks,
-                                      mModel->Config);
+    mModel->Gltf->PreprocessMaterials(mScene, matKeyMap, mModel->ImgTasks, mModel->Config);
 
     // Retrieve mesh primitives, fill table of their keys, assign them materials from
     // previous table
-    mModel->Gltf->PreprocessMeshes(mScene, mModel->MeshKeyMap, mModel->PrimTasks,
-                                   mModel->Config, matKeyMap);
+    mModel->Gltf->PreprocessMeshes(mScene, mModel->MeshKeyMap, mModel->PrimTasks, mModel->Config, matKeyMap);
 
     // Retrieve node hierarchy, assign keys from mesh table:
     mModel->Gltf->PreprocessHierarchy(root, mModel->MeshKeyMap);

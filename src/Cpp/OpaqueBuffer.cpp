@@ -3,7 +3,8 @@
 
 #include <new>
 
-OpaqueBuffer::OpaqueBuffer(size_t size, size_t alignment) : Size(size)
+OpaqueBuffer::OpaqueBuffer(size_t size, size_t alignment)
+    : Size(size)
 {
 #ifdef _WIN32
     Data = static_cast<uint8_t *>(_aligned_malloc(size, alignment));
@@ -22,7 +23,8 @@ OpaqueBuffer::~OpaqueBuffer()
 }
 
 OpaqueBuffer::OpaqueBuffer(OpaqueBuffer &&other) noexcept
-    : Size(other.Size), Data(other.Data)
+    : Size(other.Size)
+    , Data(other.Data)
 {
     other.Data = nullptr;
 }

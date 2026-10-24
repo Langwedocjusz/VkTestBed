@@ -66,8 +66,7 @@ struct Swapchain::DxgiImpl {
             swapChainParameters.flags = DVK_SWAPCHAIN_BACKBUFFER_BLIT_FLAG;
         }
 
-        swapChainParameters.usage =
-            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        swapChainParameters.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         {
             auto res = dvk_createSwapChain(swapChainParameters, &Swapchain);
@@ -96,13 +95,13 @@ void Swapchain::InitDxgi(SystemWindow &window)
     vassert(mDxgiCtx == nullptr);
 
     // Set up the function table:
-    const auto getMemoryWin32HandleProperties =
-        reinterpret_cast<PFN_vkGetMemoryWin32HandlePropertiesKHR>(
-            vkGetDeviceProcAddr(mCtx.Device, "vkGetMemoryWin32HandlePropertiesKHR"));
+    const auto getMemoryWin32HandleProperties = reinterpret_cast<PFN_vkGetMemoryWin32HandlePropertiesKHR>(
+        vkGetDeviceProcAddr(mCtx.Device, "vkGetMemoryWin32HandlePropertiesKHR")
+    );
 
-    const auto importSemaphoreWin32Handle =
-        reinterpret_cast<PFN_vkImportSemaphoreWin32HandleKHR>(
-            vkGetDeviceProcAddr(mCtx.Device, "vkImportSemaphoreWin32HandleKHR"));
+    const auto importSemaphoreWin32Handle = reinterpret_cast<PFN_vkImportSemaphoreWin32HandleKHR>(
+        vkGetDeviceProcAddr(mCtx.Device, "vkImportSemaphoreWin32HandleKHR")
+    );
 
     dvk_functions_t dvkFunctions = {
         .pCreateFactory                      = CreateDXGIFactory2,
@@ -124,11 +123,11 @@ void Swapchain::InitDxgi(SystemWindow &window)
 
     // Grab device LUID:
     VkPhysicalDeviceIDProperties idProperties = {};
-    idProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
+    idProperties.sType                        = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
 
     VkPhysicalDeviceProperties2 properties = {};
-    properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    properties.pNext = &idProperties;
+    properties.sType                       = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    properties.pNext                       = &idProperties;
 
     vkGetPhysicalDeviceProperties2(mCtx.PhysicalDevice, &properties);
 
@@ -237,8 +236,7 @@ void Swapchain::RecreateDxgi(VkExtent2D extent)
             .layerCount     = 1,
         };
 
-        auto ret =
-            vkCreateImageView(mCtx.Device, &imageViewInfo, nullptr, &ImageViews[index]);
+        auto ret = vkCreateImageView(mCtx.Device, &imageViewInfo, nullptr, &ImageViews[index]);
 
         vassert(ret == VK_SUCCESS);
     }
@@ -247,7 +245,7 @@ void Swapchain::RecreateDxgi(VkExtent2D extent)
 PresentationInfo Swapchain::AcquireDxgi(uint32_t &imageIndex)
 {
     dvk_presentationInfo_t presentationInfo{};
-    auto res = dvk_acquireImage(&mDxgiImpl->Swapchain, &presentationInfo);
+    auto                   res = dvk_acquireImage(&mDxgiImpl->Swapchain, &presentationInfo);
 
     if (dvk_isError(res))
     {
@@ -298,8 +296,9 @@ struct Swapchain::NativeImpl {
         // To manually specify format:
         //.set_desired_format(VkSurfaceFormatKHR)
 
-        auto builder = vkb::SwapchainBuilder(ctx.PhysicalDevice, ctx.Device, ctx.Surface,
-                                             ctx.GraphicsQueueIdx, ctx.PresentQueueIdx);
+        auto builder = vkb::SwapchainBuilder(
+            ctx.PhysicalDevice, ctx.Device, ctx.Surface, ctx.GraphicsQueueIdx, ctx.PresentQueueIdx
+        );
 
         auto swapRet = builder.set_old_swapchain(Swapchain)
                            .set_desired_extent(extent.width, extent.height)
@@ -343,9 +342,9 @@ void Swapchain::RecreateNative(VkExtent2D extent)
 
 PresentationInfo Swapchain::AcquireNative(FrameResources &frameData, uint32_t &imageIndex)
 {
-    VkResult result = vkAcquireNextImageKHR(mCtx.Device, mNativeImpl->Swapchain,
-                                            UINT64_MAX, frameData.ImageAcquiredSemaphore,
-                                            VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(
+        mCtx.Device, mNativeImpl->Swapchain, UINT64_MAX, frameData.ImageAcquiredSemaphore, VK_NULL_HANDLE, &imageIndex
+    );
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
@@ -394,9 +393,15 @@ void Swapchain::DestroyImageViews()
 
 // === Common wrapper around both: ===================
 
-Swapchain::Swapchain(SystemWindow &window, VkPhysicalDevice physicalDevice,
-                     VkDevice device, VkSurfaceKHR surface, uint32_t graphicsQueueIdx,
-                     uint32_t presentQueueIdx, VkQueue presentQueueHandle)
+Swapchain::Swapchain(
+    SystemWindow    &window,
+    VkPhysicalDevice physicalDevice,
+    VkDevice         device,
+    VkSurfaceKHR     surface,
+    uint32_t         graphicsQueueIdx,
+    uint32_t         presentQueueIdx,
+    VkQueue          presentQueueHandle
+)
 {
     mCtx = {
         .PhysicalDevice     = physicalDevice,

@@ -47,12 +47,10 @@ class DynamicDescriptorSet {
     void EndUpdate();
 
     void WriteUniformBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size);
-    void WriteUniformBuffer(uint32_t binding, std::span<VkBuffer> buffers,
-                            std::span<VkDeviceSize> sizes);
+    void WriteUniformBuffer(uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes);
 
     void WriteCombinedSampler(uint32_t binding, VkImageView imageView, VkSampler sampler);
-    void WriteCombinedSampler(uint32_t binding, std::span<VkImageView> imageViews,
-                              std::span<VkSampler> samplers);
+    void WriteCombinedSampler(uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers);
 
     [[nodiscard]] VkDescriptorSetLayout DescriptorSetLayout() const;
     [[nodiscard]] VkDescriptorSet       DescriptorSet() const;

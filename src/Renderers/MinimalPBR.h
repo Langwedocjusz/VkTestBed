@@ -68,8 +68,7 @@ class MinimalPbrRenderer final : public IRenderer {
 
     class Drawable {
       public:
-        Drawable(VulkanContext &ctx, const ScenePrimitive &prim,
-                 const std::string &debugName);
+        Drawable(VulkanContext &ctx, const ScenePrimitive &prim, const std::string &debugName);
         ~Drawable() = default;
 
         Drawable(const Drawable &)            = delete;
@@ -116,24 +115,41 @@ class MinimalPbrRenderer final : public IRenderer {
     void DestroyTexture(const Texture &texture);
 
     template <typename MaterialFn, typename InstanceFn>
-    void DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &drawable,
-                                glm::mat4 viewProj, MaterialFn materialCallback,
-                                InstanceFn instanceCallback, DrawStats &stats);
+    void DrawAllInstancesCulled(
+        VkCommandBuffer cmd,
+        Drawable       &drawable,
+        glm::mat4       viewProj,
+        MaterialFn      materialCallback,
+        InstanceFn      instanceCallback,
+        DrawStats      &stats
+    );
 
     template <typename MaterialFn, typename InstanceFn>
-    void DrawSingleSidedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                      MaterialFn materialCallback,
-                                      InstanceFn instanceCallback, DrawStats &stats);
+    void DrawSingleSidedFrustumCulled(
+        VkCommandBuffer cmd,
+        glm::mat4       viewProj,
+        MaterialFn      materialCallback,
+        InstanceFn      instanceCallback,
+        DrawStats      &stats
+    );
 
     template <typename MaterialFn, typename InstanceFn>
-    void DrawDoubleSidedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                      MaterialFn materialCallback,
-                                      InstanceFn instanceCallback, DrawStats &stats);
+    void DrawDoubleSidedFrustumCulled(
+        VkCommandBuffer cmd,
+        glm::mat4       viewProj,
+        MaterialFn      materialCallback,
+        InstanceFn      instanceCallback,
+        DrawStats      &stats
+    );
 
     template <typename MaterialFn, typename InstanceFn>
-    void DrawBlendedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                  MaterialFn materialCallback,
-                                  InstanceFn instanceCallback, DrawStats &stats);
+    void DrawBlendedFrustumCulled(
+        VkCommandBuffer cmd,
+        glm::mat4       viewProj,
+        MaterialFn      materialCallback,
+        InstanceFn      instanceCallback,
+        DrawStats      &stats
+    );
 
   private:
     // Various render targets:

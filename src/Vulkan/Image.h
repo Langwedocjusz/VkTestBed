@@ -50,14 +50,14 @@ class Image {
 
     // Factory functions:
     static Image Make2D(VulkanContext &ctx, const Image2DInfo &info);
-    static Image Make2DArray(VulkanContext &ctx, uint32_t numLayers,
-                             const Image2DInfo &info);
+    static Image Make2DArray(VulkanContext &ctx, uint32_t numLayers, const Image2DInfo &info);
     static Image MakeCube(VulkanContext &ctx, const Image2DInfo &info);
-    static Image FromData(VulkanContext &ctx, const std::string &debugName,
-                          const ImageData &data);
+    static Image FromData(VulkanContext &ctx, const std::string &debugName, const ImageData &data);
 
     // Member functions:
-    VkImageView MakeView(const View2DInfo &info);
+    VkImageView              MakeView(const View2DInfo &info);
+    std::vector<VkImageView> MakeViewsSingleMip();
+    std::vector<VkImageView> MakeViewsSingleLayer();
     // Only works for Single2D Images atm:
     void                                  UploadData(const ImageUploadInfo &info);
     void                                  GenerateMips();
@@ -82,8 +82,7 @@ class Image {
         Cube
     };
 
-    Image(VulkanContext &ctx, const Image2DInfo &info, uint32_t numLayers,
-          VkImageCreateFlags flags, InternalType type);
+    Image(VulkanContext &ctx, const Image2DInfo &info, uint32_t numLayers, VkImageCreateFlags flags, InternalType type);
 
     VulkanContext &mCtx;
     InternalType   mType;
@@ -99,11 +98,9 @@ class Texture {
 
     // Factory functions:
     static Texture Make2D(VulkanContext &ctx, const Image2DInfo &info);
-    static Texture Make2DArray(VulkanContext &ctx, uint32_t numLayers,
-                               const Image2DInfo &info);
+    static Texture Make2DArray(VulkanContext &ctx, uint32_t numLayers, const Image2DInfo &info);
     static Texture MakeCube(VulkanContext &ctx, const Image2DInfo &info);
-    static Texture FromData(VulkanContext &ctx, const std::string &debugName,
-                            const ImageData &data);
+    static Texture FromData(VulkanContext &ctx, const std::string &debugName, const ImageData &data);
 
     // Image& conversions:
     operator Image &() & noexcept

@@ -98,7 +98,8 @@ class DirectoryIterator {
 
 class DirectoryRange {
   public:
-    explicit DirectoryRange(const Path &path) : mPath(path)
+    explicit DirectoryRange(const Path &path)
+        : mPath(path)
     {
     }
     [[nodiscard]] DirectoryIterator begin() const
@@ -139,7 +140,8 @@ class RecursiveDirectoryIterator {
 
 class RecursiveDirectoryRange {
   public:
-    explicit RecursiveDirectoryRange(const Path &path) : mPath(path)
+    explicit RecursiveDirectoryRange(const Path &path)
+        : mPath(path)
     {
     }
     [[nodiscard]] RecursiveDirectoryIterator begin() const

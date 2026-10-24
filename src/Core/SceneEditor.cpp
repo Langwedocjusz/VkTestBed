@@ -27,16 +27,18 @@ auto SceneEditor::NodeOpData::GetSourceNodeIterator()
 // SceneEditor Implementation:
 
 SceneEditor::SceneEditor(Scene &scene)
-    : GraphRoot(&scene), mScene(scene), mAssetManager(scene)
+    : GraphRoot(&scene)
+    , mScene(scene)
+    , mAssetManager(scene)
 {
     // Emplace test material and underlying images:
     auto [albedoKey, albedo] = scene.EmplaceImage();
-    albedo = ImageData::SinglePixel(Pixel{.R = 255, .G = 255, .B = 255, .A = 255}, false);
-    albedo.Name = "Test Albedo";
+    albedo                   = ImageData::SinglePixel(Pixel{.R = 255, .G = 255, .B = 255, .A = 255}, false);
+    albedo.Name              = "Test Albedo";
 
     auto [roughnessKey, roughness] = scene.EmplaceImage();
-    roughness = ImageData::SinglePixel(Pixel{.R = 0, .G = 255, .B = 255, .A = 0}, false);
-    roughness.Name = "Test Roughness";
+    roughness                      = ImageData::SinglePixel(Pixel{.R = 0, .G = 255, .B = 255, .A = 0}, false);
+    roughness.Name                 = "Test Roughness";
 
     auto [matKey, mat] = scene.EmplaceMaterial();
     mat.Name           = "Test Material";
@@ -320,8 +322,7 @@ void SceneEditor::HandleNodeDelete()
     children.erase(it);
 }
 
-std::pair<SceneKey, SceneEditor::Prefab &> SceneEditor::EmplacePrefab(
-    std::optional<SceneKey> meshKey)
+std::pair<SceneKey, SceneEditor::Prefab &> SceneEditor::EmplacePrefab(std::optional<SceneKey> meshKey)
 {
     auto key = mPrefabKeyGenerator.Get();
 
@@ -329,17 +330,23 @@ std::pair<SceneKey, SceneEditor::Prefab &> SceneEditor::EmplacePrefab(
 
     if (meshKey)
     {
-        mPrefabs.emplace(key, SceneEditor::Prefab{
-                                  .Root    = SceneGraphNode(*meshKey),
-                                  .IsReady = false,
-                              });
+        mPrefabs.emplace(
+            key,
+            SceneEditor::Prefab{
+                .Root    = SceneGraphNode(*meshKey),
+                .IsReady = false,
+            }
+        );
     }
     else
     {
-        mPrefabs.emplace(key, SceneEditor::Prefab{
-                                  .Root    = SceneGraphNode(),
-                                  .IsReady = false,
-                              });
+        mPrefabs.emplace(
+            key,
+            SceneEditor::Prefab{
+                .Root    = SceneGraphNode(),
+                .IsReady = false,
+            }
+        );
     }
 
     return {key, mPrefabs.at(key)};

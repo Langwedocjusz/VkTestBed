@@ -19,14 +19,12 @@ class SystemWindow {
     using EventHandlerFn = void (*)(void *, Event::EventVariant);
 
   public:
-    SystemWindow(uint32_t width, uint32_t height, const std::string &title,
-                 void *usr_ptr);
+    SystemWindow(uint32_t width, uint32_t height, const std::string &title, void *usr_ptr);
     ~SystemWindow();
 
     void SetEventCallback(EventHandlerFn callback);
 
-    VkSurfaceKHR CreateSurface(VkInstance             instance,
-                               VkAllocationCallbacks *allocator = nullptr);
+    VkSurfaceKHR CreateSurface(VkInstance instance, VkAllocationCallbacks *allocator = nullptr);
 
     bool ShouldClose();
     void PollEvents();

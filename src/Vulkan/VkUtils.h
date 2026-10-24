@@ -10,8 +10,7 @@
 namespace vkutils
 {
 template <typename HandleType>
-inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handle,
-                         const std::string &name)
+inline void SetDebugName(VulkanContext &ctx, VkObjectType type, HandleType handle, const std::string &name)
 {
     VkDebugUtilsObjectNameInfoEXT debugLayoutInfo{};
     debugLayoutInfo.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
@@ -36,8 +35,7 @@ VkCommandPool CreateCommandPool(VulkanContext &ctx, QueueType qtype);
 
 VkCommandBuffer AllocateCommandBuffer(VulkanContext &ctx, VkCommandPool pool);
 
-void AllocateCommandBuffers(VulkanContext &ctx, std::span<VkCommandBuffer> buffers,
-                            VkCommandPool pool);
+void AllocateCommandBuffers(VulkanContext &ctx, std::span<VkCommandBuffer> buffers, VkCommandPool pool);
 
 void BeginRecording(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags = 0);
 void EndRecording(VkCommandBuffer buffer);

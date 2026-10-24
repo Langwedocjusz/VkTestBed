@@ -33,7 +33,7 @@ void iminit::InitImGui()
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO &io     = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -87,10 +87,10 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
 
     VkDescriptorPoolCreateInfo pool_info = {};
     pool_info.sType                      = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets       = 10;
-    pool_info.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    pool_info.pPoolSizes    = poolSizes.data();
+    pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets                    = 10;
+    pool_info.poolSizeCount              = static_cast<uint32_t>(poolSizes.size());
+    pool_info.pPoolSizes                 = poolSizes.data();
 
     auto res = vkCreateDescriptorPool(ctx.Device, &pool_info, nullptr, &sDescriptorPool);
 
@@ -115,12 +115,10 @@ void iminit::InitVulkanBackend(VulkanContext &ctx, uint32_t framesInFlight)
     init_info.MSAASamples         = VK_SAMPLE_COUNT_1_BIT;
 
     // Dynamic rendering data
-    init_info.PipelineRenderingCreateInfo = {};
-    init_info.PipelineRenderingCreateInfo.sType =
-        VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats =
-        &ctx.Swapchain->Format;
+    init_info.PipelineRenderingCreateInfo                         = {};
+    init_info.PipelineRenderingCreateInfo.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount    = 1;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &ctx.Swapchain->Format;
 
     // init_info.PipelineRenderingCreateInfo.depthAttachmentFormat =
     //     vkutils::FindDepthFormat(ctx);

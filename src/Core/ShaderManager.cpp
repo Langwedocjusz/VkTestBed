@@ -21,9 +21,13 @@ class UpdateListener : public efsw::FileWatchListener {
     {
     }
 
-    void handleFileAction(efsw::WatchID watchid, const std::string &dir,
-                          const std::string &filename, efsw::Action action,
-                          std::string oldFilename) override
+    void handleFileAction(
+        efsw::WatchID      watchid,
+        const std::string &dir,
+        const std::string &filename,
+        efsw::Action       action,
+        std::string        oldFilename
+    ) override
     {
         (void)watchid;
         (void)dir;
@@ -67,9 +71,8 @@ ShaderManager::ShaderManager(const std::string &srcDir, const std::string &byteD
     CompileToBytecode();
 
     // Setup directory watcher:
-    mFileWatcher = std::make_unique<efsw::FileWatcher>();
-    mUpdateListener =
-        std::make_unique<UpdateListener>([this]() { mCompilationScheduled = true; });
+    mFileWatcher    = std::make_unique<efsw::FileWatcher>();
+    mUpdateListener = std::make_unique<UpdateListener>([this]() { mCompilationScheduled = true; });
 
     mFileWatcher->addWatch(srcDir, mUpdateListener.get(), true);
     mFileWatcher->watch();
@@ -110,9 +113,7 @@ static std::string GetFilename(const std::string &includeLine)
     return includeLine.substr(first + 1, last - first - 1);
 }
 
-static std::vector<size_t> GetIncludedFileIds(Path                    &srcDir,
-                                              const std::vector<Path> &fileList,
-                                              size_t                   id)
+static std::vector<size_t> GetIncludedFileIds(Path &srcDir, const std::vector<Path> &fileList, size_t id)
 {
     std::vector<size_t> res;
 
@@ -143,8 +144,7 @@ static std::vector<size_t> GetIncludedFileIds(Path                    &srcDir,
     return res;
 }
 
-static std::vector<std::vector<size_t>> GetAdjacencyList(
-    Path &srcDir, const std::vector<Path> &fileList)
+static std::vector<std::vector<size_t>> GetAdjacencyList(Path &srcDir, const std::vector<Path> &fileList)
 {
     const size_t numFiles = fileList.size();
 
@@ -246,10 +246,12 @@ void ShaderManager::CompileToBytecode()
         }
 
         // Append compiler call arguments:
-        data.push_back(CompilerArgs{
-            .Src = srcPath,
-            .Dst = dstPath,
-        });
+        data.push_back(
+            CompilerArgs{
+                .Src = srcPath,
+                .Dst = dstPath,
+            }
+        );
     }
 
     // Call glslc compiler with all collected arguments:

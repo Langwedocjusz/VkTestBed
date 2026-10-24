@@ -54,8 +54,7 @@ using BindingDescription    = VkVertexInputBindingDescription;
 
 AttributeDescriptions GetAttributeDescriptions(const PushLayout &layout);
 
-BindingDescription GetBindingDescription(const PushLayout &layout, uint32_t binding,
-                                         VkVertexInputRate inputRate);
+BindingDescription GetBindingDescription(const PushLayout &layout, uint32_t binding, VkVertexInputRate inputRate);
 } // namespace Vertex
 
 bool operator==(const Vertex::PushLayout &lhs, const Vertex::PushLayout &rhs);

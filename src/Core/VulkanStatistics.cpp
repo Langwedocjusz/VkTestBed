@@ -8,7 +8,8 @@
 #include <iostream>
 
 VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
-    : mCtx(ctx), mDeletionQueue(ctx)
+    : mCtx(ctx)
+    , mDeletionQueue(ctx)
 {
     // Setup timestamp queries if possible:
     if (mCtx.OptionalFeatures.Timestamps)
@@ -20,8 +21,7 @@ VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
             queryPoolInfo.queryType  = VK_QUERY_TYPE_TIMESTAMP;
             queryPoolInfo.queryCount = TimestampsPerFrame;
 
-            auto queryRes = vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr,
-                                              &res.TimestampQueryPool);
+            auto queryRes = vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr, &res.TimestampQueryPool);
 
             vassert(queryRes == VK_SUCCESS, "Failed to create query pool!");
 
@@ -50,8 +50,7 @@ VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
             queryPoolInfo.pipelineStatistics = queriedStatistics;
             queryPoolInfo.queryCount         = 1;
 
-            auto queryRes = vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr,
-                                              &res.StatisticsQueryPool);
+            auto queryRes = vkCreateQueryPool(mCtx.Device, &queryPoolInfo, nullptr, &res.StatisticsQueryPool);
 
             vassert(queryRes == VK_SUCCESS, "Failed to create query pool!");
 
@@ -81,20 +80,21 @@ StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
         if (!firstRun && mCtx.OptionalFeatures.Timestamps)
         {
             auto queryRes = vkGetQueryPoolResults(
-                mCtx.Device, res.TimestampQueryPool,
+                mCtx.Device,
+                res.TimestampQueryPool,
                 0,                                        // first query
                 static_cast<uint32_t>(timestamps.size()), // query count
                 timestamps.size() * sizeof(Timestamp),    // data size
                 &timestamps[0],                           // data
                 sizeof(Timestamp),                        // stride
-                VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+                VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT
+            );
 
             vassert(queryRes == VK_SUCCESS || queryRes == VK_NOT_READY);
         }
 
         // Check if the timestamps are ready:
-        bool timestampsReady =
-            (timestamps[0].Availability != 0) && (timestamps[1].Availability != 0);
+        bool timestampsReady = (timestamps[0].Availability != 0) && (timestamps[1].Availability != 0);
 
         // Decide if new timestamps can be written:
         res.WriteTimestamps = firstRun || timestampsReady;
@@ -102,9 +102,8 @@ StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
         // Store timestamp results if ready:
         if (timestampsReady)
         {
-            auto diffPeriod =
-                static_cast<float>(timestamps[1].Value - timestamps[0].Value);
-            auto diffNS = diffPeriod * mCtx.OptionalFeatures.TimestampPeriod;
+            auto diffPeriod = static_cast<float>(timestamps[1].Value - timestamps[0].Value);
+            auto diffNS     = diffPeriod * mCtx.OptionalFeatures.TimestampPeriod;
 
             ret.FrameTimeMS = diffNS / 1e6f; // nanoseconds to miliseconds
         }
@@ -113,10 +112,15 @@ StatisticsResult VulkanStatisticsCollector::QueryResults(uint32_t frameIdx)
     if (mCtx.OptionalFeatures.PipelineStatistics)
     {
         auto queryRes = vkGetQueryPoolResults(
-            mCtx.Device, res.StatisticsQueryPool, 0, 1,
-            res.Statistics.size() * sizeof(Statistic), res.Statistics.data(),
+            mCtx.Device,
+            res.StatisticsQueryPool,
+            0,
+            1,
             res.Statistics.size() * sizeof(Statistic),
-            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+            res.Statistics.data(),
+            res.Statistics.size() * sizeof(Statistic),
+            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT
+        );
 
         vassert(queryRes == VK_SUCCESS || queryRes == VK_NOT_READY);
 
@@ -138,8 +142,7 @@ void VulkanStatisticsCollector::TimestampTop(VkCommandBuffer cmd, uint32_t frame
     if (mCtx.OptionalFeatures.Timestamps && res.WriteTimestamps)
     {
         vkCmdResetQueryPool(cmd, res.TimestampQueryPool, 0, 1);
-        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                            res.TimestampQueryPool, 0);
+        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, res.TimestampQueryPool, 0);
     }
 }
 
@@ -150,8 +153,7 @@ void VulkanStatisticsCollector::TimestampBottom(VkCommandBuffer cmd, uint32_t fr
     if (mCtx.OptionalFeatures.Timestamps && res.WriteTimestamps)
     {
         vkCmdResetQueryPool(cmd, res.TimestampQueryPool, 1, 1);
-        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                            res.TimestampQueryPool, 1);
+        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, res.TimestampQueryPool, 1);
     }
 }
 

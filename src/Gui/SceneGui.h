@@ -24,8 +24,7 @@ class SceneGui {
   private:
     void SceneHierarchyMenu();
 
-    void InstanceGui(SceneGraphNode &node, SceneGraphNode *parent = nullptr,
-                     int64_t childId = 0);
+    void InstanceGui(SceneGraphNode &node, SceneGraphNode *parent = nullptr, int64_t childId = 0);
     void AddInstancePopup();
     void HandleSceneDropPayload(SceneGraphNode &node);
 

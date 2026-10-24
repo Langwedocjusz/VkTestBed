@@ -29,11 +29,13 @@ Path Path::Current()
     return ret;
 }
 
-Path::Path() : mImpl(std::make_unique<Impl>())
+Path::Path()
+    : mImpl(std::make_unique<Impl>())
 {
 }
 
-Path::Path(const std::string &pathStr) : mImpl(std::make_unique<Impl>())
+Path::Path(const std::string &pathStr)
+    : mImpl(std::make_unique<Impl>())
 {
     auto u8view = Utf8FromString(pathStr);
     mImpl->Path = std::filesystem::path(u8view);
@@ -43,7 +45,8 @@ Path::~Path()
 {
 }
 
-Path::Path(const Path &other) : mImpl(std::make_unique<Impl>())
+Path::Path(const Path &other)
+    : mImpl(std::make_unique<Impl>())
 {
     mImpl->Path = other.mImpl->Path;
 }
@@ -163,11 +166,13 @@ struct DirectoryIterator::Impl {
     std::filesystem::directory_iterator Iter;
 };
 
-DirectoryIterator::DirectoryIterator() : mImpl(nullptr)
+DirectoryIterator::DirectoryIterator()
+    : mImpl(nullptr)
 {
 }
 
-DirectoryIterator::DirectoryIterator(const Path &path) : mImpl(std::make_unique<Impl>())
+DirectoryIterator::DirectoryIterator(const Path &path)
+    : mImpl(std::make_unique<Impl>())
 {
     mImpl->Iter = std::filesystem::directory_iterator(path.mImpl->Path);
 }
@@ -219,7 +224,8 @@ struct RecursiveDirectoryIterator::Impl {
     std::filesystem::recursive_directory_iterator Iter;
 };
 
-RecursiveDirectoryIterator::RecursiveDirectoryIterator() : mImpl(nullptr)
+RecursiveDirectoryIterator::RecursiveDirectoryIterator()
+    : mImpl(nullptr)
 {
 }
 
@@ -233,10 +239,8 @@ RecursiveDirectoryIterator::~RecursiveDirectoryIterator()
 {
 }
 
-RecursiveDirectoryIterator::RecursiveDirectoryIterator(
-    RecursiveDirectoryIterator &&) noexcept = default;
-RecursiveDirectoryIterator &RecursiveDirectoryIterator::operator=(
-    RecursiveDirectoryIterator &&) noexcept = default;
+RecursiveDirectoryIterator::RecursiveDirectoryIterator(RecursiveDirectoryIterator &&) noexcept            = default;
+RecursiveDirectoryIterator &RecursiveDirectoryIterator::operator=(RecursiveDirectoryIterator &&) noexcept = default;
 
 Path RecursiveDirectoryIterator::operator*() const
 {

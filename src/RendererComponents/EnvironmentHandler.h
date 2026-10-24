@@ -25,8 +25,7 @@ class EnvironmentHandler {
   public:
     EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool staticPool);
 
-    void RebuildPipelines(VkFormat colorFormat, VkFormat depthFormat,
-                          VkSampleCountFlagBits sampleCount);
+    void RebuildPipelines(VkFormat colorFormat, VkFormat depthFormat, VkSampleCountFlagBits sampleCount);
     void LoadEnvironment(const Scene &scene);
 
     void DrawBackground(VkCommandBuffer cmd, FrustumBack f, VkExtent2D drawExtent);

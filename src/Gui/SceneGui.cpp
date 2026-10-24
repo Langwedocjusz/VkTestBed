@@ -41,7 +41,9 @@ static ImGuizmo::OPERATION TranslateMode(GizmoMode mode)
 }
 
 SceneGui::SceneGui(SceneEditor &editor, const Camera &camera)
-    : mEditor(editor), mCamera(camera), mModelLoader(editor)
+    : mEditor(editor)
+    , mCamera(camera)
+    , mModelLoader(editor)
 {
     auto path = Path::Current() / Path("assets/cubemaps");
 
@@ -54,8 +56,7 @@ SceneGui::SceneGui(SceneEditor &editor, const Camera &camera)
 
     mHdriBrowser.SetCallbackFn([&]() { mEditor.SetHdri(mHdriBrowser.ChosenFile); });
 
-    mHdriBrowser.SetCheckFn(
-        [](const std::string &path) { return Path(path).IsRegularFile(); });
+    mHdriBrowser.SetCheckFn([](const std::string &path) { return Path(path).IsRegularFile(); });
 }
 
 void SceneGui::OnImGui()
@@ -183,9 +184,9 @@ void SceneGui::InstanceGui(SceneGraphNode &node, SceneGraphNode *parent, int64_t
         vassert(!node.IsLeaf());
 
     // Assemble node name and flags:
-    int32_t flags = ImGuiTreeNodeFlags_AllowOverlap;
-    flags |= ImGuiTreeNodeFlags_OpenOnDoubleClick;
-    flags |= ImGuiTreeNodeFlags_OpenOnArrow;
+    int32_t flags  = ImGuiTreeNodeFlags_AllowOverlap;
+    flags         |= ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    flags         |= ImGuiTreeNodeFlags_OpenOnArrow;
 
     if (node.IsLeaf())
         flags |= ImGuiTreeNodeFlags_Leaf;
@@ -428,8 +429,7 @@ void SceneGui::MeshesTab()
 
                         for (auto &[id, mat] : mEditor.Materials())
                         {
-                            if (mat.Name.find(std::string(&filterBuf[0])) ==
-                                std::string::npos)
+                            if (mat.Name.find(std::string(&filterBuf[0])) == std::string::npos)
                                 continue;
 
                             if (ImGui::Selectable(mat.Name.c_str()))
@@ -447,10 +447,8 @@ void SceneGui::MeshesTab()
                     }
 
                     // Auxiliary material info:
-                    ImGui::Text("TexBound Center: %f, %f", prim.TexCoordCenter.x,
-                                prim.TexCoordCenter.y);
-                    ImGui::Text("TexBound Extent: %f, %f", prim.TexCoordExtent.x,
-                                prim.TexCoordExtent.y);
+                    ImGui::Text("TexBound Center: %f, %f", prim.TexCoordCenter.x, prim.TexCoordCenter.y);
+                    ImGui::Text("TexBound Extent: %f, %f", prim.TexCoordExtent.x, prim.TexCoordExtent.y);
 
                     // TODO: adding new materials
                     ImGui::TreePop();
@@ -472,23 +470,20 @@ void SceneGui::MeshesTab()
     }
 }
 
-std::string SceneGui::GetMaterialName(std::optional<SceneKey> key,
-                                      std::string_view        postfix)
+std::string SceneGui::GetMaterialName(std::optional<SceneKey> key, std::string_view postfix)
 {
     if (!key.has_value())
         return "##" + std::string(postfix);
 
     const auto &imgStr = mEditor.GetImage(*key).Name;
 
-    std::string name =
-        "(" + std::to_string(*key) + ") " + imgStr + " ##" + std::string(postfix);
+    std::string name = "(" + std::to_string(*key) + ") " + imgStr + " ##" + std::string(postfix);
     return name;
 }
 
 void SceneGui::MaterialsTab()
 {
-    auto SelectImageKey = [this](std::optional<SceneKey> &key, const std::string &keyName,
-                                 bool &keyChanged) {
+    auto SelectImageKey = [this](std::optional<SceneKey> &key, const std::string &keyName, bool &keyChanged) {
         ImGui::Text("%s", keyName.c_str());
         ImGui::SameLine();
 
@@ -507,8 +502,7 @@ void SceneGui::MaterialsTab()
 
             for (auto &[imgPick, _] : mEditor.Images())
             {
-                std::string imgName =
-                    "(" + std::to_string(imgPick) + ") " + mEditor.GetImage(imgPick).Name;
+                std::string imgName = "(" + std::to_string(imgPick) + ") " + mEditor.GetImage(imgPick).Name;
 
                 if (imgName.find(std::string(&filterBuf[0])) == std::string::npos)
                     continue;
@@ -666,8 +660,7 @@ void SceneGui::EnvironmentTab()
 
     ImGui::SameLine();
 
-    std::string selText =
-        env.HdriImage.has_value() ? env.HdriImage->Name + "##HDRI" : "##HDRI";
+    std::string selText = env.HdriImage.has_value() ? env.HdriImage->Name + "##HDRI" : "##HDRI";
 
     if (ImGui::Selectable(selText.c_str()))
     {
@@ -798,7 +791,7 @@ void SceneGui::ObjectPropertiesMenu()
             // the real translation axes etc.
 
             glm::mat4 currentNonAggregate = mSelectedNode->GetTransform();
-            glm::mat4 parentAggregate = mSelectedNode->Parent->GetAggregateTransform();
+            glm::mat4 parentAggregate     = mSelectedNode->Parent->GetAggregateTransform();
 
             glm::mat4 parentWithoutScale{};
 
@@ -808,8 +801,7 @@ void SceneGui::ObjectPropertiesMenu()
                 glm::vec3 translation;
                 glm::vec3 skew;
                 glm::vec4 perspective;
-                glm::decompose(parentAggregate, scale, rotation, translation, skew,
-                               perspective);
+                glm::decompose(parentAggregate, scale, rotation, translation, skew, perspective);
 
                 auto matTranslation = glm::translate(glm::mat4(1.0f), translation);
                 auto matRotation    = glm::toMat4(glm::quat(rotation));
@@ -829,9 +821,9 @@ void SceneGui::ObjectPropertiesMenu()
             auto mode = ImGuizmo::MODE::WORLD;
             auto op   = TranslateMode(mGizmoMode);
 
-            bool manipulated =
-                ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), op, mode,
-                                     glm::value_ptr(currentNonAggregate));
+            bool manipulated = ImGuizmo::Manipulate(
+                glm::value_ptr(view), glm::value_ptr(proj), op, mode, glm::value_ptr(currentNonAggregate)
+            );
 
             if (manipulated)
             {
@@ -840,8 +832,7 @@ void SceneGui::ObjectPropertiesMenu()
                 glm::vec3 translation;
                 glm::vec3 skew;
                 glm::vec4 perspective;
-                glm::decompose(currentNonAggregate, scale, rotation, translation, skew,
-                               perspective);
+                glm::decompose(currentNonAggregate, scale, rotation, translation, skew, perspective);
 
                 mSelectedNode->Translation = translation;
                 mSelectedNode->Rotation    = glm::eulerAngles(rotation);

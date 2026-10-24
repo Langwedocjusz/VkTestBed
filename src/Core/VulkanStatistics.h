@@ -34,11 +34,10 @@ class VulkanStatisticsCollector {
     };
 
     static constexpr size_t TimestampsPerFrame = 2;
-    using FrameTimestamps = std::array<Timestamp, TimestampsPerFrame>;
+    using FrameTimestamps                      = std::array<Timestamp, TimestampsPerFrame>;
 
     // Pipeline statistics stuff:
-    static constexpr std::array QueriedStatistics{
-        VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT};
+    static constexpr std::array QueriedStatistics{VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT};
 
     struct Statistic {
         uint64_t Value        = 0;

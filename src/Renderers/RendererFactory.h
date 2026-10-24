@@ -14,7 +14,9 @@ enum class RendererType
 class RendererFactory {
   public:
     RendererFactory(VulkanContext &ctx, FrameInfo &info, Camera &camera)
-        : mCtx(ctx), mInfo(info), mCamera(camera)
+        : mCtx(ctx)
+        , mInfo(info)
+        , mCamera(camera)
     {
     }
 

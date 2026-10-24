@@ -6,9 +6,11 @@
 
 #include <ranges>
 
-DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame,
-                                           VkDeviceSize bufferSize)
-    : mBufferSize(bufferSize), mCtx(ctx), mFrame(frame), mDeletionQueue(ctx)
+DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame, VkDeviceSize bufferSize)
+    : mBufferSize(bufferSize)
+    , mCtx(ctx)
+    , mFrame(frame)
+    , mDeletionQueue(ctx)
 {
     // Create Uniform Buffers:
     const auto numBuffers = mCtx.Swapchain->Images.size();
@@ -32,8 +34,7 @@ void DynamicUniformBuffer::UpdateData(void *data, VkDeviceSize size)
     uniformBuffer.UploadMapped(data, size);
 }
 
-DynamicUniformBuffer::HandlesAndSizes DynamicUniformBuffer::GetBufferHandlesAndSizes()
-    const
+DynamicUniformBuffer::HandlesAndSizes DynamicUniformBuffer::GetBufferHandlesAndSizes() const
 {
     std::vector<VkBuffer> handles;
     handles.resize(mUniformBuffers.size());
@@ -49,12 +50,13 @@ DynamicUniformBuffer::HandlesAndSizes DynamicUniformBuffer::GetBufferHandlesAndS
 }
 
 DynamicDescriptorSet::DynamicDescriptorSet(VulkanContext &ctx, FrameInfo &frame)
-    : mCtx(ctx), mFrame(frame), mDeletionQueue(ctx)
+    : mCtx(ctx)
+    , mFrame(frame)
+    , mDeletionQueue(ctx)
 {
 }
 
-void DynamicDescriptorSet::Initialize(VkDescriptorSetLayout  layout,
-                                      Descriptor::PoolCounts counts)
+void DynamicDescriptorSet::Initialize(VkDescriptorSetLayout layout, Descriptor::PoolCounts counts)
 {
     vassert(!mInitialized, "Already initialized!");
     mInitialized = true;
@@ -104,8 +106,7 @@ void DynamicDescriptorSet::EndUpdate()
     mUpdaters.clear();
 }
 
-void DynamicDescriptorSet::WriteUniformBuffer(uint32_t binding, VkBuffer buffer,
-                                              VkDeviceSize size)
+void DynamicDescriptorSet::WriteUniformBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size)
 {
     vassert(mInitialized, "Not initialized yet!");
     vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
@@ -116,9 +117,9 @@ void DynamicDescriptorSet::WriteUniformBuffer(uint32_t binding, VkBuffer buffer,
     }
 }
 
-void DynamicDescriptorSet::WriteUniformBuffer(uint32_t                binding,
-                                              std::span<VkBuffer>     buffers,
-                                              std::span<VkDeviceSize> sizes)
+void DynamicDescriptorSet::WriteUniformBuffer(
+    uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes
+)
 {
     vassert(mInitialized, "Not initialized yet!");
     vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
@@ -133,8 +134,7 @@ void DynamicDescriptorSet::WriteUniformBuffer(uint32_t                binding,
     }
 }
 
-void DynamicDescriptorSet::WriteCombinedSampler(uint32_t binding, VkImageView imageView,
-                                                VkSampler sampler)
+void DynamicDescriptorSet::WriteCombinedSampler(uint32_t binding, VkImageView imageView, VkSampler sampler)
 {
     vassert(mInitialized, "Not initialized yet!");
     vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
@@ -145,9 +145,9 @@ void DynamicDescriptorSet::WriteCombinedSampler(uint32_t binding, VkImageView im
     }
 }
 
-void DynamicDescriptorSet::WriteCombinedSampler(uint32_t               binding,
-                                                std::span<VkImageView> imageViews,
-                                                std::span<VkSampler>   samplers)
+void DynamicDescriptorSet::WriteCombinedSampler(
+    uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers
+)
 {
     vassert(mInitialized, "Not initialized yet!");
     vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");

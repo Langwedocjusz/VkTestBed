@@ -26,6 +26,5 @@ struct ShaderStageInfo {
 
 namespace Shader
 {
-ShaderStageInfo GetStageInfo(VulkanContext &ctx, const std::string &path,
-                             VkShaderStageFlagBits stage);
+ShaderStageInfo GetStageInfo(VulkanContext &ctx, const std::string &path, VkShaderStageFlagBits stage);
 };

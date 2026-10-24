@@ -21,8 +21,10 @@ static std::vector<uint32_t> ReadSpirvBinary(const std::string &filename)
 
     if (fileSize % sizeof(uint32_t) != 0)
     {
-        vpanic("File: " + filename + " has invalid spirv. Size is " +
-               std::to_string(fileSize) + "bytes. Should be divisible by 4.");
+        vpanic(
+            "File: " + filename + " has invalid spirv. Size is " + std::to_string(fileSize) +
+            "bytes. Should be divisible by 4."
+        );
     }
 
     std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
@@ -32,8 +34,7 @@ static std::vector<uint32_t> ReadSpirvBinary(const std::string &filename)
     return buffer;
 }
 
-static VkShaderModule CreateShaderModule(VulkanContext               &ctx,
-                                         const std::vector<uint32_t> &code)
+static VkShaderModule CreateShaderModule(VulkanContext &ctx, const std::vector<uint32_t> &code)
 {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -41,7 +42,7 @@ static VkShaderModule CreateShaderModule(VulkanContext               &ctx,
     createInfo.pCode    = code.data();
 
     VkShaderModule shaderModule;
-    auto ret = vkCreateShaderModule(ctx.Device, &createInfo, nullptr, &shaderModule);
+    auto           ret = vkCreateShaderModule(ctx.Device, &createInfo, nullptr, &shaderModule);
 
     if (ret != VK_SUCCESS)
     {
@@ -72,8 +73,7 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
     // Retrieve information about descriptor set bindings:
     uint32_t numBindings = 0;
     {
-        auto result =
-            spvReflectEnumerateDescriptorBindings(&module, &numBindings, nullptr);
+        auto result = spvReflectEnumerateDescriptorBindings(&module, &numBindings, nullptr);
         vassert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
 
@@ -81,34 +81,33 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
     bindings.resize(numBindings);
 
     {
-        auto result =
-            spvReflectEnumerateDescriptorBindings(&module, &numBindings, bindings.data());
+        auto result = spvReflectEnumerateDescriptorBindings(&module, &numBindings, bindings.data());
         vassert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
 
     for (auto binding : bindings)
     {
-        ret.Bindings.push_back(BindingInfo{
-            .Set     = binding->set,
-            .Binding = binding->binding,
-            .Type    = static_cast<VkDescriptorType>(binding->descriptor_type),
-            .Count   = binding->count,
-        });
+        ret.Bindings.push_back(
+            BindingInfo{
+                .Set     = binding->set,
+                .Binding = binding->binding,
+                .Type    = static_cast<VkDescriptorType>(binding->descriptor_type),
+                .Count   = binding->count,
+            }
+        );
     }
 
     // Retrieve information about push constant blocks:
     uint32_t pcBlockCount;
     {
-        auto result =
-            spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount, nullptr);
+        auto result = spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount, nullptr);
         vassert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
 
     std::vector<SpvReflectBlockVariable *> pcBlocks{};
     pcBlocks.resize(pcBlockCount);
     {
-        auto result = spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount,
-                                                            pcBlocks.data());
+        auto result = spvReflectEnumeratePushConstantBlocks(&module, &pcBlockCount, pcBlocks.data());
         vassert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
 
@@ -144,8 +143,7 @@ static ReflectionInfo GetReflectionInfo(std::vector<uint32_t> &code)
     return ret;
 }
 
-ShaderStageInfo Shader::GetStageInfo(VulkanContext &ctx, const std::string &path,
-                                     VkShaderStageFlagBits stage)
+ShaderStageInfo Shader::GetStageInfo(VulkanContext &ctx, const std::string &path, VkShaderStageFlagBits stage)
 {
     auto code = ReadSpirvBinary(path);
 

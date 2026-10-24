@@ -71,8 +71,7 @@ static void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 static void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
     auto usrPtr = glfwGetWindowUserPointer(window);
-    auto event =
-        Event::Key{.Keycode = key, .Scancode = scancode, .Action = action, .Mods = mods};
+    auto event  = Event::Key{.Keycode = key, .Scancode = scancode, .Action = action, .Mods = mods};
 
     sEventCallback(usrPtr, event);
 }
@@ -85,8 +84,7 @@ static void CharCallback(GLFWwindow *window, unsigned int codepoint)
     sEventCallback(usrPtr, event);
 }
 
-SystemWindow::SystemWindow(uint32_t width, uint32_t height, const std::string &title,
-                           void *usrPtr)
+SystemWindow::SystemWindow(uint32_t width, uint32_t height, const std::string &title, void *usrPtr)
     : Title(title)
 {
     auto ErrorCallback = [](int error, const char *description) {
@@ -134,11 +132,10 @@ void SystemWindow::SetEventCallback(EventHandlerFn callback)
     sEventCallback = callback;
 }
 
-VkSurfaceKHR SystemWindow::CreateSurface(VkInstance             instance,
-                                         VkAllocationCallbacks *allocator)
+VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance, VkAllocationCallbacks *allocator)
 {
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkResult     err = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
+    VkResult     err     = glfwCreateWindowSurface(instance, mWindow, allocator, &surface);
 
     vassert(err == VK_SUCCESS, "Failed to create a surface!");
 

@@ -118,9 +118,9 @@ Vertex::AttributeDescriptions Vertex::GetAttributeDescriptions(const PushLayout 
     return res;
 }
 
-Vertex::BindingDescription Vertex::GetBindingDescription(const PushLayout &layout,
-                                                         uint32_t          binding,
-                                                         VkVertexInputRate inputRate)
+Vertex::BindingDescription Vertex::GetBindingDescription(
+    const PushLayout &layout, uint32_t binding, VkVertexInputRate inputRate
+)
 {
     VkVertexInputBindingDescription bindingDescription{};
     bindingDescription.binding   = binding;

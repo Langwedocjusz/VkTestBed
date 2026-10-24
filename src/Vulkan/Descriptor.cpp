@@ -20,8 +20,7 @@ static std::vector<VkDescriptorPoolSize> GetRawPoolSizes(Descriptor::PoolCounts 
     if (counts.StorageImage > 0)
         ret.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, counts.StorageImage});
     if (counts.CombinedImageSampler > 0)
-        ret.push_back(
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, counts.CombinedImageSampler});
+        ret.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, counts.CombinedImageSampler});
     if (counts.UniformBuffer > 0)
         ret.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, counts.UniformBuffer});
     if (counts.StorageBuffer > 0)
@@ -35,10 +34,9 @@ DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(std::string_view debugNam
 {
 }
 
-DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t binding,
-                                                                   VkDescriptorType type,
-                                                                   uint32_t stages,
-                                                                   uint32_t count)
+DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(
+    uint32_t binding, VkDescriptorType type, uint32_t stages, uint32_t count
+)
 {
     VkDescriptorSetLayoutBinding layoutBinding{};
     layoutBinding.binding         = binding;
@@ -54,29 +52,30 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddBinding(uint32_t bind
     return *this;
 }
 
-DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddUniformBuffer(uint32_t binding,
-                                                                         uint32_t stages,
-                                                                         uint32_t count)
+DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddUniformBuffer(
+    uint32_t binding, uint32_t stages, uint32_t count
+)
 {
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stages, count);
 }
 
-DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageBuffer(uint32_t binding,
-                                                                         uint32_t stages,
-                                                                         uint32_t count)
+DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageBuffer(
+    uint32_t binding, uint32_t stages, uint32_t count
+)
 {
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stages, count);
 }
 
 DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddCombinedSampler(
-    uint32_t binding, uint32_t stages, uint32_t count)
+    uint32_t binding, uint32_t stages, uint32_t count
+)
 {
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, stages, count);
 }
 
-DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageImage(uint32_t binding,
-                                                                        uint32_t stages,
-                                                                        uint32_t count)
+DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageImage(
+    uint32_t binding, uint32_t stages, uint32_t count
+)
 {
     return AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stages, count);
 }
@@ -86,8 +85,7 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
     return BuildLayout(ctx);
 }
 
-VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx,
-                                                        DeletionQueue &queue)
+VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 {
     const auto layout = BuildLayout(ctx);
     queue.push_back(layout);
@@ -132,16 +130,14 @@ VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, PoolCounts counts)
     return pool;
 }
 
-VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, PoolCounts counts,
-                                      DeletionQueue &deletionQueue)
+VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, PoolCounts counts, DeletionQueue &deletionQueue)
 {
     VkDescriptorPool pool = InitPool(ctx, counts);
     deletionQueue.push_back(pool);
     return pool;
 }
 
-VkDescriptorSet Descriptor::Allocate(VulkanContext &ctx, VkDescriptorPool pool,
-                                     VkDescriptorSetLayout &layout)
+VkDescriptorSet Descriptor::Allocate(VulkanContext &ctx, VkDescriptorPool pool, VkDescriptorSetLayout &layout)
 {
     VkDescriptorSet descriptorSet{};
 
@@ -159,7 +155,8 @@ VkDescriptorSet Descriptor::Allocate(VulkanContext &ctx, VkDescriptorPool pool,
 }
 
 std::vector<VkDescriptorSet> Descriptor::Allocate(
-    VulkanContext &ctx, VkDescriptorPool pool, std::span<VkDescriptorSetLayout> layouts)
+    VulkanContext &ctx, VkDescriptorPool pool, std::span<VkDescriptorSetLayout> layouts
+)
 {
     std::vector<VkDescriptorSet> descriptorSets(layouts.size());
 
@@ -181,46 +178,45 @@ DescriptorUpdater::DescriptorUpdater(VkDescriptorSet descriptorSet)
 {
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t     binding,
-                                                         VkBuffer     buffer,
-                                                         VkDeviceSize size)
+DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size)
 {
     auto &bufferInfo  = mBufferInfos.emplace_back();
     bufferInfo.buffer = buffer;
     bufferInfo.offset = 0;
     bufferInfo.range  = size;
 
-    mWriteInfos.push_back(WriteInfo{
-        .Id      = mBufferInfos.size() - 1,
-        .Binding = binding,
-        .Type    = WriteType::UniformBuffer,
-    });
+    mWriteInfos.push_back(
+        WriteInfo{
+            .Id      = mBufferInfos.size() - 1,
+            .Binding = binding,
+            .Type    = WriteType::UniformBuffer,
+        }
+    );
 
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteStorageBuffer(uint32_t     binding,
-                                                         VkBuffer     buffer,
-                                                         VkDeviceSize size)
+DescriptorUpdater &DescriptorUpdater::WriteStorageBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size)
 {
     auto &bufferInfo  = mBufferInfos.emplace_back();
     bufferInfo.buffer = buffer;
     bufferInfo.offset = 0;
     bufferInfo.range  = size;
 
-    mWriteInfos.push_back(WriteInfo{
-        .Id      = mBufferInfos.size() - 1,
-        .Binding = binding,
-        .Type    = WriteType::ShaderStorageBuffer,
-    });
+    mWriteInfos.push_back(
+        WriteInfo{
+            .Id      = mBufferInfos.size() - 1,
+            .Binding = binding,
+            .Type    = WriteType::ShaderStorageBuffer,
+        }
+    );
 
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteCombinedSampler(uint32_t      binding,
-                                                           VkImageView   imageView,
-                                                           VkSampler     sampler,
-                                                           VkImageLayout layout)
+DescriptorUpdater &DescriptorUpdater::WriteCombinedSampler(
+    uint32_t binding, VkImageView imageView, VkSampler sampler, VkImageLayout layout
+)
 {
     auto &imageInfo = mImageInfos.emplace_back();
 
@@ -228,38 +224,40 @@ DescriptorUpdater &DescriptorUpdater::WriteCombinedSampler(uint32_t      binding
     imageInfo.imageView   = imageView;
     imageInfo.sampler     = sampler;
 
-    mWriteInfos.push_back(WriteInfo{
-        .Id      = mImageInfos.size() - 1,
-        .Binding = binding,
-        .Type    = WriteType::CombinedImageSampler,
-    });
+    mWriteInfos.push_back(
+        WriteInfo{
+            .Id      = mImageInfos.size() - 1,
+            .Binding = binding,
+            .Type    = WriteType::CombinedImageSampler,
+        }
+    );
 
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteStorageImage(uint32_t    binding,
-                                                        VkImageView imageView)
+DescriptorUpdater &DescriptorUpdater::WriteStorageImage(uint32_t binding, VkImageView imageView)
 {
     auto &imageInfo = mImageInfos.emplace_back();
 
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     imageInfo.imageView   = imageView;
 
-    mWriteInfos.push_back(WriteInfo{
-        .Id      = mImageInfos.size() - 1,
-        .Binding = binding,
-        .Type    = WriteType::StorageImage,
-    });
+    mWriteInfos.push_back(
+        WriteInfo{
+            .Id      = mImageInfos.size() - 1,
+            .Binding = binding,
+            .Type    = WriteType::StorageImage,
+        }
+    );
 
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteUniformBuffers(uint32_t                binding,
-                                                          std::span<VkBuffer>     buffers,
-                                                          std::span<VkDeviceSize> sizes)
+DescriptorUpdater &DescriptorUpdater::WriteUniformBuffers(
+    uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes
+)
 {
-    vassert(buffers.size() == sizes.size(),
-            "Numbers of provided buffer sizes and handles must be equal!");
+    vassert(buffers.size() == sizes.size(), "Numbers of provided buffer sizes and handles must be equal!");
 
     using namespace std::views;
 
@@ -273,22 +271,23 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffers(uint32_t              
         bufferInfo.range  = size;
     }
 
-    mWriteInfos.push_back(WriteInfo{
-        .Id      = startIdx,
-        .Count   = static_cast<uint32_t>(buffers.size()),
-        .Binding = binding,
-        .Type    = WriteType::UniformBuffer,
-    });
+    mWriteInfos.push_back(
+        WriteInfo{
+            .Id      = startIdx,
+            .Count   = static_cast<uint32_t>(buffers.size()),
+            .Binding = binding,
+            .Type    = WriteType::UniformBuffer,
+        }
+    );
 
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteStorageBuffers(uint32_t                binding,
-                                                          std::span<VkBuffer>     buffers,
-                                                          std::span<VkDeviceSize> sizes)
+DescriptorUpdater &DescriptorUpdater::WriteStorageBuffers(
+    uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes
+)
 {
-    vassert(buffers.size() == sizes.size(),
-            "Numbers of provided buffer sizes and handles must be equal!");
+    vassert(buffers.size() == sizes.size(), "Numbers of provided buffer sizes and handles must be equal!");
 
     using namespace std::views;
 
@@ -302,22 +301,23 @@ DescriptorUpdater &DescriptorUpdater::WriteStorageBuffers(uint32_t              
         bufferInfo.range  = size;
     }
 
-    mWriteInfos.push_back(WriteInfo{
-        .Id      = startIdx,
-        .Count   = static_cast<uint32_t>(buffers.size()),
-        .Binding = binding,
-        .Type    = WriteType::ShaderStorageBuffer,
-    });
+    mWriteInfos.push_back(
+        WriteInfo{
+            .Id      = startIdx,
+            .Count   = static_cast<uint32_t>(buffers.size()),
+            .Binding = binding,
+            .Type    = WriteType::ShaderStorageBuffer,
+        }
+    );
 
     return *this;
 }
 
 DescriptorUpdater &DescriptorUpdater::WriteCombinedSamplers(
-    uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers,
-    VkImageLayout layout)
+    uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers, VkImageLayout layout
+)
 {
-    vassert(imageViews.size() == samplers.size(),
-            "Numbers of provided image views and samplers must be equal!");
+    vassert(imageViews.size() == samplers.size(), "Numbers of provided image views and samplers must be equal!");
 
     using namespace std::views;
 
@@ -332,18 +332,19 @@ DescriptorUpdater &DescriptorUpdater::WriteCombinedSamplers(
         imageInfo.sampler     = sampler;
     }
 
-    mWriteInfos.push_back(WriteInfo{
-        .Id      = startIdx,
-        .Count   = static_cast<uint32_t>(imageViews.size()),
-        .Binding = binding,
-        .Type    = WriteType::CombinedImageSampler,
-    });
+    mWriteInfos.push_back(
+        WriteInfo{
+            .Id      = startIdx,
+            .Count   = static_cast<uint32_t>(imageViews.size()),
+            .Binding = binding,
+            .Type    = WriteType::CombinedImageSampler,
+        }
+    );
 
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteStorageImages(
-    uint32_t binding, std::span<VkImageView> imageViews)
+DescriptorUpdater &DescriptorUpdater::WriteStorageImages(uint32_t binding, std::span<VkImageView> imageViews)
 {
     const size_t startIdx = mImageInfos.size();
 
@@ -355,12 +356,14 @@ DescriptorUpdater &DescriptorUpdater::WriteStorageImages(
         imageInfo.imageView   = imageView;
     }
 
-    mWriteInfos.push_back(WriteInfo{
-        .Id      = startIdx,
-        .Count   = static_cast<uint32_t>(imageViews.size()),
-        .Binding = binding,
-        .Type    = WriteType::StorageImage,
-    });
+    mWriteInfos.push_back(
+        WriteInfo{
+            .Id      = startIdx,
+            .Count   = static_cast<uint32_t>(imageViews.size()),
+            .Binding = binding,
+            .Type    = WriteType::StorageImage,
+        }
+    );
 
     return *this;
 }
@@ -405,11 +408,11 @@ void DescriptorUpdater::Update(VulkanContext &ctx)
         }
     }
 
-    vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(writes.size()),
-                           writes.data(), 0, nullptr);
+    vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 
-GrowableDescriptorAllocator::GrowableDescriptorAllocator(VulkanContext &ctx) : mCtx(ctx)
+GrowableDescriptorAllocator::GrowableDescriptorAllocator(VulkanContext &ctx)
+    : mCtx(ctx)
 {
 }
 
@@ -437,10 +440,10 @@ VkDescriptorSet GrowableDescriptorAllocator::Allocate(VkDescriptorSetLayout &lay
 
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.pNext                       = nullptr;
-    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool     = pool;
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts        = &layout;
+    allocInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool              = pool;
+    allocInfo.descriptorSetCount          = 1;
+    allocInfo.pSetLayouts                 = &layout;
 
     VkDescriptorSet set;
     VkResult        res = vkAllocateDescriptorSets(mCtx.Device, &allocInfo, &set);
@@ -462,20 +465,19 @@ VkDescriptorSet GrowableDescriptorAllocator::Allocate(VkDescriptorSetLayout &lay
     return set;
 }
 
-std::vector<VkDescriptorSet> GrowableDescriptorAllocator::Allocate(
-    std::span<VkDescriptorSetLayout> layouts)
+std::vector<VkDescriptorSet> GrowableDescriptorAllocator::Allocate(std::span<VkDescriptorSetLayout> layouts)
 {
     VkDescriptorPool pool = GetPool();
 
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.pNext                       = nullptr;
-    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool     = pool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
-    allocInfo.pSetLayouts        = layouts.data();
+    allocInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool              = pool;
+    allocInfo.descriptorSetCount          = static_cast<uint32_t>(layouts.size());
+    allocInfo.pSetLayouts                 = layouts.data();
 
     std::vector<VkDescriptorSet> sets(layouts.size());
-    VkResult res = vkAllocateDescriptorSets(mCtx.Device, &allocInfo, sets.data());
+    VkResult                     res = vkAllocateDescriptorSets(mCtx.Device, &allocInfo, sets.data());
 
     if (res == VK_ERROR_OUT_OF_POOL_MEMORY || res == VK_ERROR_FRAGMENTED_POOL)
     {

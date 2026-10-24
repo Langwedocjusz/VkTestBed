@@ -6,9 +6,10 @@
 #include <limits>
 
 GeometryData::GeometryData(const GeometrySpec &spec)
-    : VertexData(spec.VertBuffSize, spec.VertAlignment),
-      IndexData(spec.IdxBuffSize, spec.IdxAlignment), VertexCount(spec.VertCount),
-      IndexCount(spec.IdxCount)
+    : VertexData(spec.VertBuffSize, spec.VertAlignment)
+    , IndexData(spec.IdxBuffSize, spec.IdxAlignment)
+    , VertexCount(spec.VertCount)
+    , IndexCount(spec.IdxCount)
 {
 }
 
@@ -64,12 +65,14 @@ bool AABB::IsInView(glm::mat4 mvp) const
     {
         glm::vec4 homogeneous = mvp * glm::vec4(corner, 1.0f);
 
-        allFront = allFront && (homogeneous.z > homogeneous.w);
-        allBack  = allBack && (homogeneous.z < 0.0f);
-        allLeft  = allLeft && (homogeneous.x < -homogeneous.w);
-        allRight = allRight && (homogeneous.x > homogeneous.w);
-        allUp    = allUp && (homogeneous.y > homogeneous.w);
-        allDown  = allDown && (homogeneous.y < -homogeneous.w);
+        // clang-format off
+        allFront = allFront && (homogeneous.z >  homogeneous.w);
+        allBack  = allBack  && (homogeneous.z <           0.0f);
+        allLeft  = allLeft  && (homogeneous.x < -homogeneous.w);
+        allRight = allRight && (homogeneous.x >  homogeneous.w);
+        allUp    = allUp    && (homogeneous.y >  homogeneous.w);
+        allDown  = allDown  && (homogeneous.y < -homogeneous.w);
+        // clang-format on
     }
 
     return !(allFront || allBack || allLeft || allRight || allUp || allDown);

@@ -7,7 +7,8 @@
 
 #include <ranges>
 
-DeletionQueue::DeletionQueue(VulkanContext &ctx) : mCtx(ctx)
+DeletionQueue::DeletionQueue(VulkanContext &ctx)
+    : mCtx(ctx)
 {
 }
 

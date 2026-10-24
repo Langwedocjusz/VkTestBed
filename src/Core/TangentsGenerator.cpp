@@ -59,44 +59,46 @@ void tangen::GenerateTangents(PrimitiveData &prim)
         return static_cast<int>(prim->IndexCount / 3);
     };
 
-    interface.m_getPosition = [](const SMikkTSpaceContext *pContext, float fvPosOut[],
-                                 const int iFace, const int iVert) {
-        auto prim  = GetDataPointer(pContext);
-        auto index = GetVertexId(prim->Indices, iVert, iFace);
+    interface.m_getPosition =
+        [](const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+            auto prim  = GetDataPointer(pContext);
+            auto index = GetVertexId(prim->Indices, iVert, iFace);
 
-        auto pos = prim->Positions[index];
+            auto pos = prim->Positions[index];
 
-        fvPosOut[0] = pos.x;
-        fvPosOut[1] = pos.y;
-        fvPosOut[2] = pos.z;
-    };
+            fvPosOut[0] = pos.x;
+            fvPosOut[1] = pos.y;
+            fvPosOut[2] = pos.z;
+        };
 
-    interface.m_getTexCoord = [](const SMikkTSpaceContext *pContext, float fvTexcOut[],
-                                 const int iFace, const int iVert) {
-        auto prim  = GetDataPointer(pContext);
-        auto index = GetVertexId(prim->Indices, iVert, iFace);
+    interface.m_getTexCoord =
+        [](const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+            auto prim  = GetDataPointer(pContext);
+            auto index = GetVertexId(prim->Indices, iVert, iFace);
 
-        auto texcoord = prim->TexCoords[index];
+            auto texcoord = prim->TexCoords[index];
 
-        fvTexcOut[0] = texcoord.x;
-        fvTexcOut[1] = texcoord.y;
-    };
+            fvTexcOut[0] = texcoord.x;
+            fvTexcOut[1] = texcoord.y;
+        };
 
-    interface.m_getNormal = [](const SMikkTSpaceContext *pContext, float fvNormOut[],
-                               const int iFace, const int iVert) {
-        auto prim  = GetDataPointer(pContext);
-        auto index = GetVertexId(prim->Indices, iVert, iFace);
+    interface.m_getNormal =
+        [](const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+            auto prim  = GetDataPointer(pContext);
+            auto index = GetVertexId(prim->Indices, iVert, iFace);
 
-        auto normal = prim->Normals[index];
+            auto normal = prim->Normals[index];
 
-        fvNormOut[0] = normal.x;
-        fvNormOut[1] = normal.y;
-        fvNormOut[2] = normal.z;
-    };
+            fvNormOut[0] = normal.x;
+            fvNormOut[1] = normal.y;
+            fvNormOut[2] = normal.z;
+        };
 
     interface.m_setTSpaceBasic = [](const SMikkTSpaceContext *pContext,
-                                    const float fvTangent[], const float fSign,
-                                    const int iFace, const int iVert) {
+                                    const float               fvTangent[],
+                                    const float               fSign,
+                                    const int                 iFace,
+                                    const int                 iVert) {
         auto prim  = GetDataPointer(pContext);
         auto index = GetVertexId(prim->Indices, iVert, iFace);
 
@@ -105,37 +107,41 @@ void tangen::GenerateTangents(PrimitiveData &prim)
         prim->Tangents[index] = tangent;
     };
 
-    interface.m_setTSpace =
-        [](const SMikkTSpaceContext *pContext, const float fvTangent[],
-           const float fvBiTangent[], const float fMagS, const float fMagT,
-           const tbool bIsOrientationPreserving, const int iFace, const int iVert) {
-            (void)fvBiTangent;
-            (void)fMagS;
-            (void)fMagT;
+    interface.m_setTSpace = [](const SMikkTSpaceContext *pContext,
+                               const float               fvTangent[],
+                               const float               fvBiTangent[],
+                               const float               fMagS,
+                               const float               fMagT,
+                               const tbool               bIsOrientationPreserving,
+                               const int                 iFace,
+                               const int                 iVert) {
+        (void)fvBiTangent;
+        (void)fMagS;
+        (void)fMagT;
 
-            auto prim  = GetDataPointer(pContext);
-            auto index = GetVertexId(prim->Indices, iVert, iFace);
+        auto prim  = GetDataPointer(pContext);
+        auto index = GetVertexId(prim->Indices, iVert, iFace);
 
-            auto sign = bIsOrientationPreserving ? 1.0f : (-1.0f);
+        auto sign = bIsOrientationPreserving ? 1.0f : (-1.0f);
 
-            // Make sure the tangent vector is not degenerate:
-            glm::vec3 tan3{fvTangent[0], fvTangent[1], fvTangent[2]};
+        // Make sure the tangent vector is not degenerate:
+        glm::vec3 tan3{fvTangent[0], fvTangent[1], fvTangent[2]};
 
-            const float tolerance = 0.01f;
+        const float tolerance = 0.01f;
 
-            if (glm::length(tan3) < tolerance)
-            {
-                tan3 = glm::vec3(1, 0, 0);
-            }
-            else
-            {
-                tan3 = glm::normalize(tan3);
-            }
+        if (glm::length(tan3) < tolerance)
+        {
+            tan3 = glm::vec3(1, 0, 0);
+        }
+        else
+        {
+            tan3 = glm::normalize(tan3);
+        }
 
-            glm::vec4 tangent{tan3, sign};
+        glm::vec4 tangent{tan3, sign};
 
-            prim->Tangents[index] = tangent;
-        };
+        prim->Tangents[index] = tangent;
+    };
 
     genTangSpaceDefault(&ctx);
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
 
 struct OpaqueBuffer {
     OpaqueBuffer() = default;
@@ -15,6 +14,8 @@ struct OpaqueBuffer {
     OpaqueBuffer(OpaqueBuffer &&other) noexcept;
     OpaqueBuffer &operator=(OpaqueBuffer &&other) noexcept;
 
-    size_t   Size = 0;
-    uint8_t *Data = nullptr;
+    size_t     Size = 0;
+    std::byte *Data = nullptr;
+private:
+    void Deallocate();
 };

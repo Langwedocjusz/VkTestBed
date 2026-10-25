@@ -18,17 +18,100 @@
 #include <iostream>
 #include <utility>
 
+ImageData::ImageData(ImageData &&other) noexcept
+    : Name(std::move(other.Name))
+    , Width(other.Width)
+    , Height(other.Height)
+    , Mips(other.Mips)
+    , NumMips(other.NumMips)
+    , MipOffsets(std::move(other.MipOffsets))
+    , Format(other.Format)
+    , Data(other.Data)
+    , Size(other.Size)
+    , IsUpToDate(other.IsUpToDate)
+    , mType(other.mType)
+{
+    other.Data   = nullptr;
+    other.mType  = Type::None;
+}
+
+void ImageData::Deallocate()
+{
+    switch (mType)
+    {
+    case Type::None: {
+        break;
+    }
+    case Type::Pixel: {
+        auto ptr = static_cast<Pixel *>(Data);
+        delete ptr;
+        break;
+    }
+    case Type::Ktx: {
+        auto ptr = static_cast<uint8_t *>(Data);
+        delete[] ptr;
+        break;
+    }
+    case Type::Stb: {
+        stbi_image_free(Data);
+        break;
+    }
+    case Type::Exr: {
+        free(Data);
+        break;
+    }
+    }
+}
+
+ImageData &ImageData::operator=(ImageData &&other) noexcept
+{
+    if (this != &other)
+    {
+        if (Data != nullptr)
+        {
+            Deallocate();
+        }
+
+        Name       = std::move(other.Name);
+        Width      = other.Width;
+        Height     = other.Height;
+        Mips       = other.Mips;
+        NumMips    = other.NumMips;
+        MipOffsets = std::move(other.MipOffsets);
+        Format     = other.Format;
+        Data       = other.Data;
+        Size       = other.Size;
+        mType      = other.mType;
+
+        other.Name       = {};
+        other.Width      = {};
+        other.Height     = {};
+        other.Mips       = {};
+        other.NumMips    = {};
+        other.MipOffsets = {};
+        other.Format     = {};
+        other.Data       = {};
+        other.Size       = {};
+        other.mType      = {};
+    }
+
+    return *this;
+}
+
+ImageData::~ImageData()
+{
+    Deallocate();
+}
+
 static VkDeviceSize BytesPerPixel(VkFormat format)
 {
     // TODO: handle all formats
     switch (format)
     {
     case VK_FORMAT_R8G8B8A8_SRGB:
-        return 4;
     case VK_FORMAT_R8G8B8A8_UNORM:
         return 4;
     case VK_FORMAT_BC7_SRGB_BLOCK:
-        return 1;
     case VK_FORMAT_BC7_UNORM_BLOCK:
         return 1;
     case VK_FORMAT_R32G32B32A32_SFLOAT:
@@ -272,74 +355,6 @@ ImageData ImageData::ImportHDRI(const std::string &path)
     res.mType  = Type::Exr;
 
     return res;
-}
-
-ImageData::ImageData(ImageData &&other) noexcept
-    : Name(std::move(other.Name))
-    , Width(other.Width)
-    , Height(other.Height)
-    , Mips(other.Mips)
-    , NumMips(other.NumMips)
-    , MipOffsets(std::move(other.MipOffsets))
-    , Format(other.Format)
-    , Data(other.Data)
-    , Size(other.Size)
-    , IsUpToDate(other.IsUpToDate)
-    , mType(other.mType)
-    , mExtra(other.mExtra)
-{
-    other.Data   = nullptr;
-    other.mType  = Type::None;
-    other.mExtra = nullptr;
-}
-
-ImageData &ImageData::operator=(ImageData &&other) noexcept
-{
-    Name       = std::move(other.Name);
-    Width      = other.Width;
-    Height     = other.Height;
-    Mips       = other.Mips;
-    NumMips    = other.NumMips;
-    MipOffsets = std::move(other.MipOffsets);
-    Format     = other.Format;
-    Data       = other.Data;
-    Size       = other.Size;
-    mType      = other.mType;
-    mExtra     = other.mExtra;
-
-    other.Data   = nullptr;
-    other.mType  = Type::None;
-    other.mExtra = nullptr;
-
-    return *this;
-}
-
-ImageData::~ImageData()
-{
-    switch (mType)
-    {
-    case Type::None: {
-        break;
-    }
-    case Type::Pixel: {
-        auto ptr = static_cast<Pixel *>(Data);
-        delete ptr;
-        break;
-    }
-    case Type::Ktx: {
-        auto ptr = static_cast<uint8_t *>(Data);
-        delete[] ptr;
-        break;
-    }
-    case Type::Stb: {
-        stbi_image_free(Data);
-        break;
-    }
-    case Type::Exr: {
-        free(Data);
-        break;
-    }
-    }
 }
 
 bool ImageData::IsSinglePixel() const

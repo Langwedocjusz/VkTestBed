@@ -88,7 +88,7 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera)
-    , mCamDynamicUBO(ctx, info, sizeof(mCamDynamicUBO))
+    , mCamDynamicUBO(ctx, info, sizeof(mCamUBOData))
     , mDynamicUBO(ctx, info, sizeof(mUBOData))
     , mDynamicDS(ctx, info)
     , mMaterialDescriptorAllocator(ctx)
@@ -111,14 +111,15 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Came
     // Create descriptor set layout for sampling material textures
     // and initialize the growable allocator:
     {
-        // clang-format on
-        mMaterialDescriptorSetLayout = DescriptorSetLayoutBuilder("MinimalPBRMaterialDescriptorLayout")
-                                           .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                           .AddCombinedSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                           .AddCombinedSampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                           .AddUniformBuffer(3, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                           .Build(ctx, mMainDeletionQueue);
         // clang-format off
+        mMaterialDescriptorSetLayout = 
+            DescriptorSetLayoutBuilder("MinimalPBRMaterialDescriptorLayout")
+                .AddCombinedSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .AddCombinedSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .AddCombinedSampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .AddUniformBuffer(3, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .Build(ctx, mMainDeletionQueue);
+        // clang-format on
 
         mMaterialDescriptorAllocator.OnInit({
             .CombinedImageSampler = 3,
@@ -218,55 +219,58 @@ void MinimalPbrRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    // clang-format on
-    mZPrepassOpaquePipeline = PipelineBuilder("MinimalPBROpaquePrepassPipeline")
-                                  .SetShaderPathVertex("assets/spirv/ZPrepassOpaqueVert.spv")
-                                  .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                                  .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                                  .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                  .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-                                  .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
-                                  .EnableDepthTest()
-                                  .SetDepthFormat(DepthStencilFormat)
-                                  .SetStencilFormat(DepthStencilFormat)
-                                  .SetMultisampling(mMultisample)
-                                  .Build(mCtx, mPipelineDeletionQueue);
+    // clang-format off
+    mZPrepassOpaquePipeline = 
+        PipelineBuilder("MinimalPBROpaquePrepassPipeline")
+            .SetShaderPathVertex("assets/spirv/ZPrepassOpaqueVert.spv")
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
+            .EnableDepthTest()
+            .SetDepthFormat(DepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
+            .SetMultisampling(mMultisample)
+            .Build(mCtx, mPipelineDeletionQueue);
 
-    mZPrepassAlphaPipeline = PipelineBuilder("MinimalPBRAlphaPrepassPipeline")
-                                 .SetShaderPathVertex("assets/spirv/ZPrepassAlphaVert.spv")
-                                 .SetShaderPathFragment("assets/spirv/ZPrepassAlphaFrag.spv")
-                                 .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                                 .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                                 .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                 .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-                                 .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
-                                 .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-                                 .EnableDepthTest()
-                                 .SetDepthFormat(DepthStencilFormat)
-                                 .SetStencilFormat(DepthStencilFormat)
-                                 .SetMultisampling(mMultisample)
-                                 .Build(mCtx, mPipelineDeletionQueue);
+    mZPrepassAlphaPipeline = 
+        PipelineBuilder("MinimalPBRAlphaPrepassPipeline")
+            .SetShaderPathVertex("assets/spirv/ZPrepassAlphaVert.spv")
+            .SetShaderPathFragment("assets/spirv/ZPrepassAlphaFrag.spv")
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .EnableDepthTest()
+            .SetDepthFormat(DepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
+            .SetMultisampling(mMultisample)
+            .Build(mCtx, mPipelineDeletionQueue);
 
-    mMainPipeline = PipelineBuilder("MinimalPBRMainPipeline")
-                        .SetShaderPathVertex("assets/spirv/MinimalPBRVert.spv")
-                        .SetShaderPathFragment("assets/spirv/MinimalPBRFrag.spv")
-                        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                        .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                        .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                        .EnableBlending()
-                        .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-                        .RequestDynamicState(VK_DYNAMIC_STATE_COLOR_BLEND_ENABLE_EXT)
-                        .RequestDynamicState(VK_DYNAMIC_STATE_DEPTH_COMPARE_OP)
-                        .SetColorFormat(RenderTargetFormat)
-                        .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
-                        .AddDescriptorSetLayout(mEnvHandler->GetLightingDSLayout())
-                        .AddDescriptorSetLayout(mAuxDescriptorSetLayout)
-                        .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-                        .EnableDepthTest(GetMainCompareOp())
-                        .SetDepthFormat(DepthStencilFormat)
-                        .SetStencilFormat(DepthStencilFormat)
-                        .SetMultisampling(mMultisample)
-                        .Build(mCtx, mPipelineDeletionQueue);
+    mMainPipeline = 
+        PipelineBuilder("MinimalPBRMainPipeline")
+            .SetShaderPathVertex("assets/spirv/MinimalPBRVert.spv")
+            .SetShaderPathFragment("assets/spirv/MinimalPBRFrag.spv")
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .EnableBlending()
+            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+            .RequestDynamicState(VK_DYNAMIC_STATE_COLOR_BLEND_ENABLE_EXT)
+            .RequestDynamicState(VK_DYNAMIC_STATE_DEPTH_COMPARE_OP)
+            .SetColorFormat(RenderTargetFormat)
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mEnvHandler->GetLightingDSLayout())
+            .AddDescriptorSetLayout(mAuxDescriptorSetLayout)
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .EnableDepthTest(GetMainCompareOp())
+            .SetDepthFormat(DepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
+            .SetMultisampling(mMultisample)
+            .Build(mCtx, mPipelineDeletionQueue);
 
     VkStencilOpState stencilWriteState{
         .failOp      = VK_STENCIL_OP_REPLACE,
@@ -278,21 +282,22 @@ void MinimalPbrRenderer::RebuildPipelines()
         .reference   = 1,
     };
 
-    mStencilPipeline = PipelineBuilder("MinimalPBRStencilPipeline")
-                           .SetShaderPathVertex("assets/spirv/outline/StencilVert.spv")
-                           .SetShaderPathFragment("assets/spirv/outline/StencilFrag.spv")
-                           .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                           .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                           .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                           .EnableStencilTest(stencilWriteState, stencilWriteState)
-                           .SetStencilFormat(DepthStencilFormat)
-                           .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
-                           .SetDepthFormat(DepthStencilFormat)
-                           .SetStencilFormat(DepthStencilFormat)
-                           .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
-                           .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-                           .SetMultisampling(mMultisample)
-                           .Build(mCtx, mPipelineDeletionQueue);
+    mStencilPipeline = 
+        PipelineBuilder("MinimalPBRStencilPipeline")
+            .SetShaderPathVertex("assets/spirv/outline/StencilVert.spv")
+            .SetShaderPathFragment("assets/spirv/outline/StencilFrag.spv")
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .EnableStencilTest(stencilWriteState, stencilWriteState)
+            .SetStencilFormat(DepthStencilFormat)
+            .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
+            .SetDepthFormat(DepthStencilFormat)
+            .SetStencilFormat(DepthStencilFormat)
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .SetMultisampling(mMultisample)
+            .Build(mCtx, mPipelineDeletionQueue);
 
     VkStencilOpState stencilOutlineState{
         .failOp      = VK_STENCIL_OP_KEEP,
@@ -304,35 +309,37 @@ void MinimalPbrRenderer::RebuildPipelines()
         .reference   = 1,
     };
 
-    mOutlinePipeline = PipelineBuilder("MinimalPBRStencilPipeline")
-                           .SetShaderPathVertex("assets/spirv/outline/OutlineVert.spv")
-                           .SetShaderPathFragment("assets/spirv/outline/OutlineFrag.spv")
-                           .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                           .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                           .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                           .SetColorFormat(RenderTargetFormat)
-                           .EnableStencilTest(stencilOutlineState, stencilOutlineState)
-                           .SetStencilFormat(DepthStencilFormat)
-                           .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
-                           .SetDepthFormat(DepthStencilFormat)
-                           .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
-                           .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-                           .SetMultisampling(mMultisample)
-                           .Build(mCtx, mPipelineDeletionQueue);
+    mOutlinePipeline = 
+        PipelineBuilder("MinimalPBRStencilPipeline")
+            .SetShaderPathVertex("assets/spirv/outline/OutlineVert.spv")
+            .SetShaderPathFragment("assets/spirv/outline/OutlineFrag.spv")
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .SetColorFormat(RenderTargetFormat)
+            .EnableStencilTest(stencilOutlineState, stencilOutlineState)
+            .SetStencilFormat(DepthStencilFormat)
+            .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
+            .SetDepthFormat(DepthStencilFormat)
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .SetMultisampling(mMultisample)
+            .Build(mCtx, mPipelineDeletionQueue);
 
-    mObjectIdPipeline = PipelineBuilder("MinimalPBRObjectIdPipeline")
-                            .SetShaderPathVertex("assets/spirv/outline/ObjectIdVert.spv")
-                            .SetShaderPathFragment("assets/spirv/outline/ObjectIdFrag.spv")
-                            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                            .EnableDepthTest()
-                            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-                            .SetColorFormat(PickingTargetFormat)
-                            .SetDepthFormat(PickingDepthFormat)
-                            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
-                            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
-                            .Build(mCtx, mPipelineDeletionQueue);
+    mObjectIdPipeline = 
+        PipelineBuilder("MinimalPBRObjectIdPipeline")
+            .SetShaderPathVertex("assets/spirv/outline/ObjectIdVert.spv")
+            .SetShaderPathFragment("assets/spirv/outline/ObjectIdFrag.spv")
+            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .EnableDepthTest()
+            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+            .SetColorFormat(PickingTargetFormat)
+            .SetDepthFormat(PickingDepthFormat)
+            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
+            .AddDescriptorSetLayout(mMaterialDescriptorSetLayout)
+            .Build(mCtx, mPipelineDeletionQueue);
     // clang-format on
 
     // Rebuild component pipelines as well:

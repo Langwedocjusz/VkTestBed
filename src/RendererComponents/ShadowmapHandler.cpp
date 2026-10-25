@@ -86,14 +86,14 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         using namespace vkenum::buffer_usage;
         using namespace vkenum::alloc_create;
 
-        Buffer::Info info{
+        // clang-format off
+        mDebugFrustumVertexBuffer = Buffer(ctx, {
             .Name  = "ShadowmapDebugFrustumVertexBuffer",
             .Size  = mVertexBufferData.size() * sizeof(mVertexBufferData[0]),
             .Usage = VertexBuffer,
             .Flags = HostAccessSequentialWrite | Mapped,
-        };
-
-        mDebugFrustumVertexBuffer.emplace(ctx, info);
+        });
+        // clang-format on
     }
 
     // Create Index Buffer for debug visualization:
@@ -118,7 +118,7 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
         };
         // clang-format on
 
-        mDebugFrustumIndexBuffer.emplace(Buffer::MakeIndex(mCtx, "ShadowmapDebugFrustumVertexBuffer", indexData));
+        mDebugFrustumIndexBuffer = Buffer::MakeIndex(mCtx, "ShadowmapDebugFrustumVertexBuffer", indexData);
     }
 }
 

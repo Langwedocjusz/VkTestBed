@@ -95,22 +95,18 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
 
         // Create uniform buffer for environment information (light direction etc.):
         {
-            Buffer::ThinInfo uboInfo{
+            // clang-format off
+            mEnvUBO = Buffer::MakeMappedUniform(ctx, {
                 .Name = "EnvLightUniformBuffer",
                 .Size = sizeof(mEnvUBOData),
-            };
-            mEnvUBO.emplace(Buffer::MakeMappedUniform(ctx, uboInfo));
+            });
+            // clang-format on
 
             mEnvUBO->UploadMapped(&mEnvUBOData, sizeof(mEnvUBOData));
         }
 
         // Create shader storage buffers for computing irradiance SH decomposition:
         {
-            const uint32_t groupsPerLine = (CubemapSize / mReduceBlock);
-            const uint32_t groupsPerSide = groupsPerLine * groupsPerLine;
-
-            mFirstBufferLen = 6 * groupsPerSide;
-
             struct SHData {
                 glm::vec4 SH_L0;
                 glm::vec4 SH_L1_M_1;
@@ -123,25 +119,24 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
                 glm::vec4 SH_L2_M2;
             };
 
-            {
-                Buffer::Info info{
-                    .Name  = "EnvFirstReductionBuffer",
-                    .Size  = mFirstBufferLen * sizeof(SHData),
-                    .Usage = StorageBuffer,
-                };
+            const uint32_t groupsPerLine = (CubemapSize / mReduceBlock);
+            const uint32_t groupsPerSide = groupsPerLine * groupsPerLine;
 
-                mFirstReducionBuffer.emplace(ctx, info);
-            }
+            mFirstBufferLen = 6 * groupsPerSide;
 
-            {
-                Buffer::Info info{
-                    .Name  = "EnvFinalReductionBuffer",
-                    .Size  = 1 * sizeof(SHData),
-                    .Usage = StorageBuffer | TransferDst,
-                };
+            // clang-format off
+            mFirstReducionBuffer = Buffer(ctx, {
+                .Name  = "EnvFirstReductionBuffer",
+                .Size  = mFirstBufferLen * sizeof(SHData),
+                .Usage = StorageBuffer,
+            });
 
-                mFinalReductionBuffer.emplace(ctx, info);
-            }
+            mFinalReductionBuffer = Buffer(ctx, {
+                .Name  = "EnvFinalReductionBuffer",
+                .Size  = 1 * sizeof(SHData),
+                .Usage = StorageBuffer | TransferDst,
+            });
+            // clang-format on
         }
     }
 
@@ -412,7 +407,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
         barrier::ImageLayoutCoarse(cmd, {.Img = *mPrefiltered, .Old = Undefined,  .New = TransferDst});
 
         // Issue the blit command:
-        vkutils::BlitImageZeroMip(cmd, mCubemap->Img, mPrefiltered->Img);
+        vkutils::BlitImageZeroMip(cmd, *mCubemap, *mPrefiltered);
 
         // Transition: cubemap -> texture, prefiltered -> General:
         barrier::ImageLayoutCoarse(cmd, {.Img = *mCubemap,     .Old = TransferSrc, .New = ShaderRead});

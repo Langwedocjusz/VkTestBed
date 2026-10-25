@@ -5,8 +5,6 @@
 
 #include "volk.h"
 
-#include <iostream>
-
 VulkanStatisticsCollector::VulkanStatisticsCollector(VulkanContext &ctx)
     : mCtx(ctx)
     , mDeletionQueue(ctx)

@@ -87,14 +87,14 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
         using namespace vkenum::buffer_usage;
         using namespace vkenum::alloc_create;
 
-        Buffer::Info info{
+        // clang-format off
+        mPicking.ReadbackBuffer = Buffer(ctx, {
             .Name  = "ReadbackBuffer",
             .Size  = sizeof(Pixel),
             .Usage = TransferDst,
             .Flags = HostAccessRandom | Mapped,
-        };
-
-        mPicking.ReadbackBuffer.emplace(ctx, info);
+        });
+        // clang-format on
     }
 }
 
@@ -316,7 +316,6 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         auto swapchainInfo = vkutils::BlitImageInfo{
             .ImgHandle = swapchainImage,
             .Extent    = VkExtent3D{swapExt.width, swapExt.height, 1},
-            .NumLayers = 1,
         };
 
         vkutils::BlitImageZeroMip(cmd, mRenderer->GetTargetImage(), swapchainInfo);

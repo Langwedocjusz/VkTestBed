@@ -7,13 +7,13 @@ OpaqueBuffer::OpaqueBuffer(size_t size, size_t alignment)
     : Size(size)
 {
 #ifdef _WIN32
-    Data = static_cast<uint8_t *>(_aligned_malloc(size, alignment));
+    Data = static_cast<std::byte *>(_aligned_malloc(size, alignment));
 #else
-    Data = new (std::align_val_t(alignment)) uint8_t[size];
+    Data = new (std::align_val_t(alignment)) std::byte[size];
 #endif
 }
 
-OpaqueBuffer::~OpaqueBuffer()
+void OpaqueBuffer::Deallocate()
 {
 #ifdef _WIN32
     _aligned_free(Data);
@@ -22,19 +22,34 @@ OpaqueBuffer::~OpaqueBuffer()
 #endif
 }
 
+OpaqueBuffer::~OpaqueBuffer()
+{
+    Deallocate();
+}
+
 OpaqueBuffer::OpaqueBuffer(OpaqueBuffer &&other) noexcept
     : Size(other.Size)
     , Data(other.Data)
 {
-    other.Data = nullptr;
+    other.Data = {};
+    other.Size = {};
 }
 
 OpaqueBuffer &OpaqueBuffer::operator=(OpaqueBuffer &&other) noexcept
 {
-    Size = other.Size;
-    Data = other.Data;
+    if (this != &other)
+    {
+        if (Data != nullptr)
+        {
+            Deallocate();
+        }
 
-    other.Data = nullptr;
+        Size = other.Size;
+        Data = other.Data;
+
+        other.Data = {};
+        other.Size = {};
+    }
 
     return *this;
 }

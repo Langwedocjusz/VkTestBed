@@ -18,7 +18,7 @@ class Buffer {
     Buffer(const Buffer &)            = delete;
     Buffer &operator=(const Buffer &) = delete;
     Buffer(Buffer &&) noexcept;
-    Buffer &operator=(Buffer &&) = delete;
+    Buffer &operator=(Buffer &&) noexcept;
 
     // Factory functions for common types:
     static Buffer MakeStaging(VulkanContext &ctx, const ThinInfo &info);

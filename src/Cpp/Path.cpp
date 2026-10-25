@@ -53,17 +53,17 @@ Path::Path(const Path &other)
 
 Path &Path::operator=(const Path &other)
 {
-    if (this == &other)
-        return *this;
-
-    if (other.mImpl)
+    if (this != &other)
     {
-        mImpl = std::make_unique<Impl>(*other.mImpl);
-    }
-    else
-    {
-        mImpl.reset();
-    }
+        if (other.mImpl)
+        {
+            mImpl = std::make_unique<Impl>(*other.mImpl);
+        }
+        else
+        {
+            mImpl.reset();
+        }
+    }   
 
     return *this;
 }
@@ -155,7 +155,7 @@ Path operator/(const Path &lhs, const Path &rhs)
 
 bool operator==(const Path &lhs, const Path &rhs)
 {
-    return lhs.mImpl == rhs.mImpl;
+    return lhs.mImpl->Path == rhs.mImpl->Path;
 }
 
 // === Implementation of the Directory Iterator: =======================================

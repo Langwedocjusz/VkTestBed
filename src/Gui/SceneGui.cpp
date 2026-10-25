@@ -538,8 +538,9 @@ void SceneGui::MaterialsTab()
             SelectImageKey(mat.Normal, "Normal", matChanged);
 
             {
-                static int        choice;
                 static std::array names{"OPAQUE", "MASK", "BLEND"};
+
+                auto choice = static_cast<int32_t>(mat.AlphaMode);
 
                 if (imutils::Combo("Alpha Mode", choice, names))
                 {

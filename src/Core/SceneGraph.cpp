@@ -27,10 +27,26 @@ SceneGraphNode::SceneGraphNode(SceneGraphNode &&other) noexcept
     , Translation(other.Translation)
     , Rotation(other.Rotation)
     , Scale(other.Scale)
-    , Name(other.Name)
+    , Name(std::move(other.Name))
     , mScene(other.mScene)
     , mPayload(std::move(other.mPayload))
 {
+    // Re-parent childern nodes:
+    if (!IsLeaf())
+    {
+        for (auto& child : GetChildren())
+        {
+            child->Parent = this;
+        }
+    }
+
+    other.Parent = {};
+    other.Translation = {};
+    other.Rotation = {};
+    other.Scale = {};
+    other.Name = {};
+    other.mScene = {};
+    other.mPayload = {};
 }
 
 SceneGraphNode::~SceneGraphNode()

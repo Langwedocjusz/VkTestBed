@@ -39,15 +39,13 @@ std::array<glm::vec3, 8> AABB::GetVertices() const
 
 std::array<std::array<size_t, 2>, 12> AABB::GetEdgesIds()
 {
-    return {
-        {
-         // clang-format off
+    // clang-format off
+    return {{
         {0,1}, {1,2}, {2,3}, {3,0}, // Lower face
         {4,5}, {5,6}, {6,7}, {7,4}, // Upper face
         {0,4}, {1,5}, {2,6}, {3,7}  // Corners
-                  // clang-format on
-        }
-    };
+    }};
+    // clang-format on
 }
 
 bool AABB::IsInView(glm::mat4 mvp) const

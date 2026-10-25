@@ -48,7 +48,6 @@ VkImageAspectFlags GetDefaultAspect(VkFormat format);
 struct BlitImageInfo {
     VkImage    ImgHandle;
     VkExtent3D Extent;
-    uint32_t   NumLayers;
 };
 
 void BlitImageZeroMip(VkCommandBuffer cmd, const Image &src, const Image &dst);

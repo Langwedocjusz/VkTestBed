@@ -47,6 +47,18 @@ Buffer::Buffer(Buffer &&other) noexcept
     other.AllocInfo  = {};
 }
 
+Buffer &Buffer::operator=(Buffer &&other) noexcept
+{
+    if (this != &other)
+    {
+        std::swap(Handle, other.Handle);
+        std::swap(Size, other.Size);
+        std::swap(Allocation, other.Allocation);
+        std::swap(AllocInfo, other.AllocInfo);
+    }
+    return *this;
+}
+
 void Buffer::Upload(const void *data, VkDeviceSize size)
 {
     vmaCopyMemoryToAllocation(mCtx.Allocator, data, Allocation, 0, size);

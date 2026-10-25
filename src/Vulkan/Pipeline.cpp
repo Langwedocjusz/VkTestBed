@@ -340,12 +340,12 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     // Fill in dynamic state info:
     VkViewport viewport{};
-    viewport.x          = 0.0f;
-    viewport.y          = 0.0f;
-    viewport.width      = static_cast<float>(ctx.Swapchain->Extent.width);
-    viewport.height     = static_cast<float>(ctx.Swapchain->Extent.height);
-    viewport.minDepth   = 0.0f;
-    viewport.maxDepth   = 1.0f;
+    viewport.x        = 0.0f;
+    viewport.y        = 0.0f;
+    viewport.width    = static_cast<float>(ctx.Swapchain->Extent.width);
+    viewport.height   = static_cast<float>(ctx.Swapchain->Extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
 
     VkRect2D scissor = {};
     scissor.offset   = {0, 0};

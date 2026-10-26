@@ -63,7 +63,7 @@ Path &Path::operator=(const Path &other)
         {
             mImpl.reset();
         }
-    }   
+    }
 
     return *this;
 }

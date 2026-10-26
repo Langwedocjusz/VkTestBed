@@ -16,6 +16,7 @@ struct OpaqueBuffer {
 
     size_t     Size = 0;
     std::byte *Data = nullptr;
-private:
+
+  private:
     void Deallocate();
 };

@@ -161,7 +161,7 @@ void ShadowmapHandler::RebuildPipelines(const PipelineInfo &info)
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
             .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .AddDescriptorSetLayout(info.MaterialDSLayout)
+            .OverrideDescriptor(0, info.MaterialDSLayout)
             .EnableDepthTest()
             .SetDepthFormat(ShadowmapFormat)
             .Build(mCtx, mPipelineDeletionQueue);

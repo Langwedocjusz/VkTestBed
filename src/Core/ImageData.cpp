@@ -31,8 +31,8 @@ ImageData::ImageData(ImageData &&other) noexcept
     , IsUpToDate(other.IsUpToDate)
     , mType(other.mType)
 {
-    other.Data   = nullptr;
-    other.mType  = Type::None;
+    other.Data  = nullptr;
+    other.mType = Type::None;
 }
 
 void ImageData::Deallocate()

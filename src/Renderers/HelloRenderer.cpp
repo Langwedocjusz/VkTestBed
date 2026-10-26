@@ -59,7 +59,7 @@ void HelloRenderer::RebuildPipelines()
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(mRenderTargetFormat)
-            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
+            .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
             .Build(mCtx, mPipelineDeletionQueue);
     // clang-format on
 }

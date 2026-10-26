@@ -220,32 +220,32 @@ void EnvironmentHandler::RebuildPipelines(VkFormat colorFormat, VkFormat depthFo
     mEquiRectToCubePipeline = 
         ComputePipelineBuilder("EnvEquToCubePipeline")
             .SetShaderPath("assets/spirv/environment/EquiToCubeComp.spv")
-            .AddDescriptorSetLayout(mTexToImgDescriptorSetLayout)
+            .OverrideDescriptor(0, mTexToImgDescriptorSetLayout)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mIrradianceSHPipeline = 
         ComputePipelineBuilder("EnvIrradianceSHPipeline")
             .SetShaderPath("assets/spirv/environment/IrradianceCalcSHComp.spv")
-            .AddDescriptorSetLayout(mBackgroundDescrptorSetLayout)
-            .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
+            .OverrideDescriptor(0, mBackgroundDescrptorSetLayout)
+            .OverrideDescriptor(1, mIrradianceDescriptorSetLayout)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mIrradianceReducePipeline = 
         ComputePipelineBuilder("EnvIrradianceReducePipeline")
             .SetShaderPath("assets/spirv/environment/IrradianceReduceComp.spv")
-            .AddDescriptorSetLayout(mIrradianceDescriptorSetLayout)
+            .OverrideDescriptor(0, mIrradianceDescriptorSetLayout)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mPrefilteredGenPipeline = 
         ComputePipelineBuilder("EnvPrefilteredGenPipeline")
             .SetShaderPath("assets/spirv/environment/PrefilteredGenComp.spv")
-            .AddDescriptorSetLayout(mPrefilteredDescriptorSetLayout)
+            .OverrideDescriptor(0, mPrefilteredDescriptorSetLayout)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mIntegrationGenPipeline = 
         ComputePipelineBuilder("EnvIntegrationPipeline")
             .SetShaderPath("assets/spirv/environment/IntegrationGenComp.spv")
-            .AddDescriptorSetLayout(mIntegrationDescriptorSetLayout)
+            .OverrideDescriptor(0, mIntegrationDescriptorSetLayout)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mBackgroundPipeline = 
@@ -258,7 +258,7 @@ void EnvironmentHandler::RebuildPipelines(VkFormat colorFormat, VkFormat depthFo
             .SetPolygonMode(VK_POLYGON_MODE_FILL)
             .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetColorFormat(colorFormat)
-            .AddDescriptorSetLayout(mBackgroundDescrptorSetLayout)
+            .OverrideDescriptor(0, mBackgroundDescrptorSetLayout)
             .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
             .SetDepthFormat(depthFormat)
             .SetStencilFormat(depthFormat)

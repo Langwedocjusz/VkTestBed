@@ -72,25 +72,25 @@ void AOHandler::RebuildPipelines()
     mZGenPipeline = 
         ComputePipelineBuilder("AOZBufferPipeline")
             .SetShaderPath("assets/spirv/ao/ZGenComp.spv")
-            .AddDescriptorSetLayout(mAODescriptorSetLayout)
+            .OverrideDescriptor(0, mAODescriptorSetLayout)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mZMipGenPipeline = 
         ComputePipelineBuilder("AOZBufferMipPipeline")
             .SetShaderPath("assets/spirv/ao/ZMipGenComp.spv")
-            .AddDescriptorSetLayout(mZMipGenDescriptorSetLayout)
+            .OverrideDescriptor(0, mZMipGenDescriptorSetLayout)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mAOGenPipeline = 
         ComputePipelineBuilder("AOGenPipeline")
             .SetShaderPath("assets/spirv/ao/AOGenComp.spv")
-            .AddDescriptorSetLayout(mAODescriptorSetLayout)
+            .OverrideDescriptor(0, mAODescriptorSetLayout)
             .Build(mCtx, mPipelineDeletionQueue);
 
     mBilateralPipeline = 
         ComputePipelineBuilder("AOBilateralPipeline")
             .SetShaderPath("assets/spirv/ao/AOBilateralComp.spv")
-            .AddDescriptorSetLayout(mBilateralDescriptorSetLayout)
+            .OverrideDescriptor(0, mBilateralDescriptorSetLayout)
             .Build(mCtx, mPipelineDeletionQueue);
     // clang-format on
 }

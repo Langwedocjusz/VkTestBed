@@ -31,6 +31,8 @@ class GraphicsPipeline {
 
     VkPipeline       Handle;
     VkPipelineLayout Layout;
+
+    std::map<uint32_t, VkDescriptorSetLayout> ReflectedLayouts;
 };
 
 class ComputePipeline {
@@ -55,7 +57,8 @@ class ComputePipeline {
     VkPipeline       Handle;
     VkPipelineLayout Layout;
 
-    std::array<uint32_t, 3> LocalSize;
+    std::array<uint32_t, 3>                   LocalSize;
+    std::map<uint32_t, VkDescriptorSetLayout> ReflectedLayouts;
 };
 
 class PipelineBuilder {
@@ -65,7 +68,8 @@ class PipelineBuilder {
     PipelineBuilder &SetShaderPathVertex(std::string_view path);
     PipelineBuilder &SetShaderPathFragment(std::string_view path);
 
-    PipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
+    // PipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
+    PipelineBuilder &OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout);
 
     /// If vertex input is not set, vertex data can't be accessed the usual way
     /// in vertex shaders. This is actually the desired behaviour when doing
@@ -89,12 +93,10 @@ class PipelineBuilder {
 
     PipelineBuilder &SetMultisampling(VkSampleCountFlagBits sampleCount);
 
-    GraphicsPipeline Build(VulkanContext &ctx);
     GraphicsPipeline Build(VulkanContext &ctx, DeletionQueue &queue);
 
   private:
     GraphicsPipeline BuildImpl(VulkanContext &ctx);
-    void             UpdateVertexInput();
 
   private:
     std::optional<std::string> mVertexPath   = std::nullopt;
@@ -114,7 +116,8 @@ class PipelineBuilder {
     std::optional<VkFormat> mDepthFormat   = std::nullopt;
     std::optional<VkFormat> mStencilFormat = std::nullopt;
 
-    std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
+    // std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
+    std::map<uint32_t, VkDescriptorSetLayout> mDescriptorOverrides;
 
     VkVertexInputBindingDescription                mBindingDescription;
     std::vector<VkVertexInputAttributeDescription> mAttributeDescriptions;
@@ -128,16 +131,17 @@ class ComputePipelineBuilder {
 
     ComputePipelineBuilder &SetShaderPath(std::string_view path);
 
-    ComputePipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
+    // ComputePipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
+    ComputePipelineBuilder &OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout);
 
-    ComputePipeline Build(VulkanContext &ctx);
     ComputePipeline Build(VulkanContext &ctx, DeletionQueue &queue);
 
   private:
     ComputePipeline BuildImpl(VulkanContext &ctx);
 
   private:
-    std::optional<std::string>         mShaderPath;
-    std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
-    std::string                        mDebugName;
+    std::optional<std::string> mShaderPath;
+    // std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
+    std::map<uint32_t, VkDescriptorSetLayout> mDescriptorOverrides;
+    std::string                               mDebugName;
 };

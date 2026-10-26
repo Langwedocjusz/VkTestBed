@@ -23,8 +23,6 @@ class DescriptorSetLayoutBuilder {
   private:
     DescriptorSetLayoutBuilder &AddBinding(uint32_t binding, VkDescriptorType type, uint32_t stages, uint32_t count);
 
-    VkDescriptorSetLayout BuildLayout(VulkanContext &ctx);
-
   private:
     std::vector<VkDescriptorSetLayoutBinding> mBindings;
     std::string                               mDebugName;
@@ -40,12 +38,14 @@ struct PoolCounts {
     uint32_t StorageBuffer        = 0;
 };
 
-VkDescriptorPool InitPool(VulkanContext &ctx, PoolCounts counts);
+VkDescriptorSetLayout BuildLayout(
+    VulkanContext &ctx, const std::vector<VkDescriptorSetLayoutBinding> &bindings, const std::string &name
+);
 
+VkDescriptorPool InitPool(VulkanContext &ctx, PoolCounts counts);
 VkDescriptorPool InitPool(VulkanContext &ctx, PoolCounts counts, DeletionQueue &deletionQueue);
 
-VkDescriptorSet Allocate(VulkanContext &ctx, VkDescriptorPool pool, VkDescriptorSetLayout &layout);
-
+VkDescriptorSet              Allocate(VulkanContext &ctx, VkDescriptorPool pool, VkDescriptorSetLayout &layout);
 std::vector<VkDescriptorSet> Allocate(
     VulkanContext &ctx, VkDescriptorPool pool, std::span<VkDescriptorSetLayout> layouts
 );

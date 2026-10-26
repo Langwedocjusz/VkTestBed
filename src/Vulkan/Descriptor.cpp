@@ -82,31 +82,33 @@ DescriptorSetLayoutBuilder &DescriptorSetLayoutBuilder::AddStorageImage(
 
 VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx)
 {
-    return BuildLayout(ctx);
+    return Descriptor::BuildLayout(ctx, mBindings, mDebugName);
 }
 
 VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 {
-    const auto layout = BuildLayout(ctx);
+    const auto layout = Descriptor::BuildLayout(ctx, mBindings, mDebugName);
     queue.push_back(layout);
 
     return layout;
 }
 
-VkDescriptorSetLayout DescriptorSetLayoutBuilder::BuildLayout(VulkanContext &ctx)
+VkDescriptorSetLayout Descriptor::BuildLayout(
+    VulkanContext &ctx, const std::vector<VkDescriptorSetLayoutBinding> &bindings, const std::string &name
+)
 {
     VkDescriptorSetLayout layout{};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast<uint32_t>(mBindings.size());
-    layoutInfo.pBindings    = mBindings.data();
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings    = bindings.data();
 
     auto ret = vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr, &layout);
 
     vassert(ret == VK_SUCCESS, "Failed to create descriptor set layout!");
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, layout, mDebugName);
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, layout, name);
 
     return layout;
 }

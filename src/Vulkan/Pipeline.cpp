@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 #include "Pch.h"
 
+#include "Descriptor.h"
 #include "Shader.h"
 #include "Vassert.h"
 #include "VertexLayout.h"
@@ -8,7 +9,10 @@
 
 #include "volk.h"
 
+#include <algorithm>
+#include <ranges>
 #include <variant>
+#include <vulkan/vulkan_core.h>
 
 // === Graphics Pipeline Implementation: =======================================
 
@@ -122,22 +126,20 @@ PipelineBuilder &PipelineBuilder::SetVertexInput(
         std::holds_alternative<Vertex::PushLayout>(layout), "Pipeline vertex input can only be used with push layouts."
     );
 
+    // Extract binding and attribute descriptions:
     auto &pushLayout = std::get<Vertex::PushLayout>(layout);
 
     mBindingDescription    = Vertex::GetBindingDescription(pushLayout, binding, inputRate);
     mAttributeDescriptions = Vertex::GetAttributeDescriptions(pushLayout);
 
-    UpdateVertexInput();
-    return *this;
-}
-
-void PipelineBuilder::UpdateVertexInput()
-{
+    // Update pointers in final vertex input struct:
     mVertexInput.vertexBindingDescriptionCount = 1;
     mVertexInput.pVertexBindingDescriptions    = &mBindingDescription;
 
     mVertexInput.vertexAttributeDescriptionCount = static_cast<uint32_t>(mAttributeDescriptions.size());
     mVertexInput.pVertexAttributeDescriptions    = mAttributeDescriptions.data();
+
+    return *this;
 }
 
 PipelineBuilder &PipelineBuilder::SetTopology(VkPrimitiveTopology topo)
@@ -247,9 +249,16 @@ PipelineBuilder &PipelineBuilder::EnableBlending()
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
+// PipelineBuilder &PipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
+//{
+//     mDescriptorLayouts.push_back(descriptor);
+//
+//     return *this;
+// }
+
+PipelineBuilder &PipelineBuilder::OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout)
 {
-    mDescriptorLayouts.push_back(descriptor);
+    mDescriptorOverrides[binding] = layout;
 
     return *this;
 }
@@ -261,28 +270,116 @@ PipelineBuilder &PipelineBuilder::SetMultisampling(VkSampleCountFlagBits sampleC
     return *this;
 }
 
-GraphicsPipeline PipelineBuilder::Build(VulkanContext &ctx)
-{
-    return BuildImpl(ctx);
-}
-
 GraphicsPipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 {
     const auto res = BuildImpl(ctx);
 
-    queue.push_back(res.Handle);
     queue.push_back(res.Layout);
+    queue.push_back(res.Handle);
+
+    for (auto [_key, layout] : res.ReflectedLayouts)
+    {
+        queue.push_back(layout);
+    }
 
     return res;
 }
 
+static void AppendBindingInfo(
+    std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> &out,
+    const BindingInfo                                             &info,
+    VkShaderStageFlags                                             stageFlags
+)
+{
+    if (!out.contains(info.Set))
+    {
+        out[info.Set] = {};
+    }
+
+    auto &bindings = out.at(info.Set);
+
+    auto it = std::ranges::find_if(bindings, [&](auto binding) { return binding.binding == info.Binding; });
+
+    if (it == bindings.end())
+    {
+        bindings.push_back({
+            .binding            = info.Binding,
+            .descriptorType     = info.Type,
+            .descriptorCount    = info.Count,
+            .stageFlags         = stageFlags,
+            .pImmutableSamplers = nullptr,
+        });
+    }
+    else
+    {
+        auto &binding = *it;
+
+        vassert(binding.descriptorType == info.Type);
+        vassert(binding.descriptorCount == info.Count);
+
+        binding.stageFlags = (binding.stageFlags | stageFlags);
+    }
+};
+
+static std::vector<VkDescriptorSetLayout> BuildLayoutList(
+    VulkanContext                                                       &ctx,
+    const std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> &perDescriptorBindings,
+    const std::map<uint32_t, VkDescriptorSetLayout>                     &descriptorOverrides,
+    std::map<uint32_t, VkDescriptorSetLayout>                           &outReflectedLayouts,
+    const std::string                                                   &debugName
+)
+{
+    uint32_t maxSet  = 0;
+    bool     anySets = false;
+
+    for (auto &[key, _val] : perDescriptorBindings)
+    {
+        maxSet  = std::max(maxSet, key);
+        anySets = true;
+    }
+
+    for (auto &[key, _val] : descriptorOverrides)
+    {
+        maxSet  = std::max(maxSet, key);
+        anySets = true;
+    }
+
+    if (!anySets)
+    {
+        return {};
+    }
+
+    std::vector<VkDescriptorSetLayout> layouts(maxSet + 1);
+
+    for (auto [idx, layout] : std::ranges::views::enumerate(layouts))
+    {
+        if (descriptorOverrides.contains(idx))
+        {
+            layout = descriptorOverrides.at(idx);
+        }
+        else
+        {
+            auto &bindings = perDescriptorBindings.at(idx);
+            auto  name     = debugName + "ReflectedLayout" + std::to_string(idx);
+
+            layout = Descriptor::BuildLayout(ctx, bindings, name);
+
+            outReflectedLayouts[idx] = layout;
+        }
+    }
+
+    return layouts;
+}
+
 GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    GraphicsPipeline pipeline{};
+    GraphicsPipeline ret{};
 
     // Build the shader stages:
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
     uint32_t                                     pushConstantSize = 0;
+
+    std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> perDescriptorBindings{};
 
     if (mVertexPath)
     {
@@ -292,6 +389,11 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         if (auto size = info.Reflection.PushConstantsSize)
         {
             pushConstantSize = std::max(pushConstantSize, *size);
+        }
+
+        for (auto bindingInfo : info.Reflection.Bindings)
+        {
+            AppendBindingInfo(perDescriptorBindings, bindingInfo, VK_SHADER_STAGE_VERTEX_BIT);
         }
     }
 
@@ -304,16 +406,24 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
         {
             pushConstantSize = std::max(pushConstantSize, *size);
         }
+
+        for (auto bindingInfo : info.Reflection.Bindings)
+        {
+            AppendBindingInfo(perDescriptorBindings, bindingInfo, VK_SHADER_STAGE_FRAGMENT_BIT);
+        }
     }
 
     // Create pipeline layout:
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    if (!mDescriptorLayouts.empty())
+    // Handle descriptor set layouts:
+    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, ret.ReflectedLayouts, mDebugName);
+
+    if (!layouts.empty())
     {
-        pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(mDescriptorLayouts.size());
-        pipelineLayoutInfo.pSetLayouts    = mDescriptorLayouts.data();
+        pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+        pipelineLayoutInfo.pSetLayouts    = layouts.data();
     }
 
     // Fill in Push constant information:
@@ -331,12 +441,12 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     }
 
     {
-        auto ret = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &pipeline.Layout);
+        auto res = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &ret.Layout);
 
-        vassert(ret == VK_SUCCESS, "Failed to create a pipeline layout!");
+        vassert(res == VK_SUCCESS, "Failed to create a pipeline layout!");
     }
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline.Layout, mDebugName);
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, ret.Layout, mDebugName);
 
     // Fill in dynamic state info:
     VkViewport viewport{};
@@ -378,7 +488,7 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     pipelineInfo.pColorBlendState    = &mColorBlend;
     pipelineInfo.pDepthStencilState  = &mDepthStencil;
     pipelineInfo.pDynamicState       = &dynamicInfo;
-    pipelineInfo.layout              = pipeline.Layout;
+    pipelineInfo.layout              = ret.Layout;
     pipelineInfo.subpass             = 0;
     pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE;
 
@@ -412,17 +522,19 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
     {
-        auto ret = vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline.Handle);
+        auto res = vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &ret.Handle);
 
-        vassert(ret == VK_SUCCESS, "Failed to create a Graphics Pipeline!");
+        vassert(res == VK_SUCCESS, "Failed to create a Graphics Pipeline!");
     }
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, ret.Handle, mDebugName);
 
     for (auto &shaderInfo : shaderStages)
+    {
         vkDestroyShaderModule(ctx.Device, shaderInfo.module, nullptr);
+    }
 
-    return pipeline;
+    return ret;
 }
 
 // === Compute Pipeline Builder Implementation: ====================================
@@ -438,24 +550,26 @@ ComputePipelineBuilder &ComputePipelineBuilder::SetShaderPath(std::string_view p
     return *this;
 }
 
-ComputePipelineBuilder &ComputePipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
+// ComputePipelineBuilder &ComputePipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
+//{
+//     mDescriptorLayouts.push_back(descriptor);
+//
+//     return *this;
+// }
+
+ComputePipelineBuilder &ComputePipelineBuilder::OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout)
 {
-    mDescriptorLayouts.push_back(descriptor);
+    mDescriptorOverrides[binding] = layout;
 
     return *this;
-}
-
-ComputePipeline ComputePipelineBuilder::Build(VulkanContext &ctx)
-{
-    return BuildImpl(ctx);
 }
 
 ComputePipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 {
     const auto res = BuildImpl(ctx);
 
-    queue.push_back(res.Handle);
     queue.push_back(res.Layout);
+    queue.push_back(res.Handle);
 
     return res;
 }
@@ -464,8 +578,8 @@ ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
     auto info = Shader::GetStageInfo(ctx, *mShaderPath, VK_SHADER_STAGE_COMPUTE_BIT);
 
-    ComputePipeline pipeline{};
-    pipeline.LocalSize = *info.Reflection.LocalSize;
+    ComputePipeline ret{};
+    ret.LocalSize = *info.Reflection.LocalSize;
 
     uint32_t pcSize = 0;
     if (auto size = info.Reflection.PushConstantsSize)
@@ -478,10 +592,20 @@ ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    if (!mDescriptorLayouts.empty())
+    // Handle descriptor set layouts:
+    std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> perDescriptorBindings{};
+
+    for (auto bindingInfo : info.Reflection.Bindings)
     {
-        pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(mDescriptorLayouts.size());
-        pipelineLayoutInfo.pSetLayouts    = mDescriptorLayouts.data();
+        AppendBindingInfo(perDescriptorBindings, bindingInfo, VK_SHADER_STAGE_FRAGMENT_BIT);
+    }
+
+    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, ret.ReflectedLayouts, mDebugName);
+
+    if (!layouts.empty())
+    {
+        pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+        pipelineLayoutInfo.pSetLayouts    = layouts.data();
     }
 
     // Fill in push constant info:
@@ -498,27 +622,27 @@ ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
     }
 
     {
-        auto ret = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &pipeline.Layout);
+        auto res = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &ret.Layout);
 
-        vassert(ret == VK_SUCCESS, "Failed to create compute pipeline layout!");
+        vassert(res == VK_SUCCESS, "Failed to create compute pipeline layout!");
     }
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline.Layout, mDebugName);
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, ret.Layout, mDebugName);
 
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.layout = pipeline.Layout;
+    pipelineInfo.layout = ret.Layout;
     pipelineInfo.stage  = shaderStages[0];
 
     {
-        auto ret = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline.Handle);
+        auto res = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &ret.Handle);
 
-        vassert(ret == VK_SUCCESS, "Failed to create compute pipeline!");
+        vassert(res == VK_SUCCESS, "Failed to create compute pipeline!");
     }
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, pipeline.Handle, mDebugName);
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, ret.Handle, mDebugName);
 
     vkDestroyShaderModule(ctx.Device, shaderStages[0].module, nullptr);
 
-    return pipeline;
+    return ret;
 }

@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <ranges>
 #include <variant>
-#include <vulkan/vulkan_core.h>
+
 
 // === Graphics Pipeline Implementation: =======================================
 
@@ -33,6 +33,25 @@ void GraphicsPipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescr
     );
 }
 
+void GraphicsPipeline::AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPool pool)
+{
+    // Should only be called once (unless pool gets destroyed... need to think more...):
+    vassert(Sets.empty());
+
+    for (auto [binding, layout] : Layouts)
+    {
+        Sets[binding] = Descriptor::Allocate(ctx, pool, layout);
+    }
+}
+
+void GraphicsPipeline::BindReflectedSets(VkCommandBuffer cmd)
+{
+    for (auto [binding, set] : Sets)
+    {
+        vkCmdBindDescriptorSets(cmd, BindPoint, Layout, binding, 1, &set, 0, nullptr);
+    }
+}
+
 // === Compute Pipeline Implementation: =======================================
 
 void ComputePipeline::Bind(VkCommandBuffer cmd)
@@ -50,6 +69,25 @@ void ComputePipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescri
     vkCmdBindDescriptorSets(
         cmd, BindPoint, Layout, startIdx, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr
     );
+}
+
+void ComputePipeline::AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPool pool)
+{
+    // Should only be called once (unless pool gets destroyed... need to think more...):
+    vassert(Sets.empty());
+
+    for (auto [binding, layout] : Layouts)
+    {
+        Sets[binding] = Descriptor::Allocate(ctx, pool, layout);
+    }
+}
+
+void ComputePipeline::BindReflectedSets(VkCommandBuffer cmd)
+{
+    for (auto [binding, set] : Sets)
+    {
+        vkCmdBindDescriptorSets(cmd, BindPoint, Layout, binding, 1, &set, 0, nullptr);
+    }
 }
 
 void ComputePipeline::Dispatch(VkCommandBuffer cmd, uint32_t sizeX, uint32_t sizeY, uint32_t sizeZ)
@@ -277,7 +315,7 @@ GraphicsPipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue
     queue.push_back(res.Layout);
     queue.push_back(res.Handle);
 
-    for (auto [_key, layout] : res.ReflectedLayouts)
+    for (auto [_key, layout] : res.Layouts)
     {
         queue.push_back(layout);
     }
@@ -418,7 +456,7 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     pipelineLayoutInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
     // Handle descriptor set layouts:
-    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, ret.ReflectedLayouts, mDebugName);
+    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, ret.Layouts, mDebugName);
 
     if (!layouts.empty())
     {
@@ -597,10 +635,10 @@ ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     for (auto bindingInfo : info.Reflection.Bindings)
     {
-        AppendBindingInfo(perDescriptorBindings, bindingInfo, VK_SHADER_STAGE_FRAGMENT_BIT);
+        AppendBindingInfo(perDescriptorBindings, bindingInfo, VK_SHADER_STAGE_COMPUTE_BIT);
     }
 
-    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, ret.ReflectedLayouts, mDebugName);
+    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, ret.Layouts, mDebugName);
 
     if (!layouts.empty())
     {

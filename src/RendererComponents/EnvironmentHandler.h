@@ -68,8 +68,7 @@ class EnvironmentHandler {
     static constexpr uint32_t IntegrationSize = 512;
 
     VulkanContext &mCtx;
-
-    bool mIntegrationGenerated = false;
+    VkDescriptorPool mStaticPool;
 
     // Descriptor set exposed to the outside world:
     VkDescriptorSetLayout mLightingDescriptorSetLayout;
@@ -77,25 +76,25 @@ class EnvironmentHandler {
 
     // Private descriptor sets:
 
-    // Descriptor set for generating the cubemap:
-    VkDescriptorSetLayout mTexToImgDescriptorSetLayout;
-    VkDescriptorSet       mTexToImgDescriptorSet;
-
-    // Descriptor set for irradiance reduction buffers:
-    VkDescriptorSetLayout mIrradianceDescriptorSetLayout;
-    VkDescriptorSet       mIrradianceDescriptorSet;
-
-    // Descriptor set for generating the prefiltered map:
-    VkDescriptorSetLayout mPrefilteredDescriptorSetLayout;
-    VkDescriptorSet       mPrefilteredDescriptorSet;
-
-    // Descriptor set for generating the integration map:
-    VkDescriptorSetLayout mIntegrationDescriptorSetLayout;
-    VkDescriptorSet       mIntegrationDescriptorSet;
-
-    // Descriptor set for drawing the background:
-    VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
-    VkDescriptorSet       mBackgroundDescriptorSet;
+    //// Descriptor set for generating the cubemap:
+    //VkDescriptorSetLayout mTexToImgDescriptorSetLayout;
+    //VkDescriptorSet       mTexToImgDescriptorSet;
+    //
+    //// Descriptor set for irradiance reduction buffers:
+    //VkDescriptorSetLayout mIrradianceDescriptorSetLayout;
+    //VkDescriptorSet       mIrradianceDescriptorSet;
+    //
+    //// Descriptor set for generating the prefiltered map:
+    //VkDescriptorSetLayout mPrefilteredDescriptorSetLayout;
+    //VkDescriptorSet       mPrefilteredDescriptorSet;
+    //
+    //// Descriptor set for generating the integration map:
+    //VkDescriptorSetLayout mIntegrationDescriptorSetLayout;
+    //VkDescriptorSet       mIntegrationDescriptorSet;
+    //
+    //// Descriptor set for drawing the background:
+    //VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
+    //VkDescriptorSet       mBackgroundDescriptorSet;
 
     // Compute pipelines for resource generation:
     ComputePipeline mEquiRectToCubePipeline;

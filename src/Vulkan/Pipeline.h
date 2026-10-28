@@ -16,6 +16,9 @@ class GraphicsPipeline {
   public:
     void Bind(VkCommandBuffer cmd);
 
+    void AllocateReflectedSets(VulkanContext& ctx, VkDescriptorPool pool);
+    void BindReflectedSets(VkCommandBuffer cmd);
+
     void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
     void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets, uint32_t startIdx);
 
@@ -32,12 +35,16 @@ class GraphicsPipeline {
     VkPipeline       Handle;
     VkPipelineLayout Layout;
 
-    std::map<uint32_t, VkDescriptorSetLayout> ReflectedLayouts;
+    std::map<uint32_t, VkDescriptorSetLayout> Layouts;
+    std::map<uint32_t, VkDescriptorSet>       Sets;
 };
 
 class ComputePipeline {
   public:
     void Bind(VkCommandBuffer cmd);
+
+    void AllocateReflectedSets(VulkanContext& ctx, VkDescriptorPool pool);
+    void BindReflectedSets(VkCommandBuffer cmd);
 
     void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
     void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets, uint32_t startIdx);
@@ -54,11 +61,12 @@ class ComputePipeline {
     static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
     static constexpr VkShaderStageFlags  PCStage   = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkPipeline       Handle;
-    VkPipelineLayout Layout;
-
-    std::array<uint32_t, 3>                   LocalSize;
-    std::map<uint32_t, VkDescriptorSetLayout> ReflectedLayouts;
+    VkPipeline              Handle;
+    VkPipelineLayout        Layout;
+    std::array<uint32_t, 3> LocalSize;
+    
+    std::map<uint32_t, VkDescriptorSetLayout> Layouts;
+    std::map<uint32_t, VkDescriptorSet>       Sets;
 };
 
 class PipelineBuilder {

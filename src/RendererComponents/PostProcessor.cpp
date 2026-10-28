@@ -54,25 +54,23 @@ void PostProcessor::OnImGui()
 
 void PostProcessor::RebuildPipelines()
 {
-    // clang-format off
-    mBloomDownscalePipeline = 
-        ComputePipelineBuilder("PostfxBloomDownsample")
-            .SetShaderPath("assets/spirv/postfx/BloomDownsampleComp.spv")
-            .OverrideDescriptor(0, mBloomDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mBloomDownscalePipeline)
+        .SetDebugName("PostfxBloomDownsample")
+        .SetShaderPath("assets/spirv/postfx/BloomDownsampleComp.spv")
+        .OverrideDescriptor(0, mBloomDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mBloomUpscalePipeline = 
-        ComputePipelineBuilder("PostfxBloomUpsample")
-            .SetShaderPath("assets/spirv/postfx/BloomUpsampleComp.spv")
-            .OverrideDescriptor(0, mBloomDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mBloomUpscalePipeline)
+        .SetDebugName("PostfxBloomUpsample")
+        .SetShaderPath("assets/spirv/postfx/BloomUpsampleComp.spv")
+        .OverrideDescriptor(0, mBloomDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mFinalPipeline = 
-        ComputePipelineBuilder("PostxFinal")
-            .SetShaderPath("assets/spirv/postfx/FinalComp.spv")
-            .OverrideDescriptor(0, mFinalDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
-    // clang-format on
+    ComputePipelineBuilder(mFinalPipeline)
+        .SetDebugName("PostxFinal")
+        .SetShaderPath("assets/spirv/postfx/FinalComp.spv")
+        .OverrideDescriptor(0, mFinalDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void PostProcessor::RecreateSwapchainResources(Image &renderTarget, VkImageView renderTargetView)

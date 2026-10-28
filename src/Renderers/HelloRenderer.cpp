@@ -49,19 +49,17 @@ void HelloRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    // clang-format off
-    mGraphicsPipeline = 
-        PipelineBuilder("HelloRendererPipeline")
-            .SetShaderPathVertex("assets/spirv/HelloTriangleVert.spv")
-            .SetShaderPathFragment("assets/spirv/HelloTriangleFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(mRenderTargetFormat)
-            .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
-            .Build(mCtx, mPipelineDeletionQueue);
-    // clang-format on
+    GraphicsPipelineBuilder(mGraphicsPipeline)
+        .SetDebugName("HelloRendererPipeline")
+        .SetShaderPathVertex("assets/spirv/HelloTriangleVert.spv")
+        .SetShaderPathFragment("assets/spirv/HelloTriangleFrag.spv")
+        .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+        .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+        .SetColorFormat(mRenderTargetFormat)
+        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)

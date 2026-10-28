@@ -141,47 +141,45 @@ void ShadowmapHandler::RebuildPipelines(const PipelineInfo &info)
     // it also makes peter panning worse, hence we are not using it
     // and relying instead on the bias heuristics to hide the acne.
 
-    // clang-format off
-    mOpaquePipeline = 
-        PipelineBuilder("ShadowmapPipeline")
-            .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
-            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .EnableDepthTest()
-            .SetDepthFormat(ShadowmapFormat)
-            .Build(mCtx, mPipelineDeletionQueue);
+    GraphicsPipelineBuilder(mOpaquePipeline)
+        .SetDebugName("ShadowmapOpaquePipeline")
+        .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
+        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+        .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+        .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+        .EnableDepthTest()
+        .SetDepthFormat(ShadowmapFormat)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mAlphaPipeline = 
-        PipelineBuilder("ShadowmapPipeline")
-            .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
-            .SetShaderPathFragment("assets/spirv/shadows/ShadowmapAlphaFrag.spv")
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
-            .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-            .OverrideDescriptor(0, info.MaterialDSLayout)
-            .EnableDepthTest()
-            .SetDepthFormat(ShadowmapFormat)
-            .Build(mCtx, mPipelineDeletionQueue);
+    GraphicsPipelineBuilder(mAlphaPipeline)
+        .SetDebugName("ShadowmapAlphaPipeline")
+        .SetShaderPathVertex("assets/spirv/shadows/ShadowmapAlphaVert.spv")
+        .SetShaderPathFragment("assets/spirv/shadows/ShadowmapAlphaFrag.spv")
+        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+        .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+        .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
+        .OverrideDescriptor(0, info.MaterialDSLayout)
+        .EnableDepthTest()
+        .SetDepthFormat(ShadowmapFormat)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mDebugPipeline = 
-        PipelineBuilder("ShadowmapDebugPipeline")
-            .SetShaderPathVertex("assets/spirv/shadows/ShadowDebugVert.spv")
-            .SetShaderPathFragment("assets/spirv/shadows/ShadowDebugFrag.spv")
-            .SetVertexInput(mDebugGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE)
-            .SetColorFormat(info.ColorFormat)
-            .EnableDepthTest()
-            .SetDepthFormat(info.DepthFormat)
-            .SetStencilFormat(info.DepthFormat)
-            .SetMultisampling(info.CurrentMultisampling)
-            .EnableBlending()
-            .Build(mCtx, mPipelineDeletionQueue);
-    // clang-format on
+    GraphicsPipelineBuilder(mDebugPipeline)
+        .SetDebugName("ShadowmapDebugPipeline")
+        .SetShaderPathVertex("assets/spirv/shadows/ShadowDebugVert.spv")
+        .SetShaderPathFragment("assets/spirv/shadows/ShadowDebugFrag.spv")
+        .SetVertexInput(mDebugGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+        .SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE)
+        .SetColorFormat(info.ColorFormat)
+        .EnableDepthTest()
+        .SetDepthFormat(info.DepthFormat)
+        .SetStencilFormat(info.DepthFormat)
+        .SetMultisampling(info.CurrentMultisampling)
+        .EnableBlending()
+        .Build(mCtx, mPipelineDeletionQueue);
 }
 
 Frustum ShadowmapHandler::ScaleCameraFrustum(Frustum camFrustum, float distNear, float distFar) const

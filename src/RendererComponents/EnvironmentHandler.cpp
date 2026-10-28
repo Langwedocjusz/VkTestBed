@@ -183,12 +183,12 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
     // clang-format on
 
     // Allocate and update descriptor sets:
-    //mBackgroundDescriptorSet  = Descriptor::Allocate(mCtx, staticPool, mBackgroundDescrptorSetLayout);
-    mLightingDescriptorSet    = Descriptor::Allocate(mCtx, staticPool, mLightingDescriptorSetLayout);
-    //mTexToImgDescriptorSet    = Descriptor::Allocate(mCtx, staticPool, mTexToImgDescriptorSetLayout);
-    //mIrradianceDescriptorSet  = Descriptor::Allocate(mCtx, staticPool, mIrradianceDescriptorSetLayout);
-    //mPrefilteredDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mPrefilteredDescriptorSetLayout);
-    //mIntegrationDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mIntegrationDescriptorSetLayout);
+    // mBackgroundDescriptorSet  = Descriptor::Allocate(mCtx, staticPool, mBackgroundDescrptorSetLayout);
+    mLightingDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mLightingDescriptorSetLayout);
+    // mTexToImgDescriptorSet    = Descriptor::Allocate(mCtx, staticPool, mTexToImgDescriptorSetLayout);
+    // mIrradianceDescriptorSet  = Descriptor::Allocate(mCtx, staticPool, mIrradianceDescriptorSetLayout);
+    // mPrefilteredDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mPrefilteredDescriptorSetLayout);
+    // mIntegrationDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mIntegrationDescriptorSetLayout);
 
     DescriptorUpdater(mLightingDescriptorSet)
         .WriteUniformBuffer(0, mEnvUBO->Handle, sizeof(mEnvUBOData))
@@ -202,59 +202,57 @@ void EnvironmentHandler::RebuildPipelines(VkFormat colorFormat, VkFormat depthFo
 {
     mPipelineDeletionQueue.flush();
 
-    // clang-format off
-    mEquiRectToCubePipeline = 
-        ComputePipelineBuilder("EnvEquToCubePipeline")
-            .SetShaderPath("assets/spirv/environment/EquiToCubeComp.spv")
-            //.OverrideDescriptor(0, mTexToImgDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mEquiRectToCubePipeline)
+        .SetDebugName("EnvEquToCubePipeline")
+        .SetShaderPath("assets/spirv/environment/EquiToCubeComp.spv")
+        //.OverrideDescriptor(0, mTexToImgDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mIrradianceSHPipeline = 
-        ComputePipelineBuilder("EnvIrradianceSHPipeline")
-            .SetShaderPath("assets/spirv/environment/IrradianceCalcSHComp.spv")
-            //.OverrideDescriptor(0, mBackgroundDescrptorSetLayout)
-            //.OverrideDescriptor(1, mIrradianceDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mIrradianceSHPipeline)
+        .SetDebugName("EnvIrradianceSHPipeline")
+        .SetShaderPath("assets/spirv/environment/IrradianceCalcSHComp.spv")
+        //.OverrideDescriptor(0, mBackgroundDescrptorSetLayout)
+        //.OverrideDescriptor(1, mIrradianceDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mIrradianceReducePipeline = 
-        ComputePipelineBuilder("EnvIrradianceReducePipeline")
-            .SetShaderPath("assets/spirv/environment/IrradianceReduceComp.spv")
-            //.OverrideDescriptor(0, mIrradianceDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mIrradianceReducePipeline)
+        .SetDebugName("EnvIrradianceReducePipeline")
+        .SetShaderPath("assets/spirv/environment/IrradianceReduceComp.spv")
+        //.OverrideDescriptor(0, mIrradianceDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mPrefilteredGenPipeline = 
-        ComputePipelineBuilder("EnvPrefilteredGenPipeline")
-            .SetShaderPath("assets/spirv/environment/PrefilteredGenComp.spv")
-            //.OverrideDescriptor(0, mPrefilteredDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mPrefilteredGenPipeline)
+        .SetDebugName("EnvPrefilteredGenPipeline")
+        .SetShaderPath("assets/spirv/environment/PrefilteredGenComp.spv")
+        //.OverrideDescriptor(0, mPrefilteredDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mIntegrationGenPipeline = 
-        ComputePipelineBuilder("EnvIntegrationPipeline")
-            .SetShaderPath("assets/spirv/environment/IntegrationGenComp.spv")
-            //.OverrideDescriptor(0, mIntegrationDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mIntegrationGenPipeline)
+        .SetDebugName("EnvIntegrationPipeline")
+        .SetShaderPath("assets/spirv/environment/IntegrationGenComp.spv")
+        //.OverrideDescriptor(0, mIntegrationDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mBackgroundPipeline = 
-        PipelineBuilder("EnvBackgroundPipeline")
-            .SetShaderPathVertex("assets/spirv/environment/BackgroundVert.spv")
-            .SetShaderPathFragment("assets/spirv/environment/BackgroundFrag.spv")
-            // No vertex format, since we just hardcode the fullscreen
-            // triangle in the vertex shader:
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(colorFormat)
-            //.OverrideDescriptor(0, mBackgroundDescrptorSetLayout)
-            .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
-            .SetDepthFormat(depthFormat)
-            .SetStencilFormat(depthFormat)
-            .SetMultisampling(sampleCount)
-            .Build(mCtx, mPipelineDeletionQueue);
-    // clang-format on
+    GraphicsPipelineBuilder(mBackgroundPipeline)
+        .SetDebugName("EnvBackgroundPipeline")
+        .SetShaderPathVertex("assets/spirv/environment/BackgroundVert.spv")
+        .SetShaderPathFragment("assets/spirv/environment/BackgroundFrag.spv")
+        // No vertex format, since we just hardcode the fullscreen
+        // triangle in the vertex shader:
+        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+        .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+        .SetColorFormat(colorFormat)
+        //.OverrideDescriptor(0, mBackgroundDescrptorSetLayout)
+        .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
+        .SetDepthFormat(depthFormat)
+        .SetStencilFormat(depthFormat)
+        .SetMultisampling(sampleCount)
+        .Build(mCtx, mPipelineDeletionQueue);
 
     // Update static descriptor sets on first rebuild:
     static bool firstRun = true;
-    
+
     if (firstRun)
     {
         mEquiRectToCubePipeline.AllocateReflectedSets(mCtx, mStaticPool);
@@ -334,7 +332,7 @@ void EnvironmentHandler::DrawBackground(VkCommandBuffer cmd, FrustumBack frustum
     mBackgroundPipeline.Bind(cmd);
     common::ViewportScissor(cmd, drawExtent);
 
-    //mBackgroundPipeline.BindDescriptorSet(cmd, mBackgroundDescriptorSet, 0);
+    // mBackgroundPipeline.BindDescriptorSet(cmd, mBackgroundDescriptorSet, 0);
     mBackgroundPipeline.BindReflectedSets(cmd);
     mBackgroundPipeline.PushConstants(cmd, frustumBack);
 
@@ -362,7 +360,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
         // Sample equirectangular map to cubemap
         // using a compute pipeline:
         mEquiRectToCubePipeline.Bind(cmd);
-        //mEquiRectToCubePipeline.BindDescriptorSet(cmd, mTexToImgDescriptorSet, 0);
+        // mEquiRectToCubePipeline.BindDescriptorSet(cmd, mTexToImgDescriptorSet, 0);
         mEquiRectToCubePipeline.BindReflectedSets(cmd);
 
         auto extent = mCubemap->Img.Info.extent;
@@ -380,13 +378,13 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
 {
     // Do parallel patch-based computation of SH coeficcients
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        //std::array descriptorSets{
-        //    mBackgroundDescriptorSet,
-        //    mIrradianceDescriptorSet,
-        //};
+        // std::array descriptorSets{
+        //     mBackgroundDescriptorSet,
+        //     mIrradianceDescriptorSet,
+        // };
 
         mIrradianceSHPipeline.Bind(cmd);
-        //mIrradianceSHPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
+        // mIrradianceSHPipeline.BindDescriptorSets(cmd, descriptorSets, 0);
         mIrradianceSHPipeline.BindReflectedSets(cmd);
 
         struct PCData {
@@ -407,7 +405,7 @@ void EnvironmentHandler::CalculateDiffuseIrradiance()
     // Sum-reduce the resulting array:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         mIrradianceReducePipeline.Bind(cmd);
-        //mIrradianceReducePipeline.BindDescriptorSet(cmd, mIrradianceDescriptorSet, 0);
+        // mIrradianceReducePipeline.BindDescriptorSet(cmd, mIrradianceDescriptorSet, 0);
         mIrradianceReducePipeline.BindReflectedSets(cmd);
 
         mIrradianceReducePipeline.PushConstants(cmd, mFirstBufferLen);
@@ -459,7 +457,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
             mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
                 mPrefilteredGenPipeline.Bind(cmd);
-                //mPrefilteredGenPipeline.BindDescriptorSet(cmd, mPrefilteredDescriptorSet, 0);
+                // mPrefilteredGenPipeline.BindDescriptorSet(cmd, mPrefilteredDescriptorSet, 0);
                 mPrefilteredGenPipeline.BindReflectedSets(cmd);
 
                 struct PCData {
@@ -500,7 +498,7 @@ void EnvironmentHandler::GenerateIntegrationMap()
         barrier::ImageLayoutCoarse(cmd, {.Img = *mIntegration, .Old = Undefined, .New = General});
 
         mIntegrationGenPipeline.Bind(cmd);
-        //mIntegrationGenPipeline.BindDescriptorSet(cmd, mIntegrationDescriptorSet, 0);
+        // mIntegrationGenPipeline.BindDescriptorSet(cmd, mIntegrationDescriptorSet, 0);
         mIntegrationGenPipeline.BindReflectedSets(cmd);
 
         auto extent = mIntegration->Img.Info.extent;

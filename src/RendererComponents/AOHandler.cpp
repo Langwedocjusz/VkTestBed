@@ -68,31 +68,29 @@ void AOHandler::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    // clang-format off
-    mZGenPipeline = 
-        ComputePipelineBuilder("AOZBufferPipeline")
-            .SetShaderPath("assets/spirv/ao/ZGenComp.spv")
-            .OverrideDescriptor(0, mAODescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mZGenPipeline)
+        .SetDebugName("AOZBufferPipeline")
+        .SetShaderPath("assets/spirv/ao/ZGenComp.spv")
+        .OverrideDescriptor(0, mAODescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mZMipGenPipeline = 
-        ComputePipelineBuilder("AOZBufferMipPipeline")
-            .SetShaderPath("assets/spirv/ao/ZMipGenComp.spv")
-            .OverrideDescriptor(0, mZMipGenDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mZMipGenPipeline)
+        .SetDebugName("AOZBufferMipPipeline")
+        .SetShaderPath("assets/spirv/ao/ZMipGenComp.spv")
+        .OverrideDescriptor(0, mZMipGenDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mAOGenPipeline = 
-        ComputePipelineBuilder("AOGenPipeline")
-            .SetShaderPath("assets/spirv/ao/AOGenComp.spv")
-            .OverrideDescriptor(0, mAODescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mAOGenPipeline)
+        .SetDebugName("AOGenPipeline")
+        .SetShaderPath("assets/spirv/ao/AOGenComp.spv")
+        .OverrideDescriptor(0, mAODescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mBilateralPipeline = 
-        ComputePipelineBuilder("AOBilateralPipeline")
-            .SetShaderPath("assets/spirv/ao/AOBilateralComp.spv")
-            .OverrideDescriptor(0, mBilateralDescriptorSetLayout)
-            .Build(mCtx, mPipelineDeletionQueue);
-    // clang-format on
+    ComputePipelineBuilder(mBilateralPipeline)
+        .SetDebugName("AOGenPipeline")
+        .SetShaderPath("assets/spirv/ao/AOBilateralComp.spv")
+        .OverrideDescriptor(0, mBilateralDescriptorSetLayout)
+        .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void AOHandler::RecreateSwapchainResources()

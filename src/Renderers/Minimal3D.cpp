@@ -76,36 +76,34 @@ void Minimal3DRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    // clang-format off
-    mColoredPipeline = 
-        PipelineBuilder("Minimal3DColoredPipeline")
-            .SetShaderPathVertex("assets/spirv/Minimal3DColoredVert.spv")
-            .SetShaderPathFragment("assets/spirv/Minimal3DColoredFrag.spv")
-            .SetVertexInput(mColoredLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(mRenderTargetFormat)
-            .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
-            .EnableDepthTest()
-            .SetDepthFormat(mDepthFormat)
-            .Build(mCtx, mPipelineDeletionQueue);
+    GraphicsPipelineBuilder(mColoredPipeline)
+        .SetDebugName("Minimal3DColoredPipeline")
+        .SetShaderPathVertex("assets/spirv/Minimal3DColoredVert.spv")
+        .SetShaderPathFragment("assets/spirv/Minimal3DColoredFrag.spv")
+        .SetVertexInput(mColoredLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+        .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+        .SetColorFormat(mRenderTargetFormat)
+        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .EnableDepthTest()
+        .SetDepthFormat(mDepthFormat)
+        .Build(mCtx, mPipelineDeletionQueue);
 
-    mTexturedPipeline = 
-        PipelineBuilder("Minimal3DTexturedPipeline")
-            .SetShaderPathVertex("assets/spirv/Minimal3DTexturedVert.spv")
-            .SetShaderPathFragment("assets/spirv/Minimal3DTexturedFrag.spv")
-            .SetVertexInput(mTexturedLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(mRenderTargetFormat)
-            .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
-            .OverrideDescriptor(1, mTextureDescriptorSetLayout)
-            .EnableDepthTest()
-            .SetDepthFormat(mDepthFormat)
-            .Build(mCtx, mPipelineDeletionQueue);
-    // clang-format on
+    GraphicsPipelineBuilder(mTexturedPipeline)
+        .SetDebugName("Minimal3DTexturedPipeline")
+        .SetShaderPathVertex("assets/spirv/Minimal3DTexturedVert.spv")
+        .SetShaderPathFragment("assets/spirv/Minimal3DTexturedFrag.spv")
+        .SetVertexInput(mTexturedLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+        .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+        .SetColorFormat(mRenderTargetFormat)
+        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .OverrideDescriptor(1, mTextureDescriptorSetLayout)
+        .EnableDepthTest()
+        .SetDepthFormat(mDepthFormat)
+        .Build(mCtx, mPipelineDeletionQueue);
 }
 
 void Minimal3DRenderer::OnUpdate([[maybe_unused]] float deltaTime)

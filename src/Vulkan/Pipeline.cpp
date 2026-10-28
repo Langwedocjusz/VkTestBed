@@ -13,7 +13,6 @@
 #include <ranges>
 #include <variant>
 
-
 // === Graphics Pipeline Implementation: =======================================
 
 void GraphicsPipeline::Bind(VkCommandBuffer cmd)
@@ -101,9 +100,9 @@ void ComputePipeline::Dispatch(VkCommandBuffer cmd, uint32_t sizeX, uint32_t siz
 
 // === Graphics Pipeline Builder Implementation: ====================================
 
-PipelineBuilder::PipelineBuilder(std::string_view debugName)
-    : mDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-    , mDebugName(debugName)
+GraphicsPipelineBuilder::GraphicsPipelineBuilder(GraphicsPipeline &output)
+    : mOutput(output)
+    , mDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
 {
     // Initialize all vulkan structs:
     mVertexInput          = {};
@@ -144,19 +143,25 @@ PipelineBuilder::PipelineBuilder(std::string_view debugName)
     mMultisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 }
 
-PipelineBuilder &PipelineBuilder::SetShaderPathVertex(std::string_view path)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetDebugName(std::string_view debugName)
+{
+    mDebugName = debugName;
+    return *this;
+}
+
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetShaderPathVertex(std::string_view path)
 {
     mVertexPath = std::string(path);
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetShaderPathFragment(std::string_view path)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetShaderPathFragment(std::string_view path)
 {
     mFragmentPath = std::string(path);
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetVertexInput(
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetVertexInput(
     const Vertex::Layout &layout, uint32_t binding, VkVertexInputRate inputRate
 )
 {
@@ -180,32 +185,32 @@ PipelineBuilder &PipelineBuilder::SetVertexInput(
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetTopology(VkPrimitiveTopology topo)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetTopology(VkPrimitiveTopology topo)
 {
     mInputAssembly.topology = topo;
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetPolygonMode(VkPolygonMode mode)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetPolygonMode(VkPolygonMode mode)
 {
     mRaster.polygonMode = mode;
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace)
 {
     mRaster.cullMode  = cullMode;
     mRaster.frontFace = frontFace;
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::RequestDynamicState(VkDynamicState state)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::RequestDynamicState(VkDynamicState state)
 {
     mDynamicStates.insert(state);
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::EnableDepthTest(VkCompareOp compareOp)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::EnableDepthTest(VkCompareOp compareOp)
 {
     mDepthStencil.depthTestEnable  = VK_TRUE;
     mDepthStencil.depthCompareOp   = compareOp;
@@ -219,7 +224,7 @@ PipelineBuilder &PipelineBuilder::EnableDepthTest(VkCompareOp compareOp)
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::EnableDepthTestNoWrite(VkCompareOp compareOp)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::EnableDepthTestNoWrite(VkCompareOp compareOp)
 {
     mDepthStencil.depthTestEnable  = VK_TRUE;
     mDepthStencil.depthCompareOp   = compareOp;
@@ -233,7 +238,7 @@ PipelineBuilder &PipelineBuilder::EnableDepthTestNoWrite(VkCompareOp compareOp)
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::EnableStencilTest(VkStencilOpState front, VkStencilOpState back)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::EnableStencilTest(VkStencilOpState front, VkStencilOpState back)
 {
     mDepthStencil.stencilTestEnable = VK_TRUE;
     mDepthStencil.front             = front;
@@ -242,25 +247,25 @@ PipelineBuilder &PipelineBuilder::EnableStencilTest(VkStencilOpState front, VkSt
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetColorFormat(VkFormat format)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetColorFormat(VkFormat format)
 {
     mColorFormat = format;
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetDepthFormat(VkFormat format)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetDepthFormat(VkFormat format)
 {
     mDepthFormat = format;
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetStencilFormat(VkFormat format)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetStencilFormat(VkFormat format)
 {
     mStencilFormat = format;
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::EnableBlending()
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::EnableBlending()
 {
     mColorBlendAttachment.blendEnable = VK_TRUE;
 
@@ -287,28 +292,21 @@ PipelineBuilder &PipelineBuilder::EnableBlending()
     return *this;
 }
 
-// PipelineBuilder &PipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
-//{
-//     mDescriptorLayouts.push_back(descriptor);
-//
-//     return *this;
-// }
-
-PipelineBuilder &PipelineBuilder::OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout)
 {
     mDescriptorOverrides[binding] = layout;
 
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetMultisampling(VkSampleCountFlagBits sampleCount)
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetMultisampling(VkSampleCountFlagBits sampleCount)
 {
     mMultisample.rasterizationSamples = sampleCount;
 
     return *this;
 }
 
-GraphicsPipeline PipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
+GraphicsPipeline GraphicsPipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
 {
     const auto res = BuildImpl(ctx);
 
@@ -409,10 +407,8 @@ static std::vector<VkDescriptorSetLayout> BuildLayoutList(
     return layouts;
 }
 
-GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
+GraphicsPipeline GraphicsPipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
-    GraphicsPipeline ret{};
-
     // Build the shader stages:
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
     uint32_t                                     pushConstantSize = 0;
@@ -456,7 +452,7 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     pipelineLayoutInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
     // Handle descriptor set layouts:
-    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, ret.Layouts, mDebugName);
+    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, mOutput.Layouts, mDebugName);
 
     if (!layouts.empty())
     {
@@ -479,12 +475,12 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     }
 
     {
-        auto res = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &ret.Layout);
+        auto res = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &mOutput.Layout);
 
         vassert(res == VK_SUCCESS, "Failed to create a pipeline layout!");
     }
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, ret.Layout, mDebugName);
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, mOutput.Layout, mDebugName);
 
     // Fill in dynamic state info:
     VkViewport viewport{};
@@ -526,7 +522,7 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     pipelineInfo.pColorBlendState    = &mColorBlend;
     pipelineInfo.pDepthStencilState  = &mDepthStencil;
     pipelineInfo.pDynamicState       = &dynamicInfo;
-    pipelineInfo.layout              = ret.Layout;
+    pipelineInfo.layout              = mOutput.Layout;
     pipelineInfo.subpass             = 0;
     pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE;
 
@@ -560,26 +556,32 @@ GraphicsPipeline PipelineBuilder::BuildImpl(VulkanContext &ctx)
     pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
     {
-        auto res = vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &ret.Handle);
+        auto res = vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mOutput.Handle);
 
         vassert(res == VK_SUCCESS, "Failed to create a Graphics Pipeline!");
     }
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, ret.Handle, mDebugName);
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, mOutput.Handle, mDebugName);
 
     for (auto &shaderInfo : shaderStages)
     {
         vkDestroyShaderModule(ctx.Device, shaderInfo.module, nullptr);
     }
 
-    return ret;
+    return mOutput;
 }
 
 // === Compute Pipeline Builder Implementation: ====================================
 
-ComputePipelineBuilder::ComputePipelineBuilder(std::string_view debugName)
-    : mDebugName(debugName)
+ComputePipelineBuilder::ComputePipelineBuilder(ComputePipeline &output)
+    : mOutput(output)
 {
+}
+
+ComputePipelineBuilder &ComputePipelineBuilder::SetDebugName(std::string_view debugName)
+{
+    mDebugName = debugName;
+    return *this;
 }
 
 ComputePipelineBuilder &ComputePipelineBuilder::SetShaderPath(std::string_view path)
@@ -587,13 +589,6 @@ ComputePipelineBuilder &ComputePipelineBuilder::SetShaderPath(std::string_view p
     mShaderPath = std::string(path);
     return *this;
 }
-
-// ComputePipelineBuilder &ComputePipelineBuilder::AddDescriptorSetLayout(VkDescriptorSetLayout descriptor)
-//{
-//     mDescriptorLayouts.push_back(descriptor);
-//
-//     return *this;
-// }
 
 ComputePipelineBuilder &ComputePipelineBuilder::OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout)
 {
@@ -614,10 +609,16 @@ ComputePipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue 
 
 ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
 {
+    // TODO: Implement conditional rebuild logic:
+    // Layout == {} ? Then reflect layouts and build descriptor sets.
+    // Layout =! {} ? Then check if current parameters will evaluate to the same
+    //                layout. Only rebuild if that's the case.
+    // Handle != {} ? If layout check sucseeds, destroy old pipeline, before
+    //                constructing the new one.
+    
     auto info = Shader::GetStageInfo(ctx, *mShaderPath, VK_SHADER_STAGE_COMPUTE_BIT);
 
-    ComputePipeline ret{};
-    ret.LocalSize = *info.Reflection.LocalSize;
+    mOutput.LocalSize = *info.Reflection.LocalSize;
 
     uint32_t pcSize = 0;
     if (auto size = info.Reflection.PushConstantsSize)
@@ -638,7 +639,7 @@ ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
         AppendBindingInfo(perDescriptorBindings, bindingInfo, VK_SHADER_STAGE_COMPUTE_BIT);
     }
 
-    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, ret.Layouts, mDebugName);
+    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, mOutput.Layouts, mDebugName);
 
     if (!layouts.empty())
     {
@@ -660,27 +661,27 @@ ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
     }
 
     {
-        auto res = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &ret.Layout);
+        auto res = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &mOutput.Layout);
 
         vassert(res == VK_SUCCESS, "Failed to create compute pipeline layout!");
     }
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, ret.Layout, mDebugName);
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, mOutput.Layout, mDebugName);
 
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.layout = ret.Layout;
+    pipelineInfo.layout = mOutput.Layout;
     pipelineInfo.stage  = shaderStages[0];
 
     {
-        auto res = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &ret.Handle);
+        auto res = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mOutput.Handle);
 
         vassert(res == VK_SUCCESS, "Failed to create compute pipeline!");
     }
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, ret.Handle, mDebugName);
+    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, mOutput.Handle, mDebugName);
 
     vkDestroyShaderModule(ctx.Device, shaderStages[0].module, nullptr);
 
-    return ret;
+    return mOutput;
 }

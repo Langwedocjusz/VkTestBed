@@ -11,6 +11,9 @@
 
 PostProcessor::PostProcessor(VulkanContext &ctx, VkDescriptorPool staticPool)
     : mCtx(ctx)
+    , mBloomDownscalePipeline(ctx)
+    , mBloomUpscalePipeline(ctx)
+    , mFinalPipeline(ctx)
     , mPipelineDeletionQueue(ctx)
     , mSwapchainDeletionQueue(ctx)
     , mMainDeletionQueue(ctx)
@@ -58,19 +61,19 @@ void PostProcessor::RebuildPipelines()
         .SetDebugName("PostfxBloomDownsample")
         .SetShaderPath("assets/spirv/postfx/BloomDownsampleComp.spv")
         .OverrideDescriptor(0, mBloomDescriptorSetLayout)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     ComputePipelineBuilder(mBloomUpscalePipeline)
         .SetDebugName("PostfxBloomUpsample")
         .SetShaderPath("assets/spirv/postfx/BloomUpsampleComp.spv")
         .OverrideDescriptor(0, mBloomDescriptorSetLayout)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     ComputePipelineBuilder(mFinalPipeline)
         .SetDebugName("PostxFinal")
         .SetShaderPath("assets/spirv/postfx/FinalComp.spv")
         .OverrideDescriptor(0, mFinalDescriptorSetLayout)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 }
 
 void PostProcessor::RecreateSwapchainResources(Image &renderTarget, VkImageView renderTargetView)

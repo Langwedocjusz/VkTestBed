@@ -20,6 +20,9 @@
 
 ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
     : mCtx(ctx)
+    , mOpaquePipeline(ctx)
+    , mAlphaPipeline(ctx)
+    , mDebugPipeline(ctx)
     , mMainDeletionQueue(ctx)
     , mPipelineDeletionQueue(ctx)
 {
@@ -150,7 +153,7 @@ void ShadowmapHandler::RebuildPipelines(const PipelineInfo &info)
         .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
         .EnableDepthTest()
         .SetDepthFormat(ShadowmapFormat)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     GraphicsPipelineBuilder(mAlphaPipeline)
         .SetDebugName("ShadowmapAlphaPipeline")
@@ -163,7 +166,7 @@ void ShadowmapHandler::RebuildPipelines(const PipelineInfo &info)
         .OverrideDescriptor(0, info.MaterialDSLayout)
         .EnableDepthTest()
         .SetDepthFormat(ShadowmapFormat)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     GraphicsPipelineBuilder(mDebugPipeline)
         .SetDebugName("ShadowmapDebugPipeline")
@@ -179,7 +182,7 @@ void ShadowmapHandler::RebuildPipelines(const PipelineInfo &info)
         .SetStencilFormat(info.DepthFormat)
         .SetMultisampling(info.CurrentMultisampling)
         .EnableBlending()
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 }
 
 Frustum ShadowmapHandler::ScaleCameraFrustum(Frustum camFrustum, float distNear, float distFar) const

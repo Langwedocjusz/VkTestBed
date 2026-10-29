@@ -3,7 +3,6 @@
 #include "Buffer.h"
 #include "Camera.h"
 #include "DeletionQueue.h"
-#include "Descriptor.h"
 #include "Image.h"
 #include "Pipeline.h"
 #include "Scene.h"
@@ -73,28 +72,6 @@ class EnvironmentHandler {
     // Descriptor set exposed to the outside world:
     VkDescriptorSetLayout mLightingDescriptorSetLayout;
     VkDescriptorSet       mLightingDescriptorSet;
-
-    // Private descriptor sets:
-
-    //// Descriptor set for generating the cubemap:
-    // VkDescriptorSetLayout mTexToImgDescriptorSetLayout;
-    // VkDescriptorSet       mTexToImgDescriptorSet;
-    //
-    //// Descriptor set for irradiance reduction buffers:
-    // VkDescriptorSetLayout mIrradianceDescriptorSetLayout;
-    // VkDescriptorSet       mIrradianceDescriptorSet;
-    //
-    //// Descriptor set for generating the prefiltered map:
-    // VkDescriptorSetLayout mPrefilteredDescriptorSetLayout;
-    // VkDescriptorSet       mPrefilteredDescriptorSet;
-    //
-    //// Descriptor set for generating the integration map:
-    // VkDescriptorSetLayout mIntegrationDescriptorSetLayout;
-    // VkDescriptorSet       mIntegrationDescriptorSet;
-    //
-    //// Descriptor set for drawing the background:
-    // VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
-    // VkDescriptorSet       mBackgroundDescriptorSet;
 
     // Compute pipelines for resource generation:
     ComputePipeline mEquiRectToCubePipeline;

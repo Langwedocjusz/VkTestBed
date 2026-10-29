@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DeletionQueue.h"
 #include "Image.h"
 #include "Pipeline.h"
 

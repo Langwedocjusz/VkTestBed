@@ -1,6 +1,5 @@
 #pragma once
 
-#include "DeletionQueue.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 
@@ -21,8 +20,22 @@
 // To reflect that we only want to build the reflected descriptor sets once, and later only
 // rebuild the pipeline itself when layout still matches.
 
+struct PipelineLayoutInfo{
+    std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> DescriptorBindings;
+    uint32_t                                                      PushConstantSize = 0;
+
+    //friend bool operator==(const PipelineLayoutInfo &lhs, const PipelineLayoutInfo &rhs);
+};
+
 class GraphicsPipeline {
   public:
+    GraphicsPipeline(VulkanContext &ctx);
+    ~GraphicsPipeline();
+    GraphicsPipeline(const GraphicsPipeline&) = delete;
+    GraphicsPipeline &operator=(const GraphicsPipeline&) = delete;
+    GraphicsPipeline(GraphicsPipeline &&) noexcept;
+    GraphicsPipeline &operator=(GraphicsPipeline &&) noexcept;
+
     void Bind(VkCommandBuffer cmd);
 
     void AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPool pool);
@@ -41,15 +54,26 @@ class GraphicsPipeline {
     static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     static constexpr VkShaderStageFlags  PCStage   = VK_SHADER_STAGE_ALL_GRAPHICS;
 
-    VkPipeline       Handle;
-    VkPipelineLayout Layout;
+    VkPipeline         Handle     = VK_NULL_HANDLE;
+    VkPipelineLayout   Layout     = VK_NULL_HANDLE;
+    PipelineLayoutInfo LayoutInfo = {};
 
-    std::map<uint32_t, VkDescriptorSetLayout> Layouts;
-    std::map<uint32_t, VkDescriptorSet>       Sets;
+    std::map<uint32_t, VkDescriptorSetLayout> DescriptorLayouts;
+    std::map<uint32_t, VkDescriptorSet>       DescriptorSets;
+
+  private:
+    VulkanContext &mCtx;
 };
 
 class ComputePipeline {
   public:
+    ComputePipeline(VulkanContext &ctx);
+    ~ComputePipeline();
+    ComputePipeline(const ComputePipeline&) = delete;
+    ComputePipeline &operator=(const ComputePipeline&) = delete;
+    ComputePipeline(ComputePipeline &&) noexcept;
+    ComputePipeline &operator=(ComputePipeline &&) noexcept;
+
     void Bind(VkCommandBuffer cmd);
 
     void AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPool pool);
@@ -70,12 +94,17 @@ class ComputePipeline {
     static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
     static constexpr VkShaderStageFlags  PCStage   = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkPipeline              Handle;
-    VkPipelineLayout        Layout;
+    VkPipeline         Handle     = VK_NULL_HANDLE;
+    VkPipelineLayout   Layout     = VK_NULL_HANDLE;
+    PipelineLayoutInfo LayoutInfo = {};
+
+    std::map<uint32_t, VkDescriptorSetLayout> DescriptorLayouts;
+    std::map<uint32_t, VkDescriptorSet>       DescriptorSets;
+
     std::array<uint32_t, 3> LocalSize;
 
-    std::map<uint32_t, VkDescriptorSetLayout> Layouts;
-    std::map<uint32_t, VkDescriptorSet>       Sets;
+  private:
+    VulkanContext &mCtx;
 };
 
 class GraphicsPipelineBuilder {
@@ -86,7 +115,7 @@ class GraphicsPipelineBuilder {
 
     GraphicsPipelineBuilder &SetShaderPathVertex(std::string_view path);
     GraphicsPipelineBuilder &SetShaderPathFragment(std::string_view path);
-    
+
     GraphicsPipelineBuilder &OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout);
 
     /// If vertex input is not set, vertex data can't be accessed the usual way
@@ -113,10 +142,7 @@ class GraphicsPipelineBuilder {
 
     GraphicsPipelineBuilder &SetMultisampling(VkSampleCountFlagBits sampleCount);
 
-    GraphicsPipeline Build(VulkanContext &ctx, DeletionQueue &queue);
-
-  private:
-    GraphicsPipeline BuildImpl(VulkanContext &ctx);
+    void Build(VulkanContext &ctx);
 
   private:
     GraphicsPipeline &mOutput;
@@ -156,10 +182,7 @@ class ComputePipelineBuilder {
 
     ComputePipelineBuilder &OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout);
 
-    ComputePipeline Build(VulkanContext &ctx, DeletionQueue &queue);
-
-  private:
-    ComputePipeline BuildImpl(VulkanContext &ctx);
+    void Build(VulkanContext &ctx);
 
   private:
     ComputePipeline &mOutput;

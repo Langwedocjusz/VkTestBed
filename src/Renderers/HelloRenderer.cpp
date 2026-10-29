@@ -16,6 +16,7 @@
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera)
+    , mGraphicsPipeline(ctx)
     , mDynamicUBO(ctx, info, sizeof(mUBOData))
     , mDynamicDS(ctx, info)
     , mSceneDeletionQueue(ctx)
@@ -59,7 +60,7 @@ void HelloRenderer::RebuildPipelines()
         .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
         .SetColorFormat(mRenderTargetFormat)
         .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 }
 
 void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)

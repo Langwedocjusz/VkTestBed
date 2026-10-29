@@ -88,6 +88,12 @@ void MinimalPbrRenderer::DestroyTexture(const Texture &texture)
 
 MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera)
+    , mZPrepassOpaquePipeline(ctx)
+    , mZPrepassAlphaPipeline(ctx)
+    , mMainPipeline(ctx)
+    , mStencilPipeline(ctx)
+    , mOutlinePipeline(ctx)
+    , mObjectIdPipeline(ctx)
     , mCamDynamicUBO(ctx, info, sizeof(mCamUBOData))
     , mDynamicUBO(ctx, info, sizeof(mUBOData))
     , mDynamicDS(ctx, info)
@@ -231,7 +237,7 @@ void MinimalPbrRenderer::RebuildPipelines()
         .SetDepthFormat(DepthStencilFormat)
         .SetStencilFormat(DepthStencilFormat)
         .SetMultisampling(mMultisample)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     GraphicsPipelineBuilder(mZPrepassAlphaPipeline)
         .SetDebugName("MinimalPBRAlphaPrepassPipeline")
@@ -247,7 +253,7 @@ void MinimalPbrRenderer::RebuildPipelines()
         .SetDepthFormat(DepthStencilFormat)
         .SetStencilFormat(DepthStencilFormat)
         .SetMultisampling(mMultisample)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     GraphicsPipelineBuilder(mMainPipeline)
         .SetDebugName("MinimalPBRMainPipeline")
@@ -269,7 +275,7 @@ void MinimalPbrRenderer::RebuildPipelines()
         .SetDepthFormat(DepthStencilFormat)
         .SetStencilFormat(DepthStencilFormat)
         .SetMultisampling(mMultisample)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     VkStencilOpState stencilWriteState{
         .failOp      = VK_STENCIL_OP_REPLACE,
@@ -296,7 +302,7 @@ void MinimalPbrRenderer::RebuildPipelines()
         .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
         .OverrideDescriptor(1, mMaterialDescriptorSetLayout)
         .SetMultisampling(mMultisample)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     VkStencilOpState stencilOutlineState{
         .failOp      = VK_STENCIL_OP_KEEP,
@@ -323,7 +329,7 @@ void MinimalPbrRenderer::RebuildPipelines()
         .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
         .OverrideDescriptor(1, mMaterialDescriptorSetLayout)
         .SetMultisampling(mMultisample)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     GraphicsPipelineBuilder(mObjectIdPipeline)
         .SetDebugName("MinimalPBRObjectIdPipeline")
@@ -338,7 +344,7 @@ void MinimalPbrRenderer::RebuildPipelines()
         .SetDepthFormat(PickingDepthFormat)
         .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
         .OverrideDescriptor(1, mMaterialDescriptorSetLayout)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     // Rebuild component pipelines as well:
     ShadowmapHandler::PipelineInfo info{

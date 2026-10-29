@@ -12,6 +12,10 @@
 AOHandler::AOHandler(VulkanContext &ctx, Camera &camera, VkDescriptorPool staticPool)
     : mCtx(ctx)
     , mCamera(camera)
+    , mZGenPipeline(ctx)
+    , mZMipGenPipeline(ctx)
+    , mAOGenPipeline(ctx)
+    , mBilateralPipeline(ctx)
     , mMainDeletionQueue(ctx)
     , mPipelineDeletionQueue(ctx)
     , mSwapchainDeletionQueue(ctx)
@@ -72,25 +76,25 @@ void AOHandler::RebuildPipelines()
         .SetDebugName("AOZBufferPipeline")
         .SetShaderPath("assets/spirv/ao/ZGenComp.spv")
         .OverrideDescriptor(0, mAODescriptorSetLayout)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     ComputePipelineBuilder(mZMipGenPipeline)
         .SetDebugName("AOZBufferMipPipeline")
         .SetShaderPath("assets/spirv/ao/ZMipGenComp.spv")
         .OverrideDescriptor(0, mZMipGenDescriptorSetLayout)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     ComputePipelineBuilder(mAOGenPipeline)
         .SetDebugName("AOGenPipeline")
         .SetShaderPath("assets/spirv/ao/AOGenComp.spv")
         .OverrideDescriptor(0, mAODescriptorSetLayout)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     ComputePipelineBuilder(mBilateralPipeline)
         .SetDebugName("AOGenPipeline")
         .SetShaderPath("assets/spirv/ao/AOBilateralComp.spv")
         .OverrideDescriptor(0, mBilateralDescriptorSetLayout)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 }
 
 void AOHandler::RecreateSwapchainResources()

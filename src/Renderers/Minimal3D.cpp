@@ -12,6 +12,8 @@
 
 Minimal3DRenderer::Minimal3DRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
     : IRenderer(ctx, info, camera)
+    , mColoredPipeline(ctx)
+    , mTexturedPipeline(ctx)
     , mTextureDescriptorAllocator(ctx)
     , mDynamicUBO(ctx, info, sizeof(mUBOData))
     , mDynamicDS(ctx, info)
@@ -88,7 +90,7 @@ void Minimal3DRenderer::RebuildPipelines()
         .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
         .EnableDepthTest()
         .SetDepthFormat(mDepthFormat)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 
     GraphicsPipelineBuilder(mTexturedPipeline)
         .SetDebugName("Minimal3DTexturedPipeline")
@@ -103,7 +105,7 @@ void Minimal3DRenderer::RebuildPipelines()
         .OverrideDescriptor(1, mTextureDescriptorSetLayout)
         .EnableDepthTest()
         .SetDepthFormat(mDepthFormat)
-        .Build(mCtx, mPipelineDeletionQueue);
+        .Build(mCtx);
 }
 
 void Minimal3DRenderer::OnUpdate([[maybe_unused]] float deltaTime)

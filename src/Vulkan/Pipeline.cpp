@@ -7,13 +7,81 @@
 #include "VertexLayout.h"
 #include "VkUtils.h"
 
+#include "VulkanContext.h"
 #include "volk.h"
 
 #include <algorithm>
+#include <iostream>
 #include <ranges>
 #include <variant>
 
+// Needed to make the subsequent composite operator compile:
+[[maybe_unused]] static bool operator==(const VkDescriptorSetLayoutBinding &lhs, const VkDescriptorSetLayoutBinding &rhs)
+{
+    return (lhs.binding == rhs.binding) 
+    && (lhs.descriptorCount == rhs.descriptorCount) 
+    && (lhs.descriptorType == rhs.descriptorType)
+    && (lhs.stageFlags == rhs.stageFlags);
+}
+
+static bool operator==(const PipelineLayoutInfo &lhs, const PipelineLayoutInfo &rhs)
+{
+    const bool bindingsMatch = lhs.DescriptorBindings == rhs.DescriptorBindings;
+    const bool pushSizeMatch = lhs.PushConstantSize == rhs.PushConstantSize;
+
+    return bindingsMatch && pushSizeMatch;
+}
+
 // === Graphics Pipeline Implementation: =======================================
+
+GraphicsPipeline::GraphicsPipeline(VulkanContext &ctx)
+    : mCtx(ctx)
+{
+
+}
+
+GraphicsPipeline::~GraphicsPipeline()
+{
+    for (auto [idx, layout] : DescriptorLayouts)
+    {
+        vkDestroyDescriptorSetLayout(mCtx.Device, layout, nullptr);
+    }
+
+    if (Handle != VK_NULL_HANDLE)
+        vkDestroyPipeline(mCtx.Device, Handle, nullptr);
+
+    if (Layout != VK_NULL_HANDLE)
+        vkDestroyPipelineLayout(mCtx.Device, Layout, nullptr);
+}
+
+GraphicsPipeline::GraphicsPipeline(GraphicsPipeline &&other) noexcept
+    : Handle(other.Handle)
+    , Layout(other.Layout)
+    , LayoutInfo(std::move(other.LayoutInfo))
+    , DescriptorLayouts(std::move(other.DescriptorLayouts))
+    , DescriptorSets(std::move(other.DescriptorSets))
+    , mCtx(other.mCtx)
+{
+    other.Handle = VK_NULL_HANDLE;
+    other.Layout = VK_NULL_HANDLE;
+    other.LayoutInfo = PipelineLayoutInfo{};
+    other.DescriptorLayouts = {};
+    other.DescriptorSets = {};
+}
+
+GraphicsPipeline &GraphicsPipeline::operator=(GraphicsPipeline &&other) noexcept
+{
+    if (this != &other)
+    {
+        std::swap(Handle, other.Handle);
+        std::swap(Layout, other.Layout);
+        std::swap(LayoutInfo, other.LayoutInfo);
+        std::swap(DescriptorLayouts, other.DescriptorLayouts);
+        std::swap(DescriptorSets, other.DescriptorSets);
+    }
+
+    return *this;
+}
 
 void GraphicsPipeline::Bind(VkCommandBuffer cmd)
 {
@@ -35,23 +103,75 @@ void GraphicsPipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescr
 void GraphicsPipeline::AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPool pool)
 {
     // Should only be called once (unless pool gets destroyed... need to think more...):
-    vassert(Sets.empty());
+    vassert(DescriptorSets.empty());
 
-    for (auto [binding, layout] : Layouts)
+    for (auto [binding, layout] : DescriptorLayouts)
     {
-        Sets[binding] = Descriptor::Allocate(ctx, pool, layout);
+        DescriptorSets[binding] = Descriptor::Allocate(ctx, pool, layout);
     }
 }
 
 void GraphicsPipeline::BindReflectedSets(VkCommandBuffer cmd)
 {
-    for (auto [binding, set] : Sets)
+    for (auto [binding, set] : DescriptorSets)
     {
         vkCmdBindDescriptorSets(cmd, BindPoint, Layout, binding, 1, &set, 0, nullptr);
     }
 }
 
 // === Compute Pipeline Implementation: =======================================
+
+ComputePipeline::ComputePipeline(VulkanContext &ctx)
+    : mCtx(ctx)
+{
+
+}
+
+ComputePipeline::~ComputePipeline()
+{
+    for (auto [idx, layout] : DescriptorLayouts)
+    {
+        vkDestroyDescriptorSetLayout(mCtx.Device, layout, nullptr);
+    }
+
+    if (Handle != VK_NULL_HANDLE)
+        vkDestroyPipeline(mCtx.Device, Handle, nullptr);
+
+    if (Layout != VK_NULL_HANDLE)
+        vkDestroyPipelineLayout(mCtx.Device, Layout, nullptr);
+}
+
+ComputePipeline::ComputePipeline(ComputePipeline &&other) noexcept
+    : Handle(other.Handle)
+    , Layout(other.Layout)
+    , LayoutInfo(std::move(other.LayoutInfo))
+    , DescriptorLayouts(std::move(other.DescriptorLayouts))
+    , DescriptorSets(std::move(other.DescriptorSets))
+    , LocalSize(other.LocalSize)
+    , mCtx(other.mCtx)
+{
+    other.Handle = VK_NULL_HANDLE;
+    other.Layout = VK_NULL_HANDLE;
+    other.LayoutInfo = PipelineLayoutInfo{};
+    other.DescriptorLayouts = {};
+    other.DescriptorSets = {};
+    other.LocalSize = {};
+}
+
+ComputePipeline &ComputePipeline::operator=(ComputePipeline &&other) noexcept
+{
+    if (this != &other)
+    {
+        std::swap(Handle, other.Handle);
+        std::swap(Layout, other.Layout);
+        std::swap(LayoutInfo, other.LayoutInfo);
+        std::swap(DescriptorLayouts, other.DescriptorLayouts);
+        std::swap(DescriptorSets, other.DescriptorSets);
+        std::swap(LocalSize, other.LocalSize);
+    }
+
+    return *this;
+}
 
 void ComputePipeline::Bind(VkCommandBuffer cmd)
 {
@@ -73,17 +193,17 @@ void ComputePipeline::BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescri
 void ComputePipeline::AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPool pool)
 {
     // Should only be called once (unless pool gets destroyed... need to think more...):
-    vassert(Sets.empty());
+    vassert(DescriptorSets.empty());
 
-    for (auto [binding, layout] : Layouts)
+    for (auto [binding, layout] : DescriptorLayouts)
     {
-        Sets[binding] = Descriptor::Allocate(ctx, pool, layout);
+        DescriptorSets[binding] = Descriptor::Allocate(ctx, pool, layout);
     }
 }
 
 void ComputePipeline::BindReflectedSets(VkCommandBuffer cmd)
 {
-    for (auto [binding, set] : Sets)
+    for (auto [binding, set] : DescriptorSets)
     {
         vkCmdBindDescriptorSets(cmd, BindPoint, Layout, binding, 1, &set, 0, nullptr);
     }
@@ -306,21 +426,6 @@ GraphicsPipelineBuilder &GraphicsPipelineBuilder::SetMultisampling(VkSampleCount
     return *this;
 }
 
-GraphicsPipeline GraphicsPipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
-{
-    const auto res = BuildImpl(ctx);
-
-    queue.push_back(res.Layout);
-    queue.push_back(res.Handle);
-
-    for (auto [_key, layout] : res.Layouts)
-    {
-        queue.push_back(layout);
-    }
-
-    return res;
-}
-
 static void AppendBindingInfo(
     std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> &out,
     const BindingInfo                                             &info,
@@ -358,23 +463,20 @@ static void AppendBindingInfo(
 };
 
 static std::vector<VkDescriptorSetLayout> BuildLayoutList(
-    VulkanContext                                                       &ctx,
-    const std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> &perDescriptorBindings,
-    const std::map<uint32_t, VkDescriptorSetLayout>                     &descriptorOverrides,
-    std::map<uint32_t, VkDescriptorSetLayout>                           &outReflectedLayouts,
-    const std::string                                                   &debugName
+    const std::map<uint32_t, VkDescriptorSetLayout> &layouts,
+    const std::map<uint32_t, VkDescriptorSetLayout> &layoutOverrides
 )
 {
     uint32_t maxSet  = 0;
     bool     anySets = false;
 
-    for (auto &[key, _val] : perDescriptorBindings)
+    for (auto &[key, _val] : layouts)
     {
         maxSet  = std::max(maxSet, key);
         anySets = true;
     }
 
-    for (auto &[key, _val] : descriptorOverrides)
+    for (auto &[key, _val] : layoutOverrides)
     {
         maxSet  = std::max(maxSet, key);
         anySets = true;
@@ -385,102 +487,146 @@ static std::vector<VkDescriptorSetLayout> BuildLayoutList(
         return {};
     }
 
-    std::vector<VkDescriptorSetLayout> layouts(maxSet + 1);
+    std::vector<VkDescriptorSetLayout> ret(maxSet + 1);
 
-    for (auto [idx, layout] : std::ranges::views::enumerate(layouts))
+    for (auto [idx, layout] : std::ranges::views::enumerate(ret))
     {
-        if (descriptorOverrides.contains(idx))
+        if (layoutOverrides.contains(idx))
         {
-            layout = descriptorOverrides.at(idx);
+            layout = layoutOverrides.at(idx);
         }
-        else
+        else if (layouts.contains(idx))
         {
-            auto &bindings = perDescriptorBindings.at(idx);
-            auto  name     = debugName + "ReflectedLayout" + std::to_string(idx);
-
-            layout = Descriptor::BuildLayout(ctx, bindings, name);
-
-            outReflectedLayouts[idx] = layout;
+            layout = layouts.at(idx);
         }
     }
 
-    return layouts;
+    return ret;
 }
 
-GraphicsPipeline GraphicsPipelineBuilder::BuildImpl(VulkanContext &ctx)
+void GraphicsPipelineBuilder::Build(VulkanContext &ctx)
 {
-    // Build the shader stages:
+    // Collect shader stages and pipeline layouts from reflection:
+    PipelineLayoutInfo currentInfo{};
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
-    uint32_t                                     pushConstantSize = 0;
-
-    std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> perDescriptorBindings{};
 
     if (mVertexPath)
     {
         auto info = Shader::GetStageInfo(ctx, *mVertexPath, VK_SHADER_STAGE_VERTEX_BIT);
+
         shaderStages.push_back(info.PipelineCreation);
 
         if (auto size = info.Reflection.PushConstantsSize)
         {
-            pushConstantSize = std::max(pushConstantSize, *size);
+            currentInfo.PushConstantSize = std::max(currentInfo.PushConstantSize, *size);
         }
 
         for (auto bindingInfo : info.Reflection.Bindings)
         {
-            AppendBindingInfo(perDescriptorBindings, bindingInfo, VK_SHADER_STAGE_VERTEX_BIT);
+            AppendBindingInfo(currentInfo.DescriptorBindings, bindingInfo, VK_SHADER_STAGE_VERTEX_BIT);
         }
     }
 
     if (mFragmentPath)
     {
         auto info = Shader::GetStageInfo(ctx, *mFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT);
+        
         shaderStages.push_back(info.PipelineCreation);
 
         if (auto size = info.Reflection.PushConstantsSize)
         {
-            pushConstantSize = std::max(pushConstantSize, *size);
+            currentInfo.PushConstantSize = std::max(currentInfo.PushConstantSize, *size);
         }
 
         for (auto bindingInfo : info.Reflection.Bindings)
         {
-            AppendBindingInfo(perDescriptorBindings, bindingInfo, VK_SHADER_STAGE_FRAGMENT_BIT);
+            AppendBindingInfo(currentInfo.DescriptorBindings, bindingInfo, VK_SHADER_STAGE_FRAGMENT_BIT);
         }
     }
 
+    // Prune reflected bindings based on overrides:
+    for (auto [key, _val] : mDescriptorOverrides)
+    {
+        currentInfo.DescriptorBindings.erase(key);
+    }
+
+    // Check if first run and decide what to do:
+    bool firstRun{};
+    {
+        bool nullHandle = mOutput.Handle     == VK_NULL_HANDLE;
+        bool nullLayout = mOutput.Layout     == VK_NULL_HANDLE;
+        bool nullInfo   = mOutput.LayoutInfo == PipelineLayoutInfo{};
+
+        // State of Handle, Layout and Info should be coherent - one is zero, means all are zero:
+        vassert(nullHandle == nullLayout && nullLayout == nullInfo);
+
+        firstRun = nullHandle;
+    }
+
+    if (firstRun)
+    {
+        // Allocate reflected descriptor set layouts once:
+        for (auto& [idx, bindings] : currentInfo.DescriptorBindings)
+        {
+            auto name = mDebugName + "ReflectedLayout" + std::to_string(idx);
+
+            mOutput.DescriptorLayouts[idx] = Descriptor::BuildLayout(ctx, bindings, name);
+        }
+    }
+    else
+    {
+        // If layouts don't match - bail and log the error:
+        if (mOutput.LayoutInfo != currentInfo)
+        {
+            std::cerr << "Cannot rebuild pipeline " << mDebugName << " layouts don't match." << '\n';
+            return;
+        }
+
+        // Destroy old handles:
+        vkDestroyPipeline(ctx.Device, mOutput.Handle, nullptr);
+        vkDestroyPipelineLayout(ctx.Device, mOutput.Layout, nullptr);
+    }
+
+    // We are doing the rebuild - store current informations:
+    mOutput.LayoutInfo = currentInfo;
+
     // Create pipeline layout:
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-    pipelineLayoutInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-
-    // Handle descriptor set layouts:
-    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, mOutput.Layouts, mDebugName);
-
-    if (!layouts.empty())
     {
-        pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
-        pipelineLayoutInfo.pSetLayouts    = layouts.data();
-    }
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+        pipelineLayoutInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    // Fill in Push constant information:
-    VkPushConstantRange pcRange{
-        // TODO: may expose more granular control over this:
-        .stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-        .offset     = 0,
-        .size       = pushConstantSize,
-    };
+        // Fill in Push constant information:
+        VkPushConstantRange pcRange{
+            // TODO: may expose more granular control over this:
+            .stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+            .offset     = 0,
+            .size       = currentInfo.PushConstantSize,
+        };
 
-    if (pushConstantSize > 0)
-    {
-        pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
-        pipelineLayoutInfo.pushConstantRangeCount = 1;
-    }
+        if (pcRange.size > 0)
+        {
+            pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
+            pipelineLayoutInfo.pushConstantRangeCount = 1;
+        }
 
-    {
+        auto layouts =
+            BuildLayoutList(mOutput.DescriptorLayouts, mDescriptorOverrides);
+
+        if (!layouts.empty())
+        {
+            pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+            pipelineLayoutInfo.pSetLayouts    = layouts.data();
+        }
+
         auto res = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &mOutput.Layout);
 
-        vassert(res == VK_SUCCESS, "Failed to create a pipeline layout!");
-    }
+        vassert(res == VK_SUCCESS, "Failed to create a Graphics Pipeline Layout!");
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, mOutput.Layout, mDebugName);
+        vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, mOutput.Layout, mDebugName);
+    }
+    
+
+    // Create the pipeline:
 
     // Fill in dynamic state info:
     VkViewport viewport{};
@@ -563,12 +709,11 @@ GraphicsPipeline GraphicsPipelineBuilder::BuildImpl(VulkanContext &ctx)
 
     vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, mOutput.Handle, mDebugName);
 
+    // Free temporary resources:
     for (auto &shaderInfo : shaderStages)
     {
         vkDestroyShaderModule(ctx.Device, shaderInfo.module, nullptr);
     }
-
-    return mOutput;
 }
 
 // === Compute Pipeline Builder Implementation: ====================================
@@ -597,91 +742,119 @@ ComputePipelineBuilder &ComputePipelineBuilder::OverrideDescriptor(uint32_t bind
     return *this;
 }
 
-ComputePipeline ComputePipelineBuilder::Build(VulkanContext &ctx, DeletionQueue &queue)
+void ComputePipelineBuilder::Build(VulkanContext &ctx)
 {
-    const auto res = BuildImpl(ctx);
+    // Get current layout info from reflection:
+    PipelineLayoutInfo currentInfo{};
 
-    queue.push_back(res.Layout);
-    queue.push_back(res.Handle);
-
-    return res;
-}
-
-ComputePipeline ComputePipelineBuilder::BuildImpl(VulkanContext &ctx)
-{
-    // TODO: Implement conditional rebuild logic:
-    // Layout == {} ? Then reflect layouts and build descriptor sets.
-    // Layout =! {} ? Then check if current parameters will evaluate to the same
-    //                layout. Only rebuild if that's the case.
-    // Handle != {} ? If layout check sucseeds, destroy old pipeline, before
-    //                constructing the new one.
-    
     auto info = Shader::GetStageInfo(ctx, *mShaderPath, VK_SHADER_STAGE_COMPUTE_BIT);
 
-    mOutput.LocalSize = *info.Reflection.LocalSize;
-
-    uint32_t pcSize = 0;
     if (auto size = info.Reflection.PushConstantsSize)
     {
-        pcSize = *size;
+        currentInfo.PushConstantSize = *size;
     }
-
-    std::array shaderStages{info.PipelineCreation};
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-
-    // Handle descriptor set layouts:
-    std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> perDescriptorBindings{};
 
     for (auto bindingInfo : info.Reflection.Bindings)
     {
-        AppendBindingInfo(perDescriptorBindings, bindingInfo, VK_SHADER_STAGE_COMPUTE_BIT);
+        AppendBindingInfo(currentInfo.DescriptorBindings, bindingInfo, VK_SHADER_STAGE_COMPUTE_BIT);
     }
 
-    auto layouts = BuildLayoutList(ctx, perDescriptorBindings, mDescriptorOverrides, mOutput.Layouts, mDebugName);
-
-    if (!layouts.empty())
+    // Prune reflected bindings based on overrides:
+    for (auto [key, _val] : mDescriptorOverrides)
     {
-        pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
-        pipelineLayoutInfo.pSetLayouts    = layouts.data();
+        currentInfo.DescriptorBindings.erase(key);
     }
 
-    // Fill in push constant info:
-    VkPushConstantRange pcRange{
-        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-        .offset     = 0,
-        .size       = pcSize,
-    };
-
-    if (pcSize > 0)
+    // Check if first run and decide what to do:
+    bool firstRun{};
     {
-        pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
-        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        bool nullHandle = mOutput.Handle     == VK_NULL_HANDLE;
+        bool nullLayout = mOutput.Layout     == VK_NULL_HANDLE;
+        bool nullInfo   = mOutput.LayoutInfo == PipelineLayoutInfo{};
+
+        // State of Handle, Layout and Info should be coherent - one is zero, means all are zero:
+        vassert(nullHandle == nullLayout && nullLayout == nullInfo);
+
+        firstRun = nullHandle;
     }
 
+    if (firstRun)
     {
+        // Allocate reflected descriptor set layouts once:
+        for (auto& [idx, bindings] : currentInfo.DescriptorBindings)
+        {
+            auto name = mDebugName + "ReflectedLayout" + std::to_string(idx);
+
+            mOutput.DescriptorLayouts[idx] = Descriptor::BuildLayout(ctx, bindings, name);
+        }
+    }
+    else
+    {
+        // If layouts don't match - bail and log the error:
+        if (mOutput.LayoutInfo != currentInfo)
+        {
+            std::cerr << "Cannot rebuild pipeline " << mDebugName << " layouts don't match." << '\n';
+            return;
+        }
+
+        // Destroy old handles:
+        vkDestroyPipeline(ctx.Device, mOutput.Handle, nullptr);
+        vkDestroyPipelineLayout(ctx.Device, mOutput.Layout, nullptr);
+    }
+
+    // We are doing the rebuild - store current informations:
+    mOutput.LayoutInfo = currentInfo;
+    mOutput.LocalSize  = *info.Reflection.LocalSize;
+
+    // Create the pipeline layout:
+    {
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+        VkPushConstantRange pcRange{
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .offset     = 0,
+            .size       = currentInfo.PushConstantSize,
+        };
+
+        if (pcRange.size > 0)
+        {
+            pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
+            pipelineLayoutInfo.pushConstantRangeCount = 1;
+        }
+
+        auto layouts =
+            BuildLayoutList(mOutput.DescriptorLayouts, mDescriptorOverrides);
+
+        if (!layouts.empty())
+        {
+            pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+            pipelineLayoutInfo.pSetLayouts    = layouts.data();
+        }
+
         auto res = vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr, &mOutput.Layout);
 
-        vassert(res == VK_SUCCESS, "Failed to create compute pipeline layout!");
+        vassert(res == VK_SUCCESS, "Failed to create a Compute Pipeline Layout!");
+
+        vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, mOutput.Layout, mDebugName);
     }
 
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, mOutput.Layout, mDebugName);
-
-    VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.layout = mOutput.Layout;
-    pipelineInfo.stage  = shaderStages[0];
-
+    // Create the pipeline:
     {
+        std::array shaderStages{info.PipelineCreation};
+
+        VkComputePipelineCreateInfo pipelineInfo{};
+        pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        pipelineInfo.layout = mOutput.Layout;
+        pipelineInfo.stage  = shaderStages[0];
+
         auto res = vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mOutput.Handle);
 
-        vassert(res == VK_SUCCESS, "Failed to create compute pipeline!");
+        vassert(res == VK_SUCCESS, "Failed to create a Compute Pipeline!");
+
+        vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, mOutput.Handle, mDebugName);
+
+        // Free temporary resources:
+        vkDestroyShaderModule(ctx.Device, shaderStages[0].module, nullptr);
     }
-
-    vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE, mOutput.Handle, mDebugName);
-
-    vkDestroyShaderModule(ctx.Device, shaderStages[0].module, nullptr);
-
-    return mOutput;
 }

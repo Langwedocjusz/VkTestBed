@@ -13,6 +13,12 @@
 
 class EnvironmentHandler {
   public:
+    struct BackgroundInfo {
+        VkFormat              ColorFormat;
+        VkFormat              DepthFormat;
+        VkSampleCountFlagBits SampleCount;
+    };
+
     struct EnvUBOData {
         int32_t   LightOn          = 1;
         glm::vec3 LightDir         = glm::normalize(glm::vec3(1, -1, 1));
@@ -22,9 +28,9 @@ class EnvironmentHandler {
     };
 
   public:
-    EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool staticPool);
+    EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool staticPool, BackgroundInfo info);
 
-    void RebuildPipelines(VkFormat colorFormat, VkFormat depthFormat, VkSampleCountFlagBits sampleCount);
+    void RebuildPipelines(BackgroundInfo info);
     void LoadEnvironment(const Scene &scene);
 
     void DrawBackground(VkCommandBuffer cmd, FrustumBack f, VkExtent2D drawExtent);

@@ -200,13 +200,27 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Came
     mAuxDescriptorSet = Descriptor::Allocate(mCtx, mStaticDescriptorPool, mAuxDescriptorSetLayout);
 
     // Initilize the subcomponents:
-    mEnvHandler.emplace(ctx, mStaticDescriptorPool);
-    mShadowmapHandler.emplace(ctx);
+    EnvironmentHandler::BackgroundInfo envInfo{
+        .ColorFormat = RenderTargetFormat,
+        .DepthFormat = DepthStencilFormat,
+        .SampleCount = mMultisample,
+    };
+
+    ShadowmapHandler::PipelineInfo shadowInfo{
+        .VertexLayout         = mGeometryLayout.VertexLayout,
+        .MaterialDSLayout     = mMaterialDescriptorSetLayout,
+        .ColorFormat          = RenderTargetFormat,
+        .DepthFormat          = DepthStencilFormat,
+        .CurrentMultisampling = mMultisample,
+    };
+
+    mEnvHandler.emplace(ctx, mStaticDescriptorPool, envInfo);
+    mShadowmapHandler.emplace(ctx, shadowInfo);
     mAOHandler.emplace(ctx, camera, mStaticDescriptorPool);
     mPostProcessor.emplace(ctx, mStaticDescriptorPool);
 
-    // Build the graphics pipelines:
-    RebuildPipelines();
+    // Build the owned graphics pipelines:
+    RebuildOwnPipelines();
 }
 
 MinimalPbrRenderer::~MinimalPbrRenderer()
@@ -221,10 +235,8 @@ VkCompareOp MinimalPbrRenderer::GetMainCompareOp() const
         return VK_COMPARE_OP_LESS;
 }
 
-void MinimalPbrRenderer::RebuildPipelines()
+void MinimalPbrRenderer::RebuildOwnPipelines()
 {
-    mPipelineDeletionQueue.flush();
-
     GraphicsPipelineBuilder(mZPrepassOpaquePipeline)
         .SetDebugName("MinimalPBROpaquePrepassPipeline")
         .SetShaderPathVertex("assets/spirv/ZPrepassOpaqueVert.spv")
@@ -345,9 +357,22 @@ void MinimalPbrRenderer::RebuildPipelines()
         .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
         .OverrideDescriptor(1, mMaterialDescriptorSetLayout)
         .Build(mCtx);
+}
+
+void MinimalPbrRenderer::RebuildPipelines()
+{
+    mPipelineDeletionQueue.flush();
+
+    RebuildOwnPipelines();
 
     // Rebuild component pipelines as well:
-    ShadowmapHandler::PipelineInfo info{
+    EnvironmentHandler::BackgroundInfo envInfo{
+        .ColorFormat = RenderTargetFormat,
+        .DepthFormat = DepthStencilFormat,
+        .SampleCount = mMultisample,
+    };
+
+    ShadowmapHandler::PipelineInfo shadowInfo{
         .VertexLayout         = mGeometryLayout.VertexLayout,
         .MaterialDSLayout     = mMaterialDescriptorSetLayout,
         .ColorFormat          = RenderTargetFormat,
@@ -355,8 +380,8 @@ void MinimalPbrRenderer::RebuildPipelines()
         .CurrentMultisampling = mMultisample,
     };
 
-    mEnvHandler->RebuildPipelines(RenderTargetFormat, DepthStencilFormat, mMultisample);
-    mShadowmapHandler->RebuildPipelines(info);
+    mEnvHandler->RebuildPipelines(envInfo);
+    mShadowmapHandler->RebuildPipelines(shadowInfo);
     mAOHandler->RebuildPipelines();
     mPostProcessor->RebuildPipelines();
 }

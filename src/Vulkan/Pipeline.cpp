@@ -13,15 +13,16 @@
 #include <algorithm>
 #include <iostream>
 #include <ranges>
+#include <utility>
 #include <variant>
 
 // Needed to make the subsequent composite operator compile:
-[[maybe_unused]] static bool operator==(const VkDescriptorSetLayoutBinding &lhs, const VkDescriptorSetLayoutBinding &rhs)
+[[maybe_unused]] static bool operator==(
+    const VkDescriptorSetLayoutBinding &lhs, const VkDescriptorSetLayoutBinding &rhs
+)
 {
-    return (lhs.binding == rhs.binding) 
-    && (lhs.descriptorCount == rhs.descriptorCount) 
-    && (lhs.descriptorType == rhs.descriptorType)
-    && (lhs.stageFlags == rhs.stageFlags);
+    return (lhs.binding == rhs.binding) && (lhs.descriptorCount == rhs.descriptorCount) &&
+           (lhs.descriptorType == rhs.descriptorType) && (lhs.stageFlags == rhs.stageFlags);
 }
 
 static bool operator==(const PipelineLayoutInfo &lhs, const PipelineLayoutInfo &rhs)
@@ -37,7 +38,6 @@ static bool operator==(const PipelineLayoutInfo &lhs, const PipelineLayoutInfo &
 GraphicsPipeline::GraphicsPipeline(VulkanContext &ctx)
     : mCtx(ctx)
 {
-
 }
 
 GraphicsPipeline::~GraphicsPipeline()
@@ -55,18 +55,13 @@ GraphicsPipeline::~GraphicsPipeline()
 }
 
 GraphicsPipeline::GraphicsPipeline(GraphicsPipeline &&other) noexcept
-    : Handle(other.Handle)
-    , Layout(other.Layout)
-    , LayoutInfo(std::move(other.LayoutInfo))
-    , DescriptorLayouts(std::move(other.DescriptorLayouts))
-    , DescriptorSets(std::move(other.DescriptorSets))
+    : Handle(std::exchange(other.Handle, VK_NULL_HANDLE))
+    , Layout(std::exchange(other.Layout, VK_NULL_HANDLE))
+    , LayoutInfo(std::exchange(other.LayoutInfo, {}))
+    , DescriptorLayouts(std::exchange(other.DescriptorLayouts, {}))
+    , DescriptorSets(std::exchange(other.DescriptorSets, {}))
     , mCtx(other.mCtx)
 {
-    other.Handle = VK_NULL_HANDLE;
-    other.Layout = VK_NULL_HANDLE;
-    other.LayoutInfo = PipelineLayoutInfo{};
-    other.DescriptorLayouts = {};
-    other.DescriptorSets = {};
 }
 
 GraphicsPipeline &GraphicsPipeline::operator=(GraphicsPipeline &&other) noexcept
@@ -113,7 +108,7 @@ void GraphicsPipeline::AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPoo
 
 void GraphicsPipeline::BindReflectedSets(VkCommandBuffer cmd)
 {
-    for (auto [binding, set] : DescriptorSets)
+    for (auto &[binding, set] : DescriptorSets)
     {
         vkCmdBindDescriptorSets(cmd, BindPoint, Layout, binding, 1, &set, 0, nullptr);
     }
@@ -124,7 +119,6 @@ void GraphicsPipeline::BindReflectedSets(VkCommandBuffer cmd)
 ComputePipeline::ComputePipeline(VulkanContext &ctx)
     : mCtx(ctx)
 {
-
 }
 
 ComputePipeline::~ComputePipeline()
@@ -142,20 +136,14 @@ ComputePipeline::~ComputePipeline()
 }
 
 ComputePipeline::ComputePipeline(ComputePipeline &&other) noexcept
-    : Handle(other.Handle)
-    , Layout(other.Layout)
-    , LayoutInfo(std::move(other.LayoutInfo))
-    , DescriptorLayouts(std::move(other.DescriptorLayouts))
-    , DescriptorSets(std::move(other.DescriptorSets))
+    : Handle(std::exchange(other.Handle, VK_NULL_HANDLE))
+    , Layout(std::exchange(other.Layout, VK_NULL_HANDLE))
+    , LayoutInfo(std::exchange(other.LayoutInfo, {}))
+    , DescriptorLayouts(std::exchange(other.DescriptorLayouts, {}))
+    , DescriptorSets(std::exchange(other.DescriptorSets, {}))
     , LocalSize(other.LocalSize)
     , mCtx(other.mCtx)
 {
-    other.Handle = VK_NULL_HANDLE;
-    other.Layout = VK_NULL_HANDLE;
-    other.LayoutInfo = PipelineLayoutInfo{};
-    other.DescriptorLayouts = {};
-    other.DescriptorSets = {};
-    other.LocalSize = {};
 }
 
 ComputePipeline &ComputePipeline::operator=(ComputePipeline &&other) noexcept
@@ -203,7 +191,7 @@ void ComputePipeline::AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPool
 
 void ComputePipeline::BindReflectedSets(VkCommandBuffer cmd)
 {
-    for (auto [binding, set] : DescriptorSets)
+    for (auto &[binding, set] : DescriptorSets)
     {
         vkCmdBindDescriptorSets(cmd, BindPoint, Layout, binding, 1, &set, 0, nullptr);
     }
@@ -507,7 +495,7 @@ static std::vector<VkDescriptorSetLayout> BuildLayoutList(
 void GraphicsPipelineBuilder::Build(VulkanContext &ctx)
 {
     // Collect shader stages and pipeline layouts from reflection:
-    PipelineLayoutInfo currentInfo{};
+    PipelineLayoutInfo                           currentInfo{};
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
 
     if (mVertexPath)
@@ -530,7 +518,7 @@ void GraphicsPipelineBuilder::Build(VulkanContext &ctx)
     if (mFragmentPath)
     {
         auto info = Shader::GetStageInfo(ctx, *mFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT);
-        
+
         shaderStages.push_back(info.PipelineCreation);
 
         if (auto size = info.Reflection.PushConstantsSize)
@@ -553,8 +541,8 @@ void GraphicsPipelineBuilder::Build(VulkanContext &ctx)
     // Check if first run and decide what to do:
     bool firstRun{};
     {
-        bool nullHandle = mOutput.Handle     == VK_NULL_HANDLE;
-        bool nullLayout = mOutput.Layout     == VK_NULL_HANDLE;
+        bool nullHandle = mOutput.Handle == VK_NULL_HANDLE;
+        bool nullLayout = mOutput.Layout == VK_NULL_HANDLE;
         bool nullInfo   = mOutput.LayoutInfo == PipelineLayoutInfo{};
 
         // State of Handle, Layout and Info should be coherent - one is zero, means all are zero:
@@ -566,7 +554,7 @@ void GraphicsPipelineBuilder::Build(VulkanContext &ctx)
     if (firstRun)
     {
         // Allocate reflected descriptor set layouts once:
-        for (auto& [idx, bindings] : currentInfo.DescriptorBindings)
+        for (auto &[idx, bindings] : currentInfo.DescriptorBindings)
         {
             auto name = mDebugName + "ReflectedLayout" + std::to_string(idx);
 
@@ -609,8 +597,7 @@ void GraphicsPipelineBuilder::Build(VulkanContext &ctx)
             pipelineLayoutInfo.pushConstantRangeCount = 1;
         }
 
-        auto layouts =
-            BuildLayoutList(mOutput.DescriptorLayouts, mDescriptorOverrides);
+        auto layouts = BuildLayoutList(mOutput.DescriptorLayouts, mDescriptorOverrides);
 
         if (!layouts.empty())
         {
@@ -624,7 +611,6 @@ void GraphicsPipelineBuilder::Build(VulkanContext &ctx)
 
         vkutils::SetDebugName(ctx, VK_OBJECT_TYPE_PIPELINE_LAYOUT, mOutput.Layout, mDebugName);
     }
-    
 
     // Create the pipeline:
 
@@ -768,8 +754,8 @@ void ComputePipelineBuilder::Build(VulkanContext &ctx)
     // Check if first run and decide what to do:
     bool firstRun{};
     {
-        bool nullHandle = mOutput.Handle     == VK_NULL_HANDLE;
-        bool nullLayout = mOutput.Layout     == VK_NULL_HANDLE;
+        bool nullHandle = mOutput.Handle == VK_NULL_HANDLE;
+        bool nullLayout = mOutput.Layout == VK_NULL_HANDLE;
         bool nullInfo   = mOutput.LayoutInfo == PipelineLayoutInfo{};
 
         // State of Handle, Layout and Info should be coherent - one is zero, means all are zero:
@@ -781,7 +767,7 @@ void ComputePipelineBuilder::Build(VulkanContext &ctx)
     if (firstRun)
     {
         // Allocate reflected descriptor set layouts once:
-        for (auto& [idx, bindings] : currentInfo.DescriptorBindings)
+        for (auto &[idx, bindings] : currentInfo.DescriptorBindings)
         {
             auto name = mDebugName + "ReflectedLayout" + std::to_string(idx);
 
@@ -823,8 +809,7 @@ void ComputePipelineBuilder::Build(VulkanContext &ctx)
             pipelineLayoutInfo.pushConstantRangeCount = 1;
         }
 
-        auto layouts =
-            BuildLayoutList(mOutput.DescriptorLayouts, mDescriptorOverrides);
+        auto layouts = BuildLayoutList(mOutput.DescriptorLayouts, mDescriptorOverrides);
 
         if (!layouts.empty())
         {

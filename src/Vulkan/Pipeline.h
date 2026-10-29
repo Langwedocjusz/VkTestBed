@@ -20,19 +20,24 @@
 // To reflect that we only want to build the reflected descriptor sets once, and later only
 // rebuild the pipeline itself when layout still matches.
 
-struct PipelineLayoutInfo{
+struct PipelineLayoutInfo {
     std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> DescriptorBindings;
     uint32_t                                                      PushConstantSize = 0;
 
-    //friend bool operator==(const PipelineLayoutInfo &lhs, const PipelineLayoutInfo &rhs);
+    // friend bool operator==(const PipelineLayoutInfo &lhs, const PipelineLayoutInfo &rhs);
 };
+
+// TODO: There is a lot of code duplication between two pipeline types.
+// This could be easily refactored using a base class templated on the two constants.
+// But that would require pulling the implementation code into the header.
+// Need to think about this...
 
 class GraphicsPipeline {
   public:
     GraphicsPipeline(VulkanContext &ctx);
     ~GraphicsPipeline();
-    GraphicsPipeline(const GraphicsPipeline&) = delete;
-    GraphicsPipeline &operator=(const GraphicsPipeline&) = delete;
+    GraphicsPipeline(const GraphicsPipeline &)            = delete;
+    GraphicsPipeline &operator=(const GraphicsPipeline &) = delete;
     GraphicsPipeline(GraphicsPipeline &&) noexcept;
     GraphicsPipeline &operator=(GraphicsPipeline &&) noexcept;
 
@@ -69,8 +74,8 @@ class ComputePipeline {
   public:
     ComputePipeline(VulkanContext &ctx);
     ~ComputePipeline();
-    ComputePipeline(const ComputePipeline&) = delete;
-    ComputePipeline &operator=(const ComputePipeline&) = delete;
+    ComputePipeline(const ComputePipeline &)            = delete;
+    ComputePipeline &operator=(const ComputePipeline &) = delete;
     ComputePipeline(ComputePipeline &&) noexcept;
     ComputePipeline &operator=(ComputePipeline &&) noexcept;
 
@@ -101,7 +106,7 @@ class ComputePipeline {
     std::map<uint32_t, VkDescriptorSetLayout> DescriptorLayouts;
     std::map<uint32_t, VkDescriptorSet>       DescriptorSets;
 
-    std::array<uint32_t, 3> LocalSize;
+    std::array<uint32_t, 3> LocalSize = {0, 0, 0};
 
   private:
     VulkanContext &mCtx;

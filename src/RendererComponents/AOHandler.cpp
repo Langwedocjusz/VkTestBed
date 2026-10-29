@@ -56,6 +56,9 @@ AOHandler::AOHandler(VulkanContext &ctx, Camera &camera, VkDescriptorPool static
     mZGenDescriptorSet      = Descriptor::Allocate(mCtx, staticPool, mAODescriptorSetLayout);
     mZMipGenDescriptorSet   = Descriptor::Allocate(mCtx, staticPool, mZMipGenDescriptorSetLayout);
     mBilateralDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mBilateralDescriptorSetLayout);
+
+    // Build the graphics pipelines:
+    RebuildPipelines();
 }
 
 void AOHandler::OnImGui()

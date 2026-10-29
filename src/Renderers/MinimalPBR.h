@@ -99,6 +99,8 @@ class MinimalPbrRenderer final : public IRenderer {
     using DrawableKey = std::pair<SceneKey, size_t>;
 
   private:
+    void RebuildOwnPipelines();
+
     void LoadMeshes(const Scene &scene);
     void LoadImages(const Scene &scene);
     void LoadMaterials(const Scene &scene);

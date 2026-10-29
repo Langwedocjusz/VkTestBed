@@ -16,7 +16,7 @@
 #include <bit>
 #include <cmath>
 
-EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool staticPool)
+EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool staticPool, BackgroundInfo info)
     : mCtx(ctx)
     , mStaticPool(staticPool)
     , mEquiRectToCubePipeline(ctx)
@@ -147,7 +147,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
         }
     }
 
-    // Allocate and update descriptor sets:
+    // Create the manually managed descriptor set layout:
     // clang-format off
     mLightingDescriptorSetLayout = 
         DescriptorSetLayoutBuilder("EnvLightingDescriptorLayout")
@@ -158,17 +158,65 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
             .Build(ctx, mDeletionQueue);
     // clang-format on
 
-    mLightingDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mLightingDescriptorSetLayout);
+    // Rebuild the pipelines:
+    RebuildPipelines(info);
 
-    DescriptorUpdater(mLightingDescriptorSet)
-        .WriteUniformBuffer(0, mEnvUBO->Handle, sizeof(mEnvUBOData))
-        .WriteStorageBuffer(1, mFinalReductionBuffer->Handle, mFinalReductionBuffer->Size)
-        .WriteCombinedSampler(2, mPrefiltered->View, mSamplerMipped)
-        .WriteCombinedSampler(3, mIntegration->View, mSamplerClamped)
-        .Update(mCtx);
+    // Allocate and update descriptor sets:
+    {
+        mLightingDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mLightingDescriptorSetLayout);
+
+        DescriptorUpdater(mLightingDescriptorSet)
+            .WriteUniformBuffer(0, mEnvUBO->Handle, sizeof(mEnvUBOData))
+            .WriteStorageBuffer(1, mFinalReductionBuffer->Handle, mFinalReductionBuffer->Size)
+            .WriteCombinedSampler(2, mPrefiltered->View, mSamplerMipped)
+            .WriteCombinedSampler(3, mIntegration->View, mSamplerClamped)
+            .Update(mCtx);
+    }
+    {
+        mIrradianceSHPipeline.AllocateReflectedSets(mCtx, mStaticPool);
+
+        DescriptorUpdater(mIrradianceSHPipeline.DescriptorSets.at(0))
+            .WriteCombinedSampler(0, mCubemap->View, mSampler)
+            .Update(mCtx);
+
+        DescriptorUpdater(mIrradianceSHPipeline.DescriptorSets.at(1))
+            .WriteStorageBuffer(0, mFirstReducionBuffer->Handle, mFirstReducionBuffer->Size)
+            .Update(mCtx);
+    }
+    {
+        mIrradianceReducePipeline.AllocateReflectedSets(mCtx, mStaticPool);
+
+        DescriptorUpdater(mIrradianceReducePipeline.DescriptorSets.at(0))
+            .WriteStorageBuffer(0, mFirstReducionBuffer->Handle, mFirstReducionBuffer->Size)
+            .WriteStorageBuffer(1, mFinalReductionBuffer->Handle, mFinalReductionBuffer->Size)
+            .Update(mCtx);
+    }
+    {
+        mBackgroundPipeline.AllocateReflectedSets(mCtx, mStaticPool);
+
+        DescriptorUpdater(mBackgroundPipeline.DescriptorSets.at(0))
+            .WriteCombinedSampler(0, mCubemap->View, mSampler)
+            .Update(mCtx);
+    }
+    {
+        mIntegrationGenPipeline.AllocateReflectedSets(mCtx, mStaticPool);
+
+        DescriptorUpdater(mIntegrationGenPipeline.DescriptorSets.at(0))
+            .WriteStorageImage(0, mIntegration->View)
+            .Update(mCtx);
+    }
+
+    mPrefilteredGenPipeline.AllocateReflectedSets(mCtx, mStaticPool);
+
+    // Nothing to update yet - waiting for image:
+    mEquiRectToCubePipeline.AllocateReflectedSets(mCtx, mStaticPool);
+
+    // Generate the integration map once: (it only depends on the chosen BRDF,
+    // and we have only one option atm)
+    GenerateIntegrationMap();
 }
 
-void EnvironmentHandler::RebuildPipelines(VkFormat colorFormat, VkFormat depthFormat, VkSampleCountFlagBits sampleCount)
+void EnvironmentHandler::RebuildPipelines(BackgroundInfo info)
 {
     mPipelineDeletionQueue.flush();
 
@@ -206,53 +254,12 @@ void EnvironmentHandler::RebuildPipelines(VkFormat colorFormat, VkFormat depthFo
         .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
         .SetPolygonMode(VK_POLYGON_MODE_FILL)
         .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-        .SetColorFormat(colorFormat)
+        .SetColorFormat(info.ColorFormat)
         .EnableDepthTest(VK_COMPARE_OP_LESS_OR_EQUAL)
-        .SetDepthFormat(depthFormat)
-        .SetStencilFormat(depthFormat)
-        .SetMultisampling(sampleCount)
+        .SetDepthFormat(info.DepthFormat)
+        .SetStencilFormat(info.DepthFormat)
+        .SetMultisampling(info.SampleCount)
         .Build(mCtx);
-
-    // Update static descriptor sets on first rebuild:
-    static bool firstRun = true;
-
-    if (firstRun)
-    {
-        mEquiRectToCubePipeline.AllocateReflectedSets(mCtx, mStaticPool);
-        mIrradianceSHPipeline.AllocateReflectedSets(mCtx, mStaticPool);
-        mIrradianceReducePipeline.AllocateReflectedSets(mCtx, mStaticPool);
-        mPrefilteredGenPipeline.AllocateReflectedSets(mCtx, mStaticPool);
-        mIntegrationGenPipeline.AllocateReflectedSets(mCtx, mStaticPool);
-        mBackgroundPipeline.AllocateReflectedSets(mCtx, mStaticPool);
-
-        // clang-format off
-        DescriptorUpdater(mBackgroundPipeline.DescriptorSets.at(0))
-            .WriteCombinedSampler(0, mCubemap->View, mSampler)
-            .Update(mCtx);
-
-        DescriptorUpdater(mIrradianceSHPipeline.DescriptorSets.at(0))
-            .WriteCombinedSampler(0, mCubemap->View, mSampler)
-            .Update(mCtx);
-
-        DescriptorUpdater(mIrradianceSHPipeline.DescriptorSets.at(1))
-            .WriteStorageBuffer(0, mFirstReducionBuffer->Handle, mFirstReducionBuffer->Size)
-            .Update(mCtx);
-
-        DescriptorUpdater(mIrradianceReducePipeline.DescriptorSets.at(0))
-            .WriteStorageBuffer(0, mFirstReducionBuffer->Handle, mFirstReducionBuffer->Size)
-            .WriteStorageBuffer(1, mFinalReductionBuffer->Handle, mFinalReductionBuffer->Size)
-            .Update(mCtx);
-
-        DescriptorUpdater(mIntegrationGenPipeline.DescriptorSets.at(0))
-            .WriteStorageImage(0, mIntegration->View)
-            .Update(mCtx);
-        // clang-format on
-
-        firstRun = false;
-    }
-
-    // Generate the integration map once per rebuild (it is cubemap independent):
-    GenerateIntegrationMap();
 }
 
 void EnvironmentHandler::LoadEnvironment(const Scene &scene)

@@ -18,7 +18,7 @@
 
 #include <limits>
 
-ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
+ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx, const PipelineInfo &info)
     : mCtx(ctx)
     , mOpaquePipeline(ctx)
     , mAlphaPipeline(ctx)
@@ -123,6 +123,9 @@ ShadowmapHandler::ShadowmapHandler(VulkanContext &ctx)
 
         mDebugFrustumIndexBuffer = Buffer::MakeIndex(mCtx, "ShadowmapDebugFrustumVertexBuffer", indexData);
     }
+
+    // Build the graphics pipelines:
+    RebuildPipelines(info);
 }
 
 void ShadowmapHandler::RebuildPipelines(const PipelineInfo &info)

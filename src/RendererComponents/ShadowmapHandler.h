@@ -33,12 +33,6 @@ class ShadowmapHandler {
     using Bounds     = std::array<float, NumCascades>;
     using TexelSizes = std::array<float, NumCascades>;
 
-  public:
-    ShadowmapHandler(VulkanContext &ctx);
-
-    void OnUpdate(Camera &camera, glm::vec3 lightDir, AABB sceneAABB);
-    void OnImGui();
-
     // Information about main rendering pipeline using this handler:
     struct PipelineInfo {
         Vertex::Layout        VertexLayout;
@@ -47,6 +41,12 @@ class ShadowmapHandler {
         VkFormat              DepthFormat;
         VkSampleCountFlagBits CurrentMultisampling;
     };
+
+  public:
+    ShadowmapHandler(VulkanContext &ctx, const PipelineInfo &info);
+
+    void OnUpdate(Camera &camera, glm::vec3 lightDir, AABB sceneAABB);
+    void OnImGui();
 
     void RebuildPipelines(const PipelineInfo &info);
 

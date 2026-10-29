@@ -47,6 +47,9 @@ PostProcessor::PostProcessor(VulkanContext &ctx, VkDescriptorPool staticPool)
 
     mBloomDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mBloomDescriptorSetLayout);
     mFinalDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mFinalDescriptorSetLayout);
+
+    // Build the graphics pipelines:
+    RebuildPipelines();
 }
 
 void PostProcessor::OnImGui()

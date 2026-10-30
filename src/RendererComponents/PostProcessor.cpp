@@ -14,12 +14,11 @@ PostProcessor::PostProcessor(VulkanContext &ctx, VkDescriptorPool staticPool)
     , mBloomDownscalePipeline(ctx)
     , mBloomUpscalePipeline(ctx)
     , mFinalPipeline(ctx)
-    , mPipelineDeletionQueue(ctx)
     , mSwapchainDeletionQueue(ctx)
     , mMainDeletionQueue(ctx)
 {
-    // clang-format off
     // Setup sampler state (linear, clamp to edge):
+    // clang-format off
     mBloomSampler = 
         SamplerBuilder("PostfxBloomSampler")
             .SetMagFilter(VK_FILTER_LINEAR)
@@ -28,28 +27,15 @@ PostProcessor::PostProcessor(VulkanContext &ctx, VkDescriptorPool staticPool)
             .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
             .SetMaxLod(12.0f)
             .Build(mCtx, mMainDeletionQueue);
-
-    // Setup layouts and allocate descriptor sets:
-    mBloomDescriptorSetLayout = 
-        DescriptorSetLayoutBuilder("PostfxBloomDescriptorSetLayout")
-            .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
-            .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
-            .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-            .Build(mCtx, mMainDeletionQueue);
-
-    mFinalDescriptorSetLayout = 
-        DescriptorSetLayoutBuilder("PostfxFinalCompositionDescriptorSetLayout")
-            .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-            .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-            .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-            .Build(mCtx, mMainDeletionQueue);
     // clang-format on
 
-    mBloomDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mBloomDescriptorSetLayout);
-    mFinalDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mFinalDescriptorSetLayout);
-
-    // Build the graphics pipelines:
+    // Build the pipelines:
     RebuildPipelines();
+
+    // Allocate descriptor sets:
+    mBloomDownscalePipeline.AllocateReflectedSets(ctx, staticPool);
+    mBloomUpscalePipeline.AllocateReflectedSets(ctx, staticPool);
+    mFinalPipeline.AllocateReflectedSets(ctx, staticPool);
 }
 
 void PostProcessor::OnImGui()
@@ -63,19 +49,16 @@ void PostProcessor::RebuildPipelines()
     ComputePipelineBuilder(mBloomDownscalePipeline)
         .SetDebugName("PostfxBloomDownsample")
         .SetShaderPath("assets/spirv/postfx/BloomDownsampleComp.spv")
-        .OverrideDescriptor(0, mBloomDescriptorSetLayout)
         .Build(mCtx);
 
     ComputePipelineBuilder(mBloomUpscalePipeline)
         .SetDebugName("PostfxBloomUpsample")
         .SetShaderPath("assets/spirv/postfx/BloomUpsampleComp.spv")
-        .OverrideDescriptor(0, mBloomDescriptorSetLayout)
         .Build(mCtx);
 
     ComputePipelineBuilder(mFinalPipeline)
         .SetDebugName("PostxFinal")
         .SetShaderPath("assets/spirv/postfx/FinalComp.spv")
-        .OverrideDescriptor(0, mFinalDescriptorSetLayout)
         .Build(mCtx);
 }
 
@@ -124,7 +107,13 @@ void PostProcessor::RecreateSwapchainResources(Image &renderTarget, VkImageView 
     // Update the descriptor sets:
     std::vector<VkSampler> mipSamplers(mBloomNumMips, mBloomSampler);
 
-    DescriptorUpdater(mBloomDescriptorSet)
+    DescriptorUpdater(mBloomDownscalePipeline.DescriptorSets.at(0))
+        .WriteStorageImages(0, mBloomSingleMipViews)
+        .WriteCombinedSamplers(1, mBloomSingleMipViews, mipSamplers, VK_IMAGE_LAYOUT_GENERAL)
+        .WriteCombinedSampler(2, renderTargetView, mBloomSampler)
+        .Update(mCtx);
+
+    DescriptorUpdater(mBloomUpscalePipeline.DescriptorSets.at(0))
         .WriteStorageImages(0, mBloomSingleMipViews)
         .WriteCombinedSamplers(1, mBloomSingleMipViews, mipSamplers, VK_IMAGE_LAYOUT_GENERAL)
         .WriteCombinedSampler(2, renderTargetView, mBloomSampler)
@@ -136,7 +125,7 @@ void PostProcessor::RecreateSwapchainResources(Image &renderTarget, VkImageView 
         barrier::ImageLayoutCoarse(cmd, {.Img = *mBloomTarget, .Old = General, .New = ShaderRead});
     });
 
-    DescriptorUpdater(mFinalDescriptorSet)
+    DescriptorUpdater(mFinalPipeline.DescriptorSets.at(0))
         .WriteStorageImage(0, mFinalTarget->View)
         .WriteCombinedSampler(1, renderTargetView, mBloomSampler)
         .WriteCombinedSampler(2, mBloomSingleMipViews[0], mBloomSampler)
@@ -175,7 +164,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
 
         // Downsampling passes:
         mBloomDownscalePipeline.Bind(cmd);
-        mBloomDownscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
+        mBloomDownscalePipeline.BindReflectedSets(cmd);
 
         for (uint32_t mip = 0; mip < mBloomNumMips; mip++)
         {
@@ -204,7 +193,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
 
         // Upsample passes:
         mBloomUpscalePipeline.Bind(cmd);
-        mBloomUpscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
+        mBloomUpscalePipeline.BindReflectedSets(cmd);
 
         for (uint32_t mip = mBloomNumMips - 2; mip != uint32_t(-1); mip--)
         {
@@ -240,7 +229,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         barrier::TransferSrcToGeneral(cmd, mFinalTarget->Img.Handle);
 
         mFinalPipeline.Bind(cmd);
-        mFinalPipeline.BindDescriptorSet(cmd, mFinalDescriptorSet, 0);
+        mFinalPipeline.BindReflectedSets(cmd);
 
         struct PCData {
             int32_t BloomEnabled;

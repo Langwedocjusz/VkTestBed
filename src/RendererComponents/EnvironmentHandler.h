@@ -112,5 +112,4 @@ class EnvironmentHandler {
     std::optional<Buffer> mEnvUBO;
 
     DeletionQueue mDeletionQueue;
-    DeletionQueue mPipelineDeletionQueue;
 };

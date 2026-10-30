@@ -46,14 +46,6 @@ class PostProcessor {
     std::optional<Texture>   mBloomTarget;
     std::vector<VkImageView> mBloomSingleMipViews;
 
-    VkDescriptorSetLayout mBloomDescriptorSetLayout;
-    VkDescriptorSet       mBloomDescriptorSet;
-
-    // For the final composition:
-    VkDescriptorSetLayout mFinalDescriptorSetLayout;
-    VkDescriptorSet       mFinalDescriptorSet;
-
-    DeletionQueue mPipelineDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;
     DeletionQueue mMainDeletionQueue;
 };

@@ -73,20 +73,8 @@ class AOHandler {
     static constexpr uint32_t ZBufferMips = 4;
     std::vector<VkImageView>  mZSingleLevelViews;
 
-    // Descriptor sets for AO generation:
-    VkDescriptorSetLayout mAODescriptorSetLayout;
-    VkDescriptorSet       mAOGenDescriptorSet;
-    VkDescriptorSet       mZGenDescriptorSet;
-
-    VkDescriptorSetLayout mZMipGenDescriptorSetLayout;
-    VkDescriptorSet       mZMipGenDescriptorSet;
-
-    VkDescriptorSetLayout mBilateralDescriptorSetLayout;
-    VkDescriptorSet       mBilateralDescriptorSet;
-
     VkSampler mSampler;
 
     DeletionQueue mMainDeletionQueue;
-    DeletionQueue mPipelineDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;
 };

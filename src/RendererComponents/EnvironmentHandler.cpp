@@ -26,7 +26,6 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
     , mIntegrationGenPipeline(ctx)
     , mBackgroundPipeline(ctx)
     , mDeletionQueue(ctx)
-    , mPipelineDeletionQueue(ctx)
 {
     // Create the texture samplers:
     {
@@ -218,8 +217,6 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
 
 void EnvironmentHandler::RebuildPipelines(BackgroundInfo info)
 {
-    mPipelineDeletionQueue.flush();
-
     ComputePipelineBuilder(mEquiRectToCubePipeline)
         .SetDebugName("EnvEquToCubePipeline")
         .SetShaderPath("assets/spirv/environment/EquiToCubeComp.spv")

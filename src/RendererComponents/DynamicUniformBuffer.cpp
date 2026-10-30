@@ -7,8 +7,7 @@
 #include <ranges>
 
 DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame, VkDeviceSize bufferSize)
-    : mBufferSize(bufferSize)
-    , mCtx(ctx)
+    : mCtx(ctx)
     , mFrame(frame)
     , mDeletionQueue(ctx)
 {
@@ -34,19 +33,9 @@ void DynamicUniformBuffer::UpdateData(void *data, VkDeviceSize size)
     uniformBuffer.UploadMapped(data, size);
 }
 
-DynamicUniformBuffer::HandlesAndSizes DynamicUniformBuffer::GetBufferHandlesAndSizes() const
+std::span<Buffer> DynamicUniformBuffer::GetBuffers()
 {
-    std::vector<VkBuffer> handles;
-    handles.resize(mUniformBuffers.size());
-
-    for (size_t idx = 0; idx < mUniformBuffers.size(); idx++)
-    {
-        handles[idx] = mUniformBuffers[idx].Handle;
-    }
-
-    std::vector<VkDeviceSize> sizes(mUniformBuffers.size(), mBufferSize);
-
-    return {handles, sizes};
+    return {mUniformBuffers};
 }
 
 DynamicDescriptorSet::DynamicDescriptorSet(VulkanContext &ctx, FrameInfo &frame)
@@ -106,31 +95,30 @@ void DynamicDescriptorSet::EndUpdate()
     mUpdaters.clear();
 }
 
-void DynamicDescriptorSet::WriteUniformBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size)
+void DynamicDescriptorSet::WriteUniformBuffer(uint32_t binding, Buffer &buffer)
 {
     vassert(mInitialized, "Not initialized yet!");
     vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
 
     for (auto &updater : mUpdaters)
     {
-        updater.WriteUniformBuffer(binding, buffer, size);
+        updater.WriteUniformBuffer(binding, buffer);
     }
 }
 
 void DynamicDescriptorSet::WriteUniformBuffer(
-    uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes
+    uint32_t binding, std::span<Buffer> buffers
 )
 {
     vassert(mInitialized, "Not initialized yet!");
     vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
     vassert(mUpdaters.size() == buffers.size(), "Invalid buffer count.");
-    vassert(mUpdaters.size() == sizes.size(), "Invalid buffer sizes count.");
 
     using namespace std::views;
 
     for (auto [idx, updater] : enumerate(mUpdaters))
     {
-        updater.WriteUniformBuffer(binding, buffers[idx], sizes[idx]);
+        updater.WriteUniformBuffer(binding, buffers[idx]);
     }
 }
 

@@ -35,10 +35,7 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera
         mDynamicDS.Initialize(layout, counts);
 
         mDynamicDS.BeginUpdate();
-
-        auto [buffers, sizes] = mDynamicUBO.GetBufferHandlesAndSizes();
-
-        mDynamicDS.WriteUniformBuffer(0, buffers, sizes);
+        mDynamicDS.WriteUniformBuffer(0, mDynamicUBO.GetBuffers());
         mDynamicDS.EndUpdate();
     }
 

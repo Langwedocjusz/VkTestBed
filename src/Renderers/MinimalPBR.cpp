@@ -164,16 +164,8 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Came
 
         // Update descriptor sets:
         mDynamicDS.BeginUpdate();
-
-        {
-            auto [buffers, sizes] = mCamDynamicUBO.GetBufferHandlesAndSizes();
-            mDynamicDS.WriteUniformBuffer(0, buffers, sizes);
-        }
-        {
-            auto [buffers, sizes] = mDynamicUBO.GetBufferHandlesAndSizes();
-            mDynamicDS.WriteUniformBuffer(1, buffers, sizes);
-        }
-
+        mDynamicDS.WriteUniformBuffer(0, mCamDynamicUBO.GetBuffers());
+        mDynamicDS.WriteUniformBuffer(1, mDynamicUBO.GetBuffers());
         mDynamicDS.EndUpdate();
     }
 
@@ -1283,7 +1275,7 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
             .WriteCombinedSampler(0, albedo.View, mMaterialSampler)
             .WriteCombinedSampler(1, roughness.View, mMaterialSampler)
             .WriteCombinedSampler(2, normal.View, mMaterialSampler)
-            .WriteUniformBuffer(3, mat.UBO.Handle, sizeof(mat.UboData))
+            .WriteUniformBuffer(3, mat.UBO)
             .Update(mCtx);
     }
 }

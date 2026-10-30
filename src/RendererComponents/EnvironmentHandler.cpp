@@ -165,8 +165,8 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
         mLightingDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mLightingDescriptorSetLayout);
 
         DescriptorUpdater(mLightingDescriptorSet)
-            .WriteUniformBuffer(0, mEnvUBO->Handle, sizeof(mEnvUBOData))
-            .WriteStorageBuffer(1, mFinalReductionBuffer->Handle, mFinalReductionBuffer->Size)
+            .WriteUniformBuffer(0, *mEnvUBO)
+            .WriteStorageBuffer(1, *mFinalReductionBuffer)
             .WriteCombinedSampler(2, mPrefiltered->View, mSamplerMipped)
             .WriteCombinedSampler(3, mIntegration->View, mSamplerClamped)
             .Update(mCtx);
@@ -179,15 +179,15 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
             .Update(mCtx);
 
         DescriptorUpdater(mIrradianceSHPipeline.DescriptorSets.at(1))
-            .WriteStorageBuffer(0, mFirstReducionBuffer->Handle, mFirstReducionBuffer->Size)
+            .WriteStorageBuffer(0, *mFirstReducionBuffer)
             .Update(mCtx);
     }
     {
         mIrradianceReducePipeline.AllocateReflectedSets(mCtx, mStaticPool);
 
         DescriptorUpdater(mIrradianceReducePipeline.DescriptorSets.at(0))
-            .WriteStorageBuffer(0, mFirstReducionBuffer->Handle, mFirstReducionBuffer->Size)
-            .WriteStorageBuffer(1, mFinalReductionBuffer->Handle, mFinalReductionBuffer->Size)
+            .WriteStorageBuffer(0, *mFirstReducionBuffer)
+            .WriteStorageBuffer(1, *mFinalReductionBuffer)
             .Update(mCtx);
     }
     {

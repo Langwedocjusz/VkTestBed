@@ -180,12 +180,12 @@ DescriptorUpdater::DescriptorUpdater(VkDescriptorSet descriptorSet)
 {
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size)
+DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t binding, Buffer &buffer)
 {
     auto &bufferInfo  = mBufferInfos.emplace_back();
-    bufferInfo.buffer = buffer;
+    bufferInfo.buffer = buffer.Handle;
     bufferInfo.offset = 0;
-    bufferInfo.range  = size;
+    bufferInfo.range  = buffer.Size;
 
     mWriteInfos.push_back(
         WriteInfo{
@@ -198,12 +198,12 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t binding, VkBuf
     return *this;
 }
 
-DescriptorUpdater &DescriptorUpdater::WriteStorageBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size)
+DescriptorUpdater &DescriptorUpdater::WriteStorageBuffer(uint32_t binding, Buffer &buffer)
 {
     auto &bufferInfo  = mBufferInfos.emplace_back();
-    bufferInfo.buffer = buffer;
+    bufferInfo.buffer = buffer.Handle;
     bufferInfo.offset = 0;
-    bufferInfo.range  = size;
+    bufferInfo.range  = buffer.Size;
 
     mWriteInfos.push_back(
         WriteInfo{
@@ -256,21 +256,17 @@ DescriptorUpdater &DescriptorUpdater::WriteStorageImage(uint32_t binding, VkImag
 }
 
 DescriptorUpdater &DescriptorUpdater::WriteUniformBuffers(
-    uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes
+    uint32_t binding, std::span<Buffer> buffers
 )
 {
-    vassert(buffers.size() == sizes.size(), "Numbers of provided buffer sizes and handles must be equal!");
-
-    using namespace std::views;
-
     const size_t startIdx = mBufferInfos.size();
 
-    for (auto [buffer, size] : zip(buffers, sizes))
+    for (auto &buffer : buffers)
     {
         auto &bufferInfo  = mBufferInfos.emplace_back();
-        bufferInfo.buffer = buffer;
+        bufferInfo.buffer = buffer.Handle;
         bufferInfo.offset = 0;
-        bufferInfo.range  = size;
+        bufferInfo.range  = buffer.Size;
     }
 
     mWriteInfos.push_back(
@@ -286,21 +282,17 @@ DescriptorUpdater &DescriptorUpdater::WriteUniformBuffers(
 }
 
 DescriptorUpdater &DescriptorUpdater::WriteStorageBuffers(
-    uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes
+    uint32_t binding, std::span<Buffer> buffers
 )
 {
-    vassert(buffers.size() == sizes.size(), "Numbers of provided buffer sizes and handles must be equal!");
-
-    using namespace std::views;
-
     const size_t startIdx = mBufferInfos.size();
 
-    for (auto [buffer, size] : zip(buffers, sizes))
+    for (auto &buffer : buffers)
     {
         auto &bufferInfo  = mBufferInfos.emplace_back();
-        bufferInfo.buffer = buffer;
+        bufferInfo.buffer = buffer.Handle;
         bufferInfo.offset = 0;
-        bufferInfo.range  = size;
+        bufferInfo.range  = buffer.Size;
     }
 
     mWriteInfos.push_back(

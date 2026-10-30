@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Buffer.h"
 #include "DeletionQueue.h"
 #include "VulkanContext.h"
 
@@ -58,15 +59,15 @@ class DescriptorUpdater {
     // TODO: add support for different buffers
 
     /// Assumes no offset into the buffer
-    DescriptorUpdater &WriteUniformBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size);
+    DescriptorUpdater &WriteUniformBuffer(uint32_t binding, Buffer &buffer);
     DescriptorUpdater &WriteUniformBuffers(
-        uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes
+        uint32_t binding, std::span<Buffer> buffers
     );
 
     /// Assumes no offset into the buffer
-    DescriptorUpdater &WriteStorageBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size);
+    DescriptorUpdater &WriteStorageBuffer(uint32_t binding, Buffer &buffer);
     DescriptorUpdater &WriteStorageBuffers(
-        uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes
+        uint32_t binding, std::span<Buffer> buffers
     );
 
     /// Uses combined sampler, by default assumes read only optimal layout, can be

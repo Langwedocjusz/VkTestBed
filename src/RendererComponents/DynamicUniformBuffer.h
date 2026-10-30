@@ -17,14 +17,9 @@ class DynamicUniformBuffer {
 
     void UpdateData(void *data, VkDeviceSize size);
 
-    using BufferHandles   = std::vector<VkBuffer>;
-    using BufferSizes     = std::vector<VkDeviceSize>;
-    using HandlesAndSizes = std::pair<BufferHandles, BufferSizes>;
-
-    [[nodiscard]] HandlesAndSizes GetBufferHandlesAndSizes() const;
+    std::span<Buffer> GetBuffers();
 
   private:
-    VkDeviceSize        mBufferSize;
     std::vector<Buffer> mUniformBuffers;
 
     VulkanContext &mCtx;
@@ -46,8 +41,8 @@ class DynamicDescriptorSet {
     void BeginUpdate();
     void EndUpdate();
 
-    void WriteUniformBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size);
-    void WriteUniformBuffer(uint32_t binding, std::span<VkBuffer> buffers, std::span<VkDeviceSize> sizes);
+    void WriteUniformBuffer(uint32_t binding, Buffer &buffer);
+    void WriteUniformBuffer(uint32_t binding, std::span<Buffer> buffers);
 
     void WriteCombinedSampler(uint32_t binding, VkImageView imageView, VkSampler sampler);
     void WriteCombinedSampler(uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers);

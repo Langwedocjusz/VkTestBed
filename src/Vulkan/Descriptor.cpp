@@ -1,4 +1,5 @@
 #include "Descriptor.h"
+#include "CppUtils.h"
 #include "Pch.h"
 
 #include "Vassert.h"
@@ -8,6 +9,7 @@
 
 #include <cstdint>
 #include <ranges>
+#include <vulkan/vulkan_core.h>
 
 static std::vector<VkDescriptorPoolSize> GetRawPoolSizes(Descriptor::PoolCounts &counts)
 {
@@ -28,6 +30,8 @@ static std::vector<VkDescriptorPoolSize> GetRawPoolSizes(Descriptor::PoolCounts 
 
     return ret;
 }
+
+// === Layout Builder Implementation: ===============================================
 
 DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(std::string_view debugName)
     : mDebugName(debugName)
@@ -92,6 +96,8 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VulkanContext &ctx, Dele
 
     return layout;
 }
+
+// === General Descriptor Utilities Implementation: ===============================================
 
 VkDescriptorSetLayout Descriptor::BuildLayout(
     VulkanContext &ctx, const std::vector<VkDescriptorSetLayoutBinding> &bindings, const std::string &name
@@ -175,235 +181,93 @@ std::vector<VkDescriptorSet> Descriptor::Allocate(
     return descriptorSets;
 }
 
-DescriptorUpdater::DescriptorUpdater(VkDescriptorSet descriptorSet)
-    : mDescriptorSet(descriptorSet)
+void Descriptor::Update(VulkanContext &ctx, VkDescriptorSet set, std::vector<WriteInfo> &&writeInfos)
 {
-}
+    std::vector<VkDescriptorBufferInfo> bufferInfos;
+    std::vector<VkDescriptorImageInfo>  imageInfos;
+    std::vector<VkWriteDescriptorSet>   writes;
 
-DescriptorUpdater &DescriptorUpdater::WriteUniformBuffer(uint32_t binding, Buffer &buffer)
-{
-    auto &bufferInfo  = mBufferInfos.emplace_back();
-    bufferInfo.buffer = buffer.Handle;
-    bufferInfo.offset = 0;
-    bufferInfo.range  = buffer.Size;
-
-    mWriteInfos.push_back(
-        WriteInfo{
-            .Id      = mBufferInfos.size() - 1,
-            .Binding = binding,
-            .Type    = WriteType::UniformBuffer,
-        }
-    );
-
-    return *this;
-}
-
-DescriptorUpdater &DescriptorUpdater::WriteStorageBuffer(uint32_t binding, Buffer &buffer)
-{
-    auto &bufferInfo  = mBufferInfos.emplace_back();
-    bufferInfo.buffer = buffer.Handle;
-    bufferInfo.offset = 0;
-    bufferInfo.range  = buffer.Size;
-
-    mWriteInfos.push_back(
-        WriteInfo{
-            .Id      = mBufferInfos.size() - 1,
-            .Binding = binding,
-            .Type    = WriteType::ShaderStorageBuffer,
-        }
-    );
-
-    return *this;
-}
-
-DescriptorUpdater &DescriptorUpdater::WriteCombinedSampler(
-    uint32_t binding, VkImageView imageView, VkSampler sampler, VkImageLayout layout
-)
-{
-    auto &imageInfo = mImageInfos.emplace_back();
-
-    imageInfo.imageLayout = layout;
-    imageInfo.imageView   = imageView;
-    imageInfo.sampler     = sampler;
-
-    mWriteInfos.push_back(
-        WriteInfo{
-            .Id      = mImageInfos.size() - 1,
-            .Binding = binding,
-            .Type    = WriteType::CombinedImageSampler,
-        }
-    );
-
-    return *this;
-}
-
-DescriptorUpdater &DescriptorUpdater::WriteStorageImage(uint32_t binding, VkImageView imageView)
-{
-    auto &imageInfo = mImageInfos.emplace_back();
-
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageInfo.imageView   = imageView;
-
-    mWriteInfos.push_back(
-        WriteInfo{
-            .Id      = mImageInfos.size() - 1,
-            .Binding = binding,
-            .Type    = WriteType::StorageImage,
-        }
-    );
-
-    return *this;
-}
-
-DescriptorUpdater &DescriptorUpdater::WriteUniformBuffers(
-    uint32_t binding, std::span<Buffer> buffers
-)
-{
-    const size_t startIdx = mBufferInfos.size();
-
-    for (auto &buffer : buffers)
-    {
-        auto &bufferInfo  = mBufferInfos.emplace_back();
-        bufferInfo.buffer = buffer.Handle;
-        bufferInfo.offset = 0;
-        bufferInfo.range  = buffer.Size;
-    }
-
-    mWriteInfos.push_back(
-        WriteInfo{
-            .Id      = startIdx,
-            .Count   = static_cast<uint32_t>(buffers.size()),
-            .Binding = binding,
-            .Type    = WriteType::UniformBuffer,
-        }
-    );
-
-    return *this;
-}
-
-DescriptorUpdater &DescriptorUpdater::WriteStorageBuffers(
-    uint32_t binding, std::span<Buffer> buffers
-)
-{
-    const size_t startIdx = mBufferInfos.size();
-
-    for (auto &buffer : buffers)
-    {
-        auto &bufferInfo  = mBufferInfos.emplace_back();
-        bufferInfo.buffer = buffer.Handle;
-        bufferInfo.offset = 0;
-        bufferInfo.range  = buffer.Size;
-    }
-
-    mWriteInfos.push_back(
-        WriteInfo{
-            .Id      = startIdx,
-            .Count   = static_cast<uint32_t>(buffers.size()),
-            .Binding = binding,
-            .Type    = WriteType::ShaderStorageBuffer,
-        }
-    );
-
-    return *this;
-}
-
-DescriptorUpdater &DescriptorUpdater::WriteCombinedSamplers(
-    uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers, VkImageLayout layout
-)
-{
-    vassert(imageViews.size() == samplers.size(), "Numbers of provided image views and samplers must be equal!");
-
-    using namespace std::views;
-
-    const size_t startIdx = mImageInfos.size();
-
-    for (auto [imageView, sampler] : zip(imageViews, samplers))
-    {
-        auto &imageInfo = mImageInfos.emplace_back();
-
-        imageInfo.imageLayout = layout;
-        imageInfo.imageView   = imageView;
-        imageInfo.sampler     = sampler;
-    }
-
-    mWriteInfos.push_back(
-        WriteInfo{
-            .Id      = startIdx,
-            .Count   = static_cast<uint32_t>(imageViews.size()),
-            .Binding = binding,
-            .Type    = WriteType::CombinedImageSampler,
-        }
-    );
-
-    return *this;
-}
-
-DescriptorUpdater &DescriptorUpdater::WriteStorageImages(uint32_t binding, std::span<VkImageView> imageViews)
-{
-    const size_t startIdx = mImageInfos.size();
-
-    for (auto &imageView : imageViews)
-    {
-        auto &imageInfo = mImageInfos.emplace_back();
-
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        imageInfo.imageView   = imageView;
-    }
-
-    mWriteInfos.push_back(
-        WriteInfo{
-            .Id      = startIdx,
-            .Count   = static_cast<uint32_t>(imageViews.size()),
-            .Binding = binding,
-            .Type    = WriteType::StorageImage,
-        }
-    );
-
-    return *this;
-}
-
-void DescriptorUpdater::Update(VulkanContext &ctx)
-{
-    std::vector<VkWriteDescriptorSet> writes;
-    writes.reserve(mWriteInfos.size());
-
-    for (auto &writeInfo : mWriteInfos)
+    for (const auto &info : writeInfos)
     {
         auto &write = writes.emplace_back();
 
         write.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet          = mDescriptorSet;
-        write.dstBinding      = writeInfo.Binding;
-        write.descriptorCount = writeInfo.Count;
+        write.dstSet          = set;
+        write.dstBinding      = info.Binding;
         write.dstArrayElement = 0;
 
-        switch (writeInfo.Type)
-        {
-        case WriteType::UniformBuffer: {
-            write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            write.pBufferInfo    = &mBufferInfos[writeInfo.Id];
-            break;
-        }
-        case WriteType::ShaderStorageBuffer: {
-            write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write.pBufferInfo    = &mBufferInfos[writeInfo.Id];
-            break;
-        }
-        case WriteType::CombinedImageSampler: {
-            write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write.pImageInfo     = &mImageInfos[writeInfo.Id];
-            break;
-        }
-        case WriteType::StorageImage: {
-            write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-            write.pImageInfo     = &mImageInfos[writeInfo.Id];
-            break;
-        }
-        }
+        std::visit(overloaded{
+            [&](WriteUniformBuffers arg) {
+                const size_t startIdx = bufferInfos.size();
+
+                for (auto &buffer : arg.Buffers)
+                {
+                    bufferInfos.push_back({
+                        .buffer = buffer.Handle,
+                        .offset = 0,
+                        .range  = buffer.Size,
+                     });
+                }
+
+                write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                write.pBufferInfo = &bufferInfos[startIdx];
+                write.descriptorCount = static_cast<uint32_t>(arg.Buffers.size());
+            },
+            [&](WriteStorageBuffers arg){
+                const size_t startIdx = bufferInfos.size();
+
+                for (auto &buffer : arg.Buffers)
+                {
+                    bufferInfos.push_back({
+                        .buffer = buffer.Handle,
+                        .offset = 0,
+                        .range  = buffer.Size,
+                     });
+                }
+
+                write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                write.pBufferInfo = &bufferInfos[startIdx];
+                write.descriptorCount = static_cast<uint32_t>(arg.Buffers.size());
+            },
+            [&](WriteCombinedSamplers arg){
+                const size_t startIdx = imageInfos.size();
+
+                for (auto view : arg.Views)
+                {
+                    imageInfos.push_back({
+                        .sampler     = arg.Sampler,
+                        .imageView   = view,
+                        .imageLayout = arg.Layout
+                    });
+                }
+
+                write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                write.pImageInfo     = &imageInfos[startIdx];
+                write.descriptorCount = static_cast<uint32_t>(arg.Views.size());
+            },
+            [&](WriteStorageImages arg){
+                const size_t startIdx = imageInfos.size();
+
+                for (auto view : arg.Views)
+                {
+                    imageInfos.push_back({
+                        .sampler     = {},
+                        .imageView   = view,
+                        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                    });
+                }
+
+                write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                write.pImageInfo     = &imageInfos[startIdx];
+                write.descriptorCount = static_cast<uint32_t>(arg.Views.size());
+            },
+        }, info.Data);
     }
 
     vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
+
+// === Growable Allocator Implementation: ===============================================
 
 GrowableDescriptorAllocator::GrowableDescriptorAllocator(VulkanContext &ctx)
     : mCtx(ctx)

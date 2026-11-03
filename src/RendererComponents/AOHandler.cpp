@@ -154,14 +154,16 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         });
 
         // Do the update:
-        DescriptorUpdater(mZGenPipeline.DescriptorSets.at(0))
-            .WriteStorageImage(0, mZBuffer->View)
-            .WriteCombinedSampler(1, depthOnlyView, mSampler)
-            .Update(mCtx);
+        using namespace Descriptor;
 
-        DescriptorUpdater(mZMipGenPipeline.DescriptorSets.at(0))
-            .WriteStorageImages(0, mZSingleLevelViews)
-            .Update(mCtx);
+        Descriptor::Update(mCtx, mZGenPipeline.DescriptorSets.at(0), {
+            {.Binding=0, .Data=WriteStorageImages(mZBuffer->View)},
+            {.Binding=1, .Data=WriteCombinedSamplers(depthOnlyView, mSampler)},
+        });
+
+        Descriptor::Update(mCtx, mZMipGenPipeline.DescriptorSets.at(0), {
+            {.Binding=0, .Data=WriteStorageImages(mZSingleLevelViews)}
+        });
 
         // Transition z-buffer and depth buffer to correct layouts:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
@@ -176,10 +178,12 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
 
     // Update AO descriptor set:
     {
-        DescriptorUpdater(mAOGenPipeline.DescriptorSets.at(0))
-            .WriteStorageImage(0, mAOTarget->View)
-            .WriteCombinedSampler(1, mZBuffer->View, mSampler)
-            .Update(mCtx);
+        using namespace Descriptor;
+
+        Descriptor::Update(mCtx, mAOGenPipeline.DescriptorSets.at(0), {
+            {.Binding=0, .Data=WriteStorageImages(mAOTarget->View)},
+            {.Binding=1, .Data=WriteCombinedSamplers(mZBuffer->View, mSampler)}
+        });
 
         // Transition ao target for sampling:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
@@ -191,11 +195,13 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
 
     // Update Bilateral descriptor set:
     {
-        DescriptorUpdater(mBilateralPipeline.DescriptorSets.at(0))
-            .WriteStorageImage(0, mBilateralTarget->View)
-            .WriteCombinedSampler(1, mAOTarget->View, mSampler)
-            .WriteCombinedSampler(2, mZBuffer->View, mSampler)
-            .Update(mCtx);
+        using namespace Descriptor;
+
+        Descriptor::Update(mCtx, mBilateralPipeline.DescriptorSets.at(0), {
+            {.Binding=0, .Data=WriteStorageImages(mBilateralTarget->View)},
+            {.Binding=1, .Data=WriteCombinedSamplers(mAOTarget->View, mSampler)},
+            {.Binding=2, .Data=WriteCombinedSamplers(mZBuffer->View, mSampler)},
+        });
 
         // Transition target so host can update its descriptor sets:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {

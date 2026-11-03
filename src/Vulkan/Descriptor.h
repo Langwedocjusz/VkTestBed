@@ -50,70 +50,50 @@ VkDescriptorSet              Allocate(VulkanContext &ctx, VkDescriptorPool pool,
 std::vector<VkDescriptorSet> Allocate(
     VulkanContext &ctx, VkDescriptorPool pool, std::span<VkDescriptorSetLayout> layouts
 );
-}; // namespace Descriptor
 
-class DescriptorUpdater {
-  public:
-    DescriptorUpdater(VkDescriptorSet descriptorSet);
+struct WriteUniformBuffers{
+    WriteUniformBuffers(std::span<Buffer> buffers) : Buffers(buffers) {}
+    WriteUniformBuffers(Buffer &buffer) : Buffers(std::span(&buffer, 1)) {}
 
-    // TODO: add support for different buffers
-
-    /// Assumes no offset into the buffer
-    DescriptorUpdater &WriteUniformBuffer(uint32_t binding, Buffer &buffer);
-    DescriptorUpdater &WriteUniformBuffers(
-        uint32_t binding, std::span<Buffer> buffers
-    );
-
-    /// Assumes no offset into the buffer
-    DescriptorUpdater &WriteStorageBuffer(uint32_t binding, Buffer &buffer);
-    DescriptorUpdater &WriteStorageBuffers(
-        uint32_t binding, std::span<Buffer> buffers
-    );
-
-    /// Uses combined sampler, by default assumes read only optimal layout, can be
-    /// overriden:
-    DescriptorUpdater &WriteCombinedSampler(
-        uint32_t      binding,
-        VkImageView   imageView,
-        VkSampler     sampler,
-        VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    );
-    DescriptorUpdater &WriteCombinedSamplers(
-        uint32_t               binding,
-        std::span<VkImageView> imageViews,
-        std::span<VkSampler>   samplers,
-        VkImageLayout          layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    );
-
-    /// Assumes general layout of the image
-    DescriptorUpdater &WriteStorageImage(uint32_t binding, VkImageView imageView);
-    DescriptorUpdater &WriteStorageImages(uint32_t binding, std::span<VkImageView> imageViews);
-
-    void Update(VulkanContext &ctx);
-
-  private:
-    enum class WriteType
-    {
-        UniformBuffer,
-        ShaderStorageBuffer,
-        CombinedImageSampler,
-        StorageImage,
-    };
-
-    struct WriteInfo {
-        size_t    Id;
-        uint32_t  Count = 1;
-        uint32_t  Binding;
-        WriteType Type;
-    };
-
-    std::vector<VkDescriptorBufferInfo> mBufferInfos;
-    std::vector<VkDescriptorImageInfo>  mImageInfos;
-
-    std::vector<WriteInfo> mWriteInfos;
-
-    VkDescriptorSet mDescriptorSet;
+    std::span<Buffer> Buffers;
 };
+
+struct WriteStorageBuffers{
+    WriteStorageBuffers(std::span<Buffer> buffers) : Buffers(buffers) {}
+    WriteStorageBuffers(Buffer &buffer) : Buffers(std::span(&buffer, 1)) {}
+
+    std::span<Buffer> Buffers;
+};
+
+struct WriteCombinedSamplers{
+    WriteCombinedSamplers(VkImageView &view, VkSampler sampler, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        : Views(std::span(&view, 1)), Sampler(sampler), Layout(layout)
+    {}
+    WriteCombinedSamplers(std::span<VkImageView> views, VkSampler sampler, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        : Views(views), Sampler(sampler), Layout(layout)
+    {}
+
+    std::span<VkImageView> Views; 
+    VkSampler              Sampler; 
+    VkImageLayout          Layout;
+};
+
+struct WriteStorageImages{
+    WriteStorageImages(VkImageView &view) : Views(std::span(&view, 1)) {}
+    WriteStorageImages(std::span<VkImageView> views) : Views(views) {}
+
+    std::span<VkImageView> Views;
+};
+
+using WriteData = std::variant<WriteUniformBuffers, WriteStorageBuffers, WriteCombinedSamplers, WriteStorageImages>;
+
+struct WriteInfo{
+    uint32_t  Binding;
+    WriteData Data;
+};
+
+void Update(VulkanContext &ctx, VkDescriptorSet set, std::vector<WriteInfo> &&writeInfos);
+}; // namespace Descriptor
 
 // Based on growable descriptor allocator from:
 // https://vkguide.dev/docs/new_chapter_4/descriptor_abstractions/

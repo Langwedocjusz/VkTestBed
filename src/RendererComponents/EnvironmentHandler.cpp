@@ -162,53 +162,46 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
 
     // Allocate and update descriptor sets:
     {
+        using namespace Descriptor;
+
         mLightingDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mLightingDescriptorSetLayout);
 
-        DescriptorUpdater(mLightingDescriptorSet)
-            .WriteUniformBuffer(0, *mEnvUBO)
-            .WriteStorageBuffer(1, *mFinalReductionBuffer)
-            .WriteCombinedSampler(2, mPrefiltered->View, mSamplerMipped)
-            .WriteCombinedSampler(3, mIntegration->View, mSamplerClamped)
-            .Update(mCtx);
-    }
-    {
         mIrradianceSHPipeline.AllocateReflectedSets(mCtx, mStaticPool);
-
-        DescriptorUpdater(mIrradianceSHPipeline.DescriptorSets.at(0))
-            .WriteCombinedSampler(0, mCubemap->View, mSampler)
-            .Update(mCtx);
-
-        DescriptorUpdater(mIrradianceSHPipeline.DescriptorSets.at(1))
-            .WriteStorageBuffer(0, *mFirstReducionBuffer)
-            .Update(mCtx);
-    }
-    {
         mIrradianceReducePipeline.AllocateReflectedSets(mCtx, mStaticPool);
-
-        DescriptorUpdater(mIrradianceReducePipeline.DescriptorSets.at(0))
-            .WriteStorageBuffer(0, *mFirstReducionBuffer)
-            .WriteStorageBuffer(1, *mFinalReductionBuffer)
-            .Update(mCtx);
-    }
-    {
         mBackgroundPipeline.AllocateReflectedSets(mCtx, mStaticPool);
-
-        DescriptorUpdater(mBackgroundPipeline.DescriptorSets.at(0))
-            .WriteCombinedSampler(0, mCubemap->View, mSampler)
-            .Update(mCtx);
-    }
-    {
         mIntegrationGenPipeline.AllocateReflectedSets(mCtx, mStaticPool);
+        // On those two: nothing to update yet - waiting for image:
+        mEquiRectToCubePipeline.AllocateReflectedSets(mCtx, mStaticPool);
+        mPrefilteredGenPipeline.AllocateReflectedSets(mCtx, mStaticPool);
 
-        DescriptorUpdater(mIntegrationGenPipeline.DescriptorSets.at(0))
-            .WriteStorageImage(0, mIntegration->View)
-            .Update(mCtx);
+        Descriptor::Update(mCtx, mLightingDescriptorSet, {
+            {.Binding=0, .Data=WriteUniformBuffers(*mEnvUBO)},
+            {.Binding=1, .Data=WriteStorageBuffers(*mFinalReductionBuffer)},
+            {.Binding=2, .Data=WriteCombinedSamplers(mPrefiltered->View, mSamplerMipped)},
+            {.Binding=3, .Data=WriteCombinedSamplers(mIntegration->View, mSamplerMipped)},
+        });
+
+        Descriptor::Update(mCtx, mIrradianceSHPipeline.DescriptorSets.at(0), {
+            {.Binding=0, .Data=WriteCombinedSamplers(mCubemap->View, mSampler)},
+        });
+
+        Descriptor::Update(mCtx, mIrradianceSHPipeline.DescriptorSets.at(1), {
+            {.Binding=0, .Data=WriteStorageBuffers(*mFirstReducionBuffer)},
+        });
+
+        Descriptor::Update(mCtx, mIrradianceReducePipeline.DescriptorSets.at(0), {
+            {.Binding=0, .Data=WriteStorageBuffers(*mFirstReducionBuffer)},
+            {.Binding=1, .Data=WriteStorageBuffers(*mFinalReductionBuffer)},
+        });
+
+        Descriptor::Update(mCtx, mBackgroundPipeline.DescriptorSets.at(0), {
+            {.Binding=0, .Data=WriteCombinedSamplers(mCubemap->View, mSampler)},
+        });
+
+        Descriptor::Update(mCtx, mIntegrationGenPipeline.DescriptorSets.at(0), {
+            {0, WriteStorageImages(mIntegration->View)},
+        });
     }
-
-    mPrefilteredGenPipeline.AllocateReflectedSets(mCtx, mStaticPool);
-
-    // Nothing to update yet - waiting for image:
-    mEquiRectToCubePipeline.AllocateReflectedSets(mCtx, mStaticPool);
 
     // Generate the integration map once: (it only depends on the chosen BRDF,
     // and we have only one option atm)
@@ -308,15 +301,17 @@ void EnvironmentHandler::DrawBackground(VkCommandBuffer cmd, FrustumBack frustum
 
 void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
 {
+    using namespace Descriptor;
+
     vassert(data.Format == VK_FORMAT_R32G32B32A32_SFLOAT);
 
     // Load equirectangular environment map:
     auto envMap = Texture::FromData(mCtx, "EnvEnvironmentMap", data);
 
-    DescriptorUpdater(mEquiRectToCubePipeline.DescriptorSets.at(0))
-        .WriteStorageImage(0, mCubemap->View)
-        .WriteCombinedSampler(1, envMap.View, mSampler)
-        .Update(mCtx);
+    Descriptor::Update(mCtx, mEquiRectToCubePipeline.DescriptorSets.at(0), {
+        {.Binding=0, .Data=WriteStorageImages(mCubemap->View)},
+        {.Binding=1, .Data=WriteCombinedSamplers(envMap.View, mSampler)},
+    });
 
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         using namespace vkenum::image_layout;
@@ -409,10 +404,12 @@ void EnvironmentHandler::GeneratePrefilteredMap()
             const float roughness = static_cast<float>(mip) / static_cast<float>(numMips - 1);
 
             // Update prefiltered descriptor to access appropriate mip level
-            DescriptorUpdater(mPrefilteredGenPipeline.DescriptorSets.at(0))
-                .WriteCombinedSampler(0, mCubemap->View, mSamplerMipped)
-                .WriteStorageImage(1, mPrefilteredMipViews[mip])
-                .Update(mCtx);
+            using namespace Descriptor;
+
+            Descriptor::Update(mCtx, mPrefilteredGenPipeline.DescriptorSets.at(0), {
+                {.Binding=0, .Data=WriteCombinedSamplers(mCubemap->View, mSamplerMipped)},
+                {.Binding=1, .Data=WriteStorageImages(mPrefilteredMipViews[mip])},
+            });
 
             mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
                 mPrefilteredGenPipeline.Bind(cmd);

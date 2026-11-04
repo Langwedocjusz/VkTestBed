@@ -105,19 +105,21 @@ void PostProcessor::RecreateSwapchainResources(Image &renderTarget, VkImageView 
     }
 
     // Update the descriptor sets:
-    std::vector<VkSampler> mipSamplers(mBloomNumMips, mBloomSampler);
+    using namespace Descriptor::Write;
 
-    DescriptorUpdater(mBloomDownscalePipeline.DescriptorSets.at(0))
-        .WriteStorageImages(0, mBloomSingleMipViews)
-        .WriteCombinedSamplers(1, mBloomSingleMipViews, mipSamplers, VK_IMAGE_LAYOUT_GENERAL)
-        .WriteCombinedSampler(2, renderTargetView, mBloomSampler)
-        .Update(mCtx);
+    // clang-format off
+    Descriptor::Update(mCtx, mBloomDownscalePipeline.DescriptorSets.at(0), {
+        {.Binding = 0, .Data = StorageImages(mBloomSingleMipViews)},
+        {.Binding = 1, .Data = CombinedSamplers(mBloomSingleMipViews, mBloomSampler, VK_IMAGE_LAYOUT_GENERAL)},
+        {.Binding = 2, .Data = CombinedSamplers(renderTargetView, mBloomSampler)},
+    });
 
-    DescriptorUpdater(mBloomUpscalePipeline.DescriptorSets.at(0))
-        .WriteStorageImages(0, mBloomSingleMipViews)
-        .WriteCombinedSamplers(1, mBloomSingleMipViews, mipSamplers, VK_IMAGE_LAYOUT_GENERAL)
-        .WriteCombinedSampler(2, renderTargetView, mBloomSampler)
-        .Update(mCtx);
+    Descriptor::Update(mCtx, mBloomUpscalePipeline.DescriptorSets.at(0), {
+        {.Binding = 0, .Data = StorageImages(mBloomSingleMipViews)},
+        {.Binding = 1, .Data = CombinedSamplers(mBloomSingleMipViews, mBloomSampler, VK_IMAGE_LAYOUT_GENERAL)},
+        {.Binding = 2, .Data = CombinedSamplers(renderTargetView, mBloomSampler)},
+    });
+    // clang-format on
 
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         using namespace vkenum::image_layout;
@@ -125,11 +127,13 @@ void PostProcessor::RecreateSwapchainResources(Image &renderTarget, VkImageView 
         barrier::ImageLayoutCoarse(cmd, {.Img = *mBloomTarget, .Old = General, .New = ShaderRead});
     });
 
-    DescriptorUpdater(mFinalPipeline.DescriptorSets.at(0))
-        .WriteStorageImage(0, mFinalTarget->View)
-        .WriteCombinedSampler(1, renderTargetView, mBloomSampler)
-        .WriteCombinedSampler(2, mBloomSingleMipViews[0], mBloomSampler)
-        .Update(mCtx);
+    // clang-format off
+    Descriptor::Update(mCtx, mFinalPipeline.DescriptorSets.at(0), {
+        {.Binding = 0, .Data = StorageImages(mFinalTarget->View)},
+        {.Binding = 1, .Data = CombinedSamplers(renderTargetView, mBloomSampler)},
+        {.Binding = 2, .Data = CombinedSamplers(mBloomSingleMipViews[0], mBloomSampler)},
+    });
+    // clang-format on
 
     // Transition final target to correct layout:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {

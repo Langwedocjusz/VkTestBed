@@ -162,7 +162,7 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
 
     // Allocate and update descriptor sets:
     {
-        using namespace Descriptor;
+        using namespace Descriptor::Write;
 
         mLightingDescriptorSet = Descriptor::Allocate(mCtx, staticPool, mLightingDescriptorSetLayout);
 
@@ -174,33 +174,35 @@ EnvironmentHandler::EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool stat
         mEquiRectToCubePipeline.AllocateReflectedSets(mCtx, mStaticPool);
         mPrefilteredGenPipeline.AllocateReflectedSets(mCtx, mStaticPool);
 
+        // clang-format off
         Descriptor::Update(mCtx, mLightingDescriptorSet, {
-            {.Binding=0, .Data=WriteUniformBuffers(*mEnvUBO)},
-            {.Binding=1, .Data=WriteStorageBuffers(*mFinalReductionBuffer)},
-            {.Binding=2, .Data=WriteCombinedSamplers(mPrefiltered->View, mSamplerMipped)},
-            {.Binding=3, .Data=WriteCombinedSamplers(mIntegration->View, mSamplerMipped)},
+            {.Binding = 0, .Data = UniformBuffers(*mEnvUBO)},
+            {.Binding = 1, .Data = StorageBuffers(*mFinalReductionBuffer)},
+            {.Binding = 2, .Data = CombinedSamplers(mPrefiltered->View, mSamplerMipped)},
+            {.Binding = 3, .Data = CombinedSamplers(mIntegration->View, mSamplerMipped)},
         });
 
         Descriptor::Update(mCtx, mIrradianceSHPipeline.DescriptorSets.at(0), {
-            {.Binding=0, .Data=WriteCombinedSamplers(mCubemap->View, mSampler)},
+            {.Binding = 0, .Data = CombinedSamplers(mCubemap->View, mSampler)},
         });
 
         Descriptor::Update(mCtx, mIrradianceSHPipeline.DescriptorSets.at(1), {
-            {.Binding=0, .Data=WriteStorageBuffers(*mFirstReducionBuffer)},
+            {.Binding = 0, .Data = StorageBuffers(*mFirstReducionBuffer)},
         });
 
         Descriptor::Update(mCtx, mIrradianceReducePipeline.DescriptorSets.at(0), {
-            {.Binding=0, .Data=WriteStorageBuffers(*mFirstReducionBuffer)},
-            {.Binding=1, .Data=WriteStorageBuffers(*mFinalReductionBuffer)},
+            {.Binding = 0,  .Data = StorageBuffers(*mFirstReducionBuffer)},
+            {.Binding = 1, .Data = StorageBuffers(*mFinalReductionBuffer)},
         });
 
         Descriptor::Update(mCtx, mBackgroundPipeline.DescriptorSets.at(0), {
-            {.Binding=0, .Data=WriteCombinedSamplers(mCubemap->View, mSampler)},
+            {.Binding = 0, .Data = CombinedSamplers(mCubemap->View, mSampler)},
         });
 
         Descriptor::Update(mCtx, mIntegrationGenPipeline.DescriptorSets.at(0), {
-            {0, WriteStorageImages(mIntegration->View)},
+            {.Binding = 0, .Data = StorageImages(mIntegration->View)},
         });
+        // clang-format on
     }
 
     // Generate the integration map once: (it only depends on the chosen BRDF,
@@ -301,17 +303,19 @@ void EnvironmentHandler::DrawBackground(VkCommandBuffer cmd, FrustumBack frustum
 
 void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
 {
-    using namespace Descriptor;
+    using namespace Descriptor::Write;
 
     vassert(data.Format == VK_FORMAT_R32G32B32A32_SFLOAT);
 
     // Load equirectangular environment map:
     auto envMap = Texture::FromData(mCtx, "EnvEnvironmentMap", data);
 
+    // clang-format off
     Descriptor::Update(mCtx, mEquiRectToCubePipeline.DescriptorSets.at(0), {
-        {.Binding=0, .Data=WriteStorageImages(mCubemap->View)},
-        {.Binding=1, .Data=WriteCombinedSamplers(envMap.View, mSampler)},
+        {.Binding = 0, .Data = StorageImages(mCubemap->View)},
+        {.Binding = 1, .Data = CombinedSamplers(envMap.View, mSampler)},
     });
+    // clang-format on
 
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         using namespace vkenum::image_layout;
@@ -404,12 +408,14 @@ void EnvironmentHandler::GeneratePrefilteredMap()
             const float roughness = static_cast<float>(mip) / static_cast<float>(numMips - 1);
 
             // Update prefiltered descriptor to access appropriate mip level
-            using namespace Descriptor;
+            using namespace Descriptor::Write;
 
+            // clang-format off
             Descriptor::Update(mCtx, mPrefilteredGenPipeline.DescriptorSets.at(0), {
-                {.Binding=0, .Data=WriteCombinedSamplers(mCubemap->View, mSamplerMipped)},
-                {.Binding=1, .Data=WriteStorageImages(mPrefilteredMipViews[mip])},
+                {.Binding = 0, .Data = CombinedSamplers(mCubemap->View, mSamplerMipped)},
+                {.Binding = 1, .Data = StorageImages(mPrefilteredMipViews[mip])},
             });
+            // clang-format on
 
             mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
                 mPrefilteredGenPipeline.Bind(cmd);

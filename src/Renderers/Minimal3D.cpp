@@ -340,10 +340,11 @@ void Minimal3DRenderer::LoadMaterials(const Scene &scene)
         }();
 
         // Update the descriptor set:
+        using namespace Descriptor::Write;
         // clang-format off
-        DescriptorUpdater(mat.DescriptorSet)
-            .WriteCombinedSampler(0, texture.View, mSampler)
-            .Update(mCtx);
+        Descriptor::Update(mCtx, mat.DescriptorSet, {
+            {0, CombinedSamplers(texture.View, mSampler)},
+        });
         // clang-format on
     }
 }

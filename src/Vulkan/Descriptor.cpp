@@ -181,12 +181,33 @@ std::vector<VkDescriptorSet> Descriptor::Allocate(
     return descriptorSets;
 }
 
-void Descriptor::Update(VulkanContext &ctx, VkDescriptorSet set, std::vector<WriteInfo> &&writeInfos)
+void Descriptor::Update(VulkanContext &ctx, VkDescriptorSet set, std::initializer_list<WriteInfo> writeInfos)
 {
-    std::vector<VkDescriptorBufferInfo> bufferInfos;
-    std::vector<VkDescriptorImageInfo>  imageInfos;
-    std::vector<VkWriteDescriptorSet>   writes;
+    std::vector<VkWriteDescriptorSet>   writes{};
+    std::vector<VkDescriptorBufferInfo> bufferInfos{};
+    std::vector<VkDescriptorImageInfo>  imageInfos{};
 
+    // Pre-allocate, since we will rely on stable addresses later on:
+    size_t bufferCount = 0;
+    size_t imageCount  = 0;
+
+    for (const auto &info : writeInfos)
+    {
+        // clang-format off
+        std::visit(overloaded{
+            [&](Write::UniformBuffers arg)   {bufferCount += arg.Buffers.size();},
+            [&](Write::StorageBuffers arg)   {bufferCount += arg.Buffers.size();},
+            [&](Write::CombinedSamplers arg) {imageCount  += arg.Views.size();},
+            [&](Write::StorageImages arg)    {imageCount  += arg.Views.size();},
+        }, info.Data);
+        // clang-format on
+    }
+
+    writes.reserve(writeInfos.size());
+    bufferInfos.reserve(bufferCount);
+    imageInfos.reserve(imageCount);
+
+    // Fill in buffer/image infos:
     for (const auto &info : writeInfos)
     {
         auto &write = writes.emplace_back();
@@ -196,72 +217,71 @@ void Descriptor::Update(VulkanContext &ctx, VkDescriptorSet set, std::vector<Wri
         write.dstBinding      = info.Binding;
         write.dstArrayElement = 0;
 
-        std::visit(overloaded{
-            [&](WriteUniformBuffers arg) {
-                const size_t startIdx = bufferInfos.size();
+        std::visit(
+            overloaded{
+                [&](Write::UniformBuffers arg) {
+                    const size_t startIdx = bufferInfos.size();
 
-                for (auto &buffer : arg.Buffers)
-                {
-                    bufferInfos.push_back({
-                        .buffer = buffer.Handle,
-                        .offset = 0,
-                        .range  = buffer.Size,
-                     });
-                }
+                    for (auto &buffer : arg.Buffers)
+                    {
+                        bufferInfos.push_back({
+                            .buffer = buffer.Handle,
+                            .offset = 0,
+                            .range  = buffer.Size,
+                        });
+                    }
 
-                write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                write.pBufferInfo = &bufferInfos[startIdx];
-                write.descriptorCount = static_cast<uint32_t>(arg.Buffers.size());
+                    write.pBufferInfo     = &bufferInfos[startIdx];
+                    write.descriptorCount = static_cast<uint32_t>(arg.Buffers.size());
+                    write.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                },
+                [&](Write::StorageBuffers arg) {
+                    const size_t startIdx = bufferInfos.size();
+
+                    for (auto &buffer : arg.Buffers)
+                    {
+                        bufferInfos.push_back({
+                            .buffer = buffer.Handle,
+                            .offset = 0,
+                            .range  = buffer.Size,
+                        });
+                    }
+
+                    write.pBufferInfo     = &bufferInfos[startIdx];
+                    write.descriptorCount = static_cast<uint32_t>(arg.Buffers.size());
+                    write.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                },
+                [&](Write::CombinedSamplers arg) {
+                    const size_t startIdx = imageInfos.size();
+
+                    for (auto view : arg.Views)
+                    {
+                        imageInfos.push_back({.sampler = arg.Sampler, .imageView = view, .imageLayout = arg.Layout});
+                    }
+
+                    write.pImageInfo      = &imageInfos[startIdx];
+                    write.descriptorCount = static_cast<uint32_t>(arg.Views.size());
+                    write.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                },
+                [&](Write::StorageImages arg) {
+                    const size_t startIdx = imageInfos.size();
+
+                    for (auto view : arg.Views)
+                    {
+                        imageInfos.push_back({
+                            .sampler     = {},
+                            .imageView   = view,
+                            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                        });
+                    }
+
+                    write.pImageInfo      = &imageInfos[startIdx];
+                    write.descriptorCount = static_cast<uint32_t>(arg.Views.size());
+                    write.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                },
             },
-            [&](WriteStorageBuffers arg){
-                const size_t startIdx = bufferInfos.size();
-
-                for (auto &buffer : arg.Buffers)
-                {
-                    bufferInfos.push_back({
-                        .buffer = buffer.Handle,
-                        .offset = 0,
-                        .range  = buffer.Size,
-                     });
-                }
-
-                write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-                write.pBufferInfo = &bufferInfos[startIdx];
-                write.descriptorCount = static_cast<uint32_t>(arg.Buffers.size());
-            },
-            [&](WriteCombinedSamplers arg){
-                const size_t startIdx = imageInfos.size();
-
-                for (auto view : arg.Views)
-                {
-                    imageInfos.push_back({
-                        .sampler     = arg.Sampler,
-                        .imageView   = view,
-                        .imageLayout = arg.Layout
-                    });
-                }
-
-                write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                write.pImageInfo     = &imageInfos[startIdx];
-                write.descriptorCount = static_cast<uint32_t>(arg.Views.size());
-            },
-            [&](WriteStorageImages arg){
-                const size_t startIdx = imageInfos.size();
-
-                for (auto view : arg.Views)
-                {
-                    imageInfos.push_back({
-                        .sampler     = {},
-                        .imageView   = view,
-                        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-                    });
-                }
-
-                write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-                write.pImageInfo     = &imageInfos[startIdx];
-                write.descriptorCount = static_cast<uint32_t>(arg.Views.size());
-            },
-        }, info.Data);
+            info.Data
+        );
     }
 
     vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);

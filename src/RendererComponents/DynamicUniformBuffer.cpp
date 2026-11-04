@@ -71,7 +71,7 @@ void DynamicDescriptorSet::Initialize(VkDescriptorSetLayout layout, Descriptor::
     mDescriptorSets = Descriptor::Allocate(mCtx, mDescriptorPool, layouts);
 }
 
-void DynamicDescriptorSet::BeginUpdate()
+/*void DynamicDescriptorSet::BeginUpdate()
 {
     vassert(mInitialized, "Not initialized yet!");
     vassert(mUpdaters.empty(), "EndUpdate was not called since last update!");
@@ -106,9 +106,7 @@ void DynamicDescriptorSet::WriteUniformBuffer(uint32_t binding, Buffer &buffer)
     }
 }
 
-void DynamicDescriptorSet::WriteUniformBuffer(
-    uint32_t binding, std::span<Buffer> buffers
-)
+void DynamicDescriptorSet::WriteUniformBuffer(uint32_t binding, std::span<Buffer> buffers)
 {
     vassert(mInitialized, "Not initialized yet!");
     vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
@@ -148,7 +146,7 @@ void DynamicDescriptorSet::WriteCombinedSampler(
     {
         updater.WriteCombinedSampler(binding, imageViews[idx], samplers[idx]);
     }
-}
+}*/
 
 VkDescriptorSetLayout DynamicDescriptorSet::DescriptorSetLayout() const
 {

@@ -38,14 +38,14 @@ class DynamicDescriptorSet {
     // so it will actually allocate more.
     void Initialize(VkDescriptorSetLayout layout, Descriptor::PoolCounts counts);
 
-    void BeginUpdate();
-    void EndUpdate();
-
-    void WriteUniformBuffer(uint32_t binding, Buffer &buffer);
-    void WriteUniformBuffer(uint32_t binding, std::span<Buffer> buffers);
-
-    void WriteCombinedSampler(uint32_t binding, VkImageView imageView, VkSampler sampler);
-    void WriteCombinedSampler(uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers);
+    // void BeginUpdate();
+    // void EndUpdate();
+    //
+    // void WriteUniformBuffer(uint32_t binding, Buffer &buffer);
+    // void WriteUniformBuffer(uint32_t binding, std::span<Buffer> buffers);
+    //
+    // void WriteCombinedSampler(uint32_t binding, VkImageView imageView, VkSampler sampler);
+    // void WriteCombinedSampler(uint32_t binding, std::span<VkImageView> imageViews, std::span<VkSampler> samplers);
 
     [[nodiscard]] VkDescriptorSetLayout DescriptorSetLayout() const;
     [[nodiscard]] VkDescriptorSet       DescriptorSet() const;

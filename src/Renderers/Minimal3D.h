@@ -92,8 +92,10 @@ class Minimal3DRenderer final : public IRenderer {
         glm::mat4 CameraViewProjection = glm::mat4(1.0f);
     } mUBOData;
 
-    DynamicUniformBuffer mDynamicUBO;
-    DynamicDescriptorSet mDynamicDS;
+    VkDescriptorPool mStaticDescriptorPool;
+
+    DynamicUniformBuffer                mDynamicUBO;
+    std::optional<DynamicDescriptorSet> mDynamicDS;
 
     DeletionQueue mSceneDeletionQueue;
 };

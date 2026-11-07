@@ -96,7 +96,6 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Came
     , mObjectIdPipeline(ctx)
     , mCamDynamicUBO(ctx, info, sizeof(mCamUBOData))
     , mDynamicUBO(ctx, info, sizeof(mUBOData))
-    , mDynamicDS(ctx, info)
     , mMaterialDescriptorAllocator(ctx)
     , mSceneDeletionQueue(ctx)
     , mMaterialDeletionQueue(ctx)
@@ -113,6 +112,17 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Came
             .EnableMaxAnisotropy()
             .Build(mCtx, mMainDeletionQueue);
     // clang-format on
+
+    // Create static descriptor pool:
+    auto poolSizes = Descriptor::PoolCounts{
+        .DescriptorSet        = 20,
+        .StorageImage         = 20,
+        .CombinedImageSampler = 20,
+        .UniformBuffer        = 20,
+        .StorageBuffer        = 20,
+    };
+
+    mStaticDescriptorPool = Descriptor::InitPool(mCtx, poolSizes, mMainDeletionQueue);
 
     // Create descriptor set layout for sampling material textures
     // and initialize the growable allocator:
@@ -146,6 +156,9 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Came
 
     // Build the descriptor sets for the dynamic uniform buffer:
     {
+        using namespace std::ranges::views;
+        using namespace Descriptor::Write;
+
         auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
         // clang-format off
@@ -156,29 +169,23 @@ MinimalPbrRenderer::MinimalPbrRenderer(VulkanContext &ctx, FrameInfo &info, Came
                 .Build(mCtx, mMainDeletionQueue);
         // clang-format on
 
-        auto counts = Descriptor::PoolCounts{
-            .UniformBuffer = 2,
-        };
-
-        mDynamicDS.Initialize(layout, counts);
+        mDynamicDS.emplace(ctx, mStaticDescriptorPool, info, layout);
 
         // Update descriptor sets:
-        mDynamicDS.BeginUpdate();
-        mDynamicDS.WriteUniformBuffer(0, mCamDynamicUBO.GetBuffers());
-        mDynamicDS.WriteUniformBuffer(1, mDynamicUBO.GetBuffers());
-        mDynamicDS.EndUpdate();
+        auto dynSets = mDynamicDS->DescriptorSets();
+        auto camBufs = mCamDynamicUBO.GetBuffers();
+        auto dynBufs = mDynamicUBO.GetBuffers();
+
+        for (auto [set, camBuf, dynBuf] : zip(dynSets, camBufs, dynBufs))
+        {
+            // clang-format off
+            Descriptor::Update(ctx, set, {
+                {0, UniformBuffers(camBuf)},
+                {1, UniformBuffers(dynBuf)},
+            });
+            // clang-format on
+        }
     }
-
-    // Create static descriptor pool:
-    auto poolSizes = Descriptor::PoolCounts{
-        .DescriptorSet        = 20,
-        .StorageImage         = 20,
-        .CombinedImageSampler = 20,
-        .UniformBuffer        = 20,
-        .StorageBuffer        = 20,
-    };
-
-    mStaticDescriptorPool = Descriptor::InitPool(mCtx, poolSizes, mMainDeletionQueue);
 
     // Build the static descriptor set for ao/shadows etc:
     // clang-format off
@@ -236,7 +243,7 @@ void MinimalPbrRenderer::RebuildOwnPipelines()
         .SetPolygonMode(VK_POLYGON_MODE_FILL)
         .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
         .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .OverrideDescriptor(0, mDynamicDS->DescriptorSetLayout())
         .EnableDepthTest()
         .SetDepthFormat(DepthStencilFormat)
         .SetStencilFormat(DepthStencilFormat)
@@ -251,7 +258,7 @@ void MinimalPbrRenderer::RebuildOwnPipelines()
         .SetPolygonMode(VK_POLYGON_MODE_FILL)
         .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
         .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
-        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .OverrideDescriptor(0, mDynamicDS->DescriptorSetLayout())
         .OverrideDescriptor(1, mMaterialDescriptorSetLayout)
         .EnableDepthTest()
         .SetDepthFormat(DepthStencilFormat)
@@ -271,7 +278,7 @@ void MinimalPbrRenderer::RebuildOwnPipelines()
         .RequestDynamicState(VK_DYNAMIC_STATE_COLOR_BLEND_ENABLE_EXT)
         .RequestDynamicState(VK_DYNAMIC_STATE_DEPTH_COMPARE_OP)
         .SetColorFormat(RenderTargetFormat)
-        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .OverrideDescriptor(0, mDynamicDS->DescriptorSetLayout())
         .OverrideDescriptor(1, mEnvHandler->GetLightingDSLayout())
         .OverrideDescriptor(2, mAuxDescriptorSetLayout)
         .OverrideDescriptor(3, mMaterialDescriptorSetLayout)
@@ -303,7 +310,7 @@ void MinimalPbrRenderer::RebuildOwnPipelines()
         .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
         .SetDepthFormat(DepthStencilFormat)
         .SetStencilFormat(DepthStencilFormat)
-        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .OverrideDescriptor(0, mDynamicDS->DescriptorSetLayout())
         .OverrideDescriptor(1, mMaterialDescriptorSetLayout)
         .SetMultisampling(mMultisample)
         .Build(mCtx);
@@ -330,7 +337,7 @@ void MinimalPbrRenderer::RebuildOwnPipelines()
         .SetStencilFormat(DepthStencilFormat)
         .EnableDepthTest(VK_COMPARE_OP_ALWAYS)
         .SetDepthFormat(DepthStencilFormat)
-        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .OverrideDescriptor(0, mDynamicDS->DescriptorSetLayout())
         .OverrideDescriptor(1, mMaterialDescriptorSetLayout)
         .SetMultisampling(mMultisample)
         .Build(mCtx);
@@ -346,7 +353,7 @@ void MinimalPbrRenderer::RebuildOwnPipelines()
         .RequestDynamicState(VK_DYNAMIC_STATE_CULL_MODE)
         .SetColorFormat(PickingTargetFormat)
         .SetDepthFormat(PickingDepthFormat)
-        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .OverrideDescriptor(0, mDynamicDS->DescriptorSetLayout())
         .OverrideDescriptor(1, mMaterialDescriptorSetLayout)
         .Build(mCtx);
 }
@@ -381,6 +388,7 @@ void MinimalPbrRenderer::RebuildPipelines()
 void MinimalPbrRenderer::RecreateSwapchainResources()
 {
     using namespace vkenum::image_usage;
+    using namespace Descriptor::Write;
 
     mSwapchainDeletionQueue.flush();
 
@@ -459,15 +467,19 @@ void MinimalPbrRenderer::RecreateSwapchainResources()
         auto [shadowView, shadowSampler] = mShadowmapHandler->GetViewAndSampler();
         auto [aoView, aoSampler]         = mAOHandler->GetViewAndSampler();
 
-        DescriptorUpdater(mAuxDescriptorSet)
-            .WriteCombinedSampler(0, shadowView, shadowSampler)
-            .WriteCombinedSampler(1, aoView, aoSampler)
-            .Update(mCtx);
+        // clang-format off
+        Descriptor::Update(mCtx, mAuxDescriptorSet, {
+            {.Binding=0, .Data=CombinedSamplers(shadowView, shadowSampler)},
+            {.Binding=1, .Data=CombinedSamplers(aoView, aoSampler)},
+        });
+        // clang-format on
     }
 }
 
 void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 {
+    using namespace Descriptor::Write;
+
     mShadowmapHandler->OnUpdate(mCamera, mEnvHandler->GetLightDir(), mSceneAABB);
 
     if (mAOHandler->RecreateRequested())
@@ -477,7 +489,13 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 
         auto [aoView, aoSampler] = mAOHandler->GetViewAndSampler();
 
-        DescriptorUpdater(mAuxDescriptorSet).WriteCombinedSampler(1, aoView, aoSampler).Update(mCtx);
+        Descriptor::Update(
+            mCtx,
+            mAuxDescriptorSet,
+            {
+                {.Binding = 1, .Data = CombinedSamplers(aoView, aoSampler)},
+        }
+        );
     }
 
     glm::vec2 drawExtent{
@@ -778,7 +796,7 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
         mZPrepassOpaquePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mZPrepassOpaquePipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
+        mZPrepassOpaquePipeline.BindDescriptorSet(cmd, mDynamicDS->DescriptorSet(), 0);
 
         auto materialCallback = [](VkCommandBuffer cmd, Material &material) {
             (void)cmd;
@@ -806,7 +824,7 @@ void MinimalPbrRenderer::Prepass(VkCommandBuffer cmd, DrawStats &stats)
         mZPrepassAlphaPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mZPrepassAlphaPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
+        mZPrepassAlphaPipeline.BindDescriptorSet(cmd, mDynamicDS->DescriptorSet(), 0);
 
         auto materialCallback = [this, &stats](VkCommandBuffer cmd, Material &material) {
             mZPrepassAlphaPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
@@ -863,7 +881,7 @@ void MinimalPbrRenderer::MainPass(VkCommandBuffer cmd, DrawStats &stats)
     common::ViewportScissor(cmd, GetTargetSize());
 
     std::array descriptorSets{
-        mDynamicDS.DescriptorSet(),
+        mDynamicDS->DescriptorSet(),
         mEnvHandler->GetLightingDS(),
         mAuxDescriptorSet,
     };
@@ -976,7 +994,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
         mStencilPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mStencilPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
+        mStencilPipeline.BindDescriptorSet(cmd, mDynamicDS->DescriptorSet(), 0);
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
@@ -1035,7 +1053,7 @@ void MinimalPbrRenderer::OutlinePass(VkCommandBuffer cmd, SceneKey highlightedOb
         mOutlinePipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mOutlinePipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
+        mOutlinePipeline.BindDescriptorSet(cmd, mDynamicDS->DescriptorSet(), 0);
 
         for (auto [drawableKey, instanceId] : mSelectedDrawableKeys)
         {
@@ -1089,7 +1107,7 @@ void MinimalPbrRenderer::RenderObjectId(VkCommandBuffer cmd, float x, float y)
     mObjectIdPipeline.Bind(cmd);
     common::ViewportScissor(cmd, VkExtent2D{1, 1});
 
-    mObjectIdPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
+    mObjectIdPipeline.BindDescriptorSet(cmd, mDynamicDS->DescriptorSet(), 0);
 
     auto materialCallback = [this](VkCommandBuffer cmd, Material &material) {
         mObjectIdPipeline.BindDescriptorSet(cmd, material.DescriptorSet, 1);
@@ -1222,6 +1240,8 @@ void MinimalPbrRenderer::LoadImages(const Scene &scene)
 
 void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
 {
+    using namespace Descriptor::Write;
+
     for (auto &[key, sceneMat] : scene.Materials)
     {
         const bool firstLoad = !mMaterials.contains(key);
@@ -1271,12 +1291,14 @@ void MinimalPbrRenderer::LoadMaterials(const Scene &scene)
         auto &normal    = GetTexture(sceneMat.Normal, *mDefaultNormal);
 
         // Update the descriptor set:
-        DescriptorUpdater(mat.DescriptorSet)
-            .WriteCombinedSampler(0, albedo.View, mMaterialSampler)
-            .WriteCombinedSampler(1, roughness.View, mMaterialSampler)
-            .WriteCombinedSampler(2, normal.View, mMaterialSampler)
-            .WriteUniformBuffer(3, mat.UBO)
-            .Update(mCtx);
+        // clang-format off
+        Descriptor::Update(mCtx, mat.DescriptorSet, {
+            {.Binding=0, .Data=CombinedSamplers(albedo.View, mMaterialSampler)},
+            {.Binding=1, .Data=CombinedSamplers(roughness.View, mMaterialSampler)},
+            {.Binding=2, .Data=CombinedSamplers(normal.View, mMaterialSampler)},
+            {.Binding=3, .Data=UniformBuffers(mat.UBO)},
+        });
+        // clang-format on
     }
 }
 

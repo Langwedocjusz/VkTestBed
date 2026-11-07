@@ -18,25 +18,34 @@ HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera
     : IRenderer(ctx, info, camera)
     , mGraphicsPipeline(ctx)
     , mDynamicUBO(ctx, info, sizeof(mUBOData))
-    , mDynamicDS(ctx, info)
     , mSceneDeletionQueue(ctx)
 {
+    using namespace std::ranges::views;
+    using namespace Descriptor::Write;
+
+    auto poolSizes = Descriptor::PoolCounts{
+        .DescriptorSet        = 3,
+        .StorageImage         = 0,
+        .CombinedImageSampler = 0,
+        .UniformBuffer        = 3,
+        .StorageBuffer        = 0,
+    };
+
+    mStaticDescriptorPool = Descriptor::InitPool(mCtx, poolSizes, mMainDeletionQueue);
+
+    auto layout = DescriptorSetLayoutBuilder("HelloDynamicDescriptorSetLayout")
+                      .AddUniformBuffer(0, VK_SHADER_STAGE_VERTEX_BIT)
+                      .Build(mCtx, mMainDeletionQueue);
+
+    mDynamicDS.emplace(ctx, mStaticDescriptorPool, info, layout);
+
+    for (auto [set, buff] : zip(mDynamicDS->DescriptorSets(), mDynamicUBO.GetBuffers()))
     {
-        auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-        auto layout = DescriptorSetLayoutBuilder("HelloDynamicDescriptorSetLayout")
-                          .AddUniformBuffer(0, stageFlags)
-                          .Build(mCtx, mMainDeletionQueue);
-
-        auto counts = Descriptor::PoolCounts{
-            .UniformBuffer = 1,
-        };
-
-        mDynamicDS.Initialize(layout, counts);
-
-        mDynamicDS.BeginUpdate();
-        mDynamicDS.WriteUniformBuffer(0, mDynamicUBO.GetBuffers());
-        mDynamicDS.EndUpdate();
+        // clang-format off
+        Descriptor::Update(ctx, set, {
+            {.Binding = 0, .Data = UniformBuffers(buff)},
+        });
+        // clang-format on
     }
 
     RebuildPipelines();
@@ -56,7 +65,7 @@ void HelloRenderer::RebuildPipelines()
         .SetPolygonMode(VK_POLYGON_MODE_FILL)
         .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
         .SetColorFormat(mRenderTargetFormat)
-        .OverrideDescriptor(0, mDynamicDS.DescriptorSetLayout())
+        .OverrideDescriptor(0, mDynamicDS->DescriptorSetLayout())
         .Build(mCtx);
 }
 
@@ -89,7 +98,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
         mGraphicsPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mGraphicsPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
+        mGraphicsPipeline.BindDescriptorSet(cmd, mDynamicDS->DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mDrawables)
         {

@@ -213,7 +213,7 @@ class MinimalPbrRenderer final : public IRenderer {
     DynamicUniformBuffer mCamDynamicUBO;
     DynamicUniformBuffer mDynamicUBO;
 
-    DynamicDescriptorSet mDynamicDS;
+    std::optional<DynamicDescriptorSet> mDynamicDS;
 
     // Auxiliary descriptor sets for other textures (ao, shadows):
     VkDescriptorPool mStaticDescriptorPool;

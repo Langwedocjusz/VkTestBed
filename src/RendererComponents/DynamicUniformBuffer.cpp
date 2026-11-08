@@ -8,7 +8,7 @@ DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame,
     , mFrame(frame)
 {
     // Create Uniform Buffers:
-    const auto numBuffers = mCtx.Swapchain->Images.size();
+    const auto numBuffers = mCtx.ActiveSwapchain->Images.size();
 
     mUniformBuffers.reserve(numBuffers);
 
@@ -43,7 +43,7 @@ DynamicDescriptorSet::DynamicDescriptorSet(
     mDescriptorSetLayout = layout;
 
     // Allocate descriptor sets:
-    auto numDescriptors = static_cast<uint32_t>(mCtx.Swapchain->Images.size());
+    auto numDescriptors = static_cast<uint32_t>(mCtx.ActiveSwapchain->Images.size());
 
     std::vector<VkDescriptorSetLayout> layouts(numDescriptors, mDescriptorSetLayout);
 

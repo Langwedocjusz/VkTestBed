@@ -40,7 +40,7 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     }
 
     // Create per swapchain image sync-objects:
-    mFrameInfo.SwapchainData.resize(mCtx.Swapchain->Images.size());
+    mFrameInfo.SwapchainData.resize(mCtx.ActiveSwapchain->Images.size());
 
     for (auto &data : mFrameInfo.SwapchainData)
     {
@@ -159,12 +159,12 @@ void RenderContext::GuiSwapchain()
 
     if (choice == 0)
     {
-        mCtx.Swapchain->Cfg.UseDxgi = true;
-        ImGui::Checkbox("Use Blit", &mCtx.Swapchain->Cfg.Dxgi.UseBlit);
+        mCtx.ActiveSwapchain->Cfg.UseDxgi = true;
+        ImGui::Checkbox("Use Blit", &mCtx.ActiveSwapchain->Cfg.Dxgi.UseBlit);
     }
     else
     {
-        mCtx.Swapchain->Cfg.UseDxgi = false;
+        mCtx.ActiveSwapchain->Cfg.UseDxgi = false;
 
         GuiSwapchainNative();
     }
@@ -190,7 +190,7 @@ void RenderContext::GuiSwapchainNative()
 
     imutils::Combo("Present Mode", choice, optNames);
 
-    mCtx.Swapchain->Cfg.Native.PresentMode = opts[choice];
+    mCtx.ActiveSwapchain->Cfg.Native.PresentMode = opts[choice];
 }
 
 void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj)
@@ -201,11 +201,10 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     // (signalled by previous submission of the same command buffer):
     vkWaitForFences(mCtx.Device, 1, &frameData.InFlightFence, VK_TRUE, UINT64_MAX);
 
-    // 2. Try to acquire swapchain image
-    // (this sets this frames ImageIndex):
-    auto presentInfo = mCtx.Swapchain->Acquire(frameData, mFrameInfo.ImageIndex);
+    // 2. Try to acquire swapchain image (this sets this frames ImageIndex):
+    auto presentInfo = mCtx.ActiveSwapchain->Acquire(frameData, mFrameInfo.ImageIndex);
 
-    if (!mCtx.Swapchain->Ok) // Bail out if acquire failed.
+    if (!mCtx.ActiveSwapchain->Ok) // Bail out if acquire failed.
         return;
 
     // 3. Reset the in-Flight fence, so it can be signalled again:
@@ -226,7 +225,7 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 #ifdef VULKAN_ON_DXGI
     VkTimelineSemaphoreSubmitInfo timelineInfo = {};
 
-    if (mCtx.Swapchain->IsDxgi())
+    if (mCtx.ActiveSwapchain->IsDxgi())
     {
         timelineInfo.sType                     = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
         timelineInfo.waitSemaphoreValueCount   = 1;
@@ -261,9 +260,9 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     vassert(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
 
     // 5. Present the frame to swapchain:
-    mCtx.Swapchain->Present(swapchainData, mFrameInfo.ImageIndex);
+    mCtx.ActiveSwapchain->Present(swapchainData, mFrameInfo.ImageIndex);
 
-    if (!mCtx.Swapchain->Ok) // Bail out if presentation failed.
+    if (!mCtx.ActiveSwapchain->Ok) // Bail out if presentation failed.
         return;
 
     // 6. Update frame number, advance frame index:
@@ -276,8 +275,8 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     (void)highlightedObj;
     auto &cmd = mFrameInfo.CurrentCmd();
 
-    auto &swapchainImage     = mCtx.Swapchain->Images[mFrameInfo.ImageIndex];
-    auto &swapchainImageView = mCtx.Swapchain->ImageViews[mFrameInfo.ImageIndex];
+    auto &swapchainImage     = mCtx.ActiveSwapchain->Images[mFrameInfo.ImageIndex];
+    auto &swapchainImageView = mCtx.ActiveSwapchain->ImageViews[mFrameInfo.ImageIndex];
 
     // Retrieve query results from previous submit if they are ready:
     auto queryResult = mStatsCollector.QueryResults(mFrameInfo.Index);
@@ -312,7 +311,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         barrier::SwapchainToBlitDST(cmd, swapchainImage);
 
         // 3. Copy render target to swapchain image
-        auto &swapExt = mCtx.Swapchain->Extent;
+        auto &swapExt = mCtx.ActiveSwapchain->Extent;
 
         auto swapchainInfo = vkutils::BlitImageInfo{
             .ImgHandle = swapchainImage,
@@ -338,14 +337,14 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 void RenderContext::DrawUI(VkCommandBuffer cmd, VkImageView swapchainView)
 {
     auto info = common::RenderingInfo{
-        .Extent     = mCtx.Swapchain->Extent,
+        .Extent     = mCtx.ActiveSwapchain->Extent,
         .Color      = swapchainView,
         .ClearColor = std::nullopt,
     };
 
     common::BeginRendering(cmd, info);
     {
-        common::ViewportScissor(cmd, mCtx.Swapchain->Extent);
+        common::ViewportScissor(cmd, mCtx.ActiveSwapchain->Extent);
 
         iminit::RecordImguiToCommandBuffer(cmd);
     }
@@ -368,10 +367,10 @@ void RenderContext::ResizeSwapchain()
     vkDeviceWaitIdle(mCtx.Device);
 
     DestroySwapchainResources();
-    mCtx.Swapchain->Recreate();
+    mCtx.ActiveSwapchain->Recreate();
     CreateSwapchainResources();
 
-    mCtx.Swapchain->Ok = true;
+    mCtx.ActiveSwapchain->Ok = true;
 }
 
 void RenderContext::LoadScene(Scene &scene)

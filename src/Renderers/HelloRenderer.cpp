@@ -138,8 +138,8 @@ void HelloRenderer::RecreateSwapchainResources()
     };
 
     const VkExtent2D drawExtent{
-        .width  = ScaleResolution(mCtx.Swapchain->Extent.width),
-        .height = ScaleResolution(mCtx.Swapchain->Extent.height),
+        .width  = ScaleResolution(mCtx.ActiveSwapchain->Extent.width),
+        .height = ScaleResolution(mCtx.ActiveSwapchain->Extent.height),
     };
 
     // clang-format off

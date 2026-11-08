@@ -620,14 +620,14 @@ void GraphicsPipelineBuilder::Build(VulkanContext &ctx)
     VkViewport viewport{};
     viewport.x        = 0.0f;
     viewport.y        = 0.0f;
-    viewport.width    = static_cast<float>(ctx.Swapchain->Extent.width);
-    viewport.height   = static_cast<float>(ctx.Swapchain->Extent.height);
+    viewport.width    = static_cast<float>(ctx.ActiveSwapchain->Extent.width);
+    viewport.height   = static_cast<float>(ctx.ActiveSwapchain->Extent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor = {};
     scissor.offset   = {0, 0};
-    scissor.extent   = ctx.Swapchain->Extent;
+    scissor.extent   = ctx.ActiveSwapchain->Extent;
 
     VkPipelineViewportStateCreateInfo viewport_state{};
     viewport_state.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;

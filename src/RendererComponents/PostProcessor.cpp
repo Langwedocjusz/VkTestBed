@@ -207,10 +207,6 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
 
             barrier::TextureGeneralToGeneral(cmd, mBloomTarget->Img, srcRange);
 
-            auto dstRange         = mBloomTarget->Img.GetDefaultRange();
-            dstRange.baseMipLevel = mip;
-            dstRange.levelCount   = 1;
-
             struct PCData {
                 uint32_t CurrentMip;
             };
@@ -245,7 +241,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         mFinalPipeline.PushConstants(cmd, PCData{
             .BloomEnabled           = static_cast<int32_t>(mBloomEnabled),
             .BloomStrength          = mBloomStrength,
-            .AdditionalColorCorrect = !vkutils::IsFormatSRGB(mCtx.Swapchain->Format),
+            .AdditionalColorCorrect = !vkutils::IsFormatSRGB(mCtx.ActiveSwapchain->Format),
         });
         // clang-format on
 

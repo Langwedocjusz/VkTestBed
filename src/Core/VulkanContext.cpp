@@ -172,10 +172,10 @@ VulkanContext::VulkanContext(SystemWindow &window)
     }
 
     // Swapchain creation:
-    Swapchain = std::make_unique<::Swapchain>(
+    ActiveSwapchain = std::make_unique<::Swapchain>(
         window, PhysicalDevice, Device, Surface, Queues.Graphics.Index, Queues.Present.Index, Queues.Present.Handle
     );
-    Swapchain->Recreate();
+    ActiveSwapchain->Recreate();
 
     // Retrieve info about optional features:
     // Check for timestamp support:
@@ -205,7 +205,7 @@ VulkanContext::~VulkanContext()
     vkDestroyCommandPool(Device, mImmGraphicsCommandPool, nullptr);
 
     // Swapchain resources need to be freed at this precise point:
-    Swapchain.reset();
+    ActiveSwapchain.reset();
 
     vmaDestroyAllocator(Allocator);
 

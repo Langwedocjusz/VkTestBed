@@ -83,7 +83,7 @@ void Application::Impl::Run()
         mWindow.PollEvents();
 
         // Recreate swapchain and related resources if necessary:
-        bool handleResize = !mStillResizing && (mResizeRequested || !mCtx.Swapchain->Ok);
+        bool handleResize = !mStillResizing && (mResizeRequested || !mCtx.ActiveSwapchain->Ok);
 
         // Bailing from doing the rendering while resizing as with current
         // setup it would be invalid anyway, and recreating all resources
@@ -123,7 +123,7 @@ void Application::Impl::Run()
         }
 
         // Update Renderer and Scene Editor:
-        const auto extent = mCtx.Swapchain->Extent;
+        const auto extent = mCtx.ActiveSwapchain->Extent;
 
         mCamera.OnUpdate(mDeltaTimeSeconds, extent.width, extent.height);
         mRender.OnUpdate(mDeltaTimeSeconds);
@@ -155,7 +155,7 @@ void Application::Impl::OnEvent(Event::EventVariant event)
     {
         auto resize = std::get<Event::FramebufferResize>(event);
 
-        auto &swapchain = *mCtx.Swapchain;
+        auto &swapchain = *mCtx.ActiveSwapchain;
 
         swapchain.Cfg.RequestedWidth  = resize.Width;
         swapchain.Cfg.RequestedHeight = resize.Height;

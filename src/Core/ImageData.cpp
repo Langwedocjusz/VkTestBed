@@ -11,10 +11,10 @@
 #define TINYKTX_IMPLEMENTATION
 #include "tinyktx.h"
 
-#define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
 #include <cstddef>
+#include <cstring> 
 #include <iostream>
 #include <utility>
 

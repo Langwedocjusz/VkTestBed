@@ -140,7 +140,6 @@ target_sources(${PROJECT_NAME}
         src/Core/VertexLayout.cpp
         src/Core/VertexPacking.h
         src/Core/VertexPacking.cpp
-        src/Core/VmaImpl.cpp
         src/Core/VulkanContext.h
         src/Core/VulkanContext.cpp
         src/Core/VulkanStatistics.h
@@ -190,6 +189,8 @@ target_sources(${PROJECT_NAME}
         src/Renderers/Renderer.h
         src/Renderers/RendererFactory.h
         src/Renderers/RendererFactory.cpp
+        src/VendorImpls/TinyExrImpl.cpp
+        src/VendorImpls/VmaImpl.cpp
         src/Vulkan/Barrier.h
         src/Vulkan/Barrier.cpp
         src/Vulkan/Buffer.h
@@ -213,6 +214,11 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/VkUtils.cpp
 )
 
+#Unfortunately gcc has problems with tinyexr:
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set_source_files_properties(src/VendorImpls/TinyExrImpl.cpp PROPERTIES COMPILE_OPTIONS "-Wno-array-bounds;-Wno-stringop-overflow")
+endif()
+
 #Setup include directories:
 target_include_directories(${PROJECT_NAME}
     PRIVATE
@@ -232,6 +238,7 @@ source_group(src/Cpp REGULAR_EXPRESSION "src/Cpp/*")
 source_group(src/Gui REGULAR_EXPRESSION "src/Gui/*")
 source_group(src/RendererComponents REGULAR_EXPRESSION "src/RendererComponents/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
+source_group(src/Vulkan REGULAR_EXPRESSION "src/VendorImpls/*")
 source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 
 #Setup precompiled header:

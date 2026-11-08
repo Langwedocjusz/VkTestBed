@@ -321,7 +321,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
         using namespace vkenum::image_layout;
 
         // Transition cubemap to use as storage image:
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mCubemap, .Old = Undefined, .New = General});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mCubemap->Img, .Old = Undefined, .New = General});
 
         // Sample equirectangular map to cubemap
         // using a compute pipeline:
@@ -332,7 +332,7 @@ void EnvironmentHandler::ConvertEquirectToCubemap(const ImageData &data)
         mEquiRectToCubePipeline.Dispatch(cmd, extent.width, extent.height, 6);
 
         // Transition cubemap back to be used as texture:
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mCubemap, .Old = General, .New = ShaderRead});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mCubemap->Img, .Old = General, .New = ShaderRead});
     });
 
     // Generate mip levels (to use when generating prefiltered map)
@@ -383,15 +383,15 @@ void EnvironmentHandler::GeneratePrefilteredMap()
 
         // Transition: cubemap -> TransferSrc, prefiltered -> TransferDst:
         // clang-format off
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mCubemap,     .Old = ShaderRead, .New = TransferSrc});
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mPrefiltered, .Old = Undefined,  .New = TransferDst});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mCubemap->Img,     .Old = ShaderRead, .New = TransferSrc});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mPrefiltered->Img, .Old = Undefined,  .New = TransferDst});
 
         // Issue the blit command:
-        vkutils::BlitImageZeroMip(cmd, *mCubemap, *mPrefiltered);
+        vkutils::BlitImageZeroMip(cmd, mCubemap->Img, mPrefiltered->Img);
 
         // Transition: cubemap -> texture, prefiltered -> General:
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mCubemap,     .Old = TransferSrc, .New = ShaderRead});
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mPrefiltered, .Old = TransferDst, .New = General});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mCubemap->Img,     .Old = TransferSrc, .New = ShaderRead});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mPrefiltered->Img, .Old = TransferDst, .New = General});
         // clang-format on
     });
 
@@ -447,7 +447,7 @@ void EnvironmentHandler::GeneratePrefilteredMap()
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         using namespace vkenum::image_layout;
 
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mPrefiltered, .Old = General, .New = ShaderRead});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mPrefiltered->Img, .Old = General, .New = ShaderRead});
     });
 }
 
@@ -456,7 +456,7 @@ void EnvironmentHandler::GenerateIntegrationMap()
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         using namespace vkenum::image_layout;
 
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mIntegration, .Old = Undefined, .New = General});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mIntegration->Img, .Old = Undefined, .New = General});
 
         mIntegrationGenPipeline.Bind(cmd);
         mIntegrationGenPipeline.BindReflectedSets(cmd);
@@ -464,7 +464,7 @@ void EnvironmentHandler::GenerateIntegrationMap()
         auto extent = mIntegration->Img.Info.extent;
         mIntegrationGenPipeline.Dispatch(cmd, extent.width, extent.height);
 
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mIntegration, .Old = General, .New = ShaderRead});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mIntegration->Img, .Old = General, .New = ShaderRead});
     });
 }
 
@@ -488,8 +488,8 @@ void EnvironmentHandler::ResetToBlack()
         };
 
         // Clear cubemap and prefiltered map to pure black:
-        ResetImageToBlack(*mCubemap);
-        ResetImageToBlack(*mPrefiltered);
+        ResetImageToBlack(mCubemap->Img);
+        ResetImageToBlack(mPrefiltered->Img);
 
         // Set all SH coefficients to 0:
         auto fillValue = std::bit_cast<uint32_t, float>(0.0f);

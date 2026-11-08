@@ -477,8 +477,10 @@ static std::vector<VkDescriptorSetLayout> BuildLayoutList(
 
     std::vector<VkDescriptorSetLayout> ret(maxSet + 1);
 
-    for (auto [idx, layout] : std::ranges::views::enumerate(ret))
+    for (auto [i, layout] : std::ranges::views::enumerate(ret))
     {
+        auto idx = static_cast<uint32_t>(i);
+
         if (layoutOverrides.contains(idx))
         {
             layout = layoutOverrides.at(idx);

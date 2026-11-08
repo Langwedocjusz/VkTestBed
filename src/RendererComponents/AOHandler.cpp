@@ -178,8 +178,8 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
             using namespace vkenum::image_layout;
 
             // clang-format off
-            barrier::ImageLayoutCoarse(cmd, {.Img = *mZBuffer,   .Old = General,    .New = ShaderRead});
-            barrier::ImageLayoutCoarse(cmd, {.Img = depthBuffer, .Old = ShaderRead, .New = DepthStencil});
+            barrier::ImageLayoutCoarse(cmd, {.Img = mZBuffer->Img, .Old = General,    .New = ShaderRead});
+            barrier::ImageLayoutCoarse(cmd, {.Img = depthBuffer,   .Old = ShaderRead, .New = DepthStencil});
             // clang-format on
         });
     }
@@ -199,7 +199,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             using namespace vkenum::image_layout;
 
-            barrier::ImageLayoutCoarse(cmd, {.Img = *mAOTarget, .Old = General, .New = ShaderRead});
+            barrier::ImageLayoutCoarse(cmd, {.Img = mAOTarget->Img, .Old = General, .New = ShaderRead});
         });
     }
 
@@ -219,7 +219,7 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
             using namespace vkenum::image_layout;
 
-            barrier::ImageLayoutCoarse(cmd, {.Img = *mBilateralTarget, .Old = General, .New = ShaderRead});
+            barrier::ImageLayoutCoarse(cmd, {.Img = mBilateralTarget->Img, .Old = General, .New = ShaderRead});
         });
     }
 }

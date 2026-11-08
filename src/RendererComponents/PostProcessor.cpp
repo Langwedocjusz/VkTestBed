@@ -124,7 +124,7 @@ void PostProcessor::RecreateSwapchainResources(Image &renderTarget, VkImageView 
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         using namespace vkenum::image_layout;
 
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mBloomTarget, .Old = General, .New = ShaderRead});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mBloomTarget->Img, .Old = General, .New = ShaderRead});
     });
 
     // clang-format off
@@ -139,7 +139,7 @@ void PostProcessor::RecreateSwapchainResources(Image &renderTarget, VkImageView 
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
         using namespace vkenum::image_layout;
 
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mFinalTarget, .Old = General, .New = TransferSrc});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mFinalTarget->Img, .Old = General, .New = TransferSrc});
     });
 }
 

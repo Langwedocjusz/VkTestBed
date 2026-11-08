@@ -102,18 +102,6 @@ class Texture {
     static Texture MakeCube(VulkanContext &ctx, const Image2DInfo &info);
     static Texture FromData(VulkanContext &ctx, const std::string &debugName, const ImageData &data);
 
-    // Image& conversions:
-    operator Image &() & noexcept
-    {
-        return Img;
-    }
-    operator const Image &() const & noexcept
-    {
-        return Img;
-    }
-    operator Image &() &&             = delete;
-    operator const Image &() const && = delete;
-
   private:
     Texture(VulkanContext &ctx, Image &&img);
 

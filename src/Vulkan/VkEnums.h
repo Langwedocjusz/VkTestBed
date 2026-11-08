@@ -21,7 +21,9 @@ namespace vkenum
 template <typename Bits>
 class Flags {
   public:
-    using Underlying = std::underlying_type_t<Bits>;
+    // NOTE: Make unsigned requried on windows since, VkFlagBits have no fixed underlying type
+    // whereas combined VkFlags are unsigned:
+    using Underlying = std::make_unsigned_t<std::underlying_type_t<Bits>>;
 
     constexpr Flags(Bits b)
         : mValue(static_cast<Underlying>(b))

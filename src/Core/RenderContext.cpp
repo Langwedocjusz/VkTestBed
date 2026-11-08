@@ -4,9 +4,10 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Frame.h"
+#include "Image.h"
+#include "ImageData.h"
 #include "ImGuiInit.h"
 #include "ImGuiUtils.h"
-#include "ImageData.h"
 #include "Keycodes.h"
 #include "Renderer.h"
 #include "Scene.h"
@@ -407,7 +408,7 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         using namespace vkenum::image_layout;
 
         // Transitions layout to render (can discard contents):
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mPicking.Target, .Old = Undefined, .New = ColorAttachment});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mPicking.Target->Img, .Old = Undefined, .New = ColorAttachment});
 
         // Draw objects:
         auto renderInfo = common::RenderingInfo{
@@ -422,7 +423,7 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         vkCmdEndRendering(cmd);
 
         // Copy from target image to cpu visible buffer:
-        barrier::ImageLayoutCoarse(cmd, {.Img = *mPicking.Target, .Old = ColorAttachment, .New = TransferSrc});
+        barrier::ImageLayoutCoarse(cmd, {.Img = mPicking.Target->Img, .Old = ColorAttachment, .New = TransferSrc});
 
         VkBufferImageCopy region{};
         region.bufferOffset      = 0;

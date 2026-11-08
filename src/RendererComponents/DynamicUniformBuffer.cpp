@@ -2,167 +2,65 @@
 #include "Pch.h"
 
 #include "Descriptor.h"
-#include "MakeBuffer.h"
-#include "Vassert.h"
 
-#include <ranges>
-
-DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame,
-                                           VkDeviceSize bufferSize)
-    : mBufferSize(bufferSize), mCtx(ctx), mFrame(frame), mDeletionQueue(ctx)
+DynamicUniformBuffer::DynamicUniformBuffer(VulkanContext &ctx, FrameInfo &frame, VkDeviceSize bufferSize)
+    : mCtx(ctx)
+    , mFrame(frame)
 {
     // Create Uniform Buffers:
-    mUniformBuffers.resize(mCtx.Swapchain->Images.size());
+    const auto numBuffers = mCtx.ActiveSwapchain->Images.size();
 
-    for (auto &uniformBuffer : mUniformBuffers)
+    mUniformBuffers.reserve(numBuffers);
+
+    for (size_t i = 0; i < numBuffers; i++)
     {
-        uniformBuffer =
-            MakeBuffer::MappedUniform(mCtx, "CameraUniformBuffer", bufferSize);
-        mDeletionQueue.push_back(uniformBuffer);
+        Buffer::ThinInfo uboInfo{
+            .Name = "DynamicUniformBuffer",
+            .Size = bufferSize,
+        };
+
+        mUniformBuffers.emplace_back(Buffer::MakeMappedUniform(mCtx, uboInfo));
     }
 }
 
 void DynamicUniformBuffer::UpdateData(void *data, VkDeviceSize size)
 {
     auto &uniformBuffer = mUniformBuffers[mFrame.ImageIndex];
-    Buffer::UploadToMapped(uniformBuffer, data, size);
+    uniformBuffer.UploadMapped(data, size);
 }
 
-DynamicUniformBuffer::HandlesAndSizes DynamicUniformBuffer::GetBufferHandlesAndSizes()
-    const
+std::span<Buffer> DynamicUniformBuffer::GetBuffers()
 {
-    std::vector<VkBuffer> handles;
-    handles.resize(mUniformBuffers.size());
-
-    for (size_t idx = 0; idx < mUniformBuffers.size(); idx++)
-    {
-        handles[idx] = mUniformBuffers[idx].Handle;
-    }
-
-    std::vector<VkDeviceSize> sizes(mUniformBuffers.size(), mBufferSize);
-
-    return {handles, sizes};
+    return {mUniformBuffers};
 }
 
-DynamicDescriptorSet::DynamicDescriptorSet(VulkanContext &ctx, FrameInfo &frame)
-    : mCtx(ctx), mFrame(frame), mDeletionQueue(ctx)
+DynamicDescriptorSet::DynamicDescriptorSet(
+    VulkanContext &ctx, VkDescriptorPool staticPool, FrameInfo &frame, VkDescriptorSetLayout layout
+)
+    : mCtx(ctx)
+    , mFrame(frame)
 {
-}
-
-void DynamicDescriptorSet::Initialize(VkDescriptorSetLayout   layout,
-                                      DescriptorBindingCounts poolCounts)
-{
-    vassert(!mInitialized, "Already initialized!");
-    mInitialized = true;
-
-    // Initialize descriptor pool:
-    auto numDescriptors = static_cast<uint32_t>(mCtx.Swapchain->Images.size());
-
-    auto totalCounts = numDescriptors * poolCounts;
-    auto rawCounts   = totalCounts.ToRaw();
-
-    mDescriptorPool =
-        Descriptor::InitPool(mCtx, numDescriptors, rawCounts, mDeletionQueue);
+    mDescriptorSetLayout = layout;
 
     // Allocate descriptor sets:
-    mDescriptorSetLayout = layout;
+    auto numDescriptors = static_cast<uint32_t>(mCtx.ActiveSwapchain->Images.size());
+
     std::vector<VkDescriptorSetLayout> layouts(numDescriptors, mDescriptorSetLayout);
 
-    mDescriptorSets = Descriptor::Allocate(mCtx, mDescriptorPool, layouts);
-}
-
-void DynamicDescriptorSet::BeginUpdate()
-{
-    vassert(mInitialized, "Not initialized yet!");
-    vassert(mUpdaters.empty(), "EndUpdate was not called since last update!");
-
-    for (auto &descriptorSet : mDescriptorSets)
-    {
-        mUpdaters.emplace_back(descriptorSet);
-    }
-}
-
-void DynamicDescriptorSet::EndUpdate()
-{
-    vassert(mInitialized, "Not initialized yet!");
-    vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
-
-    for (auto &updater : mUpdaters)
-    {
-        updater.Update(mCtx);
-    }
-
-    mUpdaters.clear();
-}
-
-void DynamicDescriptorSet::WriteUniformBuffer(uint32_t binding, VkBuffer buffer,
-                                              VkDeviceSize size)
-{
-    vassert(mInitialized, "Not initialized yet!");
-    vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
-
-    for (auto &updater : mUpdaters)
-    {
-        updater.WriteUniformBuffer(binding, buffer, size);
-    }
-}
-
-void DynamicDescriptorSet::WriteUniformBuffer(uint32_t                binding,
-                                              std::span<VkBuffer>     buffers,
-                                              std::span<VkDeviceSize> sizes)
-{
-    vassert(mInitialized, "Not initialized yet!");
-    vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
-    vassert(mUpdaters.size() == buffers.size(), "Invalid buffer count.");
-    vassert(mUpdaters.size() == sizes.size(), "Invalid buffer sizes count.");
-
-    using namespace std::views;
-
-    for (auto [idx, updater] : enumerate(mUpdaters))
-    {
-        updater.WriteUniformBuffer(binding, buffers[idx], sizes[idx]);
-    }
-}
-
-void DynamicDescriptorSet::WriteCombinedSampler(uint32_t binding, VkImageView imageView,
-                                                VkSampler sampler)
-{
-    vassert(mInitialized, "Not initialized yet!");
-    vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
-
-    for (auto &updater : mUpdaters)
-    {
-        updater.WriteCombinedSampler(binding, imageView, sampler);
-    }
-}
-
-void DynamicDescriptorSet::WriteCombinedSampler(uint32_t               binding,
-                                                std::span<VkImageView> imageViews,
-                                                std::span<VkSampler>   samplers)
-{
-    vassert(mInitialized, "Not initialized yet!");
-    vassert(!mUpdaters.empty(), "BeginUpdate was not called since last update!");
-    vassert(mUpdaters.size() == imageViews.size(), "Invalid image views count.");
-    vassert(mUpdaters.size() == samplers.size(), "Invalid samplers count.");
-
-    using namespace std::views;
-
-    for (auto [idx, updater] : enumerate(mUpdaters))
-    {
-        updater.WriteCombinedSampler(binding, imageViews[idx], samplers[idx]);
-    }
+    mDescriptorSets = Descriptor::Allocate(mCtx, staticPool, layouts);
 }
 
 VkDescriptorSetLayout DynamicDescriptorSet::DescriptorSetLayout() const
 {
-    vassert(mInitialized, "Not initialized yet!");
-
     return mDescriptorSetLayout;
 }
 
 VkDescriptorSet DynamicDescriptorSet::DescriptorSet() const
 {
-    vassert(mInitialized, "Not initialized yet!");
-
     return mDescriptorSets[mFrame.ImageIndex];
+}
+
+std::span<VkDescriptorSet> DynamicDescriptorSet::DescriptorSets()
+{
+    return {mDescriptorSets};
 }

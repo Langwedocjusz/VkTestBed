@@ -24,9 +24,8 @@ struct RenderingInfo {
     bool                        DepthHasStencil = true;
     std::optional<VkImageView>  ColorResolve    = std::nullopt;
     std::optional<VkImageView>  DepthResolve    = std::nullopt;
-    std::optional<VkClearValue> ClearColor =
-        VkClearValue{.color = {{0.0f, 0.0f, 0.0f, 0.0f}}};
-    std::optional<VkClearValue> ClearDepth = VkClearValue{
+    std::optional<VkClearValue> ClearColor      = VkClearValue{.color = {{0.0f, 0.0f, 0.0f, 0.0f}}};
+    std::optional<VkClearValue> ClearDepth      = VkClearValue{
         .depthStencil = {1.0f, 0}
     };
 };

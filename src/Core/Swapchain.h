@@ -15,9 +15,15 @@ struct PresentationInfo {
 
 class Swapchain {
   public:
-    Swapchain(SystemWindow &window, VkPhysicalDevice physicalDevice, VkDevice device,
-              VkSurfaceKHR surface, uint32_t graphicsQueueIdx, uint32_t presentQueueIdx,
-              VkQueue presentQueueHandle);
+    Swapchain(
+        SystemWindow    &window,
+        VkPhysicalDevice physicalDevice,
+        VkDevice         device,
+        VkSurfaceKHR     surface,
+        uint32_t         graphicsQueueIdx,
+        uint32_t         presentQueueIdx,
+        VkQueue          presentQueueHandle
+    );
     ~Swapchain();
 
     void             Recreate();
@@ -72,7 +78,7 @@ class Swapchain {
 
     void             RecreateNative(VkExtent2D extent);
     PresentationInfo AcquireNative(FrameResources &frameData, uint32_t &imageIndex);
-    void PresentNative(SwapchainResources &swapResources, uint32_t &imageIndex);
+    void             PresentNative(SwapchainResources &swapResources, uint32_t &imageIndex);
 
 #ifdef VULKAN_ON_DXGI
     struct DxgiContext;

@@ -27,22 +27,22 @@ static PushVertexOffsets GetOffsets(const Vertex::PushLayout &layout)
 
     if (layout.HasTexCoord)
     {
-        stride += 2;
-        offsetNormal += 2;
+        stride        += 2;
+        offsetNormal  += 2;
         offsetTangent += 2;
-        offsetColor += 2;
+        offsetColor   += 2;
     }
 
     if (layout.HasNormal)
     {
-        stride += 3;
+        stride        += 3;
         offsetTangent += 3;
-        offsetColor += 3;
+        offsetColor   += 3;
     }
 
     if (layout.HasTangent)
     {
-        stride += 4;
+        stride      += 4;
         offsetColor += 4;
     }
 
@@ -105,9 +105,8 @@ static glm::vec2 OctahedralMap(glm::vec3 v)
 {
     if (std::abs(glm::length(v) - 1.0f) > 0.01f)
     {
-        auto message = std::string("Provided vector should be normalized! Instead got:") +
-                       std::to_string(v.x) + " " + std::to_string(v.y) + " " +
-                       std::to_string(v.z);
+        auto message = std::string("Provided vector should be normalized! Instead got:") + std::to_string(v.x) + " " +
+                       std::to_string(v.y) + " " + std::to_string(v.z);
         vpanic(message);
     }
 
@@ -189,8 +188,7 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
 {
     // Allocate memory:
     auto       vertSize = Vertex::GetSize(vLayout);
-    const auto spec =
-        GeometrySpec::BuildS<uint32_t>(vertSize, prim.VertexCount, prim.IndexCount);
+    const auto spec     = GeometrySpec::BuildS<uint32_t>(vertSize, prim.VertexCount, prim.IndexCount);
 
     auto geo = GeometryData(spec);
 
@@ -205,8 +203,7 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
     geo.BBox = prim.BBox;
 
     // Retrieve indices:
-    std::memcpy(geo.IndexData.Data, prim.Indices.data(),
-                prim.Indices.size() * sizeof(uint32_t));
+    std::memcpy(geo.IndexData.Data, prim.Indices.data(), prim.Indices.size() * sizeof(uint32_t));
 
     // Repackage vertices based on layout:
     if (auto *layout = std::get_if<Vertex::PushLayout>(&vLayout))
@@ -276,8 +273,7 @@ GeometryData VertexPacking::Encode(PrimitiveData &prim, Vertex::Layout vLayout)
             break;
         }
         case Vertex::PullLayout::Compressed: {
-            auto data =
-                new (geo.VertexData.Data) Vertex::PullCompressed[prim.VertexCount];
+            auto data = new (geo.VertexData.Data) Vertex::PullCompressed[prim.VertexCount];
 
             for (size_t vertIdx = 0; vertIdx < prim.VertexCount; vertIdx++)
             {

@@ -3,68 +3,39 @@
 
 #include "Barrier.h"
 #include "Descriptor.h"
-#include "MakeImage.h"
 #include "Sampler.h"
+#include "VkEnums.h"
 #include "VkUtils.h"
 
 #include "imgui.h"
 
-PostProcessor::PostProcessor(VulkanContext &ctx)
-    : mCtx(ctx), mPipelineDeletionQueue(ctx), mSwapchainDeletionQueue(ctx),
-      mMainDeletionQueue(ctx)
+PostProcessor::PostProcessor(VulkanContext &ctx, VkDescriptorPool staticPool)
+    : mCtx(ctx)
+    , mBloomDownscalePipeline(ctx)
+    , mBloomUpscalePipeline(ctx)
+    , mFinalPipeline(ctx)
+    , mSwapchainDeletionQueue(ctx)
+    , mMainDeletionQueue(ctx)
 {
     // Setup sampler state (linear, clamp to edge):
-    mBloomSampler = SamplerBuilder("PostfxBloomSampler")
-                        .SetMagFilter(VK_FILTER_LINEAR)
-                        .SetMinFilter(VK_FILTER_LINEAR)
-                        .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
-                        .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
-                        .SetMaxLod(12.0f)
-                        .Build(mCtx, mMainDeletionQueue);
+    // clang-format off
+    mBloomSampler = 
+        SamplerBuilder("PostfxBloomSampler")
+            .SetMagFilter(VK_FILTER_LINEAR)
+            .SetMinFilter(VK_FILTER_LINEAR)
+            .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+            .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
+            .SetMaxLod(12.0f)
+            .Build(mCtx, mMainDeletionQueue);
+    // clang-format on
 
-    // Setup layout and allocate descriptor sets:
-    DescriptorBindingCounts totalCounts{};
+    // Build the pipelines:
+    RebuildPipelines();
 
-    // TODO: When this is dynamic the descriptor sets
-    // will have to be re-allocated per-swapchain:
-    const uint32_t dsCountBloom = 1;
-    const uint32_t dsCountFinal = 1;
-
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("PostfxBloomDescriptorSetLayout")
-                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
-                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT, mBloomNumMips)
-                .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-                .Build(mCtx, mMainDeletionQueue);
-
-        mBloomDescriptorSetLayout = layout;
-        totalCounts += dsCountBloom * counts;
-    }
-
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("PostfxFinalCompositionDescriptorSetLayout")
-                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-                .Build(mCtx, mMainDeletionQueue);
-
-        mFinalDescriptorSetLayout = layout;
-        totalCounts += dsCountFinal * counts;
-    }
-
-    auto rawCounts          = totalCounts.ToRaw();
-    auto descriptorSetCount = dsCountBloom + dsCountFinal;
-
-    mDescriptorPool =
-        Descriptor::InitPool(mCtx, descriptorSetCount, rawCounts, mMainDeletionQueue);
-
-    mBloomDescriptorSet =
-        Descriptor::Allocate(mCtx, mDescriptorPool, mBloomDescriptorSetLayout);
-
-    mFinalDescriptorSet =
-        Descriptor::Allocate(mCtx, mDescriptorPool, mFinalDescriptorSetLayout);
+    // Allocate descriptor sets:
+    mBloomDownscalePipeline.AllocateReflectedSets(ctx, staticPool);
+    mBloomUpscalePipeline.AllocateReflectedSets(ctx, staticPool);
+    mFinalPipeline.AllocateReflectedSets(ctx, staticPool);
 }
 
 void PostProcessor::OnImGui()
@@ -75,120 +46,100 @@ void PostProcessor::OnImGui()
 
 void PostProcessor::RebuildPipelines()
 {
-    mBloomDownscalePipeline =
-        ComputePipelineBuilder("PostfxBloomDownsample")
-            .SetShaderPath("assets/spirv/postfx/BloomDownsampleComp.spv")
-            .AddDescriptorSetLayout(mBloomDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(PCDataBloom))
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mBloomDownscalePipeline)
+        .SetDebugName("PostfxBloomDownsample")
+        .SetShaderPath("assets/spirv/postfx/BloomDownsampleComp.spv")
+        .Build(mCtx);
 
-    mBloomUpscalePipeline =
-        ComputePipelineBuilder("PostfxBloomUpsample")
-            .SetShaderPath("assets/spirv/postfx/BloomUpsampleComp.spv")
-            .AddDescriptorSetLayout(mBloomDescriptorSetLayout)
-            .SetPushConstantSize(sizeof(PCDataBloom))
-            .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mBloomUpscalePipeline)
+        .SetDebugName("PostfxBloomUpsample")
+        .SetShaderPath("assets/spirv/postfx/BloomUpsampleComp.spv")
+        .Build(mCtx);
 
-    mFinalPipeline = ComputePipelineBuilder("PostxFinal")
-                         .SetShaderPath("assets/spirv/postfx/FinalComp.spv")
-                         .AddDescriptorSetLayout(mFinalDescriptorSetLayout)
-                         .SetPushConstantSize(sizeof(PCDataFinal))
-                         .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mFinalPipeline)
+        .SetDebugName("PostxFinal")
+        .SetShaderPath("assets/spirv/postfx/FinalComp.spv")
+        .Build(mCtx);
 }
 
-void PostProcessor::RecreateSwapchainResources(Image      &renderTarget,
-                                               VkImageView renderTargetView)
+void PostProcessor::RecreateSwapchainResources(Image &renderTarget, VkImageView renderTargetView)
 {
     mSwapchainDeletionQueue.flush();
 
-    // Create bloom render target:
+    // Create bloom and final render targets:
     {
-        VkExtent2D extent{
+        using namespace vkenum::image_usage;
+
+        const VkExtent2D targetExtent{
             .width  = renderTarget.Info.extent.width,
             .height = renderTarget.Info.extent.height,
         };
 
-        Image2DInfo info{
-            .Extent    = extent,
+        // clang-format off
+        mBloomTarget = Texture::Make2D(mCtx, {
+            .Name      = "BloomTarget",
+            .Extent    = targetExtent,
             .Format    = renderTarget.Info.format,
-            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Usage     = Storage | Sampled,
             .MipLevels = mBloomNumMips,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
-        };
-
-        mBloomTarget =
-            MakeTexture::Texture2D(mCtx, "BloomTarget", info, mSwapchainDeletionQueue);
+        });
+        
+        mFinalTarget = Texture::Make2D(mCtx, {
+            .Name      = "FinalTarget",
+            .Extent    = targetExtent,
+            .Format    = FinalFormat,
+            .Usage     = Storage | TransferSrc,
+            .MipLevels = 1,
+            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
+        });
+        // clang-format on
     }
 
     // Create single mip-level views for the bloom target:
+    mBloomSingleMipViews = mBloomTarget->Img.MakeViewsSingleMip();
+
+    for (auto view : mBloomSingleMipViews)
     {
-        mBloomSingleMipViews.resize(mBloomNumMips);
-
-        for (uint32_t mip = 0; mip < mBloomNumMips; mip++)
-        {
-            auto viewName = std::string("BloomSingleMipView") + std::to_string(mip);
-
-            auto view = MakeView::View2D(mCtx, viewName.c_str(),
-                                         {.Img = mBloomTarget.Img, .SelectLevel = mip});
-
-            mBloomSingleMipViews[mip] = view;
-            mSwapchainDeletionQueue.push_back(view);
-        }
-    }
-
-    // Create final (composed) target:
-    {
-        VkExtent2D extent{
-            .width  = renderTarget.Info.extent.width,
-            .height = renderTarget.Info.extent.height,
-        };
-
-        Image2DInfo info{
-            .Extent    = extent,
-            .Format    = FinalFormat,
-            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-            .MipLevels = 1,
-            .Layout    = VK_IMAGE_LAYOUT_GENERAL,
-        };
-
-        mFinalTarget =
-            MakeTexture::Texture2D(mCtx, "FinalTarget", info, mSwapchainDeletionQueue);
+        mSwapchainDeletionQueue.push_back(view);
     }
 
     // Update the descriptor sets:
+    using namespace Descriptor::Write;
 
-    std::vector<VkSampler> mipSamplers(mBloomNumMips, mBloomSampler);
-
-    DescriptorUpdater(mBloomDescriptorSet)
-        .WriteStorageImages(0, mBloomSingleMipViews)
-        .WriteCombinedSamplers(1, mBloomSingleMipViews, mipSamplers,
-                               VK_IMAGE_LAYOUT_GENERAL)
-        .WriteCombinedSampler(2, renderTargetView, mBloomSampler)
-        .Update(mCtx);
-
-    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        auto barrierFinal = barrier::LayoutTransitionInfo{
-            .Image     = mBloomTarget.Img,
-            .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, barrierFinal);
+    // clang-format off
+    Descriptor::Update(mCtx, mBloomDownscalePipeline.DescriptorSets.at(0), {
+        {.Binding = 0, .Data = StorageImages(mBloomSingleMipViews)},
+        {.Binding = 1, .Data = CombinedSamplers(mBloomSingleMipViews, mBloomSampler, VK_IMAGE_LAYOUT_GENERAL)},
+        {.Binding = 2, .Data = CombinedSamplers(renderTargetView, mBloomSampler)},
     });
 
-    DescriptorUpdater(mFinalDescriptorSet)
-        .WriteStorageImage(0, mFinalTarget.View)
-        .WriteCombinedSampler(1, renderTargetView, mBloomSampler)
-        .WriteCombinedSampler(2, mBloomSingleMipViews[0], mBloomSampler)
-        .Update(mCtx);
+    Descriptor::Update(mCtx, mBloomUpscalePipeline.DescriptorSets.at(0), {
+        {.Binding = 0, .Data = StorageImages(mBloomSingleMipViews)},
+        {.Binding = 1, .Data = CombinedSamplers(mBloomSingleMipViews, mBloomSampler, VK_IMAGE_LAYOUT_GENERAL)},
+        {.Binding = 2, .Data = CombinedSamplers(renderTargetView, mBloomSampler)},
+    });
+    // clang-format on
+
+    mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
+        using namespace vkenum::image_layout;
+
+        barrier::ImageLayoutCoarse(cmd, {.Img = mBloomTarget->Img, .Old = General, .New = ShaderRead});
+    });
+
+    // clang-format off
+    Descriptor::Update(mCtx, mFinalPipeline.DescriptorSets.at(0), {
+        {.Binding = 0, .Data = StorageImages(mFinalTarget->View)},
+        {.Binding = 1, .Data = CombinedSamplers(renderTargetView, mBloomSampler)},
+        {.Binding = 2, .Data = CombinedSamplers(mBloomSingleMipViews[0], mBloomSampler)},
+    });
+    // clang-format on
 
     // Transition final target to correct layout:
     mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-        auto barrierFinal = barrier::LayoutTransitionInfo{
-            .Image     = mFinalTarget.Img,
-            .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, barrierFinal);
+        using namespace vkenum::image_layout;
+
+        barrier::ImageLayoutCoarse(cmd, {.Img = mFinalTarget->Img, .Old = General, .New = TransferSrc});
     });
 }
 
@@ -198,8 +149,8 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
     {
         resolutions.resize(mBloomNumMips);
 
-        uint32_t resX = mBloomTarget.Img.Info.extent.width;
-        uint32_t resY = mBloomTarget.Img.Info.extent.height;
+        uint32_t resX = mBloomTarget->Img.Info.extent.width;
+        uint32_t resY = mBloomTarget->Img.Info.extent.height;
 
         for (size_t mip = 0; mip < mBloomNumMips; mip++)
         {
@@ -213,94 +164,90 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
 
     if (mBloomEnabled)
     {
-        barrier::TextureCompToGeneral(cmd, mBloomTarget.Img);
+        barrier::TextureCompToGeneral(cmd, mBloomTarget->Img);
 
         // Downsampling passes:
         mBloomDownscalePipeline.Bind(cmd);
-        mBloomDownscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
+        mBloomDownscalePipeline.BindReflectedSets(cmd);
 
         for (uint32_t mip = 0; mip < mBloomNumMips; mip++)
         {
             if (mip > 0)
             {
-                auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
+                auto srcRange         = mBloomTarget->Img.GetDefaultRange();
                 srcRange.baseMipLevel = mip - 1;
                 srcRange.levelCount   = 1;
 
-                barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
+                barrier::TextureGeneralToGeneral(cmd, mBloomTarget->Img, srcRange);
             }
 
-            PCDataBloom pcData{
-                .CurrentMip = static_cast<uint32_t>(mip),
+            struct PCData {
+                uint32_t CurrentMip;
             };
 
-            mBloomDownscalePipeline.PushConstants(cmd, pcData);
+            // clang-format off
+            mBloomDownscalePipeline.PushConstants(cmd, PCData{
+                .CurrentMip = static_cast<uint32_t>(mip),
+            });
+            // clang-format on
 
-            auto     res        = resolutions[mip];
-            uint32_t localSizeX = 16, localSizeY = 16;
-
-            uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
-            uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
-
-            vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+            auto res = resolutions[mip];
+            mBloomDownscalePipeline.Dispatch(cmd, res.x, res.y);
         }
 
         // Upsample passes:
         mBloomUpscalePipeline.Bind(cmd);
-        mBloomUpscalePipeline.BindDescriptorSet(cmd, mBloomDescriptorSet, 0);
+        mBloomUpscalePipeline.BindReflectedSets(cmd);
 
         for (uint32_t mip = mBloomNumMips - 2; mip != uint32_t(-1); mip--)
         {
-            auto srcRange         = Image::GetDefaultRange(mBloomTarget.Img);
+            auto srcRange         = mBloomTarget->Img.GetDefaultRange();
             srcRange.baseMipLevel = mip + 1;
             srcRange.levelCount   = 1;
 
-            barrier::TextureGeneralToGeneral(cmd, mBloomTarget.Img, srcRange);
+            barrier::TextureGeneralToGeneral(cmd, mBloomTarget->Img, srcRange);
 
-            auto dstRange         = Image::GetDefaultRange(mBloomTarget.Img);
-            dstRange.baseMipLevel = mip;
-            dstRange.levelCount   = 1;
-
-            PCDataBloom pcData{
-                .CurrentMip = static_cast<uint32_t>(mip),
+            struct PCData {
+                uint32_t CurrentMip;
             };
 
-            mBloomUpscalePipeline.PushConstants(cmd, pcData);
+            // clang-format off
+            mBloomUpscalePipeline.PushConstants(cmd, PCData{
+                .CurrentMip = static_cast<uint32_t>(mip),
+            });
+            // clang-format on
 
-            auto     res        = resolutions[mip];
-            uint32_t localSizeX = 16, localSizeY = 16;
-
-            uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
-            uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
-
-            vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+            auto res = resolutions[mip];
+            mBloomUpscalePipeline.Dispatch(cmd, res.x, res.y);
         }
 
-        barrier::TextureCompToSample(cmd, mBloomTarget.Img);
+        barrier::TextureCompToSample(cmd, mBloomTarget->Img);
     }
 
     // Final composition pass:
     {
-        barrier::TransferSrcToGeneral(cmd, mFinalTarget.Img.Handle);
+        barrier::TransferSrcToGeneral(cmd, mFinalTarget->Img.Handle);
 
         mFinalPipeline.Bind(cmd);
-        mFinalPipeline.BindDescriptorSet(cmd, mFinalDescriptorSet, 0);
+        mFinalPipeline.BindReflectedSets(cmd);
 
-        PCDataFinal pcData{
+        struct PCData {
+            int32_t BloomEnabled;
+            float   BloomStrength;
+            int32_t AdditionalColorCorrect;
+        };
+
+        // clang-format off
+        mFinalPipeline.PushConstants(cmd, PCData{
             .BloomEnabled           = static_cast<int32_t>(mBloomEnabled),
             .BloomStrength          = mBloomStrength,
-            .AdditionalColorCorrect = !vkutils::IsFormatSRGB(mCtx.Swapchain->Format),
-        };
-        mFinalPipeline.PushConstants(cmd, pcData);
+            .AdditionalColorCorrect = !vkutils::IsFormatSRGB(mCtx.ActiveSwapchain->Format),
+        });
+        // clang-format on
 
-        auto     res        = resolutions[0];
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t dispCountX = (res.x + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (res.y + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        auto res = resolutions[0];
+        mFinalPipeline.Dispatch(cmd, res.x, res.y);
     }
 
-    barrier::GeneralToTransferSrc(cmd, mFinalTarget.Img.Handle);
+    barrier::GeneralToTransferSrc(cmd, mFinalTarget->Img.Handle);
 }

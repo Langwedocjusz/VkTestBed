@@ -6,8 +6,10 @@ project(VkTestBed)
 
 include(CMakeDependentOption)
 
+option(VKTB_USE_ASAN "Enable address sanitizer" OFF)
+
 # Dependent option, since it doesn't make sense on non-windows platforms:
-cmake_dependent_option(VULKAN_ON_DXGI
+cmake_dependent_option(VKTB_VULKAN_ON_DXGI
     "Enable dxgi swapchain usage" ON
     "WIN32" OFF
 )
@@ -27,7 +29,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 option(IMGUI_BACKEND_GLFW "" ON )
 option(IMGUI_BACKEND_VULKAN "" ON )
 option(IMGUI_VULKAN_NO_PROTOTYPES "" ON)
+
 option(TRACY_ENABLE "" ON )
+
+option(SPIRV_REFLECT_EXECUTABLE "" OFF)
+option(SPIRV_REFLECT_STATIC_LIB "" ON)
 
 add_subdirectory(vendor/cpptrace)
 add_subdirectory(vendor/efsw)
@@ -38,6 +44,7 @@ add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/ImGuizmo)
 add_subdirectory(vendor/ktx)
 add_subdirectory(vendor/mikktspace)
+add_subdirectory(vendor/SPIRV-Reflect)
 add_subdirectory(vendor/stb_image)
 add_subdirectory(vendor/tinyexr)
 add_subdirectory(vendor/tracy)
@@ -64,9 +71,9 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 #Compile definitions:
 target_compile_definitions(${PROJECT_NAME} PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
-if(VULKAN_ON_DXGI)
+if(VKTB_VULKAN_ON_DXGI)
     target_compile_definitions(${PROJECT_NAME} PRIVATE VULKAN_ON_DXGI)
-endif(VULKAN_ON_DXGI)
+endif(VKTB_VULKAN_ON_DXGI)
 
 #Enable max warnings and warnings as errors:
 if(MSVC)
@@ -76,6 +83,11 @@ if(MSVC)
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
+
+if(VKTB_USE_ASAN)
+    target_compile_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
+    target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
+endif(VKTB_USE_ASAN)
 
 #Output compilation timings with clang:
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -128,13 +140,12 @@ target_sources(${PROJECT_NAME}
         src/Core/VertexLayout.cpp
         src/Core/VertexPacking.h
         src/Core/VertexPacking.cpp
-        src/Core/VmaImpl.cpp
         src/Core/VulkanContext.h
         src/Core/VulkanContext.cpp
         src/Core/VulkanStatistics.h
         src/Core/VulkanStatistics.cpp
-	src/Core/Swapchain.h
-	src/Core/Swapchain.cpp
+	    src/Core/Swapchain.h
+	    src/Core/Swapchain.cpp
         src/Cpp/Vassert.h
         src/Cpp/Vassert.cpp
         src/Cpp/Bitflags.h
@@ -178,34 +189,35 @@ target_sources(${PROJECT_NAME}
         src/Renderers/Renderer.h
         src/Renderers/RendererFactory.h
         src/Renderers/RendererFactory.cpp
-        src/Vulkan/Buffer.h
-        src/Vulkan/Buffer.cpp
-        src/Vulkan/MakeBuffer.h
-        src/Vulkan/MakeBuffer.cpp
-        src/Vulkan/Common.h
-        src/Vulkan/Common.cpp
+        src/VendorImpls/TinyExrImpl.cpp
+        src/VendorImpls/VmaImpl.cpp
         src/Vulkan/Barrier.h
         src/Vulkan/Barrier.cpp
+        src/Vulkan/Buffer.h
+        src/Vulkan/Buffer.cpp
+        src/Vulkan/Common.h
+        src/Vulkan/Common.cpp
         src/Vulkan/DeletionQueue.h
         src/Vulkan/DeletionQueue.cpp
         src/Vulkan/Descriptor.h
         src/Vulkan/Descriptor.cpp
         src/Vulkan/Image.h
         src/Vulkan/Image.cpp
-        src/Vulkan/MakeImage.h
-        src/Vulkan/MakeImage.cpp
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
         src/Vulkan/Sampler.h
         src/Vulkan/Sampler.cpp
         src/Vulkan/Shader.h
         src/Vulkan/Shader.cpp
-        src/Vulkan/Texture.h
-        src/Vulkan/VkInit.h
-        src/Vulkan/VkInit.cpp
+        src/Vulkan/VkEnums.h
         src/Vulkan/VkUtils.h
         src/Vulkan/VkUtils.cpp
 )
+
+#Unfortunately gcc has problems with tinyexr:
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set_source_files_properties(src/VendorImpls/TinyExrImpl.cpp PROPERTIES COMPILE_OPTIONS "-Wno-array-bounds;-Wno-stringop-overflow")
+endif()
 
 #Setup include directories:
 target_include_directories(${PROJECT_NAME}
@@ -226,34 +238,36 @@ source_group(src/Cpp REGULAR_EXPRESSION "src/Cpp/*")
 source_group(src/Gui REGULAR_EXPRESSION "src/Gui/*")
 source_group(src/RendererComponents REGULAR_EXPRESSION "src/RendererComponents/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
+source_group(src/Vulkan REGULAR_EXPRESSION "src/VendorImpls/*")
 source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 
 #Setup precompiled header:
 target_precompile_headers(${PROJECT_NAME} PUBLIC src/Pch.h)
 
 #Link dependencies:
-#target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
-target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
+#Not used anymore - using volk to get Vulkan function pointers:
+#target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan) 
+target_link_libraries(${PROJECT_NAME} PRIVATE cgltf)
+target_link_libraries(${PROJECT_NAME} PRIVATE cpptrace::cpptrace)
+target_link_libraries(${PROJECT_NAME} PRIVATE efsw)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
-target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
 target_link_libraries(${PROJECT_NAME} PRIVATE ImGuizmo)
+target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-reflect-static)
 target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
-target_link_libraries(${PROJECT_NAME} PRIVATE cgltf)
-target_link_libraries(${PROJECT_NAME} PRIVATE efsw)
-target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
 target_link_libraries(${PROJECT_NAME} PRIVATE tinyexr)
 target_link_libraries(${PROJECT_NAME} PRIVATE tiny_ktx)
-target_link_libraries(${PROJECT_NAME} PRIVATE mikktspace)
-target_link_libraries(${PROJECT_NAME} PRIVATE cpptrace::cpptrace)
+target_link_libraries(${PROJECT_NAME} PRIVATE Tracy::TracyClient)
+target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE volk)
-
+target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
 
 #Additional Windows-only dependencies to enable dxgi swapchain:
-if(VULKAN_ON_DXGI)
+if(VKTB_VULKAN_ON_DXGI)
     add_subdirectory(vendor/vk_dxgi)
     target_link_libraries(${PROJECT_NAME} PRIVATE vk_dxgi)
     target_link_libraries(${PROJECT_NAME} PRIVATE d3d12 dxgi)
-endif(VULKAN_ON_DXGI)
+endif(VKTB_VULKAN_ON_DXGI)
 

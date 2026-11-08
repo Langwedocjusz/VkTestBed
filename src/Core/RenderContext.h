@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Buffer.h"
 #include "Camera.h"
 #include "DeletionQueue.h"
 #include "Event.h"
@@ -49,10 +50,9 @@ class RenderContext {
 
     // Object picking related data:
     struct {
-        Texture Target;
-        Texture Depth;
-
-        Buffer ReadbackBuffer;
+        std::optional<Texture> Target;
+        std::optional<Texture> Depth;
+        std::optional<Buffer>  ReadbackBuffer;
     } mPicking;
 
     bool                      mShowStats = false;

@@ -2,6 +2,7 @@
 
 #include "Camera.h"
 #include "DeletionQueue.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "VulkanContext.h"
 
@@ -11,7 +12,7 @@
 
 class AOHandler {
   public:
-    AOHandler(VulkanContext &ctx, Camera &cam);
+    AOHandler(VulkanContext &ctx, Camera &cam, VkDescriptorPool staticPool);
 
     void OnImGui();
 
@@ -20,8 +21,7 @@ class AOHandler {
     // (Re)Creates all render targets / textures used by this module.
     // This is linked to the swapchain since their resolution
     // is scaled along with the resolution of the swapchain.
-    void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
-                                    VkExtent2D drawExtent);
+    void RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView, VkExtent2D drawExtent);
 
     // This overload re-uses cached versions of the arguments:
     void RecreateSwapchainResources();
@@ -35,7 +35,7 @@ class AOHandler {
     // RecreateSwapchainResources must have been called beforehand.
     [[nodiscard]] std::pair<VkImageView, VkSampler> GetViewAndSampler() const
     {
-        return {mBilateralTarget.View, mSampler};
+        return {mBilateralTarget->View, mSampler};
     }
 
     // Whether or not the AOHandler internally requested
@@ -46,27 +46,6 @@ class AOHandler {
     }
 
   private:
-    struct PCDataZ {
-        glm::mat4 Proj;
-    };
-
-    struct PCDataZMip {
-        uint32_t CurrentMip;
-    };
-
-    struct PCDataAO {
-        glm::vec4 TopLeft;
-        glm::vec4 TopRight;
-        glm::vec4 BottomLeft;
-        glm::vec4 BottomRight;
-    };
-
-    struct PCDataBilateral {
-        glm::uvec2 AOResolution;
-        float      SigmaSpatial;
-        float      SigmaVal;
-    };
-
     struct ResourceCache {
         Image      &DepthBuffer;
         VkImageView DepthOnlyView;
@@ -81,35 +60,21 @@ class AOHandler {
     float mResolutionScale   = 0.67f;
     bool  mRecreateRequested = false;
 
-    Pipeline mZGenPipeline;
-    Pipeline mZMipGenPipeline;
-    Pipeline mAOGenPipeline;
-    Pipeline mBilateralPipeline;
+    ComputePipeline mZGenPipeline;
+    ComputePipeline mZMipGenPipeline;
+    ComputePipeline mAOGenPipeline;
+    ComputePipeline mBilateralPipeline;
 
-    Texture mZBuffer;
-    Texture mAOTarget;
-    Texture mBilateralTarget;
+    std::optional<Texture> mZBuffer;
+    std::optional<Texture> mAOTarget;
+    std::optional<Texture> mBilateralTarget;
 
     // TODO: Test different counts impact on perf:
-    static constexpr uint32_t            ZBufferMips = 4;
-    std::array<VkImageView, ZBufferMips> mZSingleLevelViews;
-
-    // Descriptor set for AO generation:
-    VkDescriptorPool mAODescriptorPool;
-
-    VkDescriptorSetLayout mAODescriptorSetLayout;
-    VkDescriptorSet       mAOGenDescriptorSet;
-    VkDescriptorSet       mZGenDescriptorSet;
-
-    VkDescriptorSetLayout mZMipGenDescriptorSetLayout;
-    VkDescriptorSet       mZMipGenDescriptorSet;
-
-    VkDescriptorSetLayout mBilateralDescriptorSetLayout;
-    VkDescriptorSet       mBilateralDescriptorSet;
+    static constexpr uint32_t ZBufferMips = 4;
+    std::vector<VkImageView>  mZSingleLevelViews;
 
     VkSampler mSampler;
 
     DeletionQueue mMainDeletionQueue;
-    DeletionQueue mPipelineDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;
 };

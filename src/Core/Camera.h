@@ -19,8 +19,16 @@ struct Frustum {
 
     [[nodiscard]] std::array<glm::vec4, 8> GetVertices() const
     {
-        return {NearTopLeft, NearTopRight, NearBottomLeft, NearBottomRight,
-                FarTopLeft,  FarTopRight,  FarBottomLeft,  FarBottomRight};
+        return {
+            NearTopLeft,
+            NearTopRight,
+            NearBottomLeft,
+            NearBottomRight,
+            FarTopLeft,
+            FarTopRight,
+            FarBottomLeft,
+            FarBottomRight
+        };
     }
 
     void SetVertices(std::array<glm::vec4, 8> vertices)
@@ -107,8 +115,7 @@ class Camera {
 
     /// Get perspective projection covering a given rectangle of the near plane.
     /// Rectangle coords are meant to be normalized to [0,1].
-    [[nodiscard]] glm::mat4 GetViewProjRestrictedRange(float xmin, float xmax, float ymin,
-                                                       float ymax) const;
+    [[nodiscard]] glm::mat4 GetViewProjRestrictedRange(float xmin, float xmax, float ymin, float ymax) const;
 
     enum class Movement : uint8_t
     {

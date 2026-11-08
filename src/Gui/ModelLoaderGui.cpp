@@ -8,7 +8,8 @@
 
 #include "imgui.h"
 
-ModelLoaderGui::ModelLoaderGui(SceneEditor &editor) : mEditor(editor)
+ModelLoaderGui::ModelLoaderGui(SceneEditor &editor)
+    : mEditor(editor)
 {
     auto path = Path::Current() / Path("assets/gltf");
 
@@ -18,13 +19,11 @@ ModelLoaderGui::ModelLoaderGui(SceneEditor &editor) : mEditor(editor)
     }
 
     mBrowser.AddExtensionToFilter(".exr");
-
     mBrowser.AddExtensionToFilter(".gltf");
 
     mBrowser.SetCallbackFn([&]() { mImportPopup = true; });
 
-    mBrowser.SetCheckFn(
-        [](const std::string &path) { return Path(path).IsRegularFile(); });
+    mBrowser.SetCheckFn([](const std::string &path) { return Path(path).IsRegularFile(); });
 }
 
 void ModelLoaderGui::TriggerLoad()

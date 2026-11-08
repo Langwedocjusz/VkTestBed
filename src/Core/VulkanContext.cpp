@@ -1,10 +1,8 @@
 #include "VulkanContext.h"
 #include "Pch.h"
 
-#include "Frame.h"
 #include "Swapchain.h"
 #include "Vassert.h"
-#include "VkInit.h"
 #include "VkUtils.h"
 
 #include "VkBootstrap.h"
@@ -105,8 +103,12 @@ VulkanContext::VulkanContext(SystemWindow &window)
 
     uint32_t apiVersion = vkbPhysicalDevice.properties.apiVersion;
 
-    printf("Using Vulkan API Version: %u.%u.%u\n", VK_API_VERSION_MAJOR(apiVersion),
-           VK_API_VERSION_MINOR(apiVersion), VK_API_VERSION_PATCH(apiVersion));
+    printf(
+        "Using Vulkan API Version: %u.%u.%u\n",
+        VK_API_VERSION_MAJOR(apiVersion),
+        VK_API_VERSION_MINOR(apiVersion),
+        VK_API_VERSION_PATCH(apiVersion)
+    );
 
     // Enabling optional features:
     VkPhysicalDeviceFeatures optionalFeatures{};
@@ -116,17 +118,13 @@ VulkanContext::VulkanContext(SystemWindow &window)
 
     // Additional extension info:
     VkPhysicalDeviceExtendedDynamicState3FeaturesEXT dynamicState3Features{};
-    dynamicState3Features.sType =
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
+    dynamicState3Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
     dynamicState3Features.extendedDynamicState3ColorBlendEnable = true;
 
     PhysicalDevice = vkbPhysicalDevice.physical_device;
 
     // Build logical device and load related function pointers through volk:
-    auto vkbDevice = vkb::DeviceBuilder(vkbPhysicalDevice)
-                         .add_pNext(&dynamicState3Features)
-                         .build()
-                         .value();
+    auto vkbDevice = vkb::DeviceBuilder(vkbPhysicalDevice).add_pNext(&dynamicState3Features).build().value();
 
     Device = vkbDevice.device;
     volkLoadDevice(Device);
@@ -167,17 +165,17 @@ VulkanContext::VulkanContext(SystemWindow &window)
         allocatorCreateInfo.physicalDevice         = PhysicalDevice;
         allocatorCreateInfo.device                 = Device;
         allocatorCreateInfo.instance               = Instance;
-        allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-        allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+        allocatorCreateInfo.flags                  = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+        allocatorCreateInfo.pVulkanFunctions       = &vulkanFunctions;
 
         vmaCreateAllocator(&allocatorCreateInfo, &Allocator);
     }
 
     // Swapchain creation:
-    Swapchain = std::make_unique<::Swapchain>(window, PhysicalDevice, Device, Surface,
-                                              Queues.Graphics.Index, Queues.Present.Index,
-                                              Queues.Present.Handle);
-    Swapchain->Recreate();
+    ActiveSwapchain = std::make_unique<::Swapchain>(
+        window, PhysicalDevice, Device, Surface, Queues.Graphics.Index, Queues.Present.Index, Queues.Present.Handle
+    );
+    ActiveSwapchain->Recreate();
 
     // Retrieve info about optional features:
     // Check for timestamp support:
@@ -196,11 +194,10 @@ VulkanContext::VulkanContext(SystemWindow &window)
     }
 
     // Check for pipeline statistics support:
-    OptionalFeatures.PipelineStatistics =
-        vkbPhysicalDevice.features.pipelineStatisticsQuery;
+    OptionalFeatures.PipelineStatistics = vkbPhysicalDevice.features.pipelineStatisticsQuery;
 
     // Allocate command pools for immediate submit:
-    mImmGraphicsCommandPool = vkinit::CreateCommandPool(*this, QueueType::Graphics);
+    mImmGraphicsCommandPool = vkutils::CreateCommandPool(*this, QueueType::Graphics);
 }
 
 VulkanContext::~VulkanContext()
@@ -208,7 +205,7 @@ VulkanContext::~VulkanContext()
     vkDestroyCommandPool(Device, mImmGraphicsCommandPool, nullptr);
 
     // Swapchain resources need to be freed at this precise point:
-    Swapchain.reset();
+    ActiveSwapchain.reset();
 
     vmaDestroyAllocator(Allocator);
 
@@ -220,11 +217,9 @@ VulkanContext::~VulkanContext()
     vkb::destroy_instance(mExtraData->Instance);
 }
 
-void VulkanContext::ImmediateSubmitGraphics(
-    std::function<void(VkCommandBuffer)> &&function)
+void VulkanContext::ImmediateSubmitGraphics(std::function<void(VkCommandBuffer)> &&function)
 {
-    VkCommandBuffer buffer =
-        vkinit::AllocateCommandBuffer(*this, mImmGraphicsCommandPool);
+    VkCommandBuffer buffer = vkutils::AllocateCommandBuffer(*this, mImmGraphicsCommandPool);
 
     vkutils::BeginRecording(buffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 

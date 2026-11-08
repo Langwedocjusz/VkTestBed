@@ -2,10 +2,10 @@
 
 #include "Descriptor.h"
 #include "DynamicUniformBuffer.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Scene.h"
-#include "Texture.h"
 #include "VertexLayout.h"
 
 class Minimal3DRenderer final : public IRenderer {
@@ -19,7 +19,7 @@ class Minimal3DRenderer final : public IRenderer {
     void   TargetToTransfer(VkCommandBuffer cmd) override;
     Image &GetTargetImage() override
     {
-        return mRenderTarget.Img;
+        return mRenderTarget->Img;
     };
 
     void RecreateSwapchainResources() override;
@@ -39,11 +39,11 @@ class Minimal3DRenderer final : public IRenderer {
     const VkFormat mRenderTargetFormat      = VK_FORMAT_R8G8B8A8_SRGB;
     const VkFormat mDepthFormat             = VK_FORMAT_D32_SFLOAT;
 
-    Texture mRenderTarget;
-    Texture mDepthBuffer;
+    std::optional<Texture> mRenderTarget;
+    std::optional<Texture> mDepthBuffer;
 
-    Pipeline mColoredPipeline;
-    Pipeline mTexturedPipeline;
+    GraphicsPipeline mColoredPipeline;
+    GraphicsPipeline mTexturedPipeline;
 
     GeometryLayout mColoredLayout{
         .VertexLayout = Vertex::PushLayout{.HasNormal = true, .HasColor = true},
@@ -72,8 +72,8 @@ class Minimal3DRenderer final : public IRenderer {
     std::map<DrawableKey, Drawable> mColoredDrawables;
     std::map<DrawableKey, Drawable> mTexturedDrawables;
 
-    Texture                     mDefaultImage;
-    std::map<SceneKey, Texture> mImages;
+    std::optional<Texture>      mDefaultImage;
+    std::map<SceneKey, Texture> mTextures;
 
     VkDescriptorSetLayout       mTextureDescriptorSetLayout;
     GrowableDescriptorAllocator mTextureDescriptorAllocator;
@@ -85,13 +85,6 @@ class Minimal3DRenderer final : public IRenderer {
 
     std::map<SceneKey, Material> mMaterials;
 
-    // For textured pipeline to also upload alpha cutoff:
-    struct PushConstantData {
-        // Vec4 because of std430 alignment rules:
-        glm::vec4 AlphaCutoff;
-        glm::mat4 Transform;
-    };
-
     VkSampler mSampler;
 
     // Camera and light projection handling:
@@ -99,8 +92,10 @@ class Minimal3DRenderer final : public IRenderer {
         glm::mat4 CameraViewProjection = glm::mat4(1.0f);
     } mUBOData;
 
-    DynamicUniformBuffer mDynamicUBO;
-    DynamicDescriptorSet mDynamicDS;
+    VkDescriptorPool mStaticDescriptorPool;
+
+    DynamicUniformBuffer                mDynamicUBO;
+    std::optional<DynamicDescriptorSet> mDynamicDS;
 
     DeletionQueue mSceneDeletionQueue;
 };

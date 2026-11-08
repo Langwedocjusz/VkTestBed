@@ -4,15 +4,15 @@
 #include "Barrier.h"
 #include "Common.h"
 #include "Frame.h"
+#include "Image.h"
+#include "ImageData.h"
 #include "ImGuiInit.h"
 #include "ImGuiUtils.h"
-#include "ImageData.h"
 #include "Keycodes.h"
-#include "MakeImage.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "Vassert.h"
-#include "VkInit.h"
+#include "VkEnums.h"
 #include "VkUtils.h"
 #include "VulkanContext.h"
 
@@ -22,32 +22,35 @@
 #include <optional>
 
 RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
-    : mCtx(ctx), mCamera(camera), mFactory(ctx, mFrameInfo, mCamera),
-      mStatsCollector(ctx), mMainDeletionQueue(ctx), mSwapchainDeletionQueue(ctx)
+    : mCtx(ctx)
+    , mCamera(camera)
+    , mFactory(ctx, mFrameInfo, mCamera)
+    , mStatsCollector(ctx)
+    , mMainDeletionQueue(ctx)
+    , mSwapchainDeletionQueue(ctx)
 {
     // Create per frame command pools/buffers and sync-objects:
     for (auto &data : mFrameInfo.FrameData)
     {
-        data.CommandPool   = vkinit::CreateCommandPool(mCtx, QueueType::Graphics);
-        data.CommandBuffer = vkinit::AllocateCommandBuffer(mCtx, data.CommandPool);
+        data.CommandPool   = vkutils::CreateCommandPool(mCtx, QueueType::Graphics);
+        data.CommandBuffer = vkutils::AllocateCommandBuffer(mCtx, data.CommandPool);
 
-        vkinit::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
-        vkinit::CreateSignalledFence(mCtx, data.InFlightFence);
+        vkutils::CreateSemaphore(mCtx, data.ImageAcquiredSemaphore);
+        vkutils::CreateSignalledFence(mCtx, data.InFlightFence);
     }
 
     // Create per swapchain image sync-objects:
-    mFrameInfo.SwapchainData.resize(mCtx.Swapchain->Images.size());
+    mFrameInfo.SwapchainData.resize(mCtx.ActiveSwapchain->Images.size());
 
     for (auto &data : mFrameInfo.SwapchainData)
     {
-        vkinit::CreateSemaphore(mCtx, data.RenderCompletedSemaphore);
+        vkutils::CreateSemaphore(mCtx, data.RenderCompletedSemaphore);
     }
 
     // Update the deletion queue:
     for (auto &data : mFrameInfo.FrameData)
     {
         mMainDeletionQueue.push_back(data.CommandPool);
-
         mMainDeletionQueue.push_back(data.InFlightFence);
         mMainDeletionQueue.push_back(data.ImageAcquiredSemaphore);
     }
@@ -58,35 +61,42 @@ RenderContext::RenderContext(VulkanContext &ctx, Camera &camera)
     }
 
     // Setup framebuffer for object picking:
-    VkImageUsageFlags drawUsage{};
-    drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    {
+        using namespace vkenum::image_usage;
 
-    Image2DInfo renderTargetInfo{
-        .Extent = VkExtent2D{1, 1},
-        .Format = IRenderer::PickingTargetFormat,
-        .Usage  = drawUsage,
-        .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    };
-    mPicking.Target = MakeTexture::Texture2D(mCtx, "PickingTarget", renderTargetInfo,
-                                             mMainDeletionQueue);
+        // clang-format off
+        mPicking.Target = Texture::Make2D(mCtx, {
+            .Name   = "PickingTarget",
+            .Extent = VkExtent2D{1, 1},
+            .Format = IRenderer::PickingTargetFormat,
+            .Usage  = TransferSrc | ColorAttachment,
+            .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        });
 
-    Image2DInfo depthBufferInfo{
-        .Extent = VkExtent2D{1, 1},
-        .Format = IRenderer::PickingDepthFormat,
-        .Usage  = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-    };
-    mPicking.Depth = MakeTexture::Texture2D(mCtx, "PickingDepthBuffer", depthBufferInfo,
-                                            mMainDeletionQueue);
+        mPicking.Depth = Texture::Make2D(mCtx, {
+            .Name   = "PickingDepthBuffer",
+            .Extent = VkExtent2D{1, 1},
+            .Format = IRenderer::PickingDepthFormat,
+            .Usage  = DepthStencil,
+            .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        });
+        // clang-format on
+    }
 
-    auto bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    auto bufferFlags =
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    // Setup readback buffer for object picking:
+    {
+        using namespace vkenum::buffer_usage;
+        using namespace vkenum::alloc_create;
 
-    mPicking.ReadbackBuffer =
-        Buffer::Create(ctx, "ReadbackBuffer", sizeof(Pixel), bufferUsage, bufferFlags);
-    mMainDeletionQueue.push_back(mPicking.ReadbackBuffer);
+        // clang-format off
+        mPicking.ReadbackBuffer = Buffer(ctx, {
+            .Name  = "ReadbackBuffer",
+            .Size  = sizeof(Pixel),
+            .Usage = TransferDst,
+            .Flags = HostAccessRandom | Mapped,
+        });
+        // clang-format on
+    }
 }
 
 void RenderContext::OnInit()
@@ -121,7 +131,7 @@ void RenderContext::OnUpdate(float deltaTime)
         auto implicit = budgets[i].usage - budgets[i].statistics.blockBytes;
         auto objects  = budgets[i].statistics.allocationBytes;
 
-        mFrameInfo.Stats.MemoryUsage += implicit + objects;
+        mFrameInfo.Stats.MemoryUsage      += implicit + objects;
         mFrameInfo.Stats.MemoryAllocation += budgets[i].usage;
     }
 }
@@ -149,12 +159,12 @@ void RenderContext::GuiSwapchain()
 
     if (choice == 0)
     {
-        mCtx.Swapchain->Cfg.UseDxgi = true;
-        ImGui::Checkbox("Use Blit", &mCtx.Swapchain->Cfg.Dxgi.UseBlit);
+        mCtx.ActiveSwapchain->Cfg.UseDxgi = true;
+        ImGui::Checkbox("Use Blit", &mCtx.ActiveSwapchain->Cfg.Dxgi.UseBlit);
     }
     else
     {
-        mCtx.Swapchain->Cfg.UseDxgi = false;
+        mCtx.ActiveSwapchain->Cfg.UseDxgi = false;
 
         GuiSwapchainNative();
     }
@@ -172,8 +182,7 @@ void RenderContext::GuiSwapchain()
 
 void RenderContext::GuiSwapchainNative()
 {
-    static constexpr std::array opts{VK_PRESENT_MODE_FIFO_KHR,
-                                     VK_PRESENT_MODE_MAILBOX_KHR};
+    static constexpr std::array opts{VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR};
 
     static std::array optNames{"FIFO", "MAILBOX"};
 
@@ -181,7 +190,7 @@ void RenderContext::GuiSwapchainNative()
 
     imutils::Combo("Present Mode", choice, optNames);
 
-    mCtx.Swapchain->Cfg.Native.PresentMode = opts[choice];
+    mCtx.ActiveSwapchain->Cfg.Native.PresentMode = opts[choice];
 }
 
 void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj)
@@ -192,11 +201,10 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
     // (signalled by previous submission of the same command buffer):
     vkWaitForFences(mCtx.Device, 1, &frameData.InFlightFence, VK_TRUE, UINT64_MAX);
 
-    // 2. Try to acquire swapchain image
-    // (this sets this frames ImageIndex):
-    auto presentInfo = mCtx.Swapchain->Acquire(frameData, mFrameInfo.ImageIndex);
+    // 2. Try to acquire swapchain image (this sets this frames ImageIndex):
+    auto presentInfo = mCtx.ActiveSwapchain->Acquire(frameData, mFrameInfo.ImageIndex);
 
-    if (!mCtx.Swapchain->Ok) // Bail out if acquire failed.
+    if (!mCtx.ActiveSwapchain->Ok) // Bail out if acquire failed.
         return;
 
     // 3. Reset the in-Flight fence, so it can be signalled again:
@@ -217,9 +225,9 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 #ifdef VULKAN_ON_DXGI
     VkTimelineSemaphoreSubmitInfo timelineInfo = {};
 
-    if (mCtx.Swapchain->IsDxgi())
+    if (mCtx.ActiveSwapchain->IsDxgi())
     {
-        timelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        timelineInfo.sType                     = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
         timelineInfo.waitSemaphoreValueCount   = 1;
         timelineInfo.pWaitSemaphoreValues      = &presentInfo.WaitValue;
         timelineInfo.signalSemaphoreValueCount = 1;
@@ -247,15 +255,14 @@ void RenderContext::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
         submitInfo.pSignalSemaphores    = &swapchainData.RenderCompletedSemaphore;
     }
 
-    auto submitRes = vkQueueSubmit(mCtx.Queues.Graphics.Handle, 1, &submitInfo,
-                                   frameData.InFlightFence);
+    auto submitRes = vkQueueSubmit(mCtx.Queues.Graphics.Handle, 1, &submitInfo, frameData.InFlightFence);
 
     vassert(submitRes == VK_SUCCESS, "Failed to submit commands to queue!");
 
     // 5. Present the frame to swapchain:
-    mCtx.Swapchain->Present(swapchainData, mFrameInfo.ImageIndex);
+    mCtx.ActiveSwapchain->Present(swapchainData, mFrameInfo.ImageIndex);
 
-    if (!mCtx.Swapchain->Ok) // Bail out if presentation failed.
+    if (!mCtx.ActiveSwapchain->Ok) // Bail out if presentation failed.
         return;
 
     // 6. Update frame number, advance frame index:
@@ -268,8 +275,8 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
     (void)highlightedObj;
     auto &cmd = mFrameInfo.CurrentCmd();
 
-    auto &swapchainImage     = mCtx.Swapchain->Images[mFrameInfo.ImageIndex];
-    auto &swapchainImageView = mCtx.Swapchain->ImageViews[mFrameInfo.ImageIndex];
+    auto &swapchainImage     = mCtx.ActiveSwapchain->Images[mFrameInfo.ImageIndex];
+    auto &swapchainImageView = mCtx.ActiveSwapchain->ImageViews[mFrameInfo.ImageIndex];
 
     // Retrieve query results from previous submit if they are ready:
     auto queryResult = mStatsCollector.QueryResults(mFrameInfo.Index);
@@ -283,8 +290,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         auto targetPixels = targetSize.width * targetSize.height;
 
         mFrameInfo.Stats.FragmentInvocations = *fragCount;
-        mFrameInfo.Stats.FragmentPercent =
-            100.0f * static_cast<float>(*fragCount) / static_cast<float>(targetPixels);
+        mFrameInfo.Stats.FragmentPercent = 100.0f * static_cast<float>(*fragCount) / static_cast<float>(targetPixels);
     }
 
     // Reset the command buffer:
@@ -305,12 +311,11 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         barrier::SwapchainToBlitDST(cmd, swapchainImage);
 
         // 3. Copy render target to swapchain image
-        auto &swapExt = mCtx.Swapchain->Extent;
+        auto &swapExt = mCtx.ActiveSwapchain->Extent;
 
         auto swapchainInfo = vkutils::BlitImageInfo{
             .ImgHandle = swapchainImage,
             .Extent    = VkExtent3D{swapExt.width, swapExt.height, 1},
-            .NumLayers = 1,
         };
 
         vkutils::BlitImageZeroMip(cmd, mRenderer->GetTargetImage(), swapchainInfo);
@@ -332,14 +337,14 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
 void RenderContext::DrawUI(VkCommandBuffer cmd, VkImageView swapchainView)
 {
     auto info = common::RenderingInfo{
-        .Extent     = mCtx.Swapchain->Extent,
+        .Extent     = mCtx.ActiveSwapchain->Extent,
         .Color      = swapchainView,
         .ClearColor = std::nullopt,
     };
 
     common::BeginRendering(cmd, info);
     {
-        common::ViewportScissor(cmd, mCtx.Swapchain->Extent);
+        common::ViewportScissor(cmd, mCtx.ActiveSwapchain->Extent);
 
         iminit::RecordImguiToCommandBuffer(cmd);
     }
@@ -362,10 +367,10 @@ void RenderContext::ResizeSwapchain()
     vkDeviceWaitIdle(mCtx.Device);
 
     DestroySwapchainResources();
-    mCtx.Swapchain->Recreate();
+    mCtx.ActiveSwapchain->Recreate();
     CreateSwapchainResources();
 
-    mCtx.Swapchain->Ok = true;
+    mCtx.ActiveSwapchain->Ok = true;
 }
 
 void RenderContext::LoadScene(Scene &scene)
@@ -399,19 +404,16 @@ SceneKey RenderContext::PickObjectId(float x, float y)
     vkDeviceWaitIdle(mCtx.Device);
 
     mCtx.ImmediateSubmitGraphics([&, x, y](VkCommandBuffer cmd) {
+        using namespace vkenum::image_layout;
+
         // Transitions layout to render (can discard contents):
-        auto info = barrier::LayoutTransitionInfo{
-            .Image     = mPicking.Target.Img,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        };
-        barrier::ImageLayoutCoarse(cmd, info);
+        barrier::ImageLayoutCoarse(cmd, {.Img = mPicking.Target->Img, .Old = Undefined, .New = ColorAttachment});
 
         // Draw objects:
         auto renderInfo = common::RenderingInfo{
             .Extent          = VkExtent2D{1, 1},
-            .Color           = mPicking.Target.View,
-            .Depth           = mPicking.Depth.View,
+            .Color           = mPicking.Target->View,
+            .Depth           = mPicking.Depth->View,
             .DepthHasStencil = false,
         };
         common::BeginRendering(cmd, renderInfo);
@@ -420,31 +422,33 @@ SceneKey RenderContext::PickObjectId(float x, float y)
         vkCmdEndRendering(cmd);
 
         // Copy from target image to cpu visible buffer:
-        info.OldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        info.NewLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier::ImageLayoutCoarse(cmd, info);
+        barrier::ImageLayoutCoarse(cmd, {.Img = mPicking.Target->Img, .Old = ColorAttachment, .New = TransferSrc});
 
         VkBufferImageCopy region{};
         region.bufferOffset      = 0;
         region.bufferRowLength   = 0;
         region.bufferImageHeight = 0;
         region.imageOffset       = {0, 0, 0};
-        region.imageExtent       = mPicking.Target.Img.Info.extent;
+        region.imageExtent       = mPicking.Target->Img.Info.extent;
 
         region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.mipLevel       = 0;
         region.imageSubresource.baseArrayLayer = 0;
         region.imageSubresource.layerCount     = 1;
 
-        vkCmdCopyImageToBuffer(cmd, mPicking.Target.Img.Handle,
-                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                               mPicking.ReadbackBuffer.Handle, 1, &region);
+        vkCmdCopyImageToBuffer(
+            cmd,
+            mPicking.Target->Img.Handle,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            mPicking.ReadbackBuffer->Handle,
+            1,
+            &region
+        );
     });
 
     // Unpack copied data after submission:
-    const auto pixel =
-        static_cast<const Pixel *>(mPicking.ReadbackBuffer.AllocInfo.pMappedData);
-    uint32_t R = pixel->R, G = pixel->G, B = pixel->B, A = pixel->A;
+    const auto pixel = static_cast<const Pixel *>(mPicking.ReadbackBuffer->AllocInfo.pMappedData);
+    uint32_t   R = pixel->R, G = pixel->G, B = pixel->B, A = pixel->A;
 
     uint32_t res = 0;
     res          = res | R << 0;

@@ -6,12 +6,12 @@
 #include "DynamicUniformBuffer.h"
 #include "EnvironmentHandler.h"
 #include "GeometryData.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "PostProcessor.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "ShadowmapHandler.h"
-#include "Texture.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 
@@ -28,7 +28,7 @@ class MinimalPbrRenderer final : public IRenderer {
     Image &GetTargetImage() override
     {
         // return mRenderTarget.Img;
-        return mPostProcessor.GetTargetImage();
+        return mPostProcessor->GetTargetImage();
     };
 
     void RecreateSwapchainResources() override;
@@ -43,17 +43,17 @@ class MinimalPbrRenderer final : public IRenderer {
         uint32_t NumBinds = 0;
     };
 
+    struct MaterialUboData {
+        int32_t           DoubleSided      = 0;
+        MaterialAlphaMode AlphaMode        = MaterialAlphaMode::Opaque;
+        float             AlphaCutoff      = 0.5f;
+        glm::vec3         TranslucentColor = glm::vec3(0.0f);
+    };
+
     struct Material {
         VkDescriptorSet DescriptorSet;
         Buffer          UBO;
-
-        struct {
-            int32_t           DoubleSided      = 0;
-            MaterialAlphaMode AlphaMode        = MaterialAlphaMode::Opaque;
-            float             AlphaCutoff      = 0.5f;
-            glm::vec3         TranslucentColor = glm::vec3(0.0f);
-
-        } UboData;
+        MaterialUboData UboData;
     };
 
     struct Instance {
@@ -66,33 +66,31 @@ class MinimalPbrRenderer final : public IRenderer {
         glm::mat4 TransformRaw;
     };
 
-    // TODO: This will be remade in RAII fashion when VulkanContext is reworked as a
-    // singleton. Currently each drawable would need to hold a reference to it, which
-    // aside from memory usage also makes it difficult to make drawables movable-non
-    // copyable, as they should be.
-    struct Drawable {
-        void Init(VulkanContext &ctx, const ScenePrimitive &prim,
-                  const std::string &debugName);
-        void Destroy(VulkanContext &ctx);
+    class Drawable {
+      public:
+        Drawable(VulkanContext &ctx, const ScenePrimitive &prim, const std::string &debugName);
+        ~Drawable() = default;
+
+        Drawable(const Drawable &)            = delete;
+        Drawable &operator=(const Drawable &) = delete;
+        Drawable(Drawable &&)                 = default;
+        Drawable &operator=(Drawable &&)      = delete;
 
         bool EarlyBail(glm::mat4 viewProj);
         bool IsVisible(glm::mat4 viewProj, size_t instanceIdx);
         void BindGeometryBuffers(VkCommandBuffer cmd);
         void Draw(VkCommandBuffer cmd);
 
-        Buffer   VertexBuffer;
-        uint32_t VertexCount;
-
-        Buffer   IndexBuffer;
-        uint32_t IndexCount;
-
-        VkDeviceAddress VertexAddress;
-
-        AABB      Bbox;
-        glm::vec2 TexBoundsCenter = glm::vec2(0.5f);
-        glm::vec2 TexBoundsExtent = glm::vec2(0.5f);
-
-        SceneKey              MaterialKey = 0;
+      public:
+        Buffer                VertexBuffer;
+        uint32_t              VertexCount;
+        Buffer                IndexBuffer;
+        uint32_t              IndexCount;
+        VkDeviceAddress       VertexAddress;
+        AABB                  Bbox;
+        glm::vec2             TexBoundsCenter = glm::vec2(0.5f);
+        glm::vec2             TexBoundsExtent = glm::vec2(0.5f);
+        SceneKey              MaterialKey     = 0;
         std::vector<Instance> Instances;
     };
 
@@ -101,6 +99,8 @@ class MinimalPbrRenderer final : public IRenderer {
     using DrawableKey = std::pair<SceneKey, size_t>;
 
   private:
+    void RebuildOwnPipelines();
+
     void LoadMeshes(const Scene &scene);
     void LoadImages(const Scene &scene);
     void LoadMaterials(const Scene &scene);
@@ -117,24 +117,41 @@ class MinimalPbrRenderer final : public IRenderer {
     void DestroyTexture(const Texture &texture);
 
     template <typename MaterialFn, typename InstanceFn>
-    void DrawAllInstancesCulled(VkCommandBuffer cmd, Drawable &drawable,
-                                glm::mat4 viewProj, MaterialFn materialCallback,
-                                InstanceFn instanceCallback, DrawStats &stats);
+    void DrawAllInstancesCulled(
+        VkCommandBuffer cmd,
+        Drawable       &drawable,
+        glm::mat4       viewProj,
+        MaterialFn      materialCallback,
+        InstanceFn      instanceCallback,
+        DrawStats      &stats
+    );
 
     template <typename MaterialFn, typename InstanceFn>
-    void DrawSingleSidedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                      MaterialFn materialCallback,
-                                      InstanceFn instanceCallback, DrawStats &stats);
+    void DrawSingleSidedFrustumCulled(
+        VkCommandBuffer cmd,
+        glm::mat4       viewProj,
+        MaterialFn      materialCallback,
+        InstanceFn      instanceCallback,
+        DrawStats      &stats
+    );
 
     template <typename MaterialFn, typename InstanceFn>
-    void DrawDoubleSidedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                      MaterialFn materialCallback,
-                                      InstanceFn instanceCallback, DrawStats &stats);
+    void DrawDoubleSidedFrustumCulled(
+        VkCommandBuffer cmd,
+        glm::mat4       viewProj,
+        MaterialFn      materialCallback,
+        InstanceFn      instanceCallback,
+        DrawStats      &stats
+    );
 
     template <typename MaterialFn, typename InstanceFn>
-    void DrawBlendedFrustumCulled(VkCommandBuffer cmd, glm::mat4 viewProj,
-                                  MaterialFn materialCallback,
-                                  InstanceFn instanceCallback, DrawStats &stats);
+    void DrawBlendedFrustumCulled(
+        VkCommandBuffer cmd,
+        glm::mat4       viewProj,
+        MaterialFn      materialCallback,
+        InstanceFn      instanceCallback,
+        DrawStats      &stats
+    );
 
   private:
     // Various render targets:
@@ -145,8 +162,9 @@ class MinimalPbrRenderer final : public IRenderer {
     std::optional<Texture> mRenderTargetMsaa;
     std::optional<Texture> mDepthStencilMsaa;
 
-    Texture     mRenderTarget;
-    Texture     mDepthStencilBuffer;
+    std::optional<Texture> mRenderTarget;
+    std::optional<Texture> mDepthStencilBuffer;
+
     VkImageView mDepthOnlyView;
 
     // Supported geometry specification:
@@ -165,42 +183,12 @@ class MinimalPbrRenderer final : public IRenderer {
     VkSampleCountFlagBits mMultisample             = VK_SAMPLE_COUNT_1_BIT;
 
     // Graphics pipelines:
-    Pipeline mZPrepassOpaquePipeline;
-    Pipeline mZPrepassAlphaPipeline;
-    Pipeline mMainPipeline;
-    Pipeline mStencilPipeline;
-    Pipeline mOutlinePipeline;
-    Pipeline mObjectIdPipeline;
-
-    // Push-constant struct definitions for all pipelines:
-    struct PCDataPrepass {
-        glm::mat4       Model;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-    };
-
-    struct PCDataMain {
-        glm::mat4       Model;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-    };
-
-    struct PCDataOutline {
-        glm::mat4       Model;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-    };
-
-    struct PCDataObjectID {
-        glm::mat4       Model;
-        VkDeviceAddress VertexBuffer;
-        glm::vec2       TexBoundCenter;
-        glm::vec2       TexBoundExtent;
-        uint32_t        ObjectId;
-    };
+    GraphicsPipeline mZPrepassOpaquePipeline;
+    GraphicsPipeline mZPrepassAlphaPipeline;
+    GraphicsPipeline mMainPipeline;
+    GraphicsPipeline mStencilPipeline;
+    GraphicsPipeline mOutlinePipeline;
+    GraphicsPipeline mObjectIdPipeline;
 
     // Dynamic uniform data including camera/lighting and more renderer settings:
     struct CamUBOData {
@@ -225,7 +213,7 @@ class MinimalPbrRenderer final : public IRenderer {
     DynamicUniformBuffer mCamDynamicUBO;
     DynamicUniformBuffer mDynamicUBO;
 
-    DynamicDescriptorSet mDynamicDS;
+    std::optional<DynamicDescriptorSet> mDynamicDS;
 
     // Auxiliary descriptor sets for other textures (ao, shadows):
     VkDescriptorPool mStaticDescriptorPool;
@@ -241,9 +229,9 @@ class MinimalPbrRenderer final : public IRenderer {
     VkSampler mMaterialSampler;
 
     // Default material textures:
-    Texture mDefaultAlbedo;
-    Texture mDefaultRoughness;
-    Texture mDefaultNormal;
+    std::optional<Texture> mDefaultAlbedo;
+    std::optional<Texture> mDefaultRoughness;
+    std::optional<Texture> mDefaultNormal;
 
     // Containers into which scene resources are loaded:
     std::map<SceneKey, Texture>     mTextures;
@@ -271,17 +259,14 @@ class MinimalPbrRenderer final : public IRenderer {
     // Index cache for retrieving drawables and transform ids based on object id:
     std::map<SceneKey, std::vector<std::pair<DrawableKey, size_t>>> mObjectCache;
 
-    // Submodules for specific tasks:
+    // Cached scene bounding box:
+    AABB mSceneAABB;
 
-    // Cubemap generation and background drawing:
-    EnvironmentHandler mEnvHandler;
-    // Shadowmap generation:
-    ShadowmapHandler mShadowmapHandler;
-    AABB             mSceneAABB;
-    // SSAO generation:
-    AOHandler mAOHandler;
-    // Post fx and final image composition:
-    PostProcessor mPostProcessor;
+    // Submodules for specific tasks (optionals because deffered init):
+    std::optional<EnvironmentHandler> mEnvHandler;
+    std::optional<ShadowmapHandler>   mShadowmapHandler;
+    std::optional<AOHandler>          mAOHandler;
+    std::optional<PostProcessor>      mPostProcessor;
 
     // Deletion queues:
     DeletionQueue mSceneDeletionQueue;

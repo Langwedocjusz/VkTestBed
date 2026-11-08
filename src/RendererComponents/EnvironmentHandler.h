@@ -1,11 +1,11 @@
 #pragma once
 
+#include "Buffer.h"
 #include "Camera.h"
 #include "DeletionQueue.h"
-#include "Descriptor.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "Scene.h"
-#include "Texture.h"
 #include "VulkanContext.h"
 
 #include "volk.h"
@@ -13,6 +13,12 @@
 
 class EnvironmentHandler {
   public:
+    struct BackgroundInfo {
+        VkFormat              ColorFormat;
+        VkFormat              DepthFormat;
+        VkSampleCountFlagBits SampleCount;
+    };
+
     struct EnvUBOData {
         int32_t   LightOn          = 1;
         glm::vec3 LightDir         = glm::normalize(glm::vec3(1, -1, 1));
@@ -22,10 +28,9 @@ class EnvironmentHandler {
     };
 
   public:
-    EnvironmentHandler(VulkanContext &ctx);
+    EnvironmentHandler(VulkanContext &ctx, VkDescriptorPool staticPool, BackgroundInfo info);
 
-    void RebuildPipelines(VkFormat colorFormat, VkFormat depthFormat,
-                          VkSampleCountFlagBits sampleCount);
+    void RebuildPipelines(BackgroundInfo info);
     void LoadEnvironment(const Scene &scene);
 
     void DrawBackground(VkCommandBuffer cmd, FrustumBack f, VkExtent2D drawExtent);
@@ -67,73 +72,34 @@ class EnvironmentHandler {
     static constexpr uint32_t PrefilteredSize = 256;
     static constexpr uint32_t IntegrationSize = 512;
 
-    VulkanContext &mCtx;
-
-    bool mIntegrationGenerated = false;
+    VulkanContext   &mCtx;
+    VkDescriptorPool mStaticPool;
 
     // Descriptor set exposed to the outside world:
     VkDescriptorSetLayout mLightingDescriptorSetLayout;
     VkDescriptorSet       mLightingDescriptorSet;
 
-    // Private descriptor sets:
-
-    // Descriptor set for generating the cubemap:
-    VkDescriptorSetLayout mTexToImgDescriptorSetLayout;
-    VkDescriptorSet       mTexToImgDescriptorSet;
-
-    // Descriptor set for irradiance reduction buffers:
-    VkDescriptorSetLayout mIrradianceDescriptorSetLayout;
-    VkDescriptorSet       mIrradianceDescriptorSet;
-
-    // Descriptor set for generating the prefiltered map:
-    VkDescriptorSetLayout mPrefilteredDescriptorSetLayout;
-    VkDescriptorSet       mPrefilteredDescriptorSet;
-
-    // Descriptor set for generating the integration map:
-    VkDescriptorSetLayout mIntegrationDescriptorSetLayout;
-    VkDescriptorSet       mIntegrationDescriptorSet;
-
-    // Descriptor set for drawing the background:
-    VkDescriptorSetLayout mBackgroundDescrptorSetLayout;
-    VkDescriptorSet       mBackgroundDescriptorSet;
-
-    // Push constants data layouts for pipelines:
-    struct PCDataIrradianceSH {
-        uint32_t CubemapRes;
-        uint32_t ReduceBlock;
-    };
-
-    struct PCDataReduce {
-        uint32_t BufferSize;
-    };
-
-    struct PCDataPrefiltered {
-        uint32_t CubeResolution;
-        uint32_t MipLevel;
-        float    Roughness;
-    };
-
     // Compute pipelines for resource generation:
-    Pipeline mEquiRectToCubePipeline;
-    Pipeline mIrradianceSHPipeline;
-    Pipeline mIrradianceReducePipeline;
-    Pipeline mPrefilteredGenPipeline;
-    Pipeline mIntegrationGenPipeline;
+    ComputePipeline mEquiRectToCubePipeline;
+    ComputePipeline mIrradianceSHPipeline;
+    ComputePipeline mIrradianceReducePipeline;
+    ComputePipeline mPrefilteredGenPipeline;
+    ComputePipeline mIntegrationGenPipeline;
 
     // Pipeline for drawing the background:
-    Pipeline mBackgroundPipeline;
+    GraphicsPipeline mBackgroundPipeline;
 
     // SSBOs for reduction when computing SH irradiance coefficients:
-    Buffer mFirstReducionBuffer;
-    Buffer mFinalReductionBuffer;
+    std::optional<Buffer> mFirstReducionBuffer;
+    std::optional<Buffer> mFinalReductionBuffer;
 
     uint32_t mReduceBlock    = 32;
     uint32_t mFirstBufferLen = 0;
 
     // Cubemap background texture:
-    Texture mCubemap;
-    Texture mPrefiltered;
-    Texture mIntegration;
+    std::optional<Texture> mCubemap;
+    std::optional<Texture> mPrefiltered;
+    std::optional<Texture> mIntegration;
 
     std::vector<VkImageView> mPrefilteredMipViews;
 
@@ -142,11 +108,8 @@ class EnvironmentHandler {
     VkSampler mSamplerMipped;
 
     // Uniform buffer object with environment info for lighting:
-    EnvUBOData mEnvUBOData;
-    Buffer     mEnvUBO;
-
-    VkDescriptorPool mStaticDescriptorPool;
+    EnvUBOData            mEnvUBOData;
+    std::optional<Buffer> mEnvUBO;
 
     DeletionQueue mDeletionQueue;
-    DeletionQueue mPipelineDeletionQueue;
 };

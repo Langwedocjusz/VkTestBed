@@ -1,11 +1,12 @@
 #pragma once
 
+#include "DeletionQueue.h"
+#include "Image.h"
 #include "Pipeline.h"
-#include "Texture.h"
 
 class PostProcessor {
   public:
-    PostProcessor(VulkanContext &ctx);
+    PostProcessor(VulkanContext &ctx, VkDescriptorPool staticPool);
 
     void OnImGui();
 
@@ -19,7 +20,7 @@ class PostProcessor {
 
     Image &GetTargetImage()
     {
-        return mFinalTarget.Img;
+        return mFinalTarget->Img;
     }
 
   private:
@@ -28,7 +29,7 @@ class PostProcessor {
     // Using UNORM, since my driver didn't support image with
     // rgba8_srgb | transfer_src | storage image:
     static constexpr VkFormat FinalFormat = VK_FORMAT_R8G8B8A8_UNORM;
-    Texture                   mFinalTarget;
+    std::optional<Texture>    mFinalTarget;
 
     bool  mBloomEnabled  = true;
     float mBloomStrength = 0.1f;
@@ -37,34 +38,14 @@ class PostProcessor {
     // to make the effect consistent:
     const uint32_t mBloomNumMips = 5;
 
-    Pipeline mBloomDownscalePipeline;
-    Pipeline mBloomUpscalePipeline;
-    Pipeline mFinalPipeline;
-
-    struct PCDataBloom {
-        uint32_t CurrentMip;
-    };
-
-    struct PCDataFinal {
-        int32_t BloomEnabled;
-        float   BloomStrength;
-        int32_t AdditionalColorCorrect;
-    };
+    ComputePipeline mBloomDownscalePipeline;
+    ComputePipeline mBloomUpscalePipeline;
+    ComputePipeline mFinalPipeline;
 
     VkSampler                mBloomSampler;
-    Texture                  mBloomTarget;
+    std::optional<Texture>   mBloomTarget;
     std::vector<VkImageView> mBloomSingleMipViews;
 
-    VkDescriptorSetLayout mBloomDescriptorSetLayout;
-    VkDescriptorSet       mBloomDescriptorSet;
-
-    // For the final composition:
-    VkDescriptorSetLayout mFinalDescriptorSetLayout;
-    VkDescriptorSet       mFinalDescriptorSet;
-
-    VkDescriptorPool mDescriptorPool;
-
-    DeletionQueue mPipelineDeletionQueue;
     DeletionQueue mSwapchainDeletionQueue;
     DeletionQueue mMainDeletionQueue;
 };

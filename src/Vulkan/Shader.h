@@ -5,36 +5,26 @@
 #include <optional>
 #include <string>
 
-class ShaderBuilder {
-  public:
-    ShaderBuilder() = default;
+struct BindingInfo {
+    uint32_t         Set;
+    uint32_t         Binding;
+    VkDescriptorType Type;
+    uint32_t         Count;
+};
 
-    ShaderBuilder &SetVertexPath(std::optional<std::string> path)
-    {
-        mVertexPath = path;
-        return *this;
-    }
-    ShaderBuilder &SetFragmentPath(std::optional<std::string> path)
-    {
-        mFragmentPath = path;
-        return *this;
-    }
+struct ReflectionInfo {
+    VkShaderStageFlagBits                  Stage;
+    std::vector<BindingInfo>               Bindings;
+    std::optional<uint32_t>                PushConstantsSize;
+    std::optional<std::array<uint32_t, 3>> LocalSize;
+};
 
-    ShaderBuilder &SetComputePath(std::string_view path)
-    {
-        mComputePath = path;
-        return *this;
-    }
+struct ShaderStageInfo {
+    VkPipelineShaderStageCreateInfo PipelineCreation;
+    ReflectionInfo                  Reflection;
+};
 
-    std::vector<VkPipelineShaderStageCreateInfo> Build(VulkanContext &ctx);
-
-  private:
-    std::vector<VkPipelineShaderStageCreateInfo> BuildGraphics(VulkanContext &ctx);
-    std::vector<VkPipelineShaderStageCreateInfo> BuildCompute(VulkanContext &ctx);
-
-  private:
-    std::optional<std::string> mVertexPath;
-    std::optional<std::string> mFragmentPath;
-
-    std::optional<std::string> mComputePath;
+namespace Shader
+{
+ShaderStageInfo GetStageInfo(VulkanContext &ctx, const std::string &path, VkShaderStageFlagBits stage);
 };

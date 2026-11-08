@@ -5,12 +5,14 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
-SceneGraphNode::SceneGraphNode(Scene *scene) : mScene(scene)
+SceneGraphNode::SceneGraphNode(Scene *scene)
+    : mScene(scene)
 {
     mPayload = ChildrenArray{};
 }
 
-SceneGraphNode::SceneGraphNode(Scene *scene, SceneKey objKey) : mScene(scene)
+SceneGraphNode::SceneGraphNode(Scene *scene, SceneKey objKey)
+    : mScene(scene)
 {
     mPayload = objKey;
 }
@@ -21,10 +23,30 @@ SceneGraphNode::SceneGraphNode(SceneKey meshKey)
 }
 
 SceneGraphNode::SceneGraphNode(SceneGraphNode &&other) noexcept
-    : Parent(other.Parent), Translation(other.Translation), Rotation(other.Rotation),
-      Scale(other.Scale), Name(other.Name), mScene(other.mScene),
-      mPayload(std::move(other.mPayload))
+    : Parent(other.Parent)
+    , Translation(other.Translation)
+    , Rotation(other.Rotation)
+    , Scale(other.Scale)
+    , Name(std::move(other.Name))
+    , mScene(other.mScene)
+    , mPayload(std::move(other.mPayload))
 {
+    // Re-parent childern nodes:
+    if (!IsLeaf())
+    {
+        for (auto &child : GetChildren())
+        {
+            child->Parent = this;
+        }
+    }
+
+    other.Parent      = {};
+    other.Translation = {};
+    other.Rotation    = {};
+    other.Scale       = {};
+    other.Name        = {};
+    other.mScene      = {};
+    other.mPayload    = {};
 }
 
 SceneGraphNode::~SceneGraphNode()

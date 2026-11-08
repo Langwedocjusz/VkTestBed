@@ -6,9 +6,10 @@
 #include <limits>
 
 GeometryData::GeometryData(const GeometrySpec &spec)
-    : VertexData(spec.VertBuffSize, spec.VertAlignment),
-      IndexData(spec.IdxBuffSize, spec.IdxAlignment), VertexCount(spec.VertCount),
-      IndexCount(spec.IdxCount)
+    : VertexData(spec.VertBuffSize, spec.VertAlignment)
+    , IndexData(spec.IdxBuffSize, spec.IdxAlignment)
+    , VertexCount(spec.VertCount)
+    , IndexCount(spec.IdxCount)
 {
 }
 
@@ -38,15 +39,13 @@ std::array<glm::vec3, 8> AABB::GetVertices() const
 
 std::array<std::array<size_t, 2>, 12> AABB::GetEdgesIds()
 {
-    return {
-        {
-         // clang-format off
+    // clang-format off
+    return {{
         {0,1}, {1,2}, {2,3}, {3,0}, // Lower face
         {4,5}, {5,6}, {6,7}, {7,4}, // Upper face
         {0,4}, {1,5}, {2,6}, {3,7}  // Corners
-                  // clang-format on
-        }
-    };
+    }};
+    // clang-format on
 }
 
 bool AABB::IsInView(glm::mat4 mvp) const
@@ -64,12 +63,14 @@ bool AABB::IsInView(glm::mat4 mvp) const
     {
         glm::vec4 homogeneous = mvp * glm::vec4(corner, 1.0f);
 
-        allFront = allFront && (homogeneous.z > homogeneous.w);
-        allBack  = allBack && (homogeneous.z < 0.0f);
-        allLeft  = allLeft && (homogeneous.x < -homogeneous.w);
-        allRight = allRight && (homogeneous.x > homogeneous.w);
-        allUp    = allUp && (homogeneous.y > homogeneous.w);
-        allDown  = allDown && (homogeneous.y < -homogeneous.w);
+        // clang-format off
+        allFront = allFront && (homogeneous.z >  homogeneous.w);
+        allBack  = allBack  && (homogeneous.z <           0.0f);
+        allLeft  = allLeft  && (homogeneous.x < -homogeneous.w);
+        allRight = allRight && (homogeneous.x >  homogeneous.w);
+        allUp    = allUp    && (homogeneous.y >  homogeneous.w);
+        allDown  = allDown  && (homogeneous.y < -homogeneous.w);
+        // clang-format on
     }
 
     return !(allFront || allBack || allLeft || allRight || allUp || allDown);

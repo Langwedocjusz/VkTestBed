@@ -22,12 +22,6 @@ enum class MipStrategy
 /// An owning handle to cpu side image data
 class ImageData {
   public:
-    static ImageData SinglePixel(Pixel p, bool unorm);
-    // Path string is assumed to be utf8 encoded:
-    static ImageData ImportImage(const std::string &path, bool unorm);
-    // Path string is assumed to be utf8 encoded:
-    static ImageData ImportHDRI(const std::string &path);
-
     ImageData() = default;
     ~ImageData();
 
@@ -36,6 +30,13 @@ class ImageData {
 
     ImageData(ImageData &&) noexcept;
     ImageData &operator=(ImageData &&) noexcept;
+
+    // Factory functions:
+    static ImageData SinglePixel(Pixel p, bool unorm);
+    // Path string is assumed to be utf8 encoded:
+    static ImageData ImportImage(const std::string &path, bool unorm);
+    // Path string is assumed to be utf8 encoded:
+    static ImageData ImportHDRI(const std::string &path);
 
     [[nodiscard]] bool IsSinglePixel() const;
 
@@ -60,6 +61,8 @@ class ImageData {
     mutable bool IsUpToDate = false;
 
   private:
+    void Deallocate();
+
     // Strategy of freeing memory depends on what library was used
     // to import the image, hence this enum.
     enum class Type
@@ -71,7 +74,4 @@ class ImageData {
         Ktx,
     };
     Type mType = Type::None;
-
-    // Extra storage for backend-dependent data:
-    void *mExtra;
 };

@@ -6,7 +6,8 @@
 
 #include "volk.h"
 
-SamplerBuilder::SamplerBuilder(std::string_view debugName) : mDebugName(debugName)
+SamplerBuilder::SamplerBuilder(std::string_view debugName)
+    : mDebugName(debugName)
 {
 }
 

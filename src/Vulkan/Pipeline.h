@@ -1,6 +1,5 @@
 #pragma once
 
-#include "DeletionQueue.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
 
@@ -12,74 +11,147 @@
 #include <string_view>
 #include <vector>
 
-class Pipeline {
+// The structure of this module is a litle unusual.
+// The builders do not return by value and instead take a reference outparameter.
+// This is because when supporting hot-reload and reflection the lifecycle of a Pipeline is a bit peculiar.
+// On the one hand the raw VkPipeline part needs to be rebuilt when shader code changes.
+// On the other hand its layout (descriptor set binding, push constants) should remain consistent,
+// as changing it would require change in the host-side cpu code that feeds the graphics API with data.
+// To reflect that we only want to build the reflected descriptor sets once, and later only
+// rebuild the pipeline itself when layout still matches.
+
+struct PipelineLayoutInfo {
+    std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> DescriptorBindings;
+    uint32_t                                                      PushConstantSize = 0;
+
+    // friend bool operator==(const PipelineLayoutInfo &lhs, const PipelineLayoutInfo &rhs);
+};
+
+// TODO: There is a lot of code duplication between two pipeline types.
+// This could be easily refactored using a base class templated on the two constants.
+// But that would require pulling the implementation code into the header.
+// Need to think about this...
+
+class GraphicsPipeline {
   public:
-    Pipeline() = default;
-    static Pipeline MakePipeline(VkPipelineBindPoint, VkShaderStageFlags pcStageFlags);
+    GraphicsPipeline(VulkanContext &ctx);
+    ~GraphicsPipeline();
+    GraphicsPipeline(const GraphicsPipeline &)            = delete;
+    GraphicsPipeline &operator=(const GraphicsPipeline &) = delete;
+    GraphicsPipeline(GraphicsPipeline &&) noexcept;
+    GraphicsPipeline &operator=(GraphicsPipeline &&) noexcept;
 
     void Bind(VkCommandBuffer cmd);
 
+    void AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPool pool);
+    void BindReflectedSets(VkCommandBuffer cmd);
+
     void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
-    void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets,
-                            uint32_t startIdx);
+    void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets, uint32_t startIdx);
 
     template <typename T>
-    void PushConstants(VkCommandBuffer cmd, T &data)
+    void PushConstants(VkCommandBuffer cmd, const T &data)
     {
-        vkCmdPushConstants(cmd, Layout, mPCStageFlags, 0, sizeof(data), &data);
+        vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
     }
 
   public:
-    VkPipeline       Handle;
-    VkPipelineLayout Layout;
+    static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    static constexpr VkShaderStageFlags  PCStage   = VK_SHADER_STAGE_ALL_GRAPHICS;
+
+    VkPipeline         Handle     = VK_NULL_HANDLE;
+    VkPipelineLayout   Layout     = VK_NULL_HANDLE;
+    PipelineLayoutInfo LayoutInfo = {};
+
+    std::map<uint32_t, VkDescriptorSetLayout> DescriptorLayouts;
+    std::map<uint32_t, VkDescriptorSet>       DescriptorSets;
 
   private:
-    VkPipelineBindPoint mBindPoint;
-    VkShaderStageFlags  mPCStageFlags;
+    VulkanContext &mCtx;
 };
 
-class PipelineBuilder {
+class ComputePipeline {
   public:
-    PipelineBuilder(std::string_view debugName);
+    ComputePipeline(VulkanContext &ctx);
+    ~ComputePipeline();
+    ComputePipeline(const ComputePipeline &)            = delete;
+    ComputePipeline &operator=(const ComputePipeline &) = delete;
+    ComputePipeline(ComputePipeline &&) noexcept;
+    ComputePipeline &operator=(ComputePipeline &&) noexcept;
 
-    PipelineBuilder &SetShaderPathVertex(std::string_view path);
-    PipelineBuilder &SetShaderPathFragment(std::string_view path);
+    void Bind(VkCommandBuffer cmd);
+
+    void AllocateReflectedSets(VulkanContext &ctx, VkDescriptorPool pool);
+    void BindReflectedSets(VkCommandBuffer cmd);
+
+    void BindDescriptorSet(VkCommandBuffer cmd, VkDescriptorSet set, uint32_t setIdx);
+    void BindDescriptorSets(VkCommandBuffer cmd, std::span<VkDescriptorSet> sets, uint32_t startIdx);
+
+    template <typename T>
+    void PushConstants(VkCommandBuffer cmd, const T &data)
+    {
+        vkCmdPushConstants(cmd, Layout, PCStage, 0, sizeof(data), &data);
+    }
+
+    void Dispatch(VkCommandBuffer cmd, uint32_t sizeX = 1, uint32_t sizeY = 1, uint32_t sizeZ = 1);
+
+  public:
+    static constexpr VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
+    static constexpr VkShaderStageFlags  PCStage   = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkPipeline         Handle     = VK_NULL_HANDLE;
+    VkPipelineLayout   Layout     = VK_NULL_HANDLE;
+    PipelineLayoutInfo LayoutInfo = {};
+
+    std::map<uint32_t, VkDescriptorSetLayout> DescriptorLayouts;
+    std::map<uint32_t, VkDescriptorSet>       DescriptorSets;
+
+    std::array<uint32_t, 3> LocalSize = {0, 0, 0};
+
+  private:
+    VulkanContext &mCtx;
+};
+
+class GraphicsPipelineBuilder {
+  public:
+    GraphicsPipelineBuilder(GraphicsPipeline &output);
+
+    GraphicsPipelineBuilder &SetDebugName(std::string_view debugName);
+
+    GraphicsPipelineBuilder &SetShaderPathVertex(std::string_view path);
+    GraphicsPipelineBuilder &SetShaderPathFragment(std::string_view path);
+
+    GraphicsPipelineBuilder &OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout);
 
     /// If vertex input is not set, vertex data can't be accessed the usual way
     /// in vertex shaders. This is actually the desired behaviour when doing
     /// vertex pulling or generating vertices on-the-fly in the shader itself.
-    PipelineBuilder &SetVertexInput(const Vertex::Layout &layout, uint32_t binding,
-                                    VkVertexInputRate inputRate);
+    GraphicsPipelineBuilder &SetVertexInput(
+        const Vertex::Layout &layout, uint32_t binding, VkVertexInputRate inputRate
+    );
 
-    PipelineBuilder &SetTopology(VkPrimitiveTopology topo);
-    PipelineBuilder &SetPolygonMode(VkPolygonMode mode);
-    PipelineBuilder &SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
+    GraphicsPipelineBuilder &SetTopology(VkPrimitiveTopology topo);
+    GraphicsPipelineBuilder &SetPolygonMode(VkPolygonMode mode);
+    GraphicsPipelineBuilder &SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
 
-    PipelineBuilder &RequestDynamicState(VkDynamicState state);
+    GraphicsPipelineBuilder &RequestDynamicState(VkDynamicState state);
 
-    PipelineBuilder &SetColorFormat(VkFormat format);
-    PipelineBuilder &SetDepthFormat(VkFormat format);
-    PipelineBuilder &SetStencilFormat(VkFormat format);
+    GraphicsPipelineBuilder &SetColorFormat(VkFormat format);
+    GraphicsPipelineBuilder &SetDepthFormat(VkFormat format);
+    GraphicsPipelineBuilder &SetStencilFormat(VkFormat format);
 
-    PipelineBuilder &EnableDepthTest(VkCompareOp compareOp = VK_COMPARE_OP_LESS);
-    PipelineBuilder &EnableDepthTestNoWrite(VkCompareOp compareOp = VK_COMPARE_OP_LESS);
-    PipelineBuilder &EnableStencilTest(VkStencilOpState front, VkStencilOpState back);
-    PipelineBuilder &EnableBlending();
+    GraphicsPipelineBuilder &EnableDepthTest(VkCompareOp compareOp = VK_COMPARE_OP_LESS);
+    GraphicsPipelineBuilder &EnableDepthTestNoWrite(VkCompareOp compareOp = VK_COMPARE_OP_LESS);
+    GraphicsPipelineBuilder &EnableStencilTest(VkStencilOpState front, VkStencilOpState back);
+    GraphicsPipelineBuilder &EnableBlending();
 
-    PipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
+    GraphicsPipelineBuilder &SetMultisampling(VkSampleCountFlagBits sampleCount);
 
-    PipelineBuilder &SetPushConstantSize(uint32_t size);
-
-    PipelineBuilder &SetMultisampling(VkSampleCountFlagBits sampleCount);
-
-    Pipeline Build(VulkanContext &ctx);
-    Pipeline Build(VulkanContext &ctx, DeletionQueue &queue);
+    void Build(VulkanContext &ctx);
 
   private:
-    Pipeline BuildImpl(VulkanContext &ctx);
-    void     UpdateVertexInput();
+    GraphicsPipeline &mOutput;
 
-  private:
     std::optional<std::string> mVertexPath   = std::nullopt;
     std::optional<std::string> mFragmentPath = std::nullopt;
 
@@ -97,9 +169,7 @@ class PipelineBuilder {
     std::optional<VkFormat> mDepthFormat   = std::nullopt;
     std::optional<VkFormat> mStencilFormat = std::nullopt;
 
-    std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
-
-    std::optional<VkPushConstantRange> mPushConstantRange = std::nullopt;
+    std::map<uint32_t, VkDescriptorSetLayout> mDescriptorOverrides;
 
     VkVertexInputBindingDescription                mBindingDescription;
     std::vector<VkVertexInputAttributeDescription> mAttributeDescriptions;
@@ -109,21 +179,20 @@ class PipelineBuilder {
 
 class ComputePipelineBuilder {
   public:
-    ComputePipelineBuilder(std::string_view debugName);
+    ComputePipelineBuilder(ComputePipeline &output);
+
+    ComputePipelineBuilder &SetDebugName(std::string_view debugName);
 
     ComputePipelineBuilder &SetShaderPath(std::string_view path);
-    ComputePipelineBuilder &AddDescriptorSetLayout(VkDescriptorSetLayout descriptor);
-    ComputePipelineBuilder &SetPushConstantSize(uint32_t size);
 
-    Pipeline Build(VulkanContext &ctx);
-    Pipeline Build(VulkanContext &ctx, DeletionQueue &queue);
+    ComputePipelineBuilder &OverrideDescriptor(uint32_t binding, VkDescriptorSetLayout layout);
 
-  private:
-    Pipeline BuildImpl(VulkanContext &ctx);
+    void Build(VulkanContext &ctx);
 
   private:
-    std::optional<std::string>         mShaderPath;
-    std::vector<VkDescriptorSetLayout> mDescriptorLayouts;
-    std::optional<VkPushConstantRange> mPushConstantRange;
-    std::string                        mDebugName;
+    ComputePipeline &mOutput;
+
+    std::optional<std::string>                mShaderPath;
+    std::map<uint32_t, VkDescriptorSetLayout> mDescriptorOverrides;
+    std::string                               mDebugName;
 };

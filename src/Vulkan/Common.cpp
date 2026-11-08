@@ -23,8 +23,11 @@ void common::ViewportScissor(VkCommandBuffer buffer, VkExtent2D extent)
 }
 
 static VkRenderingAttachmentInfo CreateAttachmentInfo(
-    VkImageView baseView, std::optional<VkImageView> resolveView, VkImageLayout layout,
-    std::optional<VkClearValue> clear)
+    VkImageView                 baseView,
+    std::optional<VkImageView>  resolveView,
+    VkImageLayout               layout,
+    std::optional<VkClearValue> clear
+)
 {
     VkRenderingAttachmentInfo attachment{};
     attachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -68,8 +71,7 @@ void common::BeginRendering(VkCommandBuffer cmd, RenderingInfo info)
     bool hasDepthResolve = info.DepthResolve.has_value();
 
     if (hasColor && hasDepth)
-        vassert(hasColorResolve == hasDepthResolve,
-                "If any resolve target is present, the other one must be as well.");
+        vassert(hasColorResolve == hasDepthResolve, "If any resolve target is present, the other one must be as well.");
 
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType             = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -81,9 +83,9 @@ void common::BeginRendering(VkCommandBuffer cmd, RenderingInfo info)
 
     if (info.Color.has_value())
     {
-        colorAttachment = CreateAttachmentInfo(*info.Color, info.ColorResolve,
-                                               VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                               info.ClearColor);
+        colorAttachment = CreateAttachmentInfo(
+            *info.Color, info.ColorResolve, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, info.ClearColor
+        );
 
         renderingInfo.colorAttachmentCount = 1;
         renderingInfo.pColorAttachments    = &colorAttachment;
@@ -94,8 +96,8 @@ void common::BeginRendering(VkCommandBuffer cmd, RenderingInfo info)
     if (info.Depth.has_value())
     {
         depthAttachment = CreateAttachmentInfo(
-            *info.Depth, info.DepthResolve,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, info.ClearDepth);
+            *info.Depth, info.DepthResolve, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, info.ClearDepth
+        );
 
         renderingInfo.pDepthAttachment = &depthAttachment;
 

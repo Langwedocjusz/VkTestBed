@@ -1,11 +1,12 @@
 #include "HelloRenderer.h"
+#include "Descriptor.h"
 #include "Pch.h"
 
 #include "Barrier.h"
 #include "Common.h"
-#include "MakeBuffer.h"
-#include "MakeImage.h"
 #include "Renderer.h"
+#include "Scene.h"
+#include "VkEnums.h"
 
 #include "volk.h"
 
@@ -14,25 +15,37 @@
 #include <string>
 
 HelloRenderer::HelloRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
-    : IRenderer(ctx, info, camera), mDynamicUBO(ctx, info, sizeof(mUBOData)),
-      mDynamicDS(ctx, info), mSceneDeletionQueue(ctx)
+    : IRenderer(ctx, info, camera)
+    , mGraphicsPipeline(ctx)
+    , mDynamicUBO(ctx, info, sizeof(mUBOData))
+    , mSceneDeletionQueue(ctx)
 {
+    using namespace std::ranges::views;
+    using namespace Descriptor::Write;
+
+    auto poolSizes = Descriptor::PoolCounts{
+        .DescriptorSet        = 3,
+        .StorageImage         = 0,
+        .CombinedImageSampler = 0,
+        .UniformBuffer        = 3,
+        .StorageBuffer        = 0,
+    };
+
+    mStaticDescriptorPool = Descriptor::InitPool(mCtx, poolSizes, mMainDeletionQueue);
+
+    auto layout = DescriptorSetLayoutBuilder("HelloDynamicDescriptorSetLayout")
+                      .AddUniformBuffer(0, VK_SHADER_STAGE_VERTEX_BIT)
+                      .Build(mCtx, mMainDeletionQueue);
+
+    mDynamicDS.emplace(ctx, mStaticDescriptorPool, info, layout);
+
+    for (auto [set, buff] : zip(mDynamicDS->DescriptorSets(), mDynamicUBO.GetBuffers()))
     {
-        auto stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("HelloDynamicDescriptorSetLayout")
-                .AddUniformBuffer(0, stageFlags)
-                .Build(mCtx, mMainDeletionQueue);
-
-        mDynamicDS.Initialize(layout, counts);
-
-        mDynamicDS.BeginUpdate();
-
-        auto [buffers, sizes] = mDynamicUBO.GetBufferHandlesAndSizes();
-
-        mDynamicDS.WriteUniformBuffer(0, buffers, sizes);
-        mDynamicDS.EndUpdate();
+        // clang-format off
+        Descriptor::Update(ctx, set, {
+            {.Binding = 0, .Data = UniformBuffers(buff)},
+        });
+        // clang-format on
     }
 
     RebuildPipelines();
@@ -43,18 +56,17 @@ void HelloRenderer::RebuildPipelines()
 {
     mPipelineDeletionQueue.flush();
 
-    mGraphicsPipeline =
-        PipelineBuilder("HelloRendererPipeline")
-            .SetShaderPathVertex("assets/spirv/HelloTriangleVert.spv")
-            .SetShaderPathFragment("assets/spirv/HelloTriangleFrag.spv")
-            .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
-            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .SetColorFormat(mRenderTargetFormat)
-            .SetPushConstantSize(sizeof(glm::mat4))
-            .AddDescriptorSetLayout(mDynamicDS.DescriptorSetLayout())
-            .Build(mCtx, mPipelineDeletionQueue);
+    GraphicsPipelineBuilder(mGraphicsPipeline)
+        .SetDebugName("HelloRendererPipeline")
+        .SetShaderPathVertex("assets/spirv/HelloTriangleVert.spv")
+        .SetShaderPathFragment("assets/spirv/HelloTriangleFrag.spv")
+        .SetVertexInput(mGeometryLayout.VertexLayout, 0, VK_VERTEX_INPUT_RATE_VERTEX)
+        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+        .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+        .SetColorFormat(mRenderTargetFormat)
+        .OverrideDescriptor(0, mDynamicDS->DescriptorSetLayout())
+        .Build(mCtx);
 }
 
 void HelloRenderer::OnUpdate([[maybe_unused]] float deltaTime)
@@ -70,7 +82,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 {
     auto &cmd = mFrame.CurrentCmd();
 
-    barrier::TransferSrcToColor(cmd, mRenderTarget.Img.Handle);
+    barrier::TransferSrcToColor(cmd, mRenderTarget->Img.Handle);
 
     // This is not OnUpdate since, uniform buffers are per-image index
     // and as such need to be acquired after new image index is set.
@@ -78,7 +90,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 
     auto renderInfo = common::RenderingInfo{
         .Extent = GetTargetSize(),
-        .Color  = mRenderTarget.View,
+        .Color  = mRenderTarget->View,
     };
 
     common::BeginRendering(cmd, renderInfo);
@@ -86,7 +98,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
         mGraphicsPipeline.Bind(cmd);
         common::ViewportScissor(cmd, GetTargetSize());
 
-        mGraphicsPipeline.BindDescriptorSet(cmd, mDynamicDS.DescriptorSet(), 0);
+        mGraphicsPipeline.BindDescriptorSet(cmd, mDynamicDS->DescriptorSet(), 0);
 
         for (auto &[_, drawable] : mDrawables)
         {
@@ -94,8 +106,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
             VkDeviceSize vertOffset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuffer, &vertOffset);
 
-            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0,
-                                 mGeometryLayout.IndexType);
+            vkCmdBindIndexBuffer(cmd, drawable.IndexBuffer.Handle, 0, mGeometryLayout.IndexType);
 
             auto &instances = mInstanceData[drawable.Instances];
 
@@ -112,37 +123,34 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 
 void HelloRenderer::TargetToTransfer(VkCommandBuffer cmd)
 {
-    barrier::ColorToTransferSrc(cmd, mRenderTarget.Img.Handle);
+    barrier::ColorToTransferSrc(cmd, mRenderTarget->Img.Handle);
 }
 
 void HelloRenderer::RecreateSwapchainResources()
 {
+    using namespace vkenum::image_usage;
+
+    mSwapchainDeletionQueue.flush();
+
     // Create the render target:
     auto ScaleResolution = [this](uint32_t res) {
         return static_cast<uint32_t>(mInternalResolutionScale * static_cast<float>(res));
     };
 
-    uint32_t width  = ScaleResolution(mCtx.Swapchain->Extent.width);
-    uint32_t height = ScaleResolution(mCtx.Swapchain->Extent.height);
-
-    VkExtent2D drawExtent{
-        .width  = width,
-        .height = height,
+    const VkExtent2D drawExtent{
+        .width  = ScaleResolution(mCtx.ActiveSwapchain->Extent.width),
+        .height = ScaleResolution(mCtx.ActiveSwapchain->Extent.height),
     };
 
-    VkImageUsageFlags drawUsage{};
-    drawUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    drawUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    Image2DInfo renderTargetInfo{
+    // clang-format off
+    mRenderTarget = Texture::Make2D(mCtx, {
+        .Name   = "RenderTarget",
         .Extent = drawExtent,
         .Format = mRenderTargetFormat,
-        .Usage  = drawUsage,
+        .Usage  = TransferSrc | ColorAttachment,
         .Layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    };
-
-    mRenderTarget = MakeTexture::Texture2D(mCtx, "RenderTarget", renderTargetInfo,
-                                           mSwapchainDeletionQueue);
+    });
+    // clang-format on
 }
 
 void HelloRenderer::LoadScene(const Scene &scene)
@@ -165,19 +173,14 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
 {
     using namespace std::views;
 
-    auto CreateBuffers = [&](Drawable &drawable, const GeometryData &geo,
-                             const std::string &debugName) {
-        // Create Vertex buffer:
-        drawable.VertexBuffer = MakeBuffer::Vertex(mCtx, debugName, geo.VertexData);
-        drawable.VertexCount  = static_cast<uint32_t>(geo.VertexCount);
-
-        // Create Index buffer:
-        drawable.IndexBuffer = MakeBuffer::Index(mCtx, debugName, geo.IndexData);
-        drawable.IndexCount  = static_cast<uint32_t>(geo.IndexCount);
-
-        // Update deletion queue:
-        mSceneDeletionQueue.push_back(drawable.VertexBuffer);
-        mSceneDeletionQueue.push_back(drawable.IndexBuffer);
+    auto MakeDrawable = [&](const GeometryData &geo, const std::string &debugName, SceneKey meshKey) {
+        return Drawable{
+            .VertexBuffer = Buffer::MakeVertex(mCtx, debugName, geo.VertexData),
+            .VertexCount  = static_cast<uint32_t>(geo.VertexCount),
+            .IndexBuffer  = Buffer::MakeIndex(mCtx, debugName, geo.IndexData),
+            .IndexCount   = static_cast<uint32_t>(geo.IndexCount),
+            .Instances    = meshKey,
+        };
     };
 
     for (const auto &[meshKey, mesh] : scene.Meshes)
@@ -187,17 +190,14 @@ void HelloRenderer::LoadMeshes(const Scene &scene)
             auto drawableKey = DrawableKey{meshKey, primIdx};
 
             // Already imported:
-            if (mDrawables.count(drawableKey) != 0)
+            if (mDrawables.contains(drawableKey))
                 continue;
 
             if (mGeometryLayout == prim.Data.Layout)
             {
-                auto &drawable = mDrawables[drawableKey];
-
                 const auto primName = mesh.Name + std::to_string(primIdx);
 
-                CreateBuffers(drawable, prim.Data, primName);
-                drawable.Instances = meshKey;
+                mDrawables.try_emplace(drawableKey, MakeDrawable(prim.Data, primName, meshKey));
             }
         }
     }

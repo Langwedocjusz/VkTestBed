@@ -24,9 +24,8 @@ struct NodeCopyDeletableState {
     bool IsClicked = false;
 };
 
-NodeDeletableState TreeNodeExDeletable(const char *name, ImGuiTreeNodeFlags flags = 0);
-NodeCopyDeletableState TreeNodeExDeleteCopyAble(std::string       &name,
-                                                ImGuiTreeNodeFlags flags = 0);
+NodeDeletableState     TreeNodeExDeletable(const char *name, ImGuiTreeNodeFlags flags = 0);
+NodeCopyDeletableState TreeNodeExDeleteCopyAble(std::string &name, ImGuiTreeNodeFlags flags = 0);
 
 void DisplayStats(FrameStats &stats);
 } // namespace imutils

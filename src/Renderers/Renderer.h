@@ -11,8 +11,12 @@
 class IRenderer {
   public:
     IRenderer(VulkanContext &ctx, FrameInfo &info, Camera &camera)
-        : mCtx(ctx), mFrame(info), mCamera(camera), mMainDeletionQueue(ctx),
-          mSwapchainDeletionQueue(ctx), mPipelineDeletionQueue(ctx)
+        : mCtx(ctx)
+        , mFrame(info)
+        , mCamera(camera)
+        , mMainDeletionQueue(ctx)
+        , mSwapchainDeletionQueue(ctx)
+        , mPipelineDeletionQueue(ctx)
     {
     }
 

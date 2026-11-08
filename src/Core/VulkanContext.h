@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Frame.h"
 #include "Swapchain.h"
 #include "SystemWindow.h"
 
@@ -42,7 +41,7 @@ class VulkanContext {
     VmaAllocator Allocator;
 
     VkSurfaceKHR               Surface;
-    std::unique_ptr<Swapchain> Swapchain;
+    std::unique_ptr<Swapchain> ActiveSwapchain;
 
     struct {
         bool  Timestamps         = false;

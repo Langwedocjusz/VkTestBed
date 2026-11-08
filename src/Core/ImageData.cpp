@@ -11,12 +11,97 @@
 #define TINYKTX_IMPLEMENTATION
 #include "tinyktx.h"
 
-#define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
 #include <cstddef>
+#include <cstring> 
 #include <iostream>
 #include <utility>
+
+ImageData::ImageData(ImageData &&other) noexcept
+    : Name(std::move(other.Name))
+    , Width(other.Width)
+    , Height(other.Height)
+    , Mips(other.Mips)
+    , NumMips(other.NumMips)
+    , MipOffsets(std::move(other.MipOffsets))
+    , Format(other.Format)
+    , Data(other.Data)
+    , Size(other.Size)
+    , IsUpToDate(other.IsUpToDate)
+    , mType(other.mType)
+{
+    other.Data  = nullptr;
+    other.mType = Type::None;
+}
+
+void ImageData::Deallocate()
+{
+    switch (mType)
+    {
+    case Type::None: {
+        break;
+    }
+    case Type::Pixel: {
+        auto ptr = static_cast<Pixel *>(Data);
+        delete ptr;
+        break;
+    }
+    case Type::Ktx: {
+        auto ptr = static_cast<uint8_t *>(Data);
+        delete[] ptr;
+        break;
+    }
+    case Type::Stb: {
+        stbi_image_free(Data);
+        break;
+    }
+    case Type::Exr: {
+        free(Data);
+        break;
+    }
+    }
+}
+
+ImageData &ImageData::operator=(ImageData &&other) noexcept
+{
+    if (this != &other)
+    {
+        if (Data != nullptr)
+        {
+            Deallocate();
+        }
+
+        Name       = std::move(other.Name);
+        Width      = other.Width;
+        Height     = other.Height;
+        Mips       = other.Mips;
+        NumMips    = other.NumMips;
+        MipOffsets = std::move(other.MipOffsets);
+        Format     = other.Format;
+        Data       = other.Data;
+        Size       = other.Size;
+        mType      = other.mType;
+
+        other.Name       = {};
+        other.Width      = {};
+        other.Height     = {};
+        other.Mips       = {};
+        other.NumMips    = {};
+        other.MipOffsets = {};
+        other.Format     = {};
+        other.Data       = {};
+        other.Size       = {};
+        other.mType      = {};
+    }
+
+    return *this;
+}
+
+ImageData::~ImageData()
+{
+    Deallocate();
+}
 
 static VkDeviceSize BytesPerPixel(VkFormat format)
 {
@@ -24,11 +109,9 @@ static VkDeviceSize BytesPerPixel(VkFormat format)
     switch (format)
     {
     case VK_FORMAT_R8G8B8A8_SRGB:
-        return 4;
     case VK_FORMAT_R8G8B8A8_UNORM:
         return 4;
     case VK_FORMAT_BC7_SRGB_BLOCK:
-        return 1;
     case VK_FORMAT_BC7_UNORM_BLOCK:
         return 1;
     case VK_FORMAT_R32G32B32A32_SFLOAT:
@@ -75,8 +158,7 @@ ImageData ImageData::ImportImage(const std::string &path, bool unorm)
             std::cerr << "Tiny_Ktx ERROR: " << msg << '\n';
         };
 
-        auto tinyktxCallbackAlloc = []([[maybe_unused]] void *user,
-                                       size_t                 size) -> void                 *{
+        auto tinyktxCallbackAlloc = []([[maybe_unused]] void *user, size_t size) -> void * {
             auto ptr = new uint8_t[size];
             return static_cast<void *>(ptr);
         };
@@ -116,12 +198,14 @@ ImageData ImageData::ImportImage(const std::string &path, bool unorm)
             return fileHandle->TellG();
         };
 
-        TinyKtx_Callbacks callbacks{.errorFn = tinyktxCallbackError,
-                                    .allocFn = tinyktxCallbackAlloc,
-                                    .freeFn  = tinyktxCallbackFree,
-                                    .readFn  = tinyktxCallbackRead,
-                                    .seekFn  = tinyktxCallbackSeek,
-                                    .tellFn  = tinyktxCallbackTell};
+        TinyKtx_Callbacks callbacks{
+            .errorFn = tinyktxCallbackError,
+            .allocFn = tinyktxCallbackAlloc,
+            .freeFn  = tinyktxCallbackFree,
+            .readFn  = tinyktxCallbackRead,
+            .seekFn  = tinyktxCallbackSeek,
+            .tellFn  = tinyktxCallbackTell,
+        };
 
         auto ctx = TinyKtx_CreateContext(&callbacks, &file);
 
@@ -136,15 +220,13 @@ ImageData ImageData::ImportImage(const std::string &path, bool unorm)
 
         if (baseDepth > 1)
         {
-            auto msg = std::format("3D Images currently not supported! Got {} depth.",
-                                   baseDepth);
+            auto msg = std::format("3D Images currently not supported! Got {} depth.", baseDepth);
             vpanic(msg);
         }
 
         if (slices > 1)
         {
-            auto msg = std::format(
-                "Texture Arrays currently not supported! Got {} slices.", slices);
+            auto msg = std::format("Texture Arrays currently not supported! Got {} slices.", slices);
             vpanic(msg);
         }
 
@@ -176,8 +258,7 @@ ImageData ImageData::ImportImage(const std::string &path, bool unorm)
         {
             auto currentSize = TinyKtx_ImageSize(ctx, mip);
 
-            std::memcpy(ourData + currentOffset, TinyKtx_ImageRawData(ctx, mip),
-                        currentSize);
+            std::memcpy(ourData + currentOffset, TinyKtx_ImageRawData(ctx, mip), currentSize);
 
             currentOffset += currentSize;
         }
@@ -228,19 +309,17 @@ ImageData ImageData::ImportImage(const std::string &path, bool unorm)
         int32_t width, height, channels;
 
         //'STBI_rgb_alpha' forces 4 channels, even if source image has less:
-        stbi_uc *pixels = stbi_load_from_callbacks(&callbacks, &file, &width, &height,
-                                                   &channels, STBI_rgb_alpha);
+        stbi_uc *pixels = stbi_load_from_callbacks(&callbacks, &file, &width, &height, &channels, STBI_rgb_alpha);
 
-        vassert(pixels != nullptr,
-                std::format("Failed to load texture image. Filepath: {}", path.c_str()));
+        vassert(pixels != nullptr, std::format("Failed to load texture image. Filepath: {}", path.c_str()));
 
         res.Width  = width;
         res.Height = height;
         res.Mips   = MipStrategy::Generate;
         res.Format = unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
         res.Data   = static_cast<void *>(pixels);
-        res.Size  = static_cast<VkDeviceSize>(width * height) * BytesPerPixel(res.Format);
-        res.mType = Type::Stb;
+        res.Size   = static_cast<VkDeviceSize>(width * height) * BytesPerPixel(res.Format);
+        res.mType  = Type::Stb;
     }
 
     return res;
@@ -261,11 +340,9 @@ ImageData ImageData::ImportHDRI(const std::string &path)
     float      *data;
     const char *err = nullptr;
 
-    auto ret =
-        LoadEXRFromMemory(&data, &width, &height, fileData.data(), fileData.size(), &err);
+    auto ret = LoadEXRFromMemory(&data, &width, &height, fileData.data(), fileData.size(), &err);
 
-    vassert(ret == TINYEXR_SUCCESS,
-            std::format("Error when trying to open image: {}", path.c_str()));
+    vassert(ret == TINYEXR_SUCCESS, std::format("Error when trying to open image: {}", path.c_str()));
 
     auto res = ImageData();
 
@@ -278,66 +355,6 @@ ImageData ImageData::ImportHDRI(const std::string &path)
     res.mType  = Type::Exr;
 
     return res;
-}
-
-ImageData::ImageData(ImageData &&other) noexcept
-    : Name(std::move(other.Name)), Width(other.Width), Height(other.Height),
-      Mips(other.Mips), NumMips(other.NumMips), MipOffsets(std::move(other.MipOffsets)),
-      Format(other.Format), Data(other.Data), Size(other.Size),
-      IsUpToDate(other.IsUpToDate), mType(other.mType), mExtra(other.mExtra)
-{
-    other.Data   = nullptr;
-    other.mType  = Type::None;
-    other.mExtra = nullptr;
-}
-
-ImageData &ImageData::operator=(ImageData &&other) noexcept
-{
-    Name       = std::move(other.Name);
-    Width      = other.Width;
-    Height     = other.Height;
-    Mips       = other.Mips;
-    NumMips    = other.NumMips;
-    MipOffsets = std::move(other.MipOffsets);
-    Format     = other.Format;
-    Data       = other.Data;
-    Size       = other.Size;
-    mType      = other.mType;
-    mExtra     = other.mExtra;
-
-    other.Data   = nullptr;
-    other.mType  = Type::None;
-    other.mExtra = nullptr;
-
-    return *this;
-}
-
-ImageData::~ImageData()
-{
-    switch (mType)
-    {
-    case Type::None: {
-        break;
-    }
-    case Type::Pixel: {
-        auto ptr = static_cast<Pixel *>(Data);
-        delete ptr;
-        break;
-    }
-    case Type::Ktx: {
-        auto ptr = static_cast<uint8_t *>(Data);
-        delete[] ptr;
-        break;
-    }
-    case Type::Stb: {
-        stbi_image_free(Data);
-        break;
-    }
-    case Type::Exr: {
-        free(Data);
-        break;
-    }
-    }
 }
 
 bool ImageData::IsSinglePixel() const

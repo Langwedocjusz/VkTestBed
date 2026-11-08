@@ -1,10 +1,12 @@
 #pragma once
 
 #include "Barrier.h"
+#include "Buffer.h"
 #include "Camera.h"
 #include "Common.h"
 #include "DeletionQueue.h"
 #include "GeometryData.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "VertexLayout.h"
 #include "VulkanContext.h"
@@ -31,12 +33,6 @@ class ShadowmapHandler {
     using Bounds     = std::array<float, NumCascades>;
     using TexelSizes = std::array<float, NumCascades>;
 
-  public:
-    ShadowmapHandler(VulkanContext &ctx);
-
-    void OnUpdate(Camera &camera, glm::vec3 lightDir, AABB sceneAABB);
-    void OnImGui();
-
     // Information about main rendering pipeline using this handler:
     struct PipelineInfo {
         Vertex::Layout        VertexLayout;
@@ -45,6 +41,12 @@ class ShadowmapHandler {
         VkFormat              DepthFormat;
         VkSampleCountFlagBits CurrentMultisampling;
     };
+
+  public:
+    ShadowmapHandler(VulkanContext &ctx, const PipelineInfo &info);
+
+    void OnUpdate(Camera &camera, glm::vec3 lightDir, AABB sceneAABB);
+    void OnImGui();
 
     void RebuildPipelines(const PipelineInfo &info);
 
@@ -80,7 +82,7 @@ class ShadowmapHandler {
     // Retrieve data needed to access the shadow maps:
     [[nodiscard]] std::pair<VkImageView, VkSampler> GetViewAndSampler() const
     {
-        return {mShadowmap.View, mSampler};
+        return {mShadowmap->View, mSampler};
     }
 
     // Retrieve other data nedeed when using the shadow maps:
@@ -103,13 +105,10 @@ class ShadowmapHandler {
   private:
     [[nodiscard]] VkExtent2D GetExtent() const;
 
-    [[nodiscard]] Frustum ScaleCameraFrustum(Frustum camFrustum, float distNear,
-                                             float distFar) const;
-    [[nodiscard]] std::pair<ShadowVolume, float> GetBoundingVolume(
-        Frustum shadowFrustum, glm::mat4 lightView) const;
+    [[nodiscard]] Frustum ScaleCameraFrustum(Frustum camFrustum, float distNear, float distFar) const;
+    [[nodiscard]] std::pair<ShadowVolume, float> GetBoundingVolume(Frustum shadowFrustum, glm::mat4 lightView) const;
     /// Scene AABB is take to be in world coords
-    [[nodiscard]] ShadowVolume FitVolumeToScene(ShadowVolume volume, AABB sceneAABB,
-                                                glm::mat4 lightView) const;
+    [[nodiscard]] ShadowVolume FitVolumeToScene(ShadowVolume volume, AABB sceneAABB, glm::mat4 lightView) const;
 
   private:
     static constexpr uint32_t ShadowmapResolution = 2048;
@@ -126,15 +125,15 @@ class ShadowmapHandler {
     float mShadowDist = 10.0f;
 
     // The shadowmap-rendering pipelines:
-    Pipeline mOpaquePipeline;
-    Pipeline mAlphaPipeline;
+    GraphicsPipeline mOpaquePipeline;
+    GraphicsPipeline mAlphaPipeline;
 
     // Main (multi layer) shadowmap texture and corresponding sampler:
-    Texture   mShadowmap;
-    VkSampler mSampler;
+    std::optional<Texture> mShadowmap;
+    VkSampler              mSampler;
 
     // Single layer views for rendering subsequent cascades:
-    std::array<VkImageView, NumCascades> mCascadeViews;
+    std::vector<VkImageView> mCascadeViews;
 
     // Data that needs to be uploaded via uniform buffer
     // to use shadowmaps in actual rendering:
@@ -151,12 +150,7 @@ class ShadowmapHandler {
     VkSampler       mDebugSampler;
 
     // Additional pipeline and resources for debug visualization:
-    Pipeline mDebugPipeline;
-
-    struct PCDataDebug {
-        glm::mat4 ViewProj;
-        glm::vec4 Color;
-    };
+    GraphicsPipeline mDebugPipeline;
 
     // Debug frustum geometry data:
     static constexpr size_t NumVertsPerFrustum = 8;
@@ -169,18 +163,17 @@ class ShadowmapHandler {
         .IndexType    = VK_INDEX_TYPE_UINT16,
     };
 
-    Buffer mDebugFrustumVertexBuffer;
-    Buffer mDebugFrustumIndexBuffer;
+    std::optional<Buffer> mDebugFrustumVertexBuffer;
+    std::optional<Buffer> mDebugFrustumIndexBuffer;
 
     DeletionQueue mMainDeletionQueue;
     DeletionQueue mPipelineDeletionQueue;
 };
 
 template <typename OpaqueFn, typename AlphaFn>
-void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque,
-                                      AlphaFn drawAlpha)
+void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque, AlphaFn drawAlpha)
 {
-    barrier::DepthToRender(cmd, mShadowmap.Img, NumCascades);
+    barrier::DepthToRender(cmd, mShadowmap->Img, NumCascades);
 
     // TODO: for now we are just issuing render commands 3 times - for each cascade.
     // This can be optimized to one render pass, for example with usage of the
@@ -209,5 +202,5 @@ void ShadowmapHandler::DrawShadowmaps(VkCommandBuffer cmd, OpaqueFn drawOpaque,
         vkCmdEndRendering(cmd);
     }
 
-    barrier::DepthToSampledFrag(cmd, mShadowmap.Img, NumCascades);
+    barrier::DepthToSampledFrag(cmd, mShadowmap->Img, NumCascades);
 }

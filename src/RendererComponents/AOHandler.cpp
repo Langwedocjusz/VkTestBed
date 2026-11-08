@@ -3,79 +3,43 @@
 
 #include "Barrier.h"
 #include "Descriptor.h"
-#include "MakeImage.h"
 #include "Pipeline.h"
 #include "Sampler.h"
+#include "VkEnums.h"
 
 #include "imgui.h"
 
-AOHandler::AOHandler(VulkanContext &ctx, Camera &camera)
-    : mCtx(ctx), mCamera(camera), mMainDeletionQueue(ctx), mPipelineDeletionQueue(ctx),
-      mSwapchainDeletionQueue(ctx)
+AOHandler::AOHandler(VulkanContext &ctx, Camera &camera, VkDescriptorPool staticPool)
+    : mCtx(ctx)
+    , mCamera(camera)
+    , mZGenPipeline(ctx)
+    , mZMipGenPipeline(ctx)
+    , mAOGenPipeline(ctx)
+    , mBilateralPipeline(ctx)
+    , mMainDeletionQueue(ctx)
+    , mSwapchainDeletionQueue(ctx)
 {
-    // For screen-space depth/ao clamp to edge is required to avoid ao artefacts near
-    // screen edges:
-    mSampler = SamplerBuilder("AODepthSampler")
-                   .SetMagFilter(VK_FILTER_LINEAR)
-                   .SetMinFilter(VK_FILTER_LINEAR)
-                   .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
-                   .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
-                   .SetMaxLod(12.0f)
-                   .Build(mCtx, mMainDeletionQueue);
+    // clang-format off
+    mSampler = 
+        SamplerBuilder("AODepthSampler")
+            .SetMagFilter(VK_FILTER_LINEAR)
+            .SetMinFilter(VK_FILTER_LINEAR)
+            // For screen-space depth/ao clamp to edge is
+            // required to avoid ao artefacts near screen edges:
+            .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+            .SetMipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
+            .SetMaxLod(12.0f)
+            .Build(mCtx, mMainDeletionQueue);
+    // clang-format on
 
-    // Build descriptor sets for z buffer and AO generation:
-    DescriptorBindingCounts totalCounts{};
+    // Build the pipelines:
+    RebuildPipelines();
 
-    const uint32_t aoGenDSCount     = 2;
-    const uint32_t zMipDSCount      = 1;
-    const uint32_t bilateralDSCount = 1;
-
-    {
-        auto [layout, counts]  = DescriptorSetLayoutBuilder("AOGenDSLayout")
-                                     .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                     .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                     .Build(mCtx, mMainDeletionQueue);
-        mAODescriptorSetLayout = layout;
-        totalCounts += aoGenDSCount * counts;
-    }
-
-    {
-        auto [layout, counts] =
-            DescriptorSetLayoutBuilder("AOGenZMipDSLayout")
-                .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT, ZBufferMips)
-                .Build(mCtx, mMainDeletionQueue);
-
-        mZMipGenDescriptorSetLayout = layout;
-        totalCounts += zMipDSCount * counts;
-    }
-
-    {
-        auto [layout, counts] = DescriptorSetLayoutBuilder("AOGenDSLayout")
-                                    .AddStorageImage(0, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .AddCombinedSampler(1, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .AddCombinedSampler(2, VK_SHADER_STAGE_COMPUTE_BIT)
-                                    .Build(mCtx, mMainDeletionQueue);
-
-        mBilateralDescriptorSetLayout = layout;
-        totalCounts += bilateralDSCount * counts;
-    }
-
-    auto bindingCounts   = totalCounts.ToRaw();
-    auto descriptorCount = aoGenDSCount + zMipDSCount + bilateralDSCount;
-
-    mAODescriptorPool =
-        Descriptor::InitPool(mCtx, descriptorCount, bindingCounts, mMainDeletionQueue);
-
-    mAOGenDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mAODescriptorSetLayout);
-    mZGenDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mAODescriptorSetLayout);
-
-    mZMipGenDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mZMipGenDescriptorSetLayout);
-
-    mBilateralDescriptorSet =
-        Descriptor::Allocate(mCtx, mAODescriptorPool, mBilateralDescriptorSetLayout);
+    // Allocate the descriptor sets:
+    mZGenPipeline.AllocateReflectedSets(ctx, staticPool);
+    mZMipGenPipeline.AllocateReflectedSets(ctx, staticPool);
+    mAOGenPipeline.AllocateReflectedSets(ctx, staticPool);
+    mBilateralPipeline.AllocateReflectedSets(ctx, staticPool);
 }
 
 void AOHandler::OnImGui()
@@ -90,41 +54,33 @@ void AOHandler::OnImGui()
 
 void AOHandler::RebuildPipelines()
 {
-    mPipelineDeletionQueue.flush();
+    ComputePipelineBuilder(mZGenPipeline)
+        .SetDebugName("AOZBufferPipeline")
+        .SetShaderPath("assets/spirv/ao/ZGenComp.spv")
+        .Build(mCtx);
 
-    mZGenPipeline = ComputePipelineBuilder("AOZBufferPipeline")
-                        .SetShaderPath("assets/spirv/ao/ZGenComp.spv")
-                        .AddDescriptorSetLayout(mAODescriptorSetLayout)
-                        .SetPushConstantSize(sizeof(PCDataZ))
-                        .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mZMipGenPipeline)
+        .SetDebugName("AOZBufferMipPipeline")
+        .SetShaderPath("assets/spirv/ao/ZMipGenComp.spv")
+        .Build(mCtx);
 
-    mZMipGenPipeline = ComputePipelineBuilder("AOZBufferMipPipeline")
-                           .SetShaderPath("assets/spirv/ao/ZMipGenComp.spv")
-                           .AddDescriptorSetLayout(mZMipGenDescriptorSetLayout)
-                           .SetPushConstantSize(sizeof(PCDataZMip))
-                           .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mAOGenPipeline)
+        .SetDebugName("AOGenPipeline")
+        .SetShaderPath("assets/spirv/ao/AOGenComp.spv")
+        .Build(mCtx);
 
-    mAOGenPipeline = ComputePipelineBuilder("AOGenPipeline")
-                         .SetShaderPath("assets/spirv/ao/AOGenComp.spv")
-                         .AddDescriptorSetLayout(mAODescriptorSetLayout)
-                         .SetPushConstantSize(sizeof(PCDataAO))
-                         .Build(mCtx, mPipelineDeletionQueue);
-
-    mBilateralPipeline = ComputePipelineBuilder("AOBilateralPipeline")
-                             .SetShaderPath("assets/spirv/ao/AOBilateralComp.spv")
-                             .AddDescriptorSetLayout(mBilateralDescriptorSetLayout)
-                             .SetPushConstantSize(sizeof(PCDataBilateral))
-                             .Build(mCtx, mPipelineDeletionQueue);
+    ComputePipelineBuilder(mBilateralPipeline)
+        .SetDebugName("AOGenPipeline")
+        .SetShaderPath("assets/spirv/ao/AOBilateralComp.spv")
+        .Build(mCtx);
 }
 
 void AOHandler::RecreateSwapchainResources()
 {
-    RecreateSwapchainResources(mResourceCache->DepthBuffer, mResourceCache->DepthOnlyView,
-                               mResourceCache->DrawExtent);
+    RecreateSwapchainResources(mResourceCache->DepthBuffer, mResourceCache->DepthOnlyView, mResourceCache->DrawExtent);
 }
 
-void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView,
-                                           VkExtent2D drawExtent)
+void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depthOnlyView, VkExtent2D drawExtent)
 {
     mSwapchainDeletionQueue.flush();
 
@@ -145,128 +101,125 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
 
     // Create the z-buffer, ao generation target, and bilateral upscale target:
     {
-        VkExtent2D targetExtent{
+        using namespace vkenum::image_usage;
+
+        const VkExtent2D targetExtent{
             .width  = ScaleResolution(drawExtent.width),
             .height = ScaleResolution(drawExtent.height),
         };
 
-        Image2DInfo zBufferInfo{
+        // clang-format off
+        mZBuffer = Texture::Make2D(mCtx, {
+            .Name      = "AOZBuffer",
             .Extent    = targetExtent,
             .Format    = VK_FORMAT_R32_SFLOAT,
-            .Usage     = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Usage     = Storage | Sampled,
             .MipLevels = ZBufferMips,
             .Layout    = VK_IMAGE_LAYOUT_GENERAL,
-        };
+        });
 
-        mZBuffer = MakeTexture::Texture2D(mCtx, "AOZBuffer", zBufferInfo,
-                                          mSwapchainDeletionQueue);
-
-        // Create single-mip views into Z-buffer:
-        for (uint32_t mip = 0; mip < ZBufferMips; mip++)
-        {
-            auto view = MakeView::View2D(mCtx, "AOZBufferSingleMipView",
-                                         {.Img = mZBuffer.Img, .SelectLevel = mip});
-            mSwapchainDeletionQueue.push_back(view);
-
-            mZSingleLevelViews[mip] = view;
-        }
-
-        Image2DInfo aoTargetInfo{
+        mAOTarget = Texture::Make2D(mCtx, {
+            .Name   = "AOTarget",
             .Extent = targetExtent,
             .Format = VK_FORMAT_R8G8B8A8_UNORM,
-            .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Usage  = Storage | Sampled,
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
-        };
+        });
 
-        mAOTarget = MakeTexture::Texture2D(mCtx, "AOTarget", aoTargetInfo,
-                                           mSwapchainDeletionQueue);
-
-        Image2DInfo bilateralInfo{
+        mBilateralTarget = Texture::Make2D(mCtx, {
+            .Name   = "AOBilateralTarget",
             .Extent = targetExtent,
             .Format = VK_FORMAT_R8G8B8A8_UNORM,
-            .Usage  = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Usage  = Storage | Sampled,
             .Layout = VK_IMAGE_LAYOUT_GENERAL,
-        };
+        });
+        // clang-format on
+    }
 
-        mBilateralTarget = MakeTexture::Texture2D(mCtx, "AOBilateralTarget",
-                                                  bilateralInfo, mSwapchainDeletionQueue);
+    // Create single-mip views into Z-buffer:
+    mZSingleLevelViews = mZBuffer->Img.MakeViewsSingleMip();
+
+    for (auto view : mZSingleLevelViews)
+    {
+        mSwapchainDeletionQueue.push_back(view);
     }
 
     // Update Z buffer descriptor set:
     {
         // Transition depth buffer to correct layout for the update:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image     = depthBuffer,
-                .OldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            };
+            using namespace vkenum::image_layout;
 
-            barrier::ImageLayoutCoarse(cmd, barrierInfo);
+            barrier::ImageLayoutCoarse(cmd, {.Img = depthBuffer, .Old = DepthStencil, .New = ShaderRead});
         });
 
         // Do the update:
-        DescriptorUpdater(mZGenDescriptorSet)
-            .WriteStorageImage(0, mZBuffer.View)
-            .WriteCombinedSampler(1, depthOnlyView, mSampler)
-            .Update(mCtx);
+        using namespace Descriptor::Write;
 
-        DescriptorUpdater(mZMipGenDescriptorSet)
-            .WriteStorageImages(0, mZSingleLevelViews)
-            .Update(mCtx);
+        Descriptor::Update(
+            mCtx,
+            mZGenPipeline.DescriptorSets.at(0),
+            {
+                {.Binding = 0, .Data = StorageImages(mZBuffer->View)},
+                {.Binding = 1, .Data = CombinedSamplers(depthOnlyView, mSampler)},
+        }
+        );
+
+        Descriptor::Update(
+            mCtx,
+            mZMipGenPipeline.DescriptorSets.at(0),
+            {
+                {.Binding = 0, .Data = StorageImages(mZSingleLevelViews)}
+        }
+        );
 
         // Transition z-buffer and depth buffer to correct layouts:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfoZ = barrier::LayoutTransitionInfo{
-                .Image     = mZBuffer.Img,
-                .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            };
-            barrier::ImageLayoutCoarse(cmd, barrierInfoZ);
+            using namespace vkenum::image_layout;
 
-            auto barrierInfo = barrier::LayoutTransitionInfo{
-                .Image     = depthBuffer,
-                .OldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                .NewLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            };
-            barrier::ImageLayoutCoarse(cmd, barrierInfo);
+            // clang-format off
+            barrier::ImageLayoutCoarse(cmd, {.Img = mZBuffer->Img, .Old = General,    .New = ShaderRead});
+            barrier::ImageLayoutCoarse(cmd, {.Img = depthBuffer,   .Old = ShaderRead, .New = DepthStencil});
+            // clang-format on
         });
     }
 
     // Update AO descriptor set:
     {
-        DescriptorUpdater(mAOGenDescriptorSet)
-            .WriteStorageImage(0, mAOTarget.View)
-            .WriteCombinedSampler(1, mZBuffer.View, mSampler)
-            .Update(mCtx);
+        using namespace Descriptor::Write;
+
+        // clang-format off
+        Descriptor::Update(mCtx, mAOGenPipeline.DescriptorSets.at(0), {
+            {.Binding = 0, .Data = StorageImages(mAOTarget->View)},
+            {.Binding = 1, .Data = CombinedSamplers(mZBuffer->View, mSampler)}
+        });
+        // clang-format on
 
         // Transition ao target for sampling:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfoAO = barrier::LayoutTransitionInfo{
-                .Image     = mAOTarget.Img,
-                .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            };
-            barrier::ImageLayoutCoarse(cmd, barrierInfoAO);
+            using namespace vkenum::image_layout;
+
+            barrier::ImageLayoutCoarse(cmd, {.Img = mAOTarget->Img, .Old = General, .New = ShaderRead});
         });
     }
 
     // Update Bilateral descriptor set:
     {
-        DescriptorUpdater(mBilateralDescriptorSet)
-            .WriteStorageImage(0, mBilateralTarget.View)
-            .WriteCombinedSampler(1, mAOTarget.View, mSampler)
-            .WriteCombinedSampler(2, mZBuffer.View, mSampler)
-            .Update(mCtx);
+        using namespace Descriptor::Write;
+
+        // clang-format off
+        Descriptor::Update(mCtx, mBilateralPipeline.DescriptorSets.at(0), {
+            {.Binding = 0, .Data = StorageImages(mBilateralTarget->View)},
+            {.Binding = 1, .Data = CombinedSamplers(mAOTarget->View, mSampler)},
+            {.Binding = 2, .Data = CombinedSamplers(mZBuffer->View, mSampler)},
+        });
+        // clang-format on
 
         // Transition target so host can update its descriptor sets:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {
-            auto barrierInfoAO = barrier::LayoutTransitionInfo{
-                .Image     = mBilateralTarget.Img,
-                .OldLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            };
-            barrier::ImageLayoutCoarse(cmd, barrierInfoAO);
+            using namespace vkenum::image_layout;
+
+            barrier::ImageLayoutCoarse(cmd, {.Img = mBilateralTarget->Img, .Old = General, .New = ShaderRead});
         });
     }
 }
@@ -275,55 +228,50 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 {
     // Generate the Z buffer:
     {
-        barrier::TextureCompToGeneral(cmd, mZBuffer.Img);
+        barrier::TextureCompToGeneral(cmd, mZBuffer->Img);
 
         // Generate the 0 level of the Z-buffer:
-        PCDataZ data{
-            .Proj = mCamera.GetProj(),
+        mZGenPipeline.Bind(cmd);
+        mZGenPipeline.BindReflectedSets(cmd);
+
+        struct PCData {
+            glm::mat4 Proj;
         };
 
-        mZGenPipeline.Bind(cmd);
-        mZGenPipeline.BindDescriptorSet(cmd, mZGenDescriptorSet, 0);
-        mZGenPipeline.PushConstants(cmd, data);
+        // clang-format off
+        mZGenPipeline.PushConstants(cmd, PCData{
+            .Proj = mCamera.GetProj(),
+        });
+        // clang-format on
 
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t targetSizeX = mZBuffer.Img.Info.extent.width;
-        uint32_t targetSizeY = mZBuffer.Img.Info.extent.height;
-
-        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        mZGenPipeline.Dispatch(cmd, mZBuffer->Img.Info.extent.width, mZBuffer->Img.Info.extent.height);
 
         // Create higher mip-levels of the Z-buffer:
         mZMipGenPipeline.Bind(cmd);
-        mZMipGenPipeline.BindDescriptorSet(cmd, mZMipGenDescriptorSet, 0);
+        mZMipGenPipeline.BindReflectedSets(cmd);
 
-        uint32_t resX = mZBuffer.Img.Info.extent.width / 2;
-        uint32_t resY = mZBuffer.Img.Info.extent.height / 2;
+        uint32_t resX = mZBuffer->Img.Info.extent.width / 2;
+        uint32_t resY = mZBuffer->Img.Info.extent.height / 2;
 
-        for (uint32_t mip = 1; mip < mZBuffer.Img.Info.mipLevels; mip++)
+        for (uint32_t mip = 1; mip < mZBuffer->Img.Info.mipLevels; mip++)
         {
-            uint32_t localSizeX = 16, localSizeY = 16;
-
-            uint32_t dispCountX = (resX + localSizeX - 1) / localSizeX;
-            uint32_t dispCountY = (resY + localSizeY - 1) / localSizeY;
-
-            PCDataZMip data{
-                .CurrentMip = mip,
+            struct PCData {
+                uint32_t CurrentMip;
             };
+            // clang-format off
+            mZMipGenPipeline.PushConstants(cmd, PCData{
+                .CurrentMip = mip,
+            });
+            // clang-format on
 
-            mZMipGenPipeline.PushConstants(cmd, data);
-
-            vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+            mZMipGenPipeline.Dispatch(cmd, resX, resY);
 
             // Barrier to synchronize subsequent dispatches:
-            auto currentRange         = Image::GetDefaultRange(mZBuffer.Img);
+            auto currentRange         = mZBuffer->Img.GetDefaultRange();
             currentRange.baseMipLevel = mip;
             currentRange.levelCount   = 1;
 
-            barrier::TextureGeneralToGeneral(cmd, mZBuffer.Img, currentRange);
+            barrier::TextureGeneralToGeneral(cmd, mZBuffer->Img, currentRange);
 
             // Update next mip resolution:
             resX = std::max(1u, resX / 2);
@@ -333,63 +281,61 @@ void AOHandler::RunAOPass(VkCommandBuffer cmd)
 
     // Generate the AO:
     {
-        barrier::TextureCompToSample(cmd, mZBuffer.Img);
-        barrier::TextureCompToGeneral(cmd, mAOTarget.Img);
+        barrier::TextureCompToSample(cmd, mZBuffer->Img);
+        barrier::TextureCompToGeneral(cmd, mAOTarget->Img);
 
         // Calculate ambient occlusion:
         auto frBack = mCamera.GetFrustumBackEye();
 
-        PCDataAO data{
+        mAOGenPipeline.Bind(cmd);
+        mAOGenPipeline.BindReflectedSets(cmd);
+
+        struct PCData {
+            glm::vec4 TopLeft;
+            glm::vec4 TopRight;
+            glm::vec4 BottomLeft;
+            glm::vec4 BottomRight;
+        };
+        // clang-format off
+        mAOGenPipeline.PushConstants(cmd, PCData{
             .TopLeft     = frBack.TopLeft,
             .TopRight    = frBack.TopRight,
             .BottomLeft  = frBack.BottomLeft,
             .BottomRight = frBack.BottomRight,
-        };
+        });
+        // clang-format on
 
-        mAOGenPipeline.Bind(cmd);
-        mAOGenPipeline.BindDescriptorSet(cmd, mAOGenDescriptorSet, 0);
-        mAOGenPipeline.PushConstants(cmd, data);
+        const auto extent = mAOTarget->Img.Info.extent;
 
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t targetSizeX = mAOTarget.Img.Info.extent.width;
-        uint32_t targetSizeY = mAOTarget.Img.Info.extent.height;
-
-        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
+        mAOGenPipeline.Dispatch(cmd, extent.width, extent.height);
     }
 
     // Perform bilateral upsampling:
     {
-        barrier::TextureCompToSample(cmd, mAOTarget.Img);
-        barrier::TextureFragToGeneral(cmd, mBilateralTarget.Img);
+        barrier::TextureCompToSample(cmd, mAOTarget->Img);
+        barrier::TextureFragToGeneral(cmd, mBilateralTarget->Img);
 
         mBilateralPipeline.Bind(cmd);
-        mBilateralPipeline.BindDescriptorSet(cmd, mBilateralDescriptorSet, 0);
+        mBilateralPipeline.BindReflectedSets(cmd);
 
-        glm::uvec2 aoSize{mAOTarget.Img.Info.extent.width,
-                          mAOTarget.Img.Info.extent.height};
+        const auto aoExtent = mAOTarget->Img.Info.extent;
 
-        PCDataBilateral data{
-            .AOResolution = aoSize,
+        struct PCData {
+            glm::uvec2 AOResolution;
+            float      SigmaSpatial;
+            float      SigmaVal;
+        };
+        // clang-format off
+        mBilateralPipeline.PushConstants(cmd, PCData{
+            .AOResolution = {aoExtent.width, aoExtent.height},
             .SigmaSpatial = 1.0f,
             .SigmaVal     = 0.01f,
-        };
+        });
+        // clang-format on
 
-        mBilateralPipeline.PushConstants(cmd, data);
+        const auto extent = mBilateralTarget->Img.Info.extent;
+        mBilateralPipeline.Dispatch(cmd, extent.width, extent.height);
 
-        uint32_t localSizeX = 16, localSizeY = 16;
-
-        uint32_t targetSizeX = mBilateralTarget.Img.Info.extent.width;
-        uint32_t targetSizeY = mBilateralTarget.Img.Info.extent.height;
-
-        uint32_t dispCountX = (targetSizeX + localSizeX - 1) / localSizeX;
-        uint32_t dispCountY = (targetSizeY + localSizeY - 1) / localSizeY;
-
-        vkCmdDispatch(cmd, dispCountX, dispCountY, 1);
-
-        barrier::TextureFragToSample(cmd, mBilateralTarget.Img);
+        barrier::TextureFragToSample(cmd, mBilateralTarget->Img);
     }
 }

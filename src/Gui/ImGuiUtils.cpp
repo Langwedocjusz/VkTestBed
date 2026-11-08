@@ -15,20 +15,17 @@ bool imutils::CloseButton(const char *name, ImVec2 pos)
 
 bool imutils::Combo(const char *name, int32_t &choice, std::span<const char *> options)
 {
-    return ImGui::Combo(name, &choice, options.data(),
-                        static_cast<int32_t>(options.size()));
+    return ImGui::Combo(name, &choice, options.data(), static_cast<int32_t>(options.size()));
 }
 
-imutils::NodeDeletableState imutils::TreeNodeExDeletable(const char        *name,
-                                                         ImGuiTreeNodeFlags flags)
+imutils::NodeDeletableState imutils::TreeNodeExDeletable(const char *name, ImGuiTreeNodeFlags flags)
 {
     NodeDeletableState res;
 
     ImGuiContext &g = *GImGui;
 
-    ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
-    closeButtonPos.x +=
-        ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
+    ImVec2 closeButtonPos  = ImGui::GetCursorScreenPos();
+    closeButtonPos.x      += ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
 
     res.IsOpen = ImGui::TreeNodeEx(name, flags);
     auto data  = g.LastItemData;
@@ -42,20 +39,18 @@ imutils::NodeDeletableState imutils::TreeNodeExDeletable(const char        *name
     return res;
 }
 
-imutils::NodeCopyDeletableState imutils::TreeNodeExDeleteCopyAble(
-    std::string &name, ImGuiTreeNodeFlags flags)
+imutils::NodeCopyDeletableState imutils::TreeNodeExDeleteCopyAble(std::string &name, ImGuiTreeNodeFlags flags)
 {
     NodeCopyDeletableState res;
 
     ImGuiContext &g = *GImGui;
 
-    ImVec2 closeButtonPos = ImGui::GetCursorScreenPos();
-    closeButtonPos.x +=
-        ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
+    ImVec2 closeButtonPos  = ImGui::GetCursorScreenPos();
+    closeButtonPos.x      += ImGui::GetContentRegionAvail().x - g.Style.FramePadding.x - g.FontSize;
 
-    ImVec2 plusButtonPos = closeButtonPos; //= ImGui::GetCursorScreenPos();
-    plusButtonPos.x -= g.Style.FramePadding.x + g.FontSize;
-    plusButtonPos.y -= g.Style.FramePadding.y;
+    ImVec2 plusButtonPos  = closeButtonPos; //= ImGui::GetCursorScreenPos();
+    plusButtonPos.x      -= g.Style.FramePadding.x + g.FontSize;
+    plusButtonPos.y      -= g.Style.FramePadding.y;
 
     res.IsOpen = ImGui::TreeNodeEx(name.c_str(), flags);
     auto data  = g.LastItemData;
@@ -90,20 +85,18 @@ void imutils::DisplayStats(FrameStats &stats)
     // Based on simple overlay from imgui demo
     bool open = true;
 
-    ImGuiWindowFlags windowFlags =
-        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
-        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
-        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
+                                   ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+                                   ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 
-    const int            location = 1;
-    const float          PAD      = 10.0f;
-    const ImGuiViewport *viewport = ImGui::GetMainViewport();
-    ImVec2               work_pos =
-        viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-    ImVec2 work_size = viewport->WorkSize;
-    ImVec2 window_pos, window_pos_pivot;
-    window_pos.x = (location & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
-    window_pos.y = (location & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
+    const int            location  = 1;
+    const float          PAD       = 10.0f;
+    const ImGuiViewport *viewport  = ImGui::GetMainViewport();
+    ImVec2               work_pos  = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+    ImVec2               work_size = viewport->WorkSize;
+    ImVec2               window_pos, window_pos_pivot;
+    window_pos.x       = (location & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
+    window_pos.y       = (location & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
     window_pos_pivot.x = (location & 1) ? 1.0f : 0.0f;
     window_pos_pivot.y = (location & 2) ? 1.0f : 0.0f;
     ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
@@ -127,8 +120,7 @@ void imutils::DisplayStats(FrameStats &stats)
     auto allocMB = stats.MemoryAllocation / 1000000;
     ImGui::Text("VRAM Usage/Aloc: %zu / %zu [MB]", usageMB, allocMB);
 
-    ImGui::Text("Fragment invocations: %zu (%.2f %%)", stats.FragmentInvocations,
-                stats.FragmentPercent);
+    ImGui::Text("Fragment invocations: %zu (%.2f %%)", stats.FragmentInvocations, stats.FragmentPercent);
 
     ImGui::End();
 

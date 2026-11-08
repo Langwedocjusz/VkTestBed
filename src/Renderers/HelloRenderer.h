@@ -19,7 +19,7 @@ class HelloRenderer final : public IRenderer {
     void   TargetToTransfer(VkCommandBuffer cmd) override;
     Image &GetTargetImage() override
     {
-        return mRenderTarget.Img;
+        return mRenderTarget->Img;
     };
 
     void RecreateSwapchainResources() override;
@@ -35,9 +35,9 @@ class HelloRenderer final : public IRenderer {
     const float    mInternalResolutionScale = 1.0f;
     const VkFormat mRenderTargetFormat      = VK_FORMAT_R8G8B8A8_SRGB;
 
-    Texture mRenderTarget;
+    std::optional<Texture> mRenderTarget;
 
-    Pipeline mGraphicsPipeline;
+    GraphicsPipeline mGraphicsPipeline;
 
     GeometryLayout mGeometryLayout{
         .VertexLayout = Vertex::PushLayout{.HasColor = true},
@@ -68,8 +68,10 @@ class HelloRenderer final : public IRenderer {
         glm::mat4 CameraViewProjection = glm::mat4(1.0f);
     } mUBOData;
 
-    DynamicUniformBuffer mDynamicUBO;
-    DynamicDescriptorSet mDynamicDS;
+    VkDescriptorPool mStaticDescriptorPool;
+
+    DynamicUniformBuffer                mDynamicUBO;
+    std::optional<DynamicDescriptorSet> mDynamicDS;
 
     DeletionQueue mSceneDeletionQueue;
 };

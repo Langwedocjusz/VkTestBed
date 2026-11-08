@@ -1,8 +1,9 @@
 BasedOnStyle: Microsoft
-ColumnLimit: 90
+ColumnLimit: 120
 IndentWidth: 4
 UseTab: Never
 BreakBeforeBraces: Custom
+BreakConstructorInitializers: BeforeComma
 BraceWrapping:
     AfterStruct: false
     AfterClass: false
@@ -10,9 +11,13 @@ AlwaysBreakTemplateDeclarations: true
 AlignArrayOfStructures: Right
 AlignConsecutiveAssignments:
   Enabled: true
+  AlignCompound: true
   AcrossEmptyLines: false
   AcrossComments: false
 AlignConsecutiveDeclarations:
   Enabled: true
   AcrossEmptyLines: false
   AcrossComments: false
+BinPackParameters: false
+BinPackArguments: false
+AlignAfterOpenBracket: BlockIndent

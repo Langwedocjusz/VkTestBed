@@ -36,48 +36,54 @@ void Camera::OnUpdate(float deltatime, uint32_t width, uint32_t height)
     };
 
     mFrustum = Frustum{
+        // clang-format off
         .NearTopLeft     = GetCorner(glm::vec4(-1.0f, -1.0f, 0.0f, 1.0f)),
-        .NearTopRight    = GetCorner(glm::vec4(1.0f, -1.0f, 0.0f, 1.0f)),
-        .NearBottomLeft  = GetCorner(glm::vec4(-1.0f, 1.0f, 0.0f, 1.0f)),
-        .NearBottomRight = GetCorner(glm::vec4(1.0f, 1.0f, 0.0f, 1.0f)),
+        .NearTopRight    = GetCorner(glm::vec4( 1.0f, -1.0f, 0.0f, 1.0f)),
+        .NearBottomLeft  = GetCorner(glm::vec4(-1.0f,  1.0f, 0.0f, 1.0f)),
+        .NearBottomRight = GetCorner(glm::vec4( 1.0f,  1.0f, 0.0f, 1.0f)),
         .FarTopLeft      = GetCorner(glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f)),
-        .FarTopRight     = GetCorner(glm::vec4(1.0f, -1.0f, 1.0f, 1.0f)),
-        .FarBottomLeft   = GetCorner(glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f)),
-        .FarBottomRight  = GetCorner(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)),
+        .FarTopRight     = GetCorner(glm::vec4( 1.0f, -1.0f, 1.0f, 1.0f)),
+        .FarBottomLeft   = GetCorner(glm::vec4(-1.0f,  1.0f, 1.0f, 1.0f)),
+        .FarBottomRight  = GetCorner(glm::vec4( 1.0f,  1.0f, 1.0f, 1.0f)),
+        // clang-format on
     };
 
     // Not doing the final perspective division makes
     // the coordinates more stable for usage in
     // sampling cubemaps:
     mFrustumBack = FrustumBack{
+        // clang-format off
         .TopLeft     = mInvViewProj * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
-        .TopRight    = mInvViewProj * glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
-        .BottomLeft  = mInvViewProj * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
-        .BottomRight = mInvViewProj * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+        .TopRight    = mInvViewProj * glm::vec4( 1.0f, -1.0f, 1.0f, 1.0f),
+        .BottomLeft  = mInvViewProj * glm::vec4(-1.0f,  1.0f, 1.0f, 1.0f),
+        .BottomRight = mInvViewProj * glm::vec4( 1.0f,  1.0f, 1.0f, 1.0f),
+        // clang-format on
     };
 
     auto invProj = glm::inverse(mProj);
 
     mFrustumBackEye = FrustumBack{
+        // clang-format off
         .TopLeft     = invProj * glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
-        .TopRight    = invProj * glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
-        .BottomLeft  = invProj * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
-        .BottomRight = invProj * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+        .TopRight    = invProj * glm::vec4( 1.0f, -1.0f, 1.0f, 1.0f),
+        .BottomLeft  = invProj * glm::vec4(-1.0f,  1.0f, 1.0f, 1.0f),
+        .BottomRight = invProj * glm::vec4( 1.0f,  1.0f, 1.0f, 1.0f),
+        // clang-format on
     };
 
     // For eye frustum we normalize back vectors
     // so they have z component equal to 1.0:
     {
         // Perspective projection:
-        mFrustumBackEye.TopLeft /= mFrustumBackEye.TopLeft.w;
-        mFrustumBackEye.TopRight /= mFrustumBackEye.TopRight.w;
-        mFrustumBackEye.BottomLeft /= mFrustumBackEye.BottomLeft.w;
+        mFrustumBackEye.TopLeft     /= mFrustumBackEye.TopLeft.w;
+        mFrustumBackEye.TopRight    /= mFrustumBackEye.TopRight.w;
+        mFrustumBackEye.BottomLeft  /= mFrustumBackEye.BottomLeft.w;
         mFrustumBackEye.BottomRight /= mFrustumBackEye.BottomRight.w;
 
         // Division by z:
-        mFrustumBackEye.TopLeft /= mFrustumBackEye.TopLeft.z;
-        mFrustumBackEye.TopRight /= mFrustumBackEye.TopRight.z;
-        mFrustumBackEye.BottomLeft /= mFrustumBackEye.BottomLeft.z;
+        mFrustumBackEye.TopLeft     /= mFrustumBackEye.TopLeft.z;
+        mFrustumBackEye.TopRight    /= mFrustumBackEye.TopRight.z;
+        mFrustumBackEye.BottomLeft  /= mFrustumBackEye.BottomLeft.z;
         mFrustumBackEye.BottomRight /= mFrustumBackEye.BottomRight.z;
     }
 }
@@ -134,8 +140,7 @@ glm::mat4 Camera::ProjOrthogonal()
     return glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
 }
 
-glm::mat4 Camera::GetViewProjRestrictedRange(float xmin, float xmax, float ymin,
-                                             float ymax) const
+glm::mat4 Camera::GetViewProjRestrictedRange(float xmin, float xmax, float ymin, float ymax) const
 {
     // Default perspective camera near plane:
     const float aspect = static_cast<float>(mWidth) / static_cast<float>(mHeight);
@@ -155,7 +160,7 @@ glm::mat4 Camera::GetViewProjRestrictedRange(float xmin, float xmax, float ymin,
 
     // Construct projection for given frustum:
     // auto proj = glm::frustumLH_ZO(left, right, bottom, top, mZMin, mZMax);
-    auto proj = glm::frustum(left, right, bottom, top, mZMin, mZMax);
+    auto proj   = glm::frustum(left, right, bottom, top, mZMin, mZMax);
     proj[1][1] *= -1.0f;
 
     return proj * mView;
@@ -214,7 +219,7 @@ void Camera::ProcessKeyboard(float deltatime)
 void Camera::ProcessMouse(float xoffset, float yoffset)
 {
     mPitch += mSensitivity * yoffset;
-    mYaw += mSensitivity * xoffset;
+    mYaw   += mSensitivity * xoffset;
 
     if (mPitch > 89.0f)
         mPitch = 89.0f;

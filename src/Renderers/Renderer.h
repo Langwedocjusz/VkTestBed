@@ -26,7 +26,6 @@ class IRenderer {
     virtual void OnImGui()                                                         = 0;
     virtual void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) = 0;
 
-    virtual void   TargetToTransfer(VkCommandBuffer cmd) = 0;
     virtual Image &GetTargetImage()                      = 0;
 
     virtual void RecreateSwapchainResources()                          = 0;

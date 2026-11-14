@@ -70,7 +70,7 @@ void AOHandler::RebuildPipelines()
         .Build(mCtx);
 
     ComputePipelineBuilder(mBilateralPipeline)
-        .SetDebugName("AOGenPipeline")
+        .SetDebugName("AOBilateralPipeline")
         .SetShaderPath("assets/spirv/ao/AOBilateralComp.spv")
         .Build(mCtx);
 }
@@ -156,22 +156,16 @@ void AOHandler::RecreateSwapchainResources(Image &depthBuffer, VkImageView depth
         // Do the update:
         using namespace Descriptor::Write;
 
-        Descriptor::Update(
-            mCtx,
-            mZGenPipeline.DescriptorSets.at(0),
-            {
-                {.Binding = 0, .Data = StorageImages(mZBuffer->View)},
-                {.Binding = 1, .Data = CombinedSamplers(depthOnlyView, mSampler)},
-        }
-        );
+        // clang-format off
+        Descriptor::Update(mCtx, mZGenPipeline.DescriptorSets.at(0), {
+            {.Binding = 0, .Data = StorageImages(mZBuffer->View)},
+            {.Binding = 1, .Data = CombinedSamplers(depthOnlyView, mSampler)},
+        });
 
-        Descriptor::Update(
-            mCtx,
-            mZMipGenPipeline.DescriptorSets.at(0),
-            {
-                {.Binding = 0, .Data = StorageImages(mZSingleLevelViews)}
-        }
-        );
+        Descriptor::Update(mCtx, mZMipGenPipeline.DescriptorSets.at(0), {
+            {.Binding = 0, .Data = StorageImages(mZSingleLevelViews)}
+        });
+        // clang-format on
 
         // Transition z-buffer and depth buffer to correct layouts:
         mCtx.ImmediateSubmitGraphics([&](VkCommandBuffer cmd) {

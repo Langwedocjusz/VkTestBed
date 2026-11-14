@@ -29,8 +29,8 @@ void SwapchainToPresent(VkCommandBuffer cmd, VkImage image);
 // ... -> COLOR ATTACHMENT -> BLIT TO SWAPCHAIN -> ...
 // TransferSrcToColor discards contents.
 
-void TransferSrcToColor(VkCommandBuffer cmd, VkImage image);
-void ColorToTransferSrc(VkCommandBuffer cmd, VkImage image);
+void TransferSrcToColor(VkCommandBuffer cmd, Image &image);
+void ColorToTransferSrc(VkCommandBuffer cmd, Image &image);
 
 // Barriers for synchronizing access to intermediate render target
 // (color attachment), that is consumed by compute post processing
@@ -39,8 +39,8 @@ void ColorToTransferSrc(VkCommandBuffer cmd, VkImage image);
 // It is assumed sampling is done in the compute shader.
 // SampledToColor discards contents.
 
-void SampledToColor(VkCommandBuffer cmd, VkImage image);
-void ColorToSampledComp(VkCommandBuffer cmd, VkImage image);
+void SampledToColor(VkCommandBuffer cmd, Image &image);
+void ColorToSampledComp(VkCommandBuffer cmd, Image &image);
 
 // Barriers for synchronizing access to depth buffer,
 // that is also consumed as a texture:
@@ -50,9 +50,9 @@ void ColorToSampledComp(VkCommandBuffer cmd, VkImage image);
 // When using multi-layer depth buffer (shadow cascades),
 // number of layers must be provided.
 
-void DepthToRender(VkCommandBuffer cmd, Image &depthImage, uint32_t numLayers = 1);
-void DepthToSampledFrag(VkCommandBuffer cmd, Image &depthImage, uint32_t numLayers = 1);
-void DepthToSampledComp(VkCommandBuffer cmd, Image &depthImage, uint32_t numLayers = 1);
+void DepthToRender(VkCommandBuffer cmd, Image &depthImage);
+void DepthToSampledFrag(VkCommandBuffer cmd, Image &depthImage);
+void DepthToSampledComp(VkCommandBuffer cmd, Image &depthImage);
 
 // Barriers for synchronizing access to depth buffer,
 // that is again used as attachment after sampling:
@@ -105,8 +105,8 @@ void TextureGeneralToGeneral(
 // ... -> GENERAL -> TRANSFER SRC -> ...
 // TransferSrcToGeneral discards contents.
 
-void TransferSrcToGeneral(VkCommandBuffer cmd, VkImage image);
-void GeneralToTransferSrc(VkCommandBuffer cmd, VkImage image);
+void TransferSrcToGeneral(VkCommandBuffer cmd, Image &image);
+void GeneralToTransferSrc(VkCommandBuffer cmd, Image &image);
 
 // Customizable barrier that does maximal blocking
 // (all read & all write). Probably subomptimal,

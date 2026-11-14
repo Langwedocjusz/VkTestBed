@@ -226,7 +226,7 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
 
     // Final composition pass:
     {
-        barrier::TransferSrcToGeneral(cmd, mFinalTarget->Img.Handle);
+        barrier::TransferSrcToGeneral(cmd, mFinalTarget->Img);
 
         mFinalPipeline.Bind(cmd);
         mFinalPipeline.BindReflectedSets(cmd);
@@ -249,5 +249,5 @@ void PostProcessor::RunPostProcessPass(VkCommandBuffer cmd)
         mFinalPipeline.Dispatch(cmd, res.x, res.y);
     }
 
-    barrier::GeneralToTransferSrc(cmd, mFinalTarget->Img.Handle);
+    barrier::GeneralToTransferSrc(cmd, mFinalTarget->Img);
 }

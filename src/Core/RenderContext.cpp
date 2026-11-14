@@ -306,8 +306,7 @@ void RenderContext::DrawFrame(std::optional<SceneKey> highlightedObj)
         mRenderer->OnRender(highlightedObj);
         mStatsCollector.PipelineStatsEnd(cmd, mFrameInfo.Index);
 
-        // 2. Transition render target and swapchain image for copy:
-        mRenderer->TargetToTransfer(cmd);
+        // 2. Transition swapchain image for copy:
         barrier::SwapchainToBlitDST(cmd, swapchainImage);
 
         // 3. Copy render target to swapchain image

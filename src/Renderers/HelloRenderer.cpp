@@ -82,7 +82,7 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
 {
     auto &cmd = mFrame.CurrentCmd();
 
-    barrier::TransferSrcToColor(cmd, mRenderTarget->Img.Handle);
+    barrier::TransferSrcToColor(cmd, mRenderTarget->Img);
 
     // This is not OnUpdate since, uniform buffers are per-image index
     // and as such need to be acquired after new image index is set.
@@ -119,11 +119,8 @@ void HelloRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highlighte
         }
     }
     vkCmdEndRendering(cmd);
-}
 
-void HelloRenderer::TargetToTransfer(VkCommandBuffer cmd)
-{
-    barrier::ColorToTransferSrc(cmd, mRenderTarget->Img.Handle);
+    barrier::ColorToTransferSrc(cmd, mRenderTarget->Img);
 }
 
 void HelloRenderer::RecreateSwapchainResources()

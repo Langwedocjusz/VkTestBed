@@ -489,13 +489,11 @@ void MinimalPbrRenderer::OnUpdate([[maybe_unused]] float deltaTime)
 
         auto [aoView, aoSampler] = mAOHandler->GetViewAndSampler();
 
-        Descriptor::Update(
-            mCtx,
-            mAuxDescriptorSet,
-            {
-                {.Binding = 1, .Data = CombinedSamplers(aoView, aoSampler)},
-        }
-        );
+        // clang-format off
+        Descriptor::Update(mCtx, mAuxDescriptorSet, {
+            {.Binding = 1, .Data = CombinedSamplers(aoView, aoSampler)},
+        });
+        // clang-format on
     }
 
     glm::vec2 drawExtent{
@@ -621,7 +619,7 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
         }
     }
 
-    barrier::SampledToColor(cmd, mRenderTarget->Img.Handle);
+    barrier::SampledToColor(cmd, mRenderTarget->Img);
     MainPass(cmd, stats);
 
     // TODO: This should be moved after postfx
@@ -629,18 +627,12 @@ void MinimalPbrRenderer::OnRender([[maybe_unused]] std::optional<SceneKey> highl
     if (highlightedObj.has_value())
         OutlinePass(cmd, *highlightedObj);
 
-    barrier::ColorToSampledComp(cmd, mRenderTarget->Img.Handle);
+    barrier::ColorToSampledComp(cmd, mRenderTarget->Img);
     mPostProcessor->RunPostProcessPass(cmd);
 
     mFrame.Stats.NumTriangles = stats.NumIdx / 3;
     mFrame.Stats.NumDraws     = stats.NumDraws;
     mFrame.Stats.NumBinds     = stats.NumBinds;
-}
-
-void MinimalPbrRenderer::TargetToTransfer(VkCommandBuffer cmd)
-{
-    // barrier::ColorToTransferSrc(cmd, mRenderTarget.Img.Handle);
-    (void)cmd;
 }
 
 template <typename MaterialFn, typename InstanceFn>

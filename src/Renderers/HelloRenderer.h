@@ -16,7 +16,6 @@ class HelloRenderer final : public IRenderer {
     void OnImGui() override;
     void OnRender([[maybe_unused]] std::optional<SceneKey> highlightedObj) override;
 
-    void   TargetToTransfer(VkCommandBuffer cmd) override;
     Image &GetTargetImage() override
     {
         return mRenderTarget->Img;
